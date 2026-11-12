@@ -10,6 +10,15 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Status-reference probes share on consent, 12/11/2026
+
+The `status-reference-rejection` and `mdoc-status-reference-rejection` probes (Metadata `084`, `086`, `087`, `089`, `090`, `092`, `096`, `097`, `099`, `100`; 20 probes) moved from `fcaf-expect-credential-absent` to `fcaf-expect-request-rejected`. A Wallet that kept the malformed credential now shares it on the consent screen, so the Verifier records the presentation and `claims_values_no_match` fails on protocol evidence. Before, the probe failed without sharing, the session stayed `request_retrieved` and only `evidence.screenshot_named` `no-match-notice` failed the test, which also failed a compliant Wallet that refuses silently or returns Home.
+
+- Tests replace `evidence.screenshot_named` with `evidence.non_empty` on the probe screenshots. `claims_values_no_match` is engagement guarded, so a Wallet that never retrieved the request blocks instead of passing.
+- `cmd/fcaf-pipeline-gen` counts a `fcaf-expect-credential-rejected` offer as an issuance (`issuesCredential`): the probe's Share spends that credential, so no PID is injected before it (`TestRefusedOfferAnswersItsOwnProbe`). Aggregate step count unchanged; only the 20 probe action ids differ.
+- `fcaf-expect-credential-absent` stays for `MainInteraction__032` (sharing would spend the under-18 PID its matching presentation needs), the `ProtocolFlow__002e_UF` and `ProtocolMessages__043` engagement controls, and the attestation-provider `031b_UF` probe.
+- Not run on the reference Wallet yet.
+
 ## Attestation-provider 031b_UF probes with the strict absence action, 11/11/2026
 
 `credential-request-denied` probed for the denied `pid_person_b` (`family_name` Bianchi) with `fcaf-expect-no-matching-document`, after an injected `pid_default` (Rossi) that could never match the probe. The probe now uses `fcaf-expect-credential-absent` (tagged `ws_ap`), so no PID is injected (AP aggregate 48 → 47 steps), and `WS_AP_IA_MainInteraction_031b_UF` also asserts `evidence.screenshot_named` `no-match-notice` on the probe's screenshots, because the probe no longer shares on a Wallet that kept the credential.

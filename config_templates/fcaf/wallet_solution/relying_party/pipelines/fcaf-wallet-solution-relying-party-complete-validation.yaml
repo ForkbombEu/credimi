@@ -15265,7 +15265,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15338,7 +15338,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15411,7 +15411,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15484,7 +15484,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15557,7 +15557,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15630,7 +15630,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15703,7 +15703,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15776,7 +15776,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15849,7 +15849,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15922,7 +15922,7 @@ steps:
       linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -19865,7 +19865,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-status-without-status-list-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -19938,7 +19938,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-negative-index-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-negative-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20011,7 +20011,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-missing-index-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20084,7 +20084,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-malformed-uri-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-malformed-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20157,7 +20157,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-missing-uri-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20230,7 +20230,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20303,7 +20303,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20376,7 +20376,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20449,7 +20449,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20522,7 +20522,7 @@ steps:
       linked_to: status-reference-rejection-0adf5c5d-create-uri-empty-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-empty-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source

@@ -142,6 +142,44 @@ func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
 	}
 }
 
+// TestRefusedOfferAnswersItsOwnProbe pins that a credential offer the Wallet
+// must refuse counts as the credential its probe targets: a probe that shares
+// when the Wallet kept that credential gets no injected PID, which could never
+// match the probe's pinned value. Without the offer the same probe gets one.
+func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
+	offer := map[string]any{
+		"id":   "offer-malformed-credential",
+		"use":  mobileAutomationTask,
+		"with": map[string]any{"action_id": rejectedOfferActionID},
+	}
+	offerSession := map[string]any{"with": map[string]any{"body": map[string]any{
+		"credential_configuration_id": pidSDJWTConfigID,
+	}}}
+	probeSession := map[string]any{"with": map[string]any{"body": map[string]any{
+		"presentation_request": map[string]any{"dcql_query": map[string]any{
+			"credentials": []any{map[string]any{"id": "pid", "format": "dc+sd-jwt"}},
+		}},
+	}}}
+	probe := map[string]any{"id": "probe-malformed-credential", "use": mobileAutomationTask}
+
+	available := map[credentialFormat]int{}
+	_, _, err := pidIssuancesBefore(offer, offerSession, 0, available, nil)
+	require.NoError(t, err)
+	sessions, _, err := pidIssuancesBefore(probe, probeSession, 1, available, nil)
+	require.NoError(t, err)
+	require.Empty(t, sessions, "the refused offer is the credential the probe targets")
+
+	sessions, _, err = pidIssuancesBefore(
+		probe,
+		probeSession,
+		1,
+		map[credentialFormat]int{},
+		nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, sessions, 1, "a probe with no earlier offer gets an injected PID")
+}
+
 // TestPresentationsSpendTheirOwnCredentialType pins that a Share of a
 // non-PID SD-JWT VC the scenario issued spends that type, never a PID, and
 // that running out of it stops generation instead of injecting a PID no query

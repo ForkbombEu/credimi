@@ -55,7 +55,8 @@ var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 // needs the wallet to hold a PID of the requested format, which an earlier
 // issuance of the same scenario or one injected issuance provides. An absence
 // probe needs none: its request pins a value only a credential of its own
-// scenario carries, so no injected PID can match it.
+// scenario carries, so no injected PID can match it. A credential offer the
+// Wallet must refuse counts as an issuance too (issuesCredential).
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
 	// issuanceActionID is the issuance scenarios author; its credential-added
@@ -68,10 +69,12 @@ const (
 	injectedIssuanceActionID = walletActionNamespace + "fcaf-issue-pid"
 	resetActionID            = walletActionNamespace + "fcaf-reset-and-onboard"
 	absenceProbeActionID     = walletActionNamespace + "fcaf-expect-credential-absent"
-	pidIssuerConfigID        = "eu-pid-device-bound"
-	pidSDJWTConfigID         = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
-	pidMdocConfigID          = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
-	mobileAutomationTask     = "mobile-automation"
+	// rejectedOfferActionID opens a credential offer the Wallet must refuse.
+	rejectedOfferActionID = walletActionNamespace + "fcaf-expect-credential-rejected"
+	pidIssuerConfigID     = "eu-pid-device-bound"
+	pidSDJWTConfigID      = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
+	pidMdocConfigID       = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
+	mobileAutomationTask  = "mobile-automation"
 )
 
 // shareTap counts the consent screen's Share action, which is the point at
@@ -928,15 +931,20 @@ func loadWalletActions(importsDir string) (map[string]string, error) {
 	return actions, nil
 }
 
-// issuesCredential reports whether a step already adds a credential instance to
-// the wallet, which the next consuming presentation can spend.
+// issuesCredential reports whether a step adds, or may add, a credential
+// instance to the wallet, which the next consuming presentation can spend. A
+// credential offer the Wallet must refuse counts: the probe that follows it
+// targets exactly that credential, so a Wallet that kept it spends it there,
+// and a PID injected before the probe could never answer it.
 func issuesCredential(step map[string]any) bool {
 	if use, _ := step["use"].(string); use != mobileAutomationTask {
 		return false
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
-	return actionID == issuanceActionID || actionID == injectedIssuanceActionID
+	return actionID == issuanceActionID ||
+		actionID == injectedIssuanceActionID ||
+		actionID == rejectedOfferActionID
 }
 
 // credentialInstancesConsumed reports how many credential instances a step

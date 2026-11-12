@@ -37,9 +37,8 @@ assertions:
     mode: claims_values_no_match
     expected_claim_path: [document_number]
     expected_value: CREDIMI-SDJWT-MISSING-URI
-- id: wallet_showed_the_no_match_notice
-  validator: evidence.screenshot_named
+- id: wallet_reaction_to_the_probe_is_recorded
+  validator: evidence.non_empty
   input: evidence.visual_evidence
-  params: { name: no-match-notice }
 verdict:
   pass_when: all_assertions_pass

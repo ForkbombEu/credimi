@@ -1,8 +1,9 @@
 # Each case issues one SD-JWT VC PID whose status reference has one malformed
 # shape and its own document_number, then probes for that number. Only the
-# refused credential could answer the probe, so fcaf-expect-credential-absent
-# passes only on the Wallet's no-match notice and fails, without sharing, when
-# the Wallet kept the credential.
+# refused credential could answer the probe, so fcaf-expect-request-rejected
+# passes when the Wallet answers with the no-match notice, an error or a return
+# Home. A Wallet that kept the credential shows consent and shares it, so the
+# Verifier records the presentation the test refutes, and the step fails.
 name: FCAF malformed status reference rejection
 runtime:
   fixture:
@@ -72,7 +73,7 @@ steps:
 - id: probe-status-without-status-list
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-status-without-status-list-probe.outputs.body.deeplink }}"
@@ -138,7 +139,7 @@ steps:
 - id: probe-negative-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-negative-index-probe.outputs.body.deeplink }}"
@@ -204,7 +205,7 @@ steps:
 - id: probe-missing-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-missing-index-probe.outputs.body.deeplink }}"
@@ -270,7 +271,7 @@ steps:
 - id: probe-malformed-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-malformed-uri-probe.outputs.body.deeplink }}"
@@ -336,7 +337,7 @@ steps:
 - id: probe-missing-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-missing-uri-probe.outputs.body.deeplink }}"
@@ -404,7 +405,7 @@ steps:
 - id: probe-uri-missing-scheme
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-missing-scheme-probe.outputs.body.deeplink }}"
@@ -470,7 +471,7 @@ steps:
 - id: probe-uri-space-in-host
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-space-in-host-probe.outputs.body.deeplink }}"
@@ -536,7 +537,7 @@ steps:
 - id: probe-uri-invalid-percent-encoding
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}"
@@ -602,7 +603,7 @@ steps:
 - id: probe-uri-illegal-characters
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-illegal-characters-probe.outputs.body.deeplink }}"
@@ -668,7 +669,7 @@ steps:
 - id: probe-uri-empty
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-empty-probe.outputs.body.deeplink }}"

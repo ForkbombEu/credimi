@@ -59,11 +59,13 @@ records before the aggregate pipeline runs:
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
 - `fcaf-expect-credential-absent`: the probe for a request pinned to a value
-  only a credential of the scenario carries (one the Wallet had to refuse, or
-  one issued under a constraint it fails). It passes only on the no-match
-  notice and fails, without sharing, on any other screen, including the consent
-  screen of a Wallet that would present that credential. It never shares, so
-  `cmd/fcaf-pipeline-gen` issues no PID before it.
+  only a credential of the scenario carries, or none (a PID issued under a
+  constraint it fails, a credential the issuer denied, an engagement control).
+  It passes only on the no-match notice and fails, without sharing, on any
+  other screen, including the consent screen of a Wallet that would present
+  that credential. It never shares, so `cmd/fcaf-pipeline-gen` issues no PID
+  before it. Status-reference probes use `fcaf-expect-request-rejected`
+  instead, so a kept credential reaches the Verifier.
 - `fcaf-expect-credential-rejected`: the Wallet accepts a credential offer and
   then refuses to store the credential, showing an error screen or returning to
   Home. It fails on the `View details` success screen that

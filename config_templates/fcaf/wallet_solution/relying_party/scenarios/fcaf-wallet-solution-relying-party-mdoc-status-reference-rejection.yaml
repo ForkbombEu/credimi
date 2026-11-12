@@ -5,8 +5,10 @@
 # ISO mdoc counterpart of status-reference-rejection. Each case issues one
 # malformed Mobile Security Object status with its own document_number, then
 # probes for that number with an mso_mdoc query only the refused mdoc could
-# answer, so fcaf-expect-credential-absent passes only on the Wallet's no-match
-# notice and fails, without sharing, when the Wallet kept the mdoc.
+# answer, so fcaf-expect-request-rejected passes when the Wallet answers with
+# the no-match notice, an error or a return Home. A Wallet that kept the mdoc
+# shows consent and shares it, so the Verifier records the presentation the
+# test refutes, and the step fails.
 name: FCAF malformed mdoc status reference rejection
 runtime:
   fixture:
@@ -76,7 +78,7 @@ steps:
 - id: probe-mdoc-status-without-status-list
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-status-without-status-list-probe.outputs.body.deeplink }}"
@@ -142,7 +144,7 @@ steps:
 - id: probe-mdoc-negative-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-negative-index-probe.outputs.body.deeplink }}"
@@ -208,7 +210,7 @@ steps:
 - id: probe-mdoc-missing-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-missing-index-probe.outputs.body.deeplink }}"
@@ -274,7 +276,7 @@ steps:
 - id: probe-mdoc-malformed-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-malformed-uri-probe.outputs.body.deeplink }}"
@@ -340,7 +342,7 @@ steps:
 - id: probe-mdoc-missing-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-missing-uri-probe.outputs.body.deeplink }}"
@@ -408,7 +410,7 @@ steps:
 - id: probe-mdoc-uri-missing-scheme
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-missing-scheme-probe.outputs.body.deeplink }}"
@@ -474,7 +476,7 @@ steps:
 - id: probe-mdoc-uri-space-in-host
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-space-in-host-probe.outputs.body.deeplink }}"
@@ -540,7 +542,7 @@ steps:
 - id: probe-mdoc-uri-invalid-percent-encoding
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}"
@@ -606,7 +608,7 @@ steps:
 - id: probe-mdoc-uri-illegal-characters
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-illegal-characters-probe.outputs.body.deeplink }}"
@@ -672,7 +674,7 @@ steps:
 - id: probe-mdoc-uri-empty
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-empty-probe.outputs.body.deeplink }}"
