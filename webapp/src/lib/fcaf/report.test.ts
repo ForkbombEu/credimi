@@ -345,6 +345,30 @@ describe('prepareReportDisplay', () => {
 		expect(display.unassignedScreenshots).toEqual([]);
 	});
 
+	it('assigns evidence records keyed by source to the test that resolved them', () => {
+		const key = 'pipeline.scenario.outputs.visual_evidence';
+		const display = prepareReportDisplay(
+			{
+				evidence: {
+					[key]: { from: key, value: ['https://example.com/scenario.png'] }
+				},
+				executed_tests: [
+					{
+						test_id: 'WS_RP_DM_AddressData_001',
+						status: 'passed',
+						assertions: [{ evidence_keys: ['visual_evidence'] }],
+						evidence: [{ name: 'visual_evidence', key }]
+					}
+				]
+			},
+			{ filter: 'all', searchQuery: '' }
+		);
+		expect(display.allScreenshots).toEqual([
+			{ url: 'https://example.com/scenario.png', label: 'scenario' }
+		]);
+		expect(display.unassignedScreenshots).toEqual([]);
+	});
+
 	it('keeps stored presentation summary filters when they are present', () => {
 		const display = prepareReportDisplay(
 			{

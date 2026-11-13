@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
@@ -135,7 +134,7 @@ func BuildDocument(input Input) Document {
 			Definition: input.Definitions[execution.TestID],
 			Source:     input.Sources[execution.TestID],
 		}
-		for _, key := range testEvidenceKeys(execution) {
+		for _, key := range execution.EvidenceRecordKeys() {
 			record, found := input.Report.Evidence[key]
 			if !found {
 				document.Warnings = append(
@@ -255,24 +254,4 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
-}
-
-func testEvidenceKeys(test engine.ExecutedTest) []string {
-	seen := map[string]struct{}{}
-	keys := make([]string, 0)
-	for _, assertion := range test.Assertions {
-		for _, key := range assertion.EvidenceKeys {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				continue
-			}
-			if _, found := seen[key]; found {
-				continue
-			}
-			seen[key] = struct{}{}
-			keys = append(keys, key)
-		}
-	}
-	sort.Strings(keys)
-	return keys
 }
