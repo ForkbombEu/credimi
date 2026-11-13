@@ -922,3 +922,12 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) in memory, single process (chosen); (b) a hidden PocketBase collection with expiry; for `return_to`: (a) path-only check plus the host shown on the consent page (chosen); (b) a list of dashboard origins registered by the runner.
 - default risk: a restart drops codes pending for at most 60 s (users sign in again); running several Credimi processes behind one URL would break sign-in. A code sent to a host the user did not mean is redeemable only with a key that already authorizes for that runner, whose holders could sign in anyway.
 - follow-up: revisit (b) if Credimi runs more than one API process.
+
+### 2026-11-13 - Runner dashboard sign-in codes bound to their return address
+
+- status: open
+- owner: human maintainer
+- context: corrects the 2026-11-12 entry "Runner dashboard sign-in codes in memory, return address not bound". Its default risk said a code sent to a host the user did not mean is redeemable only with a key that already authorizes for that runner. That was wrong: the runner's own dashboard redeems any code brought to its callback, so whoever received a code at another host (a crafted consent link the user confirmed) could open the real dashboard's `/auth/credimi/callback?code=` and get a session as that user without any key.
+- decision: each code now stores the `return_to` it was issued for, and `POST /api/mobile-runner/dashboard-code/redeem` requires `{ runner_id, code, return_to }` and answers `400 invalid_code` unless `return_to` is byte-equal to the stored one; the runner sends its own callback URL. `return_to` must have the escaped path exactly `/auth/credimi/callback`. The issue answer is `{ redirect }` only.
+- default risk: still open from the 2026-11-12 entry: codes in one process's memory, and `return_to` is not matched against an address the runner registered; a code sent to another host can still be redeemed there by a holder of a key that authorizes for that runner.
+- follow-up: as in the 2026-11-12 entry.

@@ -57,13 +57,23 @@ func (f registrationFixture) redeemDashboardCode(
 	runnerID, code string,
 ) (*core.RequestEvent, error) {
 	t.Helper()
+	return f.redeemDashboardCodeAt(t, auth, runnerID, code, dashboardTestReturnTo)
+}
+
+// redeemDashboardCodeAt redeems code as the dashboard callback returnTo.
+func (f registrationFixture) redeemDashboardCodeAt(
+	t *testing.T,
+	auth *core.Record,
+	runnerID, code, returnTo string,
+) (*core.RequestEvent, error) {
+	t.Helper()
 
 	event := performMobileRunnerRequest(
 		t,
 		f.app,
 		auth,
 		"/api/mobile-runner/dashboard-code/redeem",
-		MobileRunnerDashboardRedeemRequest{RunnerID: runnerID, Code: code},
+		MobileRunnerDashboardRedeemRequest{RunnerID: runnerID, Code: code, ReturnTo: returnTo},
 	)
 	return event, HandleMobileRunnerDashboardRedeem()(event)
 }
@@ -72,26 +82,38 @@ func (f registrationFixture) redeemDashboardCode(
 // it after checking the redirect.
 func (f registrationFixture) mustDashboardCode(t *testing.T, auth *core.Record) string {
 	t.Helper()
+	return f.mustDashboardCodeFor(t, auth, dashboardTestReturnTo)
+}
+
+// mustDashboardCodeFor issues a code for the fixture's runner to auth, sent to
+// returnTo, and returns it after checking the redirect.
+func (f registrationFixture) mustDashboardCodeFor(
+	t *testing.T,
+	auth *core.Record,
+	returnTo string,
+) string {
+	t.Helper()
 
 	event, err := f.requestDashboardCode(t, auth, true, MobileRunnerDashboardCodeRequest{
 		RunnerID: tokenTestRunnerID,
-		ReturnTo: dashboardTestReturnTo,
+		ReturnTo: returnTo,
 		State:    "st4te",
 	})
 	require.NoError(t, err)
 	recorder := responseRecorder(t, event)
 	require.Equal(t, http.StatusOK, recorder.Code)
 	body := decodeJSONBody(t, recorder)
-	code, ok := body["code"].(string)
-	require.True(t, ok)
-	require.Len(t, code, 43)
+	require.Len(t, body, 1, "the answer carries only the redirect")
 
 	redirect, err := url.Parse(body["redirect"].(string))
 	require.NoError(t, err)
-	assert.Equal(t, "192.168.1.20:8051", redirect.Host)
+	want, err := url.Parse(returnTo)
+	require.NoError(t, err)
+	assert.Equal(t, want.Host, redirect.Host)
 	assert.Equal(t, DashboardCallbackPath, redirect.Path)
-	assert.Equal(t, code, redirect.Query().Get("code"))
 	assert.Equal(t, "st4te", redirect.Query().Get("state"))
+	code := redirect.Query().Get("code")
+	require.Len(t, code, 43)
 	return code
 }
 
@@ -172,6 +194,9 @@ func TestHandleMobileRunnerDashboardCode(t *testing.T) {
 		returnToRefusal("http://host/admin"),
 		returnToRefusal("/auth/credimi/callback"),
 		returnToRefusal("http:/auth/credimi/callback"),
+		returnToRefusal("http://host/auth%2Fcredimi%2Fcallback"),
+		returnToRefusal("http://host/auth/credimi/%63allback"),
+		returnToRefusal("http://host/auth/credimi/callback/"),
 	}
 
 	for _, tc := range refusals {
@@ -227,9 +252,10 @@ func TestHandleMobileRunnerDashboardRedeem(t *testing.T) {
 		recorder := responseRecorder(t, event)
 		require.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, map[string]any{
-			"user_id": f.user.Id,
-			"email":   f.user.Email(),
-			"name":    f.user.GetString("name"),
+			"user_id":         f.user.Id,
+			"auth_collection": "users",
+			"email":           f.user.Email(),
+			"name":            f.user.GetString("name"),
 		}, decodeJSONBody(t, recorder))
 
 		_, err = f.redeemDashboardCode(t, f.user, tokenTestRunnerID, code)
@@ -243,6 +269,24 @@ func TestHandleMobileRunnerDashboardRedeem(t *testing.T) {
 
 		setDashboardClock(t, now.Add(61*time.Second))
 		_, err := f.redeemDashboardCode(t, f.user, tokenTestRunnerID, code)
+		requireRegistrationAPIError(t, err, http.StatusBadRequest, "code", "invalid_code")
+	})
+
+	t.Run("a code sent to another dashboard is refused", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		code := f.mustDashboardCodeFor(t, f.user, "https://evil.example/auth/credimi/callback")
+
+		_, err := f.redeemDashboardCodeAt(t, f.user, tokenTestRunnerID, code, dashboardTestReturnTo)
+		requireRegistrationAPIError(t, err, http.StatusBadRequest, "code", "invalid_code")
+	})
+
+	// The route's validation answers 400 invalid_request before the handler;
+	// the handler itself never matches an empty return_to.
+	t.Run("a redeem with an empty return_to is refused", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		code := f.mustDashboardCode(t, f.user)
+
+		_, err := f.redeemDashboardCodeAt(t, f.user, tokenTestRunnerID, code, "")
 		requireRegistrationAPIError(t, err, http.StatusBadRequest, "code", "invalid_code")
 	})
 

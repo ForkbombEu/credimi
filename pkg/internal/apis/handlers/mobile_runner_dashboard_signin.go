@@ -61,24 +61,26 @@ type MobileRunnerDashboardCodeRequest struct {
 	State    string `json:"state"     validate:"required"`
 }
 
-// MobileRunnerDashboardCodeResponse carries the code and the dashboard URL the
-// browser goes to with it.
+// MobileRunnerDashboardCodeResponse carries the dashboard URL the browser goes
+// to with the code.
 type MobileRunnerDashboardCodeResponse struct {
-	Code     string `json:"code"`
 	Redirect string `json:"redirect"`
 }
 
-// MobileRunnerDashboardRedeemRequest redeems a sign-in code for RunnerID.
+// MobileRunnerDashboardRedeemRequest redeems a sign-in code for RunnerID,
+// sent to the dashboard callback ReturnTo.
 type MobileRunnerDashboardRedeemRequest struct {
 	RunnerID string `json:"runner_id" validate:"required"`
 	Code     string `json:"code"      validate:"required"`
+	ReturnTo string `json:"return_to" validate:"required"`
 }
 
 // MobileRunnerDashboardRedeemResponse names the user who signed in.
 type MobileRunnerDashboardRedeemResponse struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
+	UserID         string `json:"user_id"`
+	AuthCollection string `json:"auth_collection"`
+	Email          string `json:"email"`
+	Name           string `json:"name"`
 }
 
 // HandleMobileRunnerDashboardCode issues a one-time code that lets the
@@ -120,6 +122,7 @@ func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
 			RunnerID:       record.Id,
 			UserID:         e.Auth.Id,
 			AuthCollection: e.Auth.Collection().Name,
+			ReturnTo:       input.ReturnTo,
 			Expires:        now.Add(mobilerunner.DashboardCodeTTL),
 		}, now)
 		if errors.Is(err, mobilerunner.ErrTooManyDashboardCodes) {
@@ -144,7 +147,6 @@ func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
 		query.Set("state", input.State)
 		redirect.RawQuery = query.Encode()
 		return e.JSON(http.StatusOK, MobileRunnerDashboardCodeResponse{
-			Code:     code,
 			Redirect: redirect.String(),
 		})
 	}
@@ -163,8 +165,10 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
+		// A code sent to another dashboard is refused like a missing one, so
+		// the answer reveals nothing about it.
 		code, ok := mobilerunner.RedeemDashboardCode(input.Code, dashboardCodeNow())
-		if !ok || code.RunnerID != record.Id {
+		if !ok || code.RunnerID != record.Id || code.ReturnTo != input.ReturnTo {
 			return apierror.New(
 				http.StatusBadRequest,
 				"code",
@@ -194,9 +198,10 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, MobileRunnerDashboardRedeemResponse{
-			UserID: user.Id,
-			Email:  user.Email(),
-			Name:   user.GetString("name"),
+			UserID:         user.Id,
+			AuthCollection: user.Collection().Name,
+			Email:          user.Email(),
+			Name:           user.GetString("name"),
 		})
 	}
 }
@@ -214,8 +219,8 @@ func dashboardBrowserSession(e *core.RequestEvent) bool {
 }
 
 // dashboardRedirect accepts returnTo only as an absolute http(s) URL of a
-// dashboard sign-in callback: no credentials, query or fragment, and the path
-// DashboardCallbackPath.
+// dashboard sign-in callback: no credentials, query or fragment, and the
+// escaped path exactly DashboardCallbackPath (no percent-encoded variant).
 func dashboardRedirect(returnTo string) (*url.URL, *apierror.APIError) {
 	invalid := apierror.New(
 		http.StatusBadRequest,
@@ -228,7 +233,9 @@ func dashboardRedirect(returnTo string) (*url.URL, *apierror.APIError) {
 		(u.Scheme != "http" && u.Scheme != "https") ||
 		u.Host == "" ||
 		u.User != nil ||
-		u.Path != DashboardCallbackPath ||
+		u.Opaque != "" ||
+		u.RawPath != "" ||
+		u.EscapedPath() != DashboardCallbackPath ||
 		u.RawQuery != "" || u.ForceQuery ||
 		u.Fragment != "" || strings.Contains(returnTo, "#") {
 		return nil, invalid

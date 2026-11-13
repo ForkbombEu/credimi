@@ -25,11 +25,13 @@ var ErrTooManyDashboardCodes = errors.New("too many pending dashboard sign-in co
 
 // DashboardCode is a pending sign-in to a runner's dashboard: the user with
 // record UserID in AuthCollection may sign in to the dashboard of the runner
-// with record ID RunnerID until Expires.
+// with record ID RunnerID until Expires. ReturnTo is the dashboard callback
+// the code was sent to; only that dashboard may redeem it.
 type DashboardCode struct {
 	RunnerID       string
 	UserID         string
 	AuthCollection string
+	ReturnTo       string
 	Expires        time.Time
 }
 
