@@ -42,9 +42,10 @@ func startsFrom(record *core.Record) []string {
 	return paths
 }
 
-// ListWalletActions returns the selected wallet's actions that its
-// organization owns or that are published, sorted by category then name. A
-// non-empty category keeps only that category.
+// ListWalletActions returns the selected wallet's actions that the caller's
+// organization (selection.Organization, not the wallet's owner) owns or that
+// are published, sorted by category then name. A non-empty category keeps
+// only that category.
 func ListWalletActions(app core.App, selection Selection, category string) ([]WalletAction, error) {
 	filter := "wallet = {:wallet} && (owner = {:org} || published = true)"
 	params := dbx.Params{"wallet": selection.Wallet.Id, "org": selection.Organization.Id}

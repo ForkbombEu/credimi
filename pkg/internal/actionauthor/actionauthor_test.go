@@ -1018,6 +1018,50 @@ func TestPublicWalletOfAnotherOrganization(t *testing.T) {
 			},
 		},
 		{
+			name: "unpublished wallet, version downloadable",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, _ *core.Record) {
+				setRecordFields(t, app, owner.Version, map[string]any{"downloadable": true})
+				_, listed := buildOptionsByIdentifier(t, app, caller)[owner.Identifier]
+				assert.False(t, listed)
+				_, err := Select(app, "", storeRequest(caller, owner.Identifier))
+				require.ErrorIs(t, err, ErrForbidden)
+			},
+		},
+		{
+			name: "save after the wallet was unpublished is refused",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, org *core.Record) {
+				store := seedStoreWallet(t, app, owner, "Public store wallet", map[string]any{
+					"google_app_id": "eu.europa.ec.euidi",
+					"published":     true,
+				})
+				namespace := org.GetString("canonified_name")
+				request := storeRequest(caller, store)
+				build, err := Resolve(app, namespace, request)
+				require.NoError(t, err)
+				wallet, err := app.FindFirstRecordByFilter(
+					"wallets",
+					"canonified_name = {:name} && owner = {:owner}",
+					dbx.Params{
+						"name": strings.TrimPrefix(
+							store,
+							owner.Organization.GetString("canonified_name")+"/",
+						),
+						"owner": owner.Organization.Id,
+					},
+				)
+				require.NoError(t, err)
+				setRecordFields(t, app, wallet, map[string]any{"published": false})
+				_, err = Save(
+					app, namespace, "workflow", "run",
+					acceptedRequest(request, build.InstallerSHA256), testApproval,
+				)
+				require.ErrorIs(t, err, ErrForbidden)
+				saved, err := app.FindAllRecords("wallet_actions", dbx.HashExp{"wallet": wallet.Id})
+				require.NoError(t, err)
+				assert.Empty(t, saved)
+			},
+		},
+		{
 			name: "session organization is not the caller's",
 			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, _ *core.Record) {
 				store := seedStoreWallet(t, app, owner, "Public store wallet", map[string]any{
