@@ -931,3 +931,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: each code now stores the `return_to` it was issued for, and `POST /api/mobile-runner/dashboard-code/redeem` requires `{ runner_id, code, return_to }` and answers `400 invalid_code` unless `return_to` is byte-equal to the stored one; the runner sends its own callback URL. `return_to` must have the escaped path exactly `/auth/credimi/callback`. The issue answer is `{ redirect }` only.
 - default risk: still open from the 2026-11-12 entry: codes in one process's memory, and `return_to` is not matched against an address the runner registered; a code sent to another host can still be redeemed there by a holder of a key that authorizes for that runner.
 - follow-up: as in the 2026-11-12 entry.
+
+### 2026-11-13 - Tokens exchanged for API keys cannot open runner dashboards; superuser impersonation still can
+
+- status: open
+- owner: human maintainer
+- context: `GET /api/apikey/authenticate` swaps an API key for a normal PocketBase auth token, so an owner's leaked API key could be exchanged for a token that passes `POST /api/mobile-runner/dashboard-code`'s browser-session check and signs in to runner dashboards.
+- decision: the exchanged token is minted like PocketBase's `NewAuthToken` (same signing key, type, collectionId, duration) with the extra claim `api_key: true` (`handlers.APIKeyTokenClaim`) and `refreshable: false`; PocketBase 0.40.3's auth-refresh (`apis/record_auth_refresh.go`) hands a non-refreshable token back unchanged, so the claim cannot be refreshed away. `dashboardBrowserSession` refuses it with `403 browser_session_required`.
+- question: must a superuser API key be kept from minting an unmarked token through PocketBase's `POST /api/collections/{collection}/impersonate/{id}` (superuser only), whose static token carries no `api_key` claim?
+- options considered: (a) accept it (chosen for now: superuser keys already reach every runner); (b) refuse impersonation for requests authenticated with an `api_key` token.
+- default risk: a leaked superuser API key can still be turned into a token that signs in to any runner dashboard.
+- follow-up: implement (b) if superuser API keys are handed to automation.

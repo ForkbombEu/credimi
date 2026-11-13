@@ -12,8 +12,10 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/pocketbase/pocketbase/tools/security"
 )
 
 var ApiKeyRoutes = routing.RouteGroup{
@@ -173,7 +175,9 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 			return err
 		}
 
-		response, err := generateAuthenticateApiKeyResponse(authRecord)
+		response, err := generateAuthenticateApiKeyResponse(func() (string, error) {
+			return newAPIKeyAuthToken(authRecord)
+		})
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
@@ -194,14 +198,36 @@ func AuthenticateInternalAdminAPIKey() func(e *core.RequestEvent) error {
 	}
 }
 
-type HasAuthToken interface {
-	NewAuthToken() (string, error)
+// APIKeyTokenClaim marks an auth token minted from an API key by
+// /api/apikey/authenticate, so endpoints that need a browser session can
+// refuse it.
+const APIKeyTokenClaim = "api_key"
+
+// newAPIKeyAuthToken mints record's auth token as PocketBase's NewAuthToken
+// does (same signing key, type, collectionId and duration), marked with
+// APIKeyTokenClaim and not refreshable, so auth-refresh hands the same token
+// back instead of an unmarked one.
+func newAPIKeyAuthToken(record *core.Record) (string, error) {
+	if !record.Collection().IsAuth() {
+		return "", core.ErrNotAuthRecord
+	}
+	key := record.TokenKey() + record.Collection().AuthToken.Secret
+	if key == "" {
+		return "", core.ErrMissingSigningKey
+	}
+	return security.NewJWT(jwt.MapClaims{
+		core.TokenClaimType:         core.TokenTypeAuth,
+		core.TokenClaimId:           record.Id,
+		core.TokenClaimCollectionId: record.Collection().Id,
+		core.TokenClaimRefreshable:  false,
+		APIKeyTokenClaim:            true,
+	}, key, record.Collection().AuthToken.DurationTime())
 }
 
 func generateAuthenticateApiKeyResponse(
-	authRecord HasAuthToken,
+	newToken func() (string, error),
 ) (AuthenticateApiKeyResponse, error) {
-	token, err := authRecord.NewAuthToken()
+	token, err := newToken()
 	if err != nil {
 		return AuthenticateApiKeyResponse{}, apierror.New(
 			http.StatusInternalServerError,

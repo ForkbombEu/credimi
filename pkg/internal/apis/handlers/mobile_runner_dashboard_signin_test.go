@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,12 +39,37 @@ func setupDashboardFixture(t *testing.T) registrationFixture {
 	return setupRegistrationFixture(t)
 }
 
-// requestDashboardCode asks for a code as auth, signed in with a token when
-// browser is true and with an API key otherwise.
+// requestDashboardCode asks for a code as auth, signed in with its auth token
+// when browser is true and with an API key otherwise.
 func (f registrationFixture) requestDashboardCode(
 	t *testing.T,
 	auth *core.Record,
 	browser bool,
+	input MobileRunnerDashboardCodeRequest,
+) (*core.RequestEvent, error) {
+	t.Helper()
+
+	if !browser {
+		event := performMobileRunnerRequest(
+			t,
+			f.app,
+			auth,
+			"/api/mobile-runner/dashboard-code",
+			input,
+		)
+		event.Request.Header.Set(APIKeyHeaderName, "key")
+		return event, HandleMobileRunnerDashboardCode()(event)
+	}
+	token, err := auth.NewAuthToken()
+	require.NoError(t, err)
+	return f.requestDashboardCodeWithToken(t, auth, token, input)
+}
+
+// requestDashboardCodeWithToken asks for a code as auth, signed in with token.
+func (f registrationFixture) requestDashboardCodeWithToken(
+	t *testing.T,
+	auth *core.Record,
+	token string,
 	input MobileRunnerDashboardCodeRequest,
 ) (*core.RequestEvent, error) {
 	t.Helper()
@@ -55,11 +81,7 @@ func (f registrationFixture) requestDashboardCode(
 		"/api/mobile-runner/dashboard-code",
 		input,
 	)
-	if browser {
-		event.Request.Header.Set("Authorization", "Bearer token")
-	} else {
-		event.Request.Header.Set(APIKeyHeaderName, "key")
-	}
+	event.Request.Header.Set("Authorization", "Bearer "+token)
 	return event, HandleMobileRunnerDashboardCode()(event)
 }
 
@@ -421,7 +443,7 @@ func (f registrationFixture) checkDashboardSession(
 }
 
 func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
-	tests := []struct {
+	cases := []struct {
 		name       string
 		prepare    func(t *testing.T, f registrationFixture)
 		key        func(f registrationFixture) *core.Record
@@ -508,7 +530,7 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			f := setupDashboardFixture(t)
 			if tc.prepare != nil {
@@ -549,4 +571,75 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 			assert.Equal(t, map[string]any{"email": user.Email()}, decodeJSONBody(t, recorder))
 		})
 	}
+}
+
+// apiKeyAuthToken exchanges a new API key of user for a token through
+// /api/apikey/authenticate.
+func (f registrationFixture) apiKeyAuthToken(t *testing.T, user *core.Record) string {
+	t.Helper()
+
+	apiKey, err := NewApiKeyService(NewAppAdapter(f.app)).GenerateApiKey(user.Id, "dashboard")
+	require.NoError(t, err)
+	event := performMobileRunnerRequest(t, f.app, nil, "/api/apikey/authenticate", nil)
+	event.Request.Method = http.MethodGet
+	event.Request.Header.Set("Credimi-Api-Key", apiKey)
+	require.NoError(t, AuthenticateApiKey()(event))
+	token, ok := decodeJSONBody(t, responseRecorder(t, event))["token"].(string)
+	require.True(t, ok)
+	return token
+}
+
+func TestDashboardCodeRefusesAPIKeyTokens(t *testing.T) {
+	input := MobileRunnerDashboardCodeRequest{
+		RunnerID: tokenTestRunnerID,
+		ReturnTo: dashboardTestReturnTo,
+		State:    "st4te",
+	}
+
+	t.Run("a token exchanged for an API key is refused", func(t *testing.T) {
+		f := setupDashboardFixture(t)
+		token := f.apiKeyAuthToken(t, f.user)
+
+		verified, err := f.app.FindAuthRecordByToken(token, core.TokenTypeAuth)
+		require.NoError(t, err, "PocketBase accepts the exchanged token")
+		require.Equal(t, f.user.Id, verified.Id)
+
+		_, err = f.requestDashboardCodeWithToken(t, verified, token, input)
+		requireRegistrationAPIError(
+			t,
+			err,
+			http.StatusForbidden,
+			"auth",
+			"browser_session_required",
+		)
+	})
+
+	t.Run("a login token is accepted", func(t *testing.T) {
+		f := setupDashboardFixture(t)
+		token, err := f.user.NewAuthToken()
+		require.NoError(t, err)
+
+		event, err := f.requestDashboardCodeWithToken(t, f.user, token, input)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
+	})
+
+	t.Run("auth-refresh hands the exchanged token back unchanged", func(t *testing.T) {
+		f := setupDashboardFixture(t)
+		token := f.apiKeyAuthToken(t, f.user)
+
+		(&tests.ApiScenario{
+			Name:            "auth-refresh",
+			Method:          http.MethodPost,
+			URL:             "/api/collections/users/auth-refresh",
+			Headers:         map[string]string{"Authorization": token},
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"token":"` + token + `"`},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app, err := tests.NewTestApp(testDataDir)
+				require.NoError(t, err)
+				return app
+			},
+		}).Test(t)
+	})
 }
