@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type Session
 	} from '$lib/action-author/api';
 	import SaveReviewCard from '$lib/action-author/save-review-card.svelte';
+	import Transcript from '$lib/action-author/transcript.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import LiveViewFrame from '$lib/pipeline/live-view-frame.svelte';
@@ -404,8 +405,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<T class="text-muted-foreground">{m.Session_ended_without_chat()}</T>
 					{/if}
 				</div>
-			{:else if chatUrl}
-				{#if running && !session.chat_running}
+			{:else if !session.chat_running}
+				{#if running}
 					<div
 						class="flex shrink-0 items-center gap-2 border-b bg-slate-50 px-4 py-2 text-sm text-muted-foreground"
 						role="status"
@@ -415,6 +416,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/if}
 
+				<!-- The harness UI never attaches to a closed chat: Credimi reads it from history. -->
+				<Transcript sessionId={session.session_id} {timezone} />
+			{:else if chatUrl}
 				<div class="relative min-h-0 flex-1" aria-busy={isChatLoading}>
 					{#if isChatLoading}
 						<div
@@ -425,15 +429,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</div>
 					{/if}
 
-					<!-- Reloaded when the chat ends, so the harness replays the closed chat. -->
-					{#key session.chat_running}
-						<iframe
-							title={m.Authoring_session()}
-							src={chatUrl}
-							class="absolute inset-0 h-full w-full border-0"
-							onload={() => (loadedChatUrl = chatUrl)}
-						></iframe>
-					{/key}
+					<iframe
+						title={m.Authoring_session()}
+						src={chatUrl}
+						class="absolute inset-0 h-full w-full border-0"
+						onload={() => (loadedChatUrl = chatUrl)}
+					></iframe>
 				</div>
 			{/if}
 		</section>
