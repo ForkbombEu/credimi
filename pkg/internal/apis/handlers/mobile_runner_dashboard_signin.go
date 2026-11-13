@@ -26,11 +26,6 @@ const DashboardCallbackPath = "/auth/credimi/callback"
 // maxDashboardStateLength bounds the dashboard's state, echoed back verbatim.
 const maxDashboardStateLength = 128
 
-const (
-	dashboardOwnerRequired = "only organization owners can sign in to the runner dashboard"
-	dashboardAdminManaged  = "only superusers can sign in to the dashboard of an admin-managed runner"
-)
-
 // dashboardCodeNow is the clock of dashboard sign-in codes; tests replace it.
 var dashboardCodeNow = time.Now
 
@@ -110,13 +105,7 @@ func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr
 		}
-		record, _, apiErr := authorizeRunnerManager(
-			e.App,
-			e.Auth,
-			input.RunnerID,
-			dashboardOwnerRequired,
-			dashboardAdminManaged,
-		)
+		record, _, apiErr := authorizeDashboardUser(e.App, e.Auth, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -172,7 +161,7 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 		if err != nil {
 			return dashboardInvalidRequest(err.Error())
 		}
-		record, _, apiErr := authorizeRunnerKey(e, input.RunnerID)
+		record, _, apiErr := authorizeDashboardRunnerKey(e, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -199,13 +188,7 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 			)
 		}
 		// The user's role may have changed since the code was issued.
-		if _, _, apiErr := authorizeRunnerManager(
-			e.App,
-			user,
-			input.RunnerID,
-			dashboardOwnerRequired,
-			dashboardAdminManaged,
-		); apiErr != nil {
+		if _, _, apiErr := authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
 			return apiErr
 		}
 
@@ -216,6 +199,37 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 			Name:           user.GetString("name"),
 		})
 	}
+}
+
+// authorizeDashboardUser allows user to sign in to the dashboard of the
+// runner runnerID when they may manage it (authorizeRunnerManager).
+func authorizeDashboardUser(
+	app core.App,
+	user *core.Record,
+	runnerID string,
+) (*core.Record, string, *apierror.APIError) {
+	return authorizeRunnerManager(
+		app,
+		user,
+		runnerID,
+		"only owners of the runner's organization can sign in to its dashboard",
+		"only superusers can sign in to the dashboard of an admin-managed runner",
+	)
+}
+
+// authorizeDashboardRunnerKey checks the key the runner's dashboard calls with
+// as authorizeRunnerKey does, with refusals that name the dashboard.
+func authorizeDashboardRunnerKey(
+	e *core.RequestEvent,
+	runnerID string,
+) (*core.Record, string, *apierror.APIError) {
+	return authorizeRunnerManager(
+		e.App,
+		e.Auth,
+		runnerID,
+		"only keys of the runner's organization owners can serve its dashboard sign-in",
+		"only the internal admin key can serve the dashboard sign-in of an admin-managed runner",
+	)
 }
 
 // dashboardBrowserSession reports whether the caller signed in to Credimi

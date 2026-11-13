@@ -350,12 +350,54 @@ func TestHandleMobileRunnerDashboardRedeem(t *testing.T) {
 		demoteToMember(t, f.app, f.user.Email())
 
 		_, err := f.redeemDashboardCode(t, f.superuser, tokenTestRunnerID, code)
-		requireRegistrationAPIError(
+		apiErr := requireRegistrationAPIError(
 			t,
 			err,
 			http.StatusForbidden,
 			"runner_id",
 			"runner_owner_role_required",
 		)
+		assert.Equal(
+			t,
+			"only owners of the runner's organization can sign in to its dashboard",
+			apiErr.Message,
+		)
 	})
+
+	t.Run("a member's key is refused naming the dashboard", func(t *testing.T) {
+		f := setupDashboardFixture(t)
+		code := f.mustDashboardCode(t, f.user)
+		demoteToMember(t, f.app, f.user.Email())
+
+		_, err := f.redeemDashboardCode(t, f.user, tokenTestRunnerID, code)
+		apiErr := requireRegistrationAPIError(
+			t,
+			err,
+			http.StatusForbidden,
+			"runner_id",
+			"runner_owner_role_required",
+		)
+		assert.Contains(t, apiErr.Message, "dashboard")
+		assert.NotContains(t, apiErr.Message, "Temporal")
+	})
+
+	t.Run(
+		"an owner's key of an admin-managed runner is refused naming the dashboard",
+		func(t *testing.T) {
+			f := setupDashboardFixture(t)
+			setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
+			code := f.mustDashboardCode(t, f.superuser)
+
+			_, err := f.redeemDashboardCode(t, f.user, tokenTestRunnerID, code)
+			apiErr := requireRegistrationAPIError(
+				t,
+				err,
+				http.StatusForbidden,
+				"runner_id",
+				"admin_managed_runner",
+			)
+			assert.Contains(t, apiErr.Message, "dashboard")
+			assert.NotContains(t, apiErr.Message, "Temporal")
+		},
+	)
 }
