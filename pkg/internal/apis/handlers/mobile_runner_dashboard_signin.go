@@ -92,10 +92,9 @@ type MobileRunnerDashboardSessionCheckRequest struct {
 	AuthCollection string `json:"auth_collection" validate:"required"`
 }
 
-// MobileRunnerDashboardSessionCheckResponse carries the user's current email.
-type MobileRunnerDashboardSessionCheckResponse struct {
-	Email string `json:"email"`
-}
+// MobileRunnerDashboardSessionCheckResponse is empty: the answer's status
+// says whether the session may go on, and nothing about the user leaks.
+type MobileRunnerDashboardSessionCheckResponse struct{}
 
 // HandleMobileRunnerDashboardCode issues a one-time code that lets the
 // signed-in user into the dashboard of a runner they manage.
@@ -187,29 +186,14 @@ func HandleMobileRunnerDashboardSessionCheck() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		user, err := e.App.FindRecordById(input.AuthCollection, input.UserID)
-		if errors.Is(err, sql.ErrNoRows) {
-			return apierror.New(
-				http.StatusNotFound,
-				"user_id",
-				"user_not_found",
-				"the user signed in to the dashboard no longer exists",
-			)
-		}
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"user_id",
-				"failed_to_find_user",
-				err.Error(),
-			)
-		}
-		if _, _, apiErr := authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
+		user, apiErr := findDashboardUser(e.App, input.AuthCollection, input.UserID)
+		if apiErr != nil {
 			return apiErr
 		}
-		return e.JSON(http.StatusOK, MobileRunnerDashboardSessionCheckResponse{
-			Email: user.Email(),
-		})
+		if _, _, apiErr = authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
+			return apiErr
+		}
+		return e.JSON(http.StatusOK, MobileRunnerDashboardSessionCheckResponse{})
 	}
 }
 
@@ -275,6 +259,28 @@ func authorizeDashboardUser(
 		"only owners of the runner's organization can sign in to its dashboard",
 		"only superusers can sign in to the dashboard of an admin-managed runner",
 	)
+}
+
+// findDashboardUser finds the user signed in to a dashboard. A user who no
+// longer exists is refused as one outside the runner's organization
+// (runnerOwnerMismatchError), so runner keys cannot probe which users exist.
+func findDashboardUser(
+	app core.App,
+	collection, userID string,
+) (*core.Record, *apierror.APIError) {
+	user, err := app.FindRecordById(collection, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, runnerOwnerMismatchError()
+	}
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"user_id",
+			"failed_to_find_user",
+			err.Error(),
+		)
+	}
+	return user, nil
 }
 
 // authorizeDashboardRunnerKey checks the key the runner's dashboard calls with

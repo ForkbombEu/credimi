@@ -443,6 +443,17 @@ func markRunnerAndDevicesOffline(app core.App, runner *core.Record) ([]string, e
 	return deviceIDs, err
 }
 
+// runnerOwnerMismatchError refuses a non-superuser outside the runner's
+// organization.
+func runnerOwnerMismatchError() *apierror.APIError {
+	return apierror.New(
+		http.StatusForbidden,
+		"runner_id",
+		"runner_owner_mismatch",
+		"runner_id does not belong to the authenticated organization",
+	)
+}
+
 func resolveLifecycleRunner(
 	app core.App,
 	auth *core.Record,
@@ -495,12 +506,7 @@ func resolveLifecycleRunner(
 			)
 		}
 		if record.GetString("owner") != orgID {
-			return nil, "", apierror.New(
-				http.StatusForbidden,
-				"runner_id",
-				"runner_owner_mismatch",
-				"runner_id does not belong to the authenticated organization",
-			)
+			return nil, "", runnerOwnerMismatchError()
 		}
 	}
 

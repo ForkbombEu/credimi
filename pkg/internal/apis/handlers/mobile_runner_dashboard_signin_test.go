@@ -510,9 +510,24 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 				}
 				require.NoError(t, f.app.Delete(f.user))
 			},
-			wantCode:   http.StatusNotFound,
-			wantDomain: "user_id",
-			wantReason: "user_not_found",
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_owner_mismatch",
+		},
+		{
+			name:       "unknown user",
+			userID:     "nosuchuser00000",
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_owner_mismatch",
+		},
+		{
+			name:       "unknown superuser",
+			collection: core.CollectionNameSuperusers,
+			userID:     "nosuchuser00000",
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_owner_mismatch",
 		},
 		{
 			name:       "runner key without rights",
@@ -548,10 +563,14 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 			if tc.collection != "" {
 				collection = tc.collection
 			}
+			userID := user.Id
+			if tc.userID != "" {
+				userID = tc.userID
+			}
 
 			event, err := f.checkDashboardSession(t, key, MobileRunnerDashboardSessionCheckRequest{
 				RunnerID:       tokenTestRunnerID,
-				UserID:         user.Id,
+				UserID:         userID,
 				AuthCollection: collection,
 			})
 			if tc.wantCode != http.StatusOK {
@@ -568,7 +587,7 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 			require.NoError(t, err)
 			recorder := responseRecorder(t, event)
 			require.Equal(t, http.StatusOK, recorder.Code)
-			assert.Equal(t, map[string]any{"email": user.Email()}, decodeJSONBody(t, recorder))
+			assert.Equal(t, map[string]any{}, decodeJSONBody(t, recorder))
 		})
 	}
 }
