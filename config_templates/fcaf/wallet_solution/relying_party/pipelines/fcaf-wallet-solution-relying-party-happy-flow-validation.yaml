@@ -2605,7 +2605,6 @@ steps:
             - WS_RP_SM_RpIntegrity_CryptographicSignature_003
             - WS_RP_SM_RpIntegrity_CryptographicSignature_004
             - WS_RP_SM_RpIntegrity__001
-            - WS_RP_SM_RpIntegrity__010
             - WS_RP_SM_RpIntegrity__024
             - WS_RP_SM_RpIntegrity__032
             - WS_RP_SM_RpIntegrity__033

@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__010
-title: FCAF WS_RP_SM_RpIntegrity__010
+title: Establish trust in a validly signed Verifier attestation JWT from a trusted issuer.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__010.md
 suite:
@@ -11,20 +11,37 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.baseline
+# The trusted issuer is Capture's fixture Verifier Attestation issuer, published
+# at /openid4vp/verifier-attestation-issuer/jwks.json; the Wallet under test
+# must be configured to trust it. Shares the default session of
+# WS_RP_MS_Metadata__116 and WS_RP_SM_RpIntegrity__008.
 evidence:
   session:
-    from: pipeline.dcql.baseline.outputs.session
+    from: pipeline.rp-integrity.verifier-attestation.outputs.default_session
+  request_evidence:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.default_request_evidence
+  visual_evidence:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.default_visual_evidence
 assertions:
-- id: verifier_attestation_session_is_unavailable
-  validator: fcaf.skipped
+- id: delivered_attestation_is_signed_by_the_fixture_issuer
+  validator: oid4vp.verifier_attestation_request
+  input: evidence.request_evidence
+  params:
+    jwt_header: present
+    subject: client_id
+    issuer: https://capture-wallet.credimi.io/openid4vp/verifier-attestation-issuer
+    request_signature: valid
+    attestation_signature: valid
+    redirect_uris: absent
+- id: wallet_presents_after_trusting_the_attestation_issuer
+  validator: dcql.response_satisfies_constraints
   input: evidence.session
   params:
-    reason: >-
-      needs a verifier_attestation Request Object; Capture answers
-      client_id_scheme verifier_attestation with 500 (no SAN DNS name in the
-      deployed certificate, re-checked 08/10/2026)
+    mode: credentials_match
+- id: presentation_visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

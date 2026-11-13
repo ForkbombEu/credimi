@@ -60,9 +60,11 @@ assert `fcaf.skipped` naming that input, unless stated otherwise.
   `WS_RP_MS_Metadata__125`, `127`, `128` additionally need a registry-issued
   `dNSName` certificate, which upstream states does not exist.
 - Wallet-trusted Verifier attestation issuer: `WS_RP_SM_RpIntegrity__010`
-  needs an operator to configure the Wallet to trust the fixture attestation
-  issuer at `/openid4vp/verifier-attestation-issuer/jwks.json`.
-  `verifier_attestation` sessions themselves are deployed (probed 22/10/2026).
+  runs on the default `verifier_attestation` session (since 13/11/2026) and
+  assumes the operator configured the Wallet to trust the fixture attestation
+  issuer at `/openid4vp/verifier-attestation-issuer/jwks.json`; a Wallet left
+  without that configuration fails it. `verifier_attestation` sessions are
+  deployed (probed 22/10/2026).
 - `openid_federation`: Capture rejects the prefix with `400
   unsupported_client_id_scheme` and publishes no entity statements:
   `WS_RP_MS_Metadata__114`, `115`.

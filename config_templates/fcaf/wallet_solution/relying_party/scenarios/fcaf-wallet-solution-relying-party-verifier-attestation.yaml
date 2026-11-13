@@ -448,6 +448,7 @@ steps:
     - WS_RP_MS_Metadata__124
     - WS_RP_SM_RpIntegrity__008
     - WS_RP_SM_RpIntegrity__009
+    - WS_RP_SM_RpIntegrity__010
     - WS_RP_SM_RpIntegrity__011
     - WS_RP_SM_RpIntegrity__012
     suite: wallet_solution/relying_party
