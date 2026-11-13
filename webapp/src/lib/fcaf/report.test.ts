@@ -221,6 +221,44 @@ describe('prepareReportDisplay', () => {
 		]);
 	});
 
+	it.each([
+		['all', 2, 'passed', ['passed', 'passed', 'failed', 'skipped', 'not_applicable']],
+		['passed', 2, 'passed', ['passed', 'passed']],
+		['failed', 1, 'failed', ['failed']],
+		['skipped', 1, 'skipped', ['skipped']],
+		['not_applicable', 1, 'not applicable', ['not_applicable']]
+	])(
+		'keeps full group totals while showing only %s tests',
+		(filter, displayedCount, displayedLabel, statuses) => {
+			const display = prepareReportDisplay(
+				{
+					executed_tests: [
+						{ test_id: 'WS_RP_DM_AddressData_001', status: 'passed' },
+						{ test_id: 'WS_RP_DM_AddressData_002', status: 'passed' },
+						{ test_id: 'WS_RP_DM_AddressData_003', status: 'failed' },
+						{ test_id: 'WS_RP_DM_AddressData_004', status: 'skipped' },
+						{ test_id: 'WS_RP_DM_AddressData_005', status: 'not_applicable' }
+					]
+				},
+				{ filter, searchQuery: '' }
+			);
+			const category = display.groupedCategories[0];
+			const group = category.groups[0];
+
+			expect(category).toMatchObject({
+				total: 5,
+				displayedCount,
+				displayedLabel
+			});
+			expect(group).toMatchObject({
+				total: 5,
+				displayedCount,
+				displayedLabel
+			});
+			expect(group.tests.map((test) => test.status)).toEqual(statuses);
+		}
+	);
+
 	it('filters by search query', () => {
 		expect(testMatchesSearch(report.executed_tests![0], 'email')).toBe(true);
 		expect(testMatchesSearch(report.executed_tests![0], 'interaction')).toBe(false);
