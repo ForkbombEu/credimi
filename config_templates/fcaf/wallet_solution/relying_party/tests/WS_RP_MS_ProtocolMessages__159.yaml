@@ -13,7 +13,10 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+# The transaction_data entry references unavailable_cred, an optional query of
+# the same request for a credential type no Wallet holds. As for 158, a Wallet
+# that does not support the entry's type must answer invalid_transaction_data
+# too, so a missing error fails either way.
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-159.outputs.dcql_exchange

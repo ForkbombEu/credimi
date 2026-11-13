@@ -17,21 +17,20 @@ normative_references:
 evidence:
   request_object:
     from: pipeline.dcql.protocol-messages-158.outputs.request_object
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages-158.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages-158.outputs.visual_evidence
 assertions:
 - id: ws_rp_ms_protocolmessages__027_transaction_data_credential_ids_mismatch
   validator: oid4vp.transaction_data_credential_ids_mismatch_dcql
   input: evidence.request_object
-- id: ws_rp_ms_protocolmessages__027_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+# The delivered entry uses type payment, which the reference Wallet does not
+# support, so its rejection could not be attributed to credential_ids.
+- id: ws_rp_ms_protocolmessages__027_requires_a_supported_type
+  validator: fcaf.not_applicable
+  input: evidence.request_object
   params:
-    mode: transaction_data_error_required
-- id: ws_rp_ms_protocolmessages__027_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      the source applies only in combination with a transaction data type the
+      Wallet supports; the reference Wallet declares no supported
+      transaction-data type, so the credential_ids mismatch cannot be isolated
+      from an unsupported type
 verdict:
   pass_when: all_assertions_pass

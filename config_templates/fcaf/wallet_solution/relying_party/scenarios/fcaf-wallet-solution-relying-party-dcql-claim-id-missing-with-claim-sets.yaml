@@ -26,11 +26,16 @@ steps:
             meta:
               vct_values:
               - urn:eudi:pid:1
+            # claim_sets references only the claim that has an id, so the
+            # claim without an id is the request's only defect.
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
+            - path:
+              - family_name
             claim_sets:
-            - - missing_claim_ref
+            - - given_name
 - id: exercise-wallet
   use: mobile-automation
   with:

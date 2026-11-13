@@ -995,7 +995,10 @@ steps:
                         - - unavailable_optional_pid
                       required: false
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: unavailable_optional_pid
                       meta:
                         vct_values:
