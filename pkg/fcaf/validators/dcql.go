@@ -57,7 +57,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 			),
 		}
 	}
-	result := validateDCQLResponseMode(params, input)
+	result := withWalletOutcome(input.Value, validateDCQLResponseMode(params, input))
 	if !dcqlModeAssertsWalletResponse(params.Mode) {
 		return result
 	}
@@ -409,7 +409,7 @@ func validateDCQLResponseMode(params dcqlModeParams, input Input) Result {
 		if !ok {
 			return Result{
 				Status:  StatusFail,
-				Message: "wallet vp_token is not an object keyed by credential query ID",
+				Message: vpTokenShapeMessage(responseValue),
 			}
 		}
 		for index, rawCredential := range credentials {
@@ -1886,7 +1886,7 @@ func validateMDocWithoutClaimDisclosures(query map[string]any, responseValue any
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	for index, rawCredential := range credentials {
@@ -2665,7 +2665,7 @@ func validateClaimsPresent(query map[string]any, responseValue any) Result {
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	for index, rawCredential := range credentials {
@@ -2754,7 +2754,7 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	for credentialIndex, rawCredential := range credentials {
@@ -3114,7 +3114,7 @@ func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	requested := make([][]any, 0)
@@ -3541,7 +3541,7 @@ func validateClaimsWithoutIDWithoutClaimSets(query map[string]any, responseValue
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	for credentialIndex, rawCredential := range credentials {
@@ -4116,7 +4116,7 @@ func validateAllowedClaimPathComponents(query map[string]any, responseValue any)
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	seenString := false
@@ -4375,7 +4375,7 @@ func validateClaimsWithoutValues(query map[string]any, responseValue any) Result
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	for credentialIndex, rawCredential := range credentials {
@@ -4461,7 +4461,7 @@ func validateTrustedAuthoritiesMatch(query map[string]any, responseValue any) Re
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "wallet vp_token is not an object keyed by credential query ID",
+			Message: vpTokenShapeMessage(responseValue),
 		}
 	}
 	for credentialIndex, rawCredential := range credentials {
@@ -4759,7 +4759,7 @@ func validateWalletErrorRequired(responseValue, errorValue any) Result {
 	}
 	return Result{
 		Status:  StatusFail,
-		Message: "wallet returned no vp_token but no error, expected error",
+		Message: "wallet returned neither a vp_token nor an error, expected error",
 	}
 }
 
@@ -4846,23 +4846,41 @@ func validateErrorCode(responseValue, errorValue any, expectedCode string) Resul
 }
 
 func validateRequiredErrorCode(responseValue, errorValue any, expectedCode string) Result {
-	errStr := normalizeString(errorValue)
-	if errStr == expectedCode && isEmptyDCQLValue(responseValue) {
+	// A response carrying a vp_token is a presentation, whatever its error
+	// member says (OpenID4VP 8.5 defines no error response with a vp_token).
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("wallet returned a vp_token, expected error %s", expectedCode),
+		}
+	}
+	switch errStr := normalizeString(errorValue); errStr {
+	case expectedCode:
 		return Result{
 			Status:  StatusPass,
 			Message: fmt.Sprintf("wallet returned expected error %s", expectedCode),
 		}
-	}
-	if errStr == "" {
+	case "":
 		return Result{
 			Status:  StatusFail,
 			Message: fmt.Sprintf("wallet did not return required error %s", expectedCode),
 		}
+	default:
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("wallet returned error %s, expected %s", errStr, expectedCode),
+		}
 	}
-	return Result{
-		Status:  StatusFail,
-		Message: fmt.Sprintf("wallet returned error %s, expected %s", errStr, expectedCode),
+}
+
+// vpTokenShapeMessage explains why a vp_token cannot be read as an object keyed
+// by credential query ID: either the evidence carries none, or it has another
+// shape.
+func vpTokenShapeMessage(responseValue any) string {
+	if responseValue == nil {
+		return "wallet returned no vp_token"
 	}
+	return "wallet vp_token is not an object keyed by credential query ID"
 }
 
 // validateUnknownFieldStripped checks that wallet processes request with unknown fields stripped.

@@ -59,10 +59,10 @@ func (OID4VPErrorResponseRequiredValidator) Validate(_ context.Context, input In
 	errorValue := findWalletError(session)
 	code := normalizeString(errorValue)
 	if code == "" {
-		return Result{
+		return withWalletOutcome(session, Result{
 			Status:  StatusFail,
 			Message: fmt.Sprintf("wallet returned no error, expected %q", params.Code),
-		}
+		})
 	}
 	if code != params.Code {
 		return Result{
