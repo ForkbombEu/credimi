@@ -51,7 +51,7 @@ type MobileDeviceListItem struct {
 	IsPublished bool   `json:"is_published"`
 	IsOwned     bool   `json:"is_owned"`
 	IsOnline    bool   `json:"is_online"`
-	QueueLength *int   `json:"queue_length,omitempty"`
+	RunsAhead   *int   `json:"runs_ahead,omitempty"`
 }
 
 type MobileRunnerListItem struct {
@@ -64,7 +64,7 @@ type MobileRunnerListItem struct {
 	IsOwned      bool                       `json:"is_owned"`
 	HealthStatus string                     `json:"health_status"`
 	Devices      []MobileRunnerHealthDevice `json:"devices,omitempty"`
-	QueueLength  *int                       `json:"queue_length,omitempty"`
+	RunsAhead    *int                       `json:"runs_ahead,omitempty"`
 }
 
 type MobileRunnerHealthDevice struct {
@@ -95,7 +95,7 @@ var MobileRunnersPublicRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:        HandleListMobileRunners,
 			ResponseSchema: ListMobileRunnersPublicResponseSchema{},
 			Summary:        "List available mobile runners",
-			Description:    "Lists mobile runners visible to the caller, including health, devices, and queue length for online runners.",
+			Description:    "Lists mobile runners visible to the caller, including health, devices, and, for online runners, runs_ahead: the runs on the runner's semaphore, running or waiting.",
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "view",
@@ -124,7 +124,7 @@ var MobileDevicesPublicRoutes = routing.RouteGroup{
 			Handler:        HandleListMobileDevices,
 			ResponseSchema: ListMobileDevicesPublicResponseSchema{},
 			Summary:        "List available mobile devices",
-			Description:    "Lists independently schedulable mobile devices visible to the caller, grouped by their hosting runner through runner context fields.",
+			Description:    "Lists independently schedulable mobile devices visible to the caller, grouped by their hosting runner through runner context fields. Online devices report runs_ahead: the runs on the device's semaphore, running or waiting, that a new run waits for.",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
@@ -401,11 +401,11 @@ func mobileDeviceListItem(
 		IsOnline:    runnerOnline && device.GetBool("online"),
 	}
 	if item.IsOnline {
-		queueLen, apiErr := mobileDeviceQueueLen(ctx, deviceID)
+		runsAhead, apiErr := mobileDeviceRunsAhead(ctx, deviceID)
 		if apiErr != nil {
 			return MobileDeviceListItem{}, apiErr
 		}
-		item.QueueLength = &queueLen
+		item.RunsAhead = &runsAhead
 	}
 	return item, nil
 }
@@ -485,11 +485,11 @@ func mobileRunnerListItem(
 	}
 
 	if includeDetails && online {
-		queueLen, apiErr := mobileDeviceQueueLen(ctx, runnerID)
+		runsAhead, apiErr := mobileDeviceRunsAhead(ctx, runnerID)
 		if apiErr != nil {
 			return MobileRunnerListItem{}, apiErr
 		}
-		item.QueueLength = &queueLen
+		item.RunsAhead = &runsAhead
 	}
 
 	return item, nil
@@ -535,7 +535,9 @@ func checkMobileRunnerHealthHTTP(
 	return true, health.Devices, nil
 }
 
-func mobileDeviceQueueLen(ctx context.Context, deviceID string) (int, *apierror.APIError) {
+// mobileDeviceRunsAhead counts the runs on the device's semaphore, running or
+// waiting: the runs a new ticket waits for.
+func mobileDeviceRunsAhead(ctx context.Context, deviceID string) (int, *apierror.APIError) {
 	state, err := queryMobileDeviceSemaphoreState(ctx, deviceID)
 	if err != nil {
 		if errors.Is(err, errSemaphoreNotFound) {
@@ -549,7 +551,7 @@ func mobileDeviceQueueLen(ctx context.Context, deviceID string) (int, *apierror.
 		)
 	}
 
-	return state.QueueLen, nil
+	return state.SlotsUsed + state.QueueLen, nil
 }
 
 var errSemaphoreNotFound = errors.New("semaphore not found")

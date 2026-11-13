@@ -1093,7 +1093,7 @@
 	"Action_author_agent_not_running": "Der Agent des Runners läuft nicht",
 	"Installed_from_the_store": "Aus dem Store installiert",
 	"Runner_of": "Runner von {owner}",
-	"Device_queue_length": "{count} in der Warteschlange",
+	"Device_runs_ahead": "Läufe davor: {count}",
 	"Session_waiting_for_device": "Warten auf das Gerät: Position {position} von {total}",
 	"Session_preparing_device": "Gerät wird vorbereitet und Wallet installiert…",
 	"Session_not_found": "Diese Autorensitzung existiert nicht.",

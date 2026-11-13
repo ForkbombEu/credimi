@@ -1100,7 +1100,7 @@
 	"Action_author_agent_not_running": "L'agente del runner non è in esecuzione",
 	"Installed_from_the_store": "Installata dallo store",
 	"Runner_of": "Runner di {owner}",
-	"Device_queue_length": "{count} in coda",
+	"Device_runs_ahead": "Esecuzioni in corso o in attesa: {count}",
 	"Session_waiting_for_device": "In attesa del dispositivo: posizione {position} di {total}",
 	"Session_preparing_device": "Preparazione del dispositivo e installazione del wallet…",
 	"Session_not_found": "Questa sessione di scrittura non esiste.",

@@ -22,7 +22,7 @@ const deviceWireSchema = z.object({
 	is_online: z.boolean(),
 	url: z.string().optional(),
 	type: z.string().optional(),
-	queue_length: z.number().optional()
+	runs_ahead: z.number().optional()
 });
 
 const listResponseSchema = z.object({
@@ -41,7 +41,7 @@ function mapWireToRecord(wire: z.infer<typeof deviceWireSchema>): DeviceRecord {
 		isOnline: wire.is_online,
 		url: wire.url,
 		type: wire.type,
-		queueLength: wire.queue_length
+		runsAhead: wire.runs_ahead
 	};
 }
 
