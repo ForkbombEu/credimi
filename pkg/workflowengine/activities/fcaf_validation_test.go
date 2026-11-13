@@ -187,14 +187,15 @@ func TestFCAFValidationActivityResolvesFromHistoryAndStoresFullReport(t *testing
 	storedJSON := readPipelineResultFile(t, app, reloaded, "fcaf_report")
 	var storedReport map[string]any
 	require.NoError(t, json.Unmarshal(storedJSON, &storedReport))
-	storedEvidence := storedReport["evidence"].(map[string]any)["pid_sdjwt"].(map[string]any)
+	evidenceKey := fcafTestSource + ".outputs.pid_sdjwt"
+	storedEvidence := storedReport["evidence"].(map[string]any)[evidenceKey].(map[string]any)
 	require.NotNil(t, storedEvidence["value"])
 	storedSum := sha256.Sum256(storedJSON)
 	require.Equal(t, hex.EncodeToString(storedSum[:]), output.ReportSHA256)
 
 	require.Equal(t, "passed", output.Report.Status)
 	require.Len(t, output.Report.ExecutedTests, 1)
-	require.Contains(t, output.Report.Evidence, "pid_sdjwt")
+	require.Contains(t, output.Report.Evidence, evidenceKey)
 	compact, err := json.Marshal(output.Report)
 	require.NoError(t, err)
 	require.NotContains(t, string(compact), `"value"`)

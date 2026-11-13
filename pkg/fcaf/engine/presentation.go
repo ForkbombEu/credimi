@@ -84,36 +84,8 @@ func presentationScreenshots(report Report, maestroURLs []string) []Presentation
 		}
 	}
 	for _, test := range report.ExecutedTests {
-		// report.Evidence is keyed by bare evidence name, so a name such as
-		// visual_evidence holds only the last test's value. A test's own
-		// evidence therefore supplies its images; the shared map is consulted
-		// only for keys the test did not resolve itself.
-		own := make(map[string]struct{}, len(test.Evidence))
-		for _, evidence := range test.Evidence {
-			own[strings.TrimSpace(evidence.Name)] = struct{}{}
-		}
-		for _, key := range presentationEvidenceKeys(test) {
-			if _, resolved := own[key]; resolved {
-				continue
-			}
-			record, found := report.Evidence[key]
-			if !found {
-				continue
-			}
-			for _, reference := range ImageReferenceURLs(record.Value) {
-				if !isPresentationEvidenceImage(reference) {
-					continue
-				}
-				normalized := appendPresentationReference(&urls, seen, reference)
-				if normalized == "" {
-					continue
-				}
-				visualTestIDs[normalized] = appendUniqueString(
-					visualTestIDs[normalized],
-					test.TestID,
-				)
-			}
-		}
+		// A test's own evidence carries the images of the records it resolved,
+		// so it assigns those images to the test.
 		for _, evidence := range test.Evidence {
 			for _, reference := range evidence.Visual {
 				normalized := appendPresentationReference(&urls, seen, reference)
@@ -241,37 +213,6 @@ func appendUniqueString(values []string, value string) []string {
 		}
 	}
 	return append(values, value)
-}
-
-func presentationEvidenceKeys(test ExecutedTest) []string {
-	seen := map[string]struct{}{}
-	keys := make([]string, 0)
-	for _, assertion := range test.Assertions {
-		for _, key := range assertion.EvidenceKeys {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				continue
-			}
-			if _, found := seen[key]; found {
-				continue
-			}
-			seen[key] = struct{}{}
-			keys = append(keys, key)
-		}
-	}
-	for _, evidence := range test.Evidence {
-		key := strings.TrimSpace(evidence.Name)
-		if key == "" {
-			continue
-		}
-		if _, found := seen[key]; found {
-			continue
-		}
-		seen[key] = struct{}{}
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 func presentationSummaryFilters(report Report) []PresentationFilter {

@@ -5,6 +5,7 @@
 package validators
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -312,4 +313,54 @@ func sessionEventRecorded(session map[string]any, eventType string) bool {
 		}
 	}
 	return false
+}
+
+// describeWalletOutcome summarizes what the Capture verifier session the
+// evidence carries records about the Wallet's answer, for failure messages
+// that would otherwise read as if the Wallet sent a malformed response when it
+// sent none. It returns "" when the evidence carries no session record.
+func describeWalletOutcome(value any) string {
+	session, found := captureVerifierSession(value)
+	if !found {
+		return ""
+	}
+	status := normalizeString(session["status"])
+	var outcome string
+	switch {
+	case sessionWalletResponseCaptured(session):
+		if code := normalizeString(findWalletError(session)); code != "" {
+			outcome = fmt.Sprintf("the wallet answered with error %q", code)
+		} else if _, found := findObjectKey(session, "vp_token"); found {
+			outcome = "the wallet sent an Authorization Response"
+		} else {
+			outcome = "the wallet sent an Authorization Response the verifier could not read " +
+				"(no vp_token and no error)"
+		}
+	case sessionRetrievedRequest(session):
+		outcome = "the wallet retrieved the request and sent no Authorization Response"
+	case status == captureSessionStatusCreated:
+		outcome = "the wallet never retrieved the request"
+	default:
+		outcome = "the session records no Authorization Response"
+	}
+	if status == "" {
+		return outcome
+	}
+	return fmt.Sprintf("verifier session %s: %s", status, outcome)
+}
+
+// withWalletOutcome appends the session's account of the Wallet's answer to a
+// failure whose evidence holds no presentation, so a reader can tell a Wallet
+// that sent nothing from one that sent an error.
+func withWalletOutcome(value any, result Result) Result {
+	if result.Status != StatusFail {
+		return result
+	}
+	if presentation, _ := findObjectKey(value, "vp_token"); !isEmptyDCQLValue(presentation) {
+		return result
+	}
+	if outcome := describeWalletOutcome(value); outcome != "" {
+		result.Message = fmt.Sprintf("%s (%s)", result.Message, outcome)
+	}
+	return result
 }

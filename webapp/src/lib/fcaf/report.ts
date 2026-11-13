@@ -17,7 +17,8 @@ export type TestResult = {
 		validator?: string;
 		evidence_keys?: string[];
 	}>;
-	evidence?: Array<{ name?: string; visual?: string[] }>;
+	/** `key` is the record's entry in `Report.evidence`; reports stored before it existed key that map by `name`. */
+	evidence?: Array<{ name?: string; key?: string; visual?: string[] }>;
 	/** @deprecated historical reports only; prefer assertions */
 	validators?: Array<{ id?: string; status?: string; message?: string; validator?: string }>;
 };
@@ -391,13 +392,19 @@ function legacyScreenshotAssignments(report: Report): Map<string, string[]> {
 		const testId = test.test_id;
 		if (!testId) continue;
 		const keys = new Set<string>();
+		const recordKeys = new Map<string, string>();
+		// Reports stored before evidence records carried a key use evidence names as map keys.
+		const keyedByName = !(test.evidence ?? []).some((item) => item.key);
+		for (const item of test.evidence ?? []) {
+			const key = item.key ?? item.name;
+			if (item.name && key) recordKeys.set(item.name, key);
+			if (key) keys.add(key);
+		}
 		for (const assertion of test.assertions ?? []) {
-			for (const key of assertion.evidence_keys ?? []) {
+			for (const name of assertion.evidence_keys ?? []) {
+				const key = recordKeys.get(name) ?? (keyedByName ? name : undefined);
 				if (key) keys.add(key);
 			}
-		}
-		for (const item of test.evidence ?? []) {
-			if (item.name) keys.add(item.name);
 		}
 		for (const key of keys) {
 			assignments.set(key, [...new Set([...(assignments.get(key) ?? []), testId])]);

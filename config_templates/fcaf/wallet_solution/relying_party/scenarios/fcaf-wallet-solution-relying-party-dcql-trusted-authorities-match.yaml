@@ -38,7 +38,8 @@ steps:
                 trusted_authorities:
                   - type: aki
                     values:
-                      # AuthorityKeyId from the public EUDIW PID issuer certificate.
+                      # AuthorityKeyIdentifier of the Capture issuer certificate, the
+                      # key of PID Issuer CA 02 (as in the trust-mechanisms scenario).
                       - QlBQvhC4EPCdRFyNv6sQCO4n3Ek
 
   - id: present-with-reference-implementation

@@ -1,9 +1,13 @@
 appId: eu.europa.ec.euidi
-name: FCAF exercise non-JSON response - wallet error screen evidence
+name: FCAF exercise wallet - wallet error screen evidence
 tags:
   - fcaf
   - ws_rp
 ---
+# Shares the presentation, then waits for the Wallet's error screen after a
+# Verifier response it must not accept. `wallet-error` is taken only while that
+# screen is up, so a Wallet that stays on its success screen stores no such
+# file and fails the test's evidence.screenshot_named assertion.
 - launchApp:
     stopApp: true
     clearState: false
@@ -46,7 +50,7 @@ tags:
     when:
       visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
     commands:
-      - takeScreenshot: "non-json-wallet-error"
+      - takeScreenshot: "wallet-error"
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: "exercise-wallet"

@@ -190,34 +190,58 @@ func TestBuildPresentationCollectsNestedEvidenceImages(t *testing.T) {
 	}}, presentation.Screenshots)
 }
 
-func TestBuildPresentationAssignsEvidenceMapImagesByEvidenceKey(t *testing.T) {
-	report := Report{
-		Evidence: EvidenceMap{
-			"visual_evidence": {
-				Value: map[string]any{
-					"artifacts": []any{
-						"https://app.test/screens/evidence-only.png?token=temporary",
-					},
-				},
-			},
-		},
-		ExecutedTests: []ExecutedTest{{
-			TestID: "evidence-key-test",
-			Assertions: []ExecutedCheck{{
-				ID:           "visual",
-				Status:       "passed",
-				EvidenceKeys: []string{"visual_evidence"},
-			}},
+// Two scenarios routinely bind the same evidence name (visual_evidence,
+// session) to different sources; each test must keep its own record and its
+// own screenshots instead of the last test's.
+func TestReportKeepsEvidenceOfTestsSharingAName(t *testing.T) {
+	report := Report{Tests: []TestResult{{
+		ID:     "first",
+		Status: "pass",
+		Assertions: []AssertionResult{{
+			ID: "visual", Status: "pass", EvidenceKeys: []string{"visual_evidence"},
 		}},
-	}
+		Evidence: []EvidenceResult{{
+			Name:  "visual_evidence",
+			From:  "pipeline.first.outputs.visual_evidence",
+			Value: []any{"https://app.test/screens/first.png"},
+		}},
+	}, {
+		ID:     "second",
+		Status: "pass",
+		Assertions: []AssertionResult{{
+			ID: "visual", Status: "pass", EvidenceKeys: []string{"visual_evidence"},
+		}},
+		Evidence: []EvidenceResult{{
+			Name:  "visual_evidence",
+			From:  "pipeline.second.outputs.visual_evidence",
+			Value: []any{"https://app.test/screens/second.png"},
+		}},
+	}}}
 
-	presentation := BuildPresentation(report, nil)
+	report.PopulateDerivedViews()
+	report.AttachPresentation(nil)
 
-	require.Equal(t, []PresentationScreenshot{{
-		URL:     "https://app.test/screens/evidence-only.png",
-		Label:   "evidence only",
-		TestIDs: []string{"evidence-key-test"},
-	}}, presentation.Screenshots)
+	require.Equal(t,
+		[]any{"https://app.test/screens/first.png"},
+		report.Evidence["pipeline.first.outputs.visual_evidence"].Value,
+	)
+	require.Equal(t,
+		[]any{"https://app.test/screens/second.png"},
+		report.Evidence["pipeline.second.outputs.visual_evidence"].Value,
+	)
+	require.Equal(t,
+		[]string{"pipeline.second.outputs.visual_evidence"},
+		report.ExecutedTests[1].EvidenceRecordKeys(),
+	)
+	require.ElementsMatch(t, []PresentationScreenshot{{
+		URL:     "https://app.test/screens/first.png",
+		Label:   "first",
+		TestIDs: []string{"first"},
+	}, {
+		URL:     "https://app.test/screens/second.png",
+		Label:   "second",
+		TestIDs: []string{"second"},
+	}}, report.Presentation.Screenshots)
 }
 
 func TestBuildPresentationKeepsLastScreenshotInBurst(t *testing.T) {

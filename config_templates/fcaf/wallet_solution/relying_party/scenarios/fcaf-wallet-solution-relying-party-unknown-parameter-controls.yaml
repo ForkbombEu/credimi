@@ -82,7 +82,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-unknown-response-parameter.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-unknown-response-parameter
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
 - id: fetch-unknown-response-parameter
   use: http-request
   with:
@@ -132,7 +132,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-unknown-request-and-response-parameter.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-unknown-request-and-response-parameter
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
 - id: fetch-unknown-request-and-response-parameter
   use: http-request
   with:

@@ -1118,8 +1118,8 @@ unlock, share a PID, and observe the terminal screen.
 
 - After sharing, the Wallet shows `Authentication successful ... you
   successfully shared the following information` and no `Oups! Something went
-  wrong` error; the guarded `no-redirect-wallet-error` / `non-json-wallet-error`
-  screenshots are never stored.
+  wrong` error; the guarded `wallet-error` screenshot (formerly
+  `no-redirect-wallet-error` / `non-json-wallet-error`) is never stored.
 - Capture cannot say whether an error arrives later, because the Wallet has
   already posted its Authorization Response.
 
@@ -1143,8 +1143,8 @@ HTTP 400 reply with a JSON error body) the Wallet does show
 ### FCAF Impact
 
 - Tests: `WS_RP_IA_MainInteraction__066` and
-  `WS_RP_MS_ProtocolMessages__125` now assert a named error screenshot
-  (`no-redirect-wallet-error` / `non-json-wallet-error`) and are expected to
+  `WS_RP_MS_ProtocolMessages__125` now assert the named error screenshot
+  `wallet-error` (shared by `fcaf-exercise-wallet-error`) and are expected to
   FAIL on this Wallet; `WS_RP_MS_ProtocolMessages__126` passes.
 
 ## RI-WALLET-026: The `eu-eaap://` invocation scheme has no handler

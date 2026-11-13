@@ -95,17 +95,15 @@ func (EvidenceScreenshotNamedValidator) Validate(_ context.Context, input Input)
 		}
 	}
 
+	// No stored stem reached the cap, so the name was not truncated away: the
+	// flow never took that screenshot.
 	return Result{
 		Status: StatusFail,
 		Message: fmt.Sprintf(
-			"no screenshot named %q was stored; the %d screenshot(s) are %s "+
-				"(a stored name keeps only the first %d characters of "+
-				"Snakecase(step id + screenshot name), so a name whose step id "+
-				"leaves too little room is truncated away)",
+			"no screenshot named %q was stored; the %d screenshot(s) are %s",
 			params.Name,
 			len(names),
 			strings.Join(names, ", "),
-			screenshotStemLimit,
 		),
 	}
 }

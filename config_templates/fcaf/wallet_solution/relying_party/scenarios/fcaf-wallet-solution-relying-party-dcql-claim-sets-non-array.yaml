@@ -31,19 +31,13 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
       request_mutation:
         request_object:
           set:
-            /dcql_query:
-              credentials:
-              - id: pididentity01
-                format: dc+sd-jwt
-                meta:
-                  vct_values:
-                  - urn:eudi:pid:1
-                claim_sets: null
+            /dcql_query/credentials/0/claim_sets: null
         verification_applies: false
 - id: exercise-null
   use: mobile-automation
@@ -82,19 +76,13 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
       request_mutation:
         request_object:
           set:
-            /dcql_query:
-              credentials:
-              - id: pididentity01
-                format: dc+sd-jwt
-                meta:
-                  vct_values:
-                  - urn:eudi:pid:1
-                claim_sets: true
+            /dcql_query/credentials/0/claim_sets: true
         verification_applies: false
 - id: exercise-true
   use: mobile-automation
@@ -133,19 +121,13 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
       request_mutation:
         request_object:
           set:
-            /dcql_query:
-              credentials:
-              - id: pididentity01
-                format: dc+sd-jwt
-                meta:
-                  vct_values:
-                  - urn:eudi:pid:1
-                claim_sets: false
+            /dcql_query/credentials/0/claim_sets: false
         verification_applies: false
 - id: exercise-false
   use: mobile-automation
@@ -184,19 +166,13 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
       request_mutation:
         request_object:
           set:
-            /dcql_query:
-              credentials:
-              - id: pididentity01
-                format: dc+sd-jwt
-                meta:
-                  vct_values:
-                  - urn:eudi:pid:1
-                claim_sets: 0
+            /dcql_query/credentials/0/claim_sets: 0
         verification_applies: false
 - id: exercise-zero
   use: mobile-automation
@@ -235,19 +211,13 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
       request_mutation:
         request_object:
           set:
-            /dcql_query:
-              credentials:
-              - id: pididentity01
-                format: dc+sd-jwt
-                meta:
-                  vct_values:
-                  - urn:eudi:pid:1
-                claim_sets: 73
+            /dcql_query/credentials/0/claim_sets: 73
         verification_applies: false
 - id: exercise-number
   use: mobile-automation
@@ -286,19 +256,13 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
       request_mutation:
         request_object:
           set:
-            /dcql_query:
-              credentials:
-              - id: pididentity01
-                format: dc+sd-jwt
-                meta:
-                  vct_values:
-                  - urn:eudi:pid:1
-                claim_sets: not-an-array
+            /dcql_query/credentials/0/claim_sets: not-an-array
         verification_applies: false
 - id: exercise-string
   use: mobile-automation
@@ -337,21 +301,13 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: given_name
+              path:
               - given_name
       request_mutation:
         request_object:
           set:
-            /dcql_query:
-              credentials:
-              - id: pididentity01
-                format: dc+sd-jwt
-                meta:
-                  vct_values:
-                  - urn:eudi:pid:1
-                claim_sets:
-                  path:
-                  - given_name
+            /dcql_query/credentials/0/claim_sets: {path: [given_name]}
         verification_applies: false
 - id: exercise-object
   use: mobile-automation

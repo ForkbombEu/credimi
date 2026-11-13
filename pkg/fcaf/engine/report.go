@@ -5,6 +5,9 @@
 package engine
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 	"github.com/forkbombeu/credimi/pkg/fcaf/validators"
@@ -87,12 +90,13 @@ type ExecutedTest struct {
 	Outcome    TestOutcome        `json:"outcome"`
 }
 
-// ExecutedEvidence records which evidence a test consumed. The flat report
-// evidence map keeps only one record per name, so per-test consumers such as
-// the PDF and the webapp sheet must use this list to attach the right
-// scenario's artifacts to each test.
+// ExecutedEvidence records which evidence a test consumed. Key is the test's
+// entry in the report evidence map, so per-test consumers such as the PDF and
+// the webapp sheet attach the right scenario's record and artifacts to each
+// test.
 type ExecutedEvidence struct {
 	Name       string   `json:"name"`
+	Key        string   `json:"key,omitempty"`
 	SourceNode string   `json:"source_node,omitempty"`
 	Visual     []string `json:"visual,omitempty"`
 }
@@ -110,6 +114,10 @@ type TestOutcome struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+// EvidenceMap holds every evidence record of a report, keyed by the binding
+// the record was resolved from (its `from` path). Tests that bind the same
+// path share one record; tests that reuse an evidence name for different
+// sources keep separate records.
 type EvidenceMap map[string]EvidenceRecord
 
 type EvidenceRecord struct {
@@ -196,6 +204,7 @@ func (r *Report) PopulateExecutedTests() {
 			}
 			executed.Evidence = append(executed.Evidence, ExecutedEvidence{
 				Name:       item.Name,
+				Key:        evidenceRecordKey(item),
 				SourceNode: item.SourceNode,
 				Visual:     visual,
 			})
@@ -244,11 +253,56 @@ func reportStatus(r *Report) string {
 	return "passed"
 }
 
+// evidenceRecordKey is the key of an evidence result in the report evidence
+// map: the path it was resolved from, or its name when it has none.
+func evidenceRecordKey(item EvidenceResult) string {
+	if from := strings.TrimSpace(item.From); from != "" {
+		return from
+	}
+	return strings.TrimSpace(item.Name)
+}
+
+// EvidenceRecordKey returns the report evidence map key of the evidence the
+// test resolved under name; found is false when the test resolved no evidence
+// with that name.
+func (t ExecutedTest) EvidenceRecordKey(name string) (string, bool) {
+	name = strings.TrimSpace(name)
+	for _, item := range t.Evidence {
+		if strings.TrimSpace(item.Name) == name && item.Key != "" {
+			return item.Key, true
+		}
+	}
+	return "", false
+}
+
+// EvidenceRecordKeys returns the sorted report evidence map keys of every
+// record the test's assertions read.
+func (t ExecutedTest) EvidenceRecordKeys() []string {
+	seen := map[string]struct{}{}
+	keys := make([]string, 0)
+	for _, assertion := range t.Assertions {
+		for _, name := range assertion.EvidenceKeys {
+			key, found := t.EvidenceRecordKey(name)
+			if !found {
+				continue
+			}
+			if _, duplicate := seen[key]; duplicate {
+				continue
+			}
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func addEvidenceRecord(out EvidenceMap, item EvidenceResult) {
-	if item.Name == "" {
+	key := evidenceRecordKey(item)
+	if key == "" {
 		return
 	}
-	out[item.Name] = EvidenceRecord{
+	out[key] = EvidenceRecord{
 		Type:       firstNonEmpty(item.Type, evidenceType(item.Value)),
 		SourceNode: item.SourceNode,
 		Path:       item.Path,

@@ -51,6 +51,19 @@ steps:
                   values:
                   - ''
         verification_applies: false
+- id: exercise-single
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-single.outputs.body.deeplink }}
+- id: fetch-single
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-single.outputs.body.session_id }}
+    expected_status: 200
 - id: create-mixed
   use: http-request
   with:
@@ -96,20 +109,13 @@ steps:
                   - authority-key-id
                   - ''
         verification_applies: false
-- id: exercise-trusted-authorities-values-empty-string
+- id: exercise-mixed
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-trusted-authorities-values-empty-string
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
-      deeplink_SINGLE: ${{ create-single.outputs.body.deeplink }}
-      deeplink_MIXED: ${{ create-mixed.outputs.body.deeplink }}
-- id: fetch-single
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-single.outputs.body.session_id }}
-    expected_status: 200
+      deeplink: ${{ create-mixed.outputs.body.deeplink }}
 - id: fetch-mixed
   use: http-request
   with:
@@ -127,7 +133,8 @@ steps:
         output:
           single_value: ${{ fetch-single.outputs.body.raw.authorization_request_delivered }}
           mixed_value: ${{ fetch-mixed.outputs.body.raw.authorization_request_delivered }}
-          visual_evidence: ${{ exercise-trusted-authorities-values-empty-string.outputs.flow_output.maestro_screenshot_urls }}
+          single_visual_evidence: ${{ exercise-single.outputs.flow_output.maestro_screenshot_urls }}
+          mixed_visual_evidence: ${{ exercise-mixed.outputs.flow_output.maestro_screenshot_urls }}
           single_value_session: ${{ fetch-single.outputs.body }}
           mixed_value_session: ${{ fetch-mixed.outputs.body }}
 outputs:
@@ -137,8 +144,11 @@ outputs:
   mixed_value:
     path: $.output.fetch-mixed.outputs.body.raw.authorization_request_delivered
     decoder: raw
-  visual_evidence:
-    path: $.output.exercise-trusted-authorities-values-empty-string.outputs.flow_output.maestro_screenshot_urls
+  single_visual_evidence:
+    path: $.output.exercise-single.outputs.flow_output.maestro_screenshot_urls
+    decoder: raw
+  mixed_visual_evidence:
+    path: $.output.exercise-mixed.outputs.flow_output.maestro_screenshot_urls
     decoder: raw
   single_value_session:
     path: $.output.fetch-single.outputs.body

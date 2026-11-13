@@ -18,8 +18,10 @@ evidence:
     from: pipeline.dcql.trusted-authorities-values-empty-string.outputs.single_value
   mixed_value:
     from: pipeline.dcql.trusted-authorities-values-empty-string.outputs.mixed_value
-  visual_evidence:
-    from: pipeline.dcql.trusted-authorities-values-empty-string.outputs.visual_evidence
+  single_visual_evidence:
+    from: pipeline.dcql.trusted-authorities-values-empty-string.outputs.single_visual_evidence
+  mixed_visual_evidence:
+    from: pipeline.dcql.trusted-authorities-values-empty-string.outputs.mixed_visual_evidence
   single_value_session:
     from: pipeline.dcql.trusted-authorities-values-empty-string.outputs.single_value_session
   mixed_value_session:
@@ -37,11 +39,12 @@ assertions:
   params:
     mode: trusted_authority_empty_string_item
     property: values
-- id: every_empty_string_variant_has_visual_evidence
-  validator: evidence.minimum_items
-  input: evidence.visual_evidence
-  params:
-    min_items: 2
+- id: single_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.single_visual_evidence
+- id: mixed_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.mixed_visual_evidence
 - id: single_value_no_presentation_returned
   validator: oid4vp.no_presentation_returned
   input: evidence.single_value_session

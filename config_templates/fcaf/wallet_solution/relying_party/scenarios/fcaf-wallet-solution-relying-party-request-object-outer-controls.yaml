@@ -49,11 +49,12 @@ steps:
         nonce: conflicting-client-id
         dcql_query:
           credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      # The signed Request Object keeps Capture's own x509_hash Client
+      # Identifier; only the outer client_id differs, with another
+      # well-formed x509_hash value, so the mismatch is the only defect.
       request_mutation:
-        request_object:
-          set: { /client_id: request-object-client }
         outer_request:
-          set: { /client_id: outer-client }
+          set: { /client_id: "x509_hash:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
         verification_applies: false
 - id: reject-conflicting-client-id
   use: mobile-automation
@@ -79,6 +80,6 @@ steps:
           conflicting_nonce_outer_request: ${{ fetch-conflicting-nonce.outputs.body.raw.outer_request_delivered }}
           conflicting_nonce_visual_evidence: ${{ exercise-conflicting-nonce.outputs.flow_output.maestro_screenshot_urls }}
           conflicting_client_id_session: ${{ fetch-conflicting-client-id.outputs.body }}
-          conflicting_client_id_request_object: ${{ fetch-conflicting-client-id.outputs.body.raw.authorization_request_jwt }}
+          conflicting_client_id_delivered_request: ${{ fetch-conflicting-client-id.outputs.body.raw.authorization_request_delivered }}
           conflicting_client_id_outer_request: ${{ fetch-conflicting-client-id.outputs.body.raw.outer_request_delivered }}
           conflicting_client_id_visual_evidence: ${{ reject-conflicting-client-id.outputs.flow_output.maestro_screenshot_urls }}

@@ -6,9 +6,10 @@ wallet-solution relying-party definitions for the canonified organization
 
 ## Contents
 
-- `wallet/`: reusable Maestro wallet flows used by the FCAF scenarios:
-  `onboarding.yaml`, `unlock-wallet.yaml`, `choose-eudi-wallet.yaml`, the PID
-  acquisition flows, and the PID presentation flows.
+- `wallet/`: reusable Maestro wallet flows used by the FCAF scenarios and by
+  `cmd/fcaf-pipeline-gen` (PID issuance and the wallet reset), plus the
+  `unlock-wallet` operator helper. Every file is registered in
+  `wallet-actions.yaml`.
 - `wallet-actions.yaml`: portable Wallet actions import manifest. It maps each
   action's name, category, tags, and separate Maestro YAML file to the target
   wallet and version.
@@ -39,11 +40,7 @@ database records, API keys, wallet APKs, screenshots, or runner state.
 
 The public wallet action exports included here are:
 
-- `onboarding`
-- `getcredential-pid-formeu-issuer-eudiw-dev`
-- `verifycredential-pid-formeu-issuer-eudiw-dev`
 - `unlock-wallet`
-- `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
 The FCAF scenarios additionally share flows that must exist as `wallet_actions`
@@ -96,6 +93,16 @@ records before the aggregate pipeline runs:
   which `oid4vci.offer_engagement` reads. It fails when the Wallet is not
   invoked (after the `wallet-not-invoked` screenshot) and otherwise asserts no
   outcome.
+- `fcaf-exercise-wallet-redirect`: shares, then closes the Wallet's success
+  screen so it can follow the `redirect_uri` the Response Endpoint returned.
+  It never fails its step; `oid4vp.redirect_uri_visited` decides. Used by the
+  callback-redirect and unknown-parameter scenarios.
+- `fcaf-exercise-wallet-error`: shares, then stores `wallet-error` only while
+  the Wallet's error screen is up, which `evidence.screenshot_named` checks.
+  Used for the non-JSON, HTTP error and no-redirect Verifier replies.
+- `fcaf-observe-wallet`: a 20 s wait that leaves the Wallet untouched, so
+  `oid4vci.no_request_after` sees any request it sends after the issuer's
+  response.
 
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers

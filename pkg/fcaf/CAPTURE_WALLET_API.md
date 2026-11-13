@@ -185,7 +185,7 @@ The token endpoint accepts either:
 - `grant_type=urn:ietf:params:oauth:grant-type:pre-authorized_code` and `pre-authorized_code`, with optional `tx_code`; or
 - `grant_type=authorization_code`, `code`, `code_verifier`, and `redirect_uri`, with optional `client_id`.
 
-The credential request normally uses `application/json` with `credential_configuration_id` and one `proofs.jwt` or `proofs.attestation` entry. For encrypted credential requests, send an `application/jwt` compact JWE; the encrypted response is also a compact JWE. The selected issuer's metadata determines supported proof and encryption capabilities.
+The credential request normally uses `application/json` with `credential_configuration_id` and one `proofs.jwt` or `proofs.attestation` entry. For encrypted credential requests, send an `application/jwt` compact JWE; a successful response is then also a compact JWE. A Credential Error Response (any non-2xx status) is never encrypted, as OpenID4VCI 1.0 Section 8.3.1 requires, and keeps its JSON body. The selected issuer's metadata determines supported proof and encryption capabilities.
 
 Credo enforces the wallet's PKCE: a PAR request without `code_challenge` gets `400 invalid_request`, and a token request whose `code_verifier` does not match gets `400 invalid_grant`. A Credential Request without a valid DPoP-bound access token gets `401`. Time claims of Wallet Attestations, Client Attestation PoPs, and DPoP proofs are checked with a 60-second clock skew.
 
@@ -344,8 +344,11 @@ answers every Credential Request with that Credential Error Response.
 
 The scenario is applied at the HTTP boundary only. Credo-TS still handles the request and its state
 moves as usual, so the session's `status` and `checks` describe what really happened: a denied
-Credential Request whose credential Credo issued leaves the session `credential_issued`. An
-encrypted Credential Response is encrypted after the scenario is applied. Each application logs an
+Credential Request whose credential Credo issued leaves the session `credential_issued`. When the
+Wallet asked for an encrypted Credential Response, the scenario is applied to the plaintext first:
+a delivered 2xx response is then encrypted, while a delivered error status, such as the 400 above,
+is sent as plain JSON because Credential Error Responses are never encrypted (OpenID4VCI 1.0
+Section 8.3.1). Each application logs an
 `issuance_response_scenario_applied` event with `endpoint`, `request_id` (the
 `raw.oid4vci_requests` entry), the `scenario`, and `original` and `delivered` responses, each
 `{status, content_type, body}` with the body redacted for the session's evidence mode. The
@@ -441,7 +444,7 @@ For `direct_post.jwt`, the merged metadata must still publish the session's gene
 
 The `201` response includes `session_id`, delivery and response settings, `deeplink`, `authorization_request`, and `status: "created"`. A redirect session also includes `request_uri`, `request_uri_method`, `response_uri`, and `scheme`; a DC API session omits those and includes `dc_api_request` instead.
 
-When `redirect_uri` is supplied, the service appends a fresh 128-bit `response_code` query parameter and returns the resulting URI in the session-creation response. It omits the URI from `direct_post` and `direct_post.jwt` Authorization Requests. After a successful wallet submission, the response endpoint returns `200`, `Cache-Control: no-store`, and `{ "redirect_uri": "..." }`; the Wallet must redirect the user agent to it. Invalid presentations retain the normal `400` error response. The exact template `{{base_url}}/openid4vp/redirect`, or the equivalent concrete service URI, creates a service-hosted capture page. It displays the received `response_code` for both valid and invalid visits. A valid visit must include the generated `response_code`; it returns a `200` confirmation page and records `redirect_uri_visited_at` and `redirect_uri_visit_count` in the VP session.
+When `redirect_uri` is supplied, the service appends a fresh 128-bit `response_code` query parameter and returns the resulting URI in the session-creation response. It omits the URI from `direct_post` and `direct_post.jwt` Authorization Requests. After a successful wallet submission, the response endpoint returns `200`, `Cache-Control: no-store`, and `{ "redirect_uri": "..." }`; the Wallet must redirect the user agent to it. A Wallet Authorization Error Response, including `invalid_request` for a malformed request, is captured as `presentation_invalid` but is acknowledged with `200`, `Cache-Control: no-store`, and `{}` as OpenID4VP Section 8.2 requires. Invalid VP Tokens retain the normal `400` error response. The exact template `{{base_url}}/openid4vp/redirect`, or the equivalent concrete service URI, creates a service-hosted capture page. It displays the received `response_code` for both valid and invalid visits. A valid visit must include the generated `response_code`; it returns a `200` confirmation page and records `redirect_uri_visited_at` and `redirect_uri_visit_count` in the VP session.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -1027,6 +1030,30 @@ source test permits it.
     encrypts the scenario's error body like a Credential Response
     (`issuance_response_scenario_applied` keeps the scenario and the
     original `200`).
+- Resynced from upstream master on 13/11/2026 (`07bd5f0`). Since `759bab5`
+  the contract adds the `eu-pid-jwt-key-attestation` issuer (`8b7eaab`) and
+  the caller `document_number` (`d000c7b`), both already recorded above; never
+  encrypts a Credential Error Response, even when the Wallet asked for an
+  encrypted Credential Response (`2ccd2a3`, the fix of the 26/10/2026
+  observation above and MOCK-ISSUER-001); and acknowledges a `direct_post` or
+  `direct_post.jwt` Wallet Authorization Error Response with `200`,
+  `Cache-Control: no-store` and `{}` instead of `400 invalid_presentation`
+  (`07bd5f0`, OpenID4VP 8.2). The session is still `presentation_invalid`;
+  only `raw.presentation_response_verifier_http` changes, so a Wallet that
+  showed "Verifier rejected the response" after sending its error should now
+  end the flow normally. The endpoint table under "Wallet-facing request and
+  response endpoints" still reads "`200` means valid; `400` returns
+  `invalid_presentation`" upstream.
+- In the 12/11/2026 relying-party run (before `07bd5f0`), five of the seven
+  `direct_post.jwt` sessions of `WS_RP_MS_ProtocolMessages__093` recorded the
+  Wallet's encrypted `invalid_request` without
+  `raw.presentation_response_decrypted`, contrary to the contract above. The
+  Wallet's error survived only inside Credo's verification error, in
+  `checks.errors` and the `vp_presentation_response_received` event, as `The
+  wallet returned an openid4vp authorization error response.` followed by the
+  decrypted JSON object. `findWalletError`
+  (`pkg/fcaf/validators/dcql.go`) reads that message when no `error` member
+  is recorded.
 
 ### Known FCAF limitations
 

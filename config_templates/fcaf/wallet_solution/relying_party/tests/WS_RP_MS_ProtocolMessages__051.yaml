@@ -15,18 +15,18 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
   session: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_client_id_session }
-  request_object: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_client_id_request_object }
+  delivered_request: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_client_id_delivered_request }
   outer_request: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_client_id_outer_request }
   visual_evidence: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_client_id_visual_evidence }
 assertions:
-- id: request_object_client_id_is_controlled
-  validator: jwt.payload_field_equals
-  input: evidence.request_object
-  params: { field: client_id, value: request-object-client }
-- id: outer_client_id_conflicts
+- id: request_object_keeps_the_x509_hash_client_id
+  validator: json.field_string_prefix
+  input: evidence.delivered_request
+  params: { field: client_id, prefix: "x509_hash:" }
+- id: outer_client_id_is_another_x509_hash
   validator: json.field_equals
   input: evidence.outer_request
-  params: { field: client_id, value: outer-client }
+  params: { field: client_id, value: "x509_hash:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
 - id: wallet_retrieves_request_object
   validator: oid4vp.request_uri_retrieval
   input: evidence.session

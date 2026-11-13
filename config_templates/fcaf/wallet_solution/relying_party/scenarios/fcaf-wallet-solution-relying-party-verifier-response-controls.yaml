@@ -36,7 +36,7 @@ steps:
 # non-JSON body. The Wallet has already submitted its response by then, so no
 # protocol channel carries its error back and the terminal screen is the only
 # evidence. The screenshot is taken only while the error screen is up, so a
-# Wallet that stays on its success screen stores no `non-json-wallet-error`
+# Wallet that stays on its success screen stores no `wallet-error`
 # file and fails the named-screenshot assertion instead of passing on any
 # screenshot.
 - id: exercise-non-json-response
@@ -44,7 +44,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-non-json-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-non-json-response
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
 - id: fetch-non-json-response
   use: http-request
   with:
@@ -83,7 +83,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-http-error-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-http-error-response
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
 - id: fetch-http-error-response
   use: http-request
   with:
@@ -168,7 +168,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-no-redirect-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-no-redirect-response
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
 - id: fetch-no-redirect-response
   use: http-request
   with:

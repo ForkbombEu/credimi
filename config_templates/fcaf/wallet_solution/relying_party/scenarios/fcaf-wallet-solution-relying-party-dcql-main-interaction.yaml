@@ -369,6 +369,9 @@ steps:
                       meta:
                         vct_values:
                             - urn:eudi:unavailable:optional:1
+                      claims:
+                        - path:
+                            - given_name
             nonce: fcaf-ia-043
             response_type: vp_token
         expected_status: 201

@@ -236,14 +236,12 @@ func TestBuildDocumentUsesPresentationTestIDsForScreenshotAssignment(t *testing.
 	)
 }
 
-func TestBuildDocumentAssignsPresentationScreenshotBuiltFromEvidenceKey(t *testing.T) {
+func TestBuildDocumentAssignsTestEvidenceRecordAndScreenshot(t *testing.T) {
+	const key = "pipeline.scenario.outputs.visual_evidence"
+	reference := "https://app.test/evidence-only.png?token=temporary"
 	report := engine.Report{
 		Evidence: engine.EvidenceMap{
-			"visual_evidence": {
-				Value: map[string]any{
-					"artifacts": []any{"https://app.test/evidence-only.png?token=temporary"},
-				},
-			},
+			key: {Value: map[string]any{"artifacts": []any{reference}}},
 		},
 		ExecutedTests: []engine.ExecutedTest{{
 			TestID: "WS_RP_TEST__001",
@@ -252,6 +250,11 @@ func TestBuildDocumentAssignsPresentationScreenshotBuiltFromEvidenceKey(t *testi
 				ID:           "visual",
 				Status:       "passed",
 				EvidenceKeys: []string{"visual_evidence"},
+			}},
+			Evidence: []engine.ExecutedEvidence{{
+				Name:   "visual_evidence",
+				Key:    key,
+				Visual: []string{reference},
 			}},
 		}},
 	}
@@ -265,9 +268,12 @@ func TestBuildDocumentAssignsPresentationScreenshotBuiltFromEvidenceKey(t *testi
 	})
 
 	tests := document.Categories[0].Groups[0].Tests
+	require.Len(t, tests[0].Evidence, 1)
+	require.Equal(t, key, tests[0].Evidence[0].Key)
 	require.Len(t, tests[0].Images, 1)
 	require.Equal(t, "evidence-only.png", tests[0].Images[0].Filename)
 	require.Empty(t, document.Unassigned)
+	require.Empty(t, document.Warnings)
 }
 
 func TestBuildDocumentKeepsScenarioEvidenceSeparate(t *testing.T) {

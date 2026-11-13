@@ -63,7 +63,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ callback-redirect-298d09a0-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-callback-redirect
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
               parameters:
                 deeplink: ${{ callback-redirect-298d09a0-create-callback-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1786,10 +1786,13 @@ steps:
                 dcql_query:
                     credentials:
                         - claim_sets:
-                            - - missing_claim_ref
+                            - - given_name
                           claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
+                            - path:
+                                - family_name
                           format: dc+sd-jwt
                           id: pid
                           meta:
@@ -1982,7 +1985,8 @@ steps:
                 dcql_query:
                     credentials:
                         - claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
                           format: dc+sd-jwt
                           id: pididentity01
@@ -1994,14 +1998,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /dcql_query:
-                            credentials:
-                                - claim_sets: null
-                                  format: dc+sd-jwt
-                                  id: pididentity01
-                                  meta:
-                                    vct_values:
-                                        - urn:eudi:pid:1
+                        /dcql_query/credentials/0/claim_sets: null
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -2055,7 +2052,8 @@ steps:
                 dcql_query:
                     credentials:
                         - claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
                           format: dc+sd-jwt
                           id: pididentity01
@@ -2067,14 +2065,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /dcql_query:
-                            credentials:
-                                - claim_sets: true
-                                  format: dc+sd-jwt
-                                  id: pididentity01
-                                  meta:
-                                    vct_values:
-                                        - urn:eudi:pid:1
+                        /dcql_query/credentials/0/claim_sets: true
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -2127,7 +2118,8 @@ steps:
                 dcql_query:
                     credentials:
                         - claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
                           format: dc+sd-jwt
                           id: pididentity01
@@ -2139,14 +2131,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /dcql_query:
-                            credentials:
-                                - claim_sets: false
-                                  format: dc+sd-jwt
-                                  id: pididentity01
-                                  meta:
-                                    vct_values:
-                                        - urn:eudi:pid:1
+                        /dcql_query/credentials/0/claim_sets: false
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -2199,7 +2184,8 @@ steps:
                 dcql_query:
                     credentials:
                         - claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
                           format: dc+sd-jwt
                           id: pididentity01
@@ -2211,14 +2197,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /dcql_query:
-                            credentials:
-                                - claim_sets: 0
-                                  format: dc+sd-jwt
-                                  id: pididentity01
-                                  meta:
-                                    vct_values:
-                                        - urn:eudi:pid:1
+                        /dcql_query/credentials/0/claim_sets: 0
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -2271,7 +2250,8 @@ steps:
                 dcql_query:
                     credentials:
                         - claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
                           format: dc+sd-jwt
                           id: pididentity01
@@ -2283,14 +2263,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /dcql_query:
-                            credentials:
-                                - claim_sets: 73
-                                  format: dc+sd-jwt
-                                  id: pididentity01
-                                  meta:
-                                    vct_values:
-                                        - urn:eudi:pid:1
+                        /dcql_query/credentials/0/claim_sets: 73
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -2343,7 +2316,8 @@ steps:
                 dcql_query:
                     credentials:
                         - claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
                           format: dc+sd-jwt
                           id: pididentity01
@@ -2355,14 +2329,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /dcql_query:
-                            credentials:
-                                - claim_sets: not-an-array
-                                  format: dc+sd-jwt
-                                  id: pididentity01
-                                  meta:
-                                    vct_values:
-                                        - urn:eudi:pid:1
+                        /dcql_query/credentials/0/claim_sets: not-an-array
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -2415,7 +2382,8 @@ steps:
                 dcql_query:
                     credentials:
                         - claims:
-                            - path:
+                            - id: given_name
+                              path:
                                 - given_name
                           format: dc+sd-jwt
                           id: pididentity01
@@ -2427,16 +2395,9 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /dcql_query:
-                            credentials:
-                                - claim_sets:
-                                    path:
-                                        - given_name
-                                  format: dc+sd-jwt
-                                  id: pididentity01
-                                  meta:
-                                    vct_values:
-                                        - urn:eudi:pid:1
+                        /dcql_query/credentials/0/claim_sets:
+                            path:
+                                - given_name
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -4244,7 +4205,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-id-duplicate-0ca7fa96-reject-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reject-invalid-dcql
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-credential-id-duplicate-0ca7fa96-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -4519,7 +4480,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-sets-empty-84f34308-reject-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reject-invalid-dcql
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -7732,7 +7693,10 @@ steps:
                         - - unavailable_optional_pid
                       required: false
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: unavailable_optional_pid
                       meta:
                         vct_values:
@@ -9971,6 +9935,12 @@ steps:
         body:
             presentation_request:
                 dcql_query:
+                    credential_sets:
+                        - options:
+                            - - pid
+                        - options:
+                            - - unavailable_cred
+                          required: false
                     credentials:
                         - claims:
                             - path:
@@ -9980,6 +9950,14 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: unavailable_cred
+                          meta:
+                            vct_values:
+                                - urn:credimi:fcaf:not-held:1
                 nonce: fcaf-159
                 transaction_data:
                     - credential_ids:
@@ -10113,7 +10091,10 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                        - format: dc+sd-jwt
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
                           id: unavailable_credential
                           meta:
                             vct_values:
@@ -11941,8 +11922,41 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-create-mixed
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-single-issue-pid-session
       linked_to: dcql-trusted-authorities-values-empt-9ce9e426-create-single
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-single
+      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-single-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-single-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-empt-9ce9e426-fetch-single
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-empt-9ce9e426-create-mixed
       use: http-request
       with:
         body:
@@ -11988,7 +12002,7 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-session
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed-issue-pid-session
       linked_to: dcql-trusted-authorities-values-empt-9ce9e426-create-mixed
       use: http-request
       with:
@@ -12001,43 +12015,18 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-2-session
-      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string
-      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-2-session
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed
+      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed-issue-pid-session
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-2-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-trusted-authorities-values-empty-string
-              parameters:
-                deeplink_MIXED: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-mixed.outputs.body.deeplink }}
-                deeplink_SINGLE: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.deeplink }}
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-mixed.outputs.body.deeplink }}
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-fetch-single
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-trusted-authorities-values-empt-9ce9e426-fetch-mixed
       use: http-request
@@ -17531,10 +17520,7 @@ steps:
             request_mutation:
                 outer_request:
                     set:
-                        /client_id: outer-client
-                request_object:
-                    set:
-                        /client_id: request-object-client
+                        /client_id: x509_hash:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -18154,6 +18140,68 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-response-controls-77a90e75-create-wrong-content-type.outputs.body.session_id }}
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-create-unadvertised-content-type
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: request-uri-unadvertised-content-type
+            request_behavior:
+                request_uri_response:
+                    content_type: text/html
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-reject-unadvertised-content-type-issue-pid-session
+      linked_to: request-uri-response-controls-77a90e75-create-unadvertised-content-type
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-reject-unadvertised-content-type
+      linked_to: request-uri-response-controls-77a90e75-reject-unadvertised-content-type-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ request-uri-response-controls-77a90e75-reject-unadvertised-content-type-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ request-uri-response-controls-77a90e75-create-unadvertised-content-type.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-fetch-unadvertised-content-type
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-uri-response-controls-77a90e75-create-unadvertised-content-type.outputs.body.session_id }}
     - continue_on_error: true
       id: request-uri-response-controls-77a90e75-create-http-error
       use: http-request
@@ -20983,7 +21031,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-exercise-unknown-response-parameter-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-unknown-response-parameter
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-create-unknown-response-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21050,7 +21098,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-exercise-unknown-request-and-response-parameter-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-unknown-request-and-response-parameter
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-create-unknown-request-and-response-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21817,7 +21865,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-non-json-response-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-non-json-response
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-create-non-json-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21879,7 +21927,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-http-error-response-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-http-error-response
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-create-http-error-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21998,7 +22046,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-no-redirect-response-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-no-redirect-response
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-create-no-redirect-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -23075,9 +23123,10 @@ steps:
                 output:
                     mixed_value: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-mixed.outputs.body.raw.authorization_request_delivered | optional }}
                     mixed_value_session: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-mixed.outputs.body | optional }}
+                    mixed_visual_evidence: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed.outputs.flow_output.maestro_screenshot_urls | optional }}
                     single_value: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-single.outputs.body.raw.authorization_request_delivered | optional }}
                     single_value_session: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-single.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    single_visual_evidence: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-single.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.trusted-authorities-values-item-non-string:
                 output:
                     array_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-array.outputs.body.raw.authorization_request_delivered | optional }}
@@ -23484,8 +23533,8 @@ steps:
                     wrong_typ_visual_evidence: ${{ request-object-header-controls-ed82443e-reject-wrong-typ.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.request-object-outer-controls:
                 output:
+                    conflicting_client_id_delivered_request: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id.outputs.body.raw.authorization_request_delivered | optional }}
                     conflicting_client_id_outer_request: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id.outputs.body.raw.outer_request_delivered | optional }}
-                    conflicting_client_id_request_object: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id.outputs.body.raw.authorization_request_jwt | optional }}
                     conflicting_client_id_session: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-client-id.outputs.body | optional }}
                     conflicting_client_id_visual_evidence: ${{ request-object-outer-controls-84cfd8b2-reject-conflicting-client-id.outputs.flow_output.maestro_screenshot_urls | optional }}
                     conflicting_nonce_outer_request: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body.raw.outer_request_delivered | optional }}
@@ -23520,6 +23569,9 @@ steps:
                     http_error_response: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body.raw.request_uri_response_http | optional }}
                     http_error_session: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body | optional }}
                     http_error_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-http-error.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    unadvertised_content_type_response: ${{ request-uri-response-controls-77a90e75-fetch-unadvertised-content-type.outputs.body.raw.request_uri_response_http | optional }}
+                    unadvertised_content_type_session: ${{ request-uri-response-controls-77a90e75-fetch-unadvertised-content-type.outputs.body | optional }}
+                    unadvertised_content_type_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-unadvertised-content-type.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wrong_content_type_response: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body.raw.request_uri_response_http | optional }}
                     wrong_content_type_session: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body | optional }}
                     wrong_content_type_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-wrong-content-type.outputs.flow_output.maestro_screenshot_urls | optional }}
