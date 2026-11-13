@@ -652,13 +652,15 @@ The session record additionally exposes `raw.authorization_request_jwt`, the exa
 `raw.presentation_response_decrypted` is always wallet-originated evidence, never an error
 constructed by Capture while verifying it. For `direct_post.jwt` and `dc_api.jwt`, it contains the
 decrypted Authorization Response JWE payload, including either `vp_token` or the Wallet's `error`,
-`error_description`, and `state`, even when verification fails. It is absent only when the response
-cannot be decrypted, including an intentionally `allow_undecryptable_response` session. For plain
-`direct_post` and `dc_api`, it contains the normalized posted Authorization Response when available;
-`raw.presentation_response` preserves the unmodified form or JSON members. `checks.vp_token_format_valid`
-and `vp_presentation_response_received.detail.vp_token_observed` describe whether that wallet
-payload carried a `vp_token`, independently of the verifier's subsequent result. Verifier-side
-failures remain in `checks.errors` and `raw.presentation_response_verifier_http`.
+`error_description`, and `state`, even when verification fails. Its exact UTF-8 plaintext is stored
+alongside it as `raw.presentation_response_decrypted_raw`, so byte-level JSON checks never rely on
+re-serializing the parsed response. Both are absent only when the response cannot be decrypted,
+including an intentionally `allow_undecryptable_response` session. For plain `direct_post` and
+`dc_api`, `presentation_response_decrypted` contains the normalized posted Authorization Response
+when available; `raw.presentation_response` preserves the unmodified form or JSON members.
+`checks.vp_token_format_valid` and `vp_presentation_response_received.detail.vp_token_observed`
+describe whether that wallet payload carried a `vp_token`, independently of the verifier's subsequent
+result. Verifier-side failures remain in `checks.errors` and `raw.presentation_response_verifier_http`.
 
 ## Test-only chained OAuth server
 

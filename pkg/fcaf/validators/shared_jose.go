@@ -359,7 +359,8 @@ func sharedJWECases() []sharedCase {
 }
 
 type sharedParams struct {
-	Cases []string `json:"cases"`
+	Cases     []string `json:"cases"`
+	SDJWTPart string   `json:"sdjwt_part"`
 }
 
 // sharedValueBytes returns the bytes a selected value stands for: a string as
@@ -368,6 +369,8 @@ func sharedValueBytes(item selectedValue) ([]byte, *Result) {
 	switch typed := item.value.(type) {
 	case string:
 		return []byte(typed), nil
+	case []byte:
+		return typed, nil
 	case map[string]any:
 		if encoded, ok := typed["base64"].(string); ok {
 			data, err := base64.StdEncoding.DecodeString(encoded)
@@ -392,11 +395,97 @@ func sharedValueBytes(item selectedValue) ([]byte, *Result) {
 	return nil, &Result{
 		Status: StatusFail,
 		Message: fmt.Sprintf(
-			"%s is a JSON %s, expected a string or a raw body",
+			"%s is a JSON %s, expected a string or a raw body (or internal bytes)",
 			item.label,
 			jsonTypeName(item.value),
 		),
 	}
+}
+
+func sharedSDJWTValues(value any, part string) ([]selectedValue, *Result) {
+	presentations, ok := sdjwtPresentations(value)
+	if !ok || len(presentations) == 0 {
+		return nil, &Result{Status: StatusFail, Message: "SD-JWT presentation evidence is missing"}
+	}
+
+	selected := make([]selectedValue, 0, len(presentations))
+	for index, presentation := range presentations {
+		segments := strings.Split(presentation.Raw, "~")
+		if len(segments) < 2 {
+			return nil, &Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("presentation[%d] has no SD-JWT component separator", index),
+			}
+		}
+		switch part {
+		case "issuer_jwt":
+			selected = append(selected, selectedValue{
+				value: segments[0],
+				label: fmt.Sprintf("presentation[%d] issuer-signed JWT", index),
+			})
+		case "key_binding_jwt":
+			if presentation.KeyBindingJWT == "" {
+				return nil, &Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("presentation[%d] has no key-binding JWT", index),
+				}
+			}
+			selected = append(selected, selectedValue{
+				value: presentation.KeyBindingJWT,
+				label: fmt.Sprintf("presentation[%d] key-binding JWT", index),
+			})
+		case "disclosures":
+			end := len(segments)
+			if presentation.KeyBindingJWT != "" {
+				end--
+			} else if segments[end-1] == "" {
+				end--
+			}
+			if end == 1 {
+				return nil, &Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("presentation[%d] has no disclosure", index),
+				}
+			}
+			for disclosureIndex, disclosure := range segments[1:end] {
+				data, err := base64.RawURLEncoding.Strict().DecodeString(disclosure)
+				if err != nil {
+					return nil, &Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"presentation[%d] disclosure[%d] is not canonical unpadded base64url: %v",
+							index,
+							disclosureIndex,
+							err,
+						),
+					}
+				}
+				selected = append(selected, selectedValue{
+					value: data,
+					label: fmt.Sprintf("presentation[%d] disclosure[%d]", index, disclosureIndex),
+				})
+			}
+		default:
+			return nil, &Result{
+				Status:  StatusError,
+				Message: "sdjwt_part must be issuer_jwt, disclosures or key_binding_jwt",
+			}
+		}
+	}
+	return selected, nil
+}
+
+func sharedSelectedValues(input Input, params sharedParams) ([]selectedValue, *Result) {
+	if params.SDJWTPart == "" {
+		return resolveSelection(input)
+	}
+	if _, exists := input.Params["select"]; exists {
+		return nil, &Result{
+			Status:  StatusError,
+			Message: "sdjwt_part cannot be combined with select",
+		}
+	}
+	return sharedSDJWTValues(input.Value, params.SDJWTPart)
 }
 
 func validateSharedFamily(input Input, family string, cases []sharedCase) Result {
@@ -412,7 +501,7 @@ func validateSharedFamily(input Input, family string, cases []sharedCase) Result
 			}
 		}
 	}
-	selected, result := resolveSelection(input)
+	selected, result := sharedSelectedValues(input, params)
 	if result != nil {
 		return *result
 	}

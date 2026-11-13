@@ -20,8 +20,8 @@ normative_references:
 evidence:
   encrypted_response:
     from: pipeline.dcql.session-encryption.outputs.encrypted_response
-  decrypted_response:
-    from: pipeline.dcql.session-encryption.outputs.decrypted_response
+  decrypted_response_raw:
+    from: pipeline.dcql.session-encryption.outputs.decrypted_response_raw
   visual_evidence:
     from: pipeline.dcql.session-encryption.outputs.visual_evidence
 assertions:
@@ -31,11 +31,9 @@ assertions:
   params:
     field: cty
     present: false
-- id: decrypted_response_is_a_json_object_carrying_vp_token
-  validator: json.field_required
-  input: evidence.decrypted_response
-  params:
-    field: vp_token
+- id: decrypted_response_passes_shared_json
+  validator: shared.json
+  input: evidence.decrypted_response_raw
 - id: encrypted_response_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

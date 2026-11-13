@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 )
@@ -308,6 +309,35 @@ func TestSharedJWTJWEValidator(t *testing.T) {
 			result := SharedJWTJWEValidator{}.Validate(context.Background(), Input{Value: tt.value})
 			require.Equal(t, tt.status, result.Status, result.Message)
 			require.Contains(t, result.Message, tt.message)
+		})
+	}
+}
+
+func TestSharedValidatorsExtractSDJWTParts(t *testing.T) {
+	issuer := wsCompactJWS(`{"alg":"ES256"}`, `{"iss":"https://issuer.test"}`, "c2ln")
+	disclosure := base64.RawURLEncoding.EncodeToString([]byte(`["salt","given_name","Mario"]`))
+	keyBinding := wsCompactJWS(`{"alg":"ES256"}`, `{"aud":"https://verifier.test"}`, "c2ln")
+	presentation := &evidence.SDJWTPresentation{
+		Raw:           issuer + "~" + disclosure + "~" + keyBinding,
+		SDJWT:         issuer + "~" + disclosure + "~",
+		KeyBindingJWT: keyBinding,
+	}
+
+	for _, tt := range []struct {
+		name      string
+		validator Validator
+		part      string
+	}{
+		{"issuer JWT", SharedJWTJWSValidator{}, "issuer_jwt"},
+		{"disclosures", SharedJSONValidator{}, "disclosures"},
+		{"key-binding JWT", SharedJWTJWSValidator{}, "key_binding_jwt"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.validator.Validate(context.Background(), Input{
+				Value:  presentation,
+				Params: map[string]any{"sdjwt_part": tt.part},
+			})
+			require.Equal(t, StatusPass, result.Status, result.Message)
 		})
 	}
 }
