@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -284,12 +285,50 @@ func TestHandleMobileRunnerDashboardCode(t *testing.T) {
 			ReturnTo: dashboardTestReturnTo,
 			State:    "st4te",
 		})
-		requireRegistrationAPIError(
+		apiErr := requireRegistrationAPIError(
 			t,
 			err,
 			http.StatusTooManyRequests,
 			"dashboard_code",
 			"too_many_codes",
+		)
+		assert.Equal(
+			t,
+			"too many pending dashboard sign-ins; try again in a minute",
+			apiErr.Message,
+		)
+	})
+
+	t.Run("a full store refuses with the same message", func(t *testing.T) {
+		f := setupDashboardFixture(t)
+		now := dashboardCodeNow()
+		for i := range 4096 {
+			_, err := dashboardCodes.Issue(mobilerunner.DashboardCode{
+				RunnerID:       "runner",
+				UserID:         fmt.Sprintf("user%d", i),
+				AuthCollection: "users",
+				ReturnTo:       dashboardTestReturnTo,
+				Expires:        now.Add(time.Hour),
+			}, now)
+			require.NoError(t, err)
+		}
+
+		_, err := f.requestDashboardCode(t, f.user, true, MobileRunnerDashboardCodeRequest{
+			RunnerID: tokenTestRunnerID,
+			ReturnTo: dashboardTestReturnTo,
+			State:    "st4te",
+		})
+		apiErr := requireRegistrationAPIError(
+			t,
+			err,
+			http.StatusServiceUnavailable,
+			"dashboard_code",
+			"too_many_codes",
+		)
+		assert.Equal(
+			t,
+			"too many pending dashboard sign-ins; try again in a minute",
+			apiErr.Message,
 		)
 	})
 }
@@ -464,6 +503,63 @@ func TestHandleMobileRunnerDashboardRedeem(t *testing.T) {
 			assert.NotContains(t, apiErr.Message, "Temporal")
 		},
 	)
+
+	t.Run(
+		"a code of a deleted user is refused as one outside the organization",
+		func(t *testing.T) {
+			f := setupDashboardFixture(t)
+			code := f.mustDashboardCode(t, f.user)
+			deleteDashboardUser(t, f)
+
+			_, err := f.redeemDashboardCode(t, f.superuser, tokenTestRunnerID, code)
+			requireRegistrationAPIError(
+				t,
+				err,
+				http.StatusForbidden,
+				"runner_id",
+				"runner_owner_mismatch",
+			)
+		},
+	)
+
+	t.Run("a failed user lookup is a server error", func(t *testing.T) {
+		f := setupDashboardFixture(t)
+		now := dashboardCodeNow()
+		issued, ok := dashboardCodes.Redeem(f.mustDashboardCode(t, f.user), now)
+		require.True(t, ok)
+		ghost := core.NewBaseCollection("ghost_users")
+		require.NoError(t, f.app.Save(ghost))
+		_, err := f.app.DB().DropTable("ghost_users").Execute()
+		require.NoError(t, err)
+		issued.AuthCollection = ghost.Name
+		code, err := dashboardCodes.Issue(issued, now)
+		require.NoError(t, err)
+
+		_, err = f.redeemDashboardCode(t, f.superuser, tokenTestRunnerID, code)
+		requireRegistrationAPIError(
+			t,
+			err,
+			http.StatusInternalServerError,
+			"user_id",
+			"failed_to_find_user",
+		)
+	})
+}
+
+// deleteDashboardUser deletes the fixture's user and its organization
+// authorizations.
+func deleteDashboardUser(t *testing.T, f registrationFixture) {
+	t.Helper()
+
+	authorizations, err := f.app.FindAllRecords(
+		"orgAuthorizations",
+		dbx.HashExp{"user": f.user.Id},
+	)
+	require.NoError(t, err)
+	for _, authorization := range authorizations {
+		require.NoError(t, f.app.Delete(authorization))
+	}
+	require.NoError(t, f.app.Delete(f.user))
 }
 
 func (f registrationFixture) checkDashboardSession(
@@ -539,18 +635,8 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 			wantReason: "runner_disabled",
 		},
 		{
-			name: "deleted user",
-			prepare: func(t *testing.T, f registrationFixture) {
-				authorizations, err := f.app.FindAllRecords(
-					"orgAuthorizations",
-					dbx.HashExp{"user": f.user.Id},
-				)
-				require.NoError(t, err)
-				for _, authorization := range authorizations {
-					require.NoError(t, f.app.Delete(authorization))
-				}
-				require.NoError(t, f.app.Delete(f.user))
-			},
+			name:       "deleted user",
+			prepare:    deleteDashboardUser,
 			wantCode:   http.StatusForbidden,
 			wantDomain: "runner_id",
 			wantReason: "runner_owner_mismatch",

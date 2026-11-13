@@ -29,6 +29,10 @@ const DashboardCallbackPath = "/auth/credimi/callback"
 // maxDashboardStateLength bounds the dashboard's state, echoed back verbatim.
 const maxDashboardStateLength = 128
 
+// tooManyDashboardCodesMessage refuses a code while too many are pending,
+// for the user (429) or in all (503).
+const tooManyDashboardCodesMessage = "too many pending dashboard sign-ins; try again in a minute"
+
 // dashboardCodeNow is the clock of dashboard sign-in codes; tests replace it.
 var dashboardCodeNow = time.Now
 
@@ -139,7 +143,7 @@ func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
 				http.StatusTooManyRequests,
 				"dashboard_code",
 				"too_many_codes",
-				"too many pending sign-ins; try again in a minute",
+				tooManyDashboardCodesMessage,
 			)
 		}
 		if errors.Is(err, mobilerunner.ErrTooManyDashboardCodes) {
@@ -147,7 +151,7 @@ func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
 				http.StatusServiceUnavailable,
 				"dashboard_code",
 				"too_many_codes",
-				"too many pending dashboard sign-ins, try again in a minute",
+				tooManyDashboardCodesMessage,
 			)
 		}
 		if err != nil {
@@ -224,17 +228,12 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 			)
 		}
 
-		user, err := e.App.FindRecordById(code.AuthCollection, code.UserID)
-		if err != nil {
-			return apierror.New(
-				http.StatusForbidden,
-				"code",
-				"user_not_found",
-				"the user who signed in no longer exists",
-			)
+		user, apiErr := findDashboardUser(e.App, code.AuthCollection, code.UserID)
+		if apiErr != nil {
+			return apiErr
 		}
 		// The user's role may have changed since the code was issued.
-		if _, _, apiErr := authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
+		if _, _, apiErr = authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
 			return apiErr
 		}
 
