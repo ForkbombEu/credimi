@@ -70,6 +70,19 @@ var MobileRunnerRegistrationRoutes = routing.RouteGroup{
 				middlewares.RequireCachedAPIKey(),
 			},
 		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/dashboard-code/redeem",
+			Handler:        HandleMobileRunnerDashboardRedeem,
+			RequestSchema:  MobileRunnerDashboardRedeemRequest{},
+			ResponseSchema: MobileRunnerDashboardRedeemResponse{},
+			// The runner's dashboard redeems a sign-in code with the runner's
+			// own key: same key handling as /temporal-token.
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				{Func: observability.RunnerPreAuthLimit()},
+				middlewares.RequireCachedAPIKey(),
+			},
+		},
 	},
 }
 

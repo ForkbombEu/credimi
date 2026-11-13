@@ -50,22 +50,40 @@ func authorizeRunnerKey(
 	e *core.RequestEvent,
 	runnerID string,
 ) (*core.Record, string, *apierror.APIError) {
-	record, canonicalID, apiErr := resolveLifecycleRunner(e.App, e.Auth, runnerID)
+	return authorizeRunnerManager(
+		e.App,
+		e.Auth,
+		runnerID,
+		"only organization owners can obtain a Temporal token",
+		"only the internal admin key can obtain a Temporal token for an admin-managed runner",
+	)
+}
+
+// authorizeRunnerManager resolves runnerID and allows auth to manage the
+// runner only when it owns the runner's organization or is a superuser, only
+// as a superuser for an admin-managed runner, and never for a disabled runner.
+// ownerRequired and adminManaged are the messages of the two role refusals.
+func authorizeRunnerManager(
+	app core.App,
+	auth *core.Record,
+	runnerID, ownerRequired, adminManaged string,
+) (*core.Record, string, *apierror.APIError) {
+	record, canonicalID, apiErr := resolveLifecycleRunner(app, auth, runnerID)
 	if apiErr != nil {
 		return nil, "", apiErr
 	}
-	if !isSuperuserAuth(e.Auth) {
-		_, err := e.App.FindFirstRecordByFilter(
+	if !isSuperuserAuth(auth) {
+		_, err := app.FindFirstRecordByFilter(
 			"orgAuthorizations",
 			"user = {:user} && organization = {:org} && role.name = {:role}",
-			dbx.Params{"user": e.Auth.Id, "org": record.GetString("owner"), "role": "owner"},
+			dbx.Params{"user": auth.Id, "org": record.GetString("owner"), "role": "owner"},
 		)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", apierror.New(
 				http.StatusForbidden,
 				"runner_id",
 				"runner_owner_role_required",
-				"only organization owners can obtain a Temporal token",
+				ownerRequired,
 			)
 		}
 		if err != nil {
@@ -77,12 +95,12 @@ func authorizeRunnerKey(
 			)
 		}
 	}
-	if record.GetBool("admin_managed") && !isSuperuserAuth(e.Auth) {
+	if record.GetBool("admin_managed") && !isSuperuserAuth(auth) {
 		return nil, "", apierror.New(
 			http.StatusForbidden,
 			"runner_id",
 			"admin_managed_runner",
-			"only the internal admin key can obtain a Temporal token for an admin-managed runner",
+			adminManaged,
 		)
 	}
 	if record.GetBool("disabled") {

@@ -6,6 +6,7 @@ import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { getUserOrganization } from '$lib/utils/index.js';
 
+import { LoginReturnSession, loginReturnPath } from '@/auth/login-return';
 import { verifyUser } from '@/auth/verifyUser';
 import { WelcomeSession } from '@/auth/welcome/index.js';
 import { loadFeatureFlags } from '@/features';
@@ -23,7 +24,11 @@ export const load = async ({ fetch, url }) => {
 	// Auth
 
 	if (!featureFlags.AUTH) error(404);
-	if (!(await verifyUser(fetch))) redirect('/login');
+	if (!(await verifyUser(fetch))) {
+		const requested = loginReturnPath(deLocalizeUrl(url).pathname + url.search);
+		if (browser && requested) LoginReturnSession.start({ path: requested });
+		redirect('/login');
+	}
 
 	// Keypairoom
 
@@ -53,6 +58,15 @@ export const load = async ({ fetch, url }) => {
 	if (featureFlags.ORGANIZATIONS && OrganizationInviteSession.isActive()) {
 		OrganizationInviteSession.end();
 		redirect('/my/organizations');
+	}
+
+	// Return to the page requested before login
+
+	if (browser && LoginReturnSession.isActive()) {
+		const requested = loginReturnPath(LoginReturnSession.getData()?.path ?? '');
+		LoginReturnSession.end();
+		const current = deLocalizeUrl(url);
+		if (requested && requested !== current.pathname + current.search) redirect(requested);
 	}
 
 	// Organization page, redirect to edit page if first time user

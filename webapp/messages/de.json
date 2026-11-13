@@ -1117,5 +1117,10 @@
 	"Stay_on_page": "Bleiben",
 	"Review_replaces": "Ersetzt die bestehende Action {action}. Ihr Datensatz und die Pipelines, die sie nutzen, bleiben erhalten.",
 	"Review_used_by": "Von {count} Pipelines verwendet: Sie führen nach dem Speichern den korrigierten Code aus.",
-	"Review_previous_save_failed": "Das letzte Speichern ist fehlgeschlagen"
+	"Review_previous_save_failed": "Das letzte Speichern ist fehlgeschlagen",
+	"Sign_in": "Anmelden",
+	"Signed_in_as": "Angemeldet als",
+	"Runner_dashboard_sign_in": "Bei einem Runner-Dashboard anmelden",
+	"Runner_dashboard_sign_in_description": "Ein Runner-Dashboard bittet Credimi, dich anzumelden. Fahre nur fort, wenn du es selbst geöffnet hast.",
+	"Runner_dashboard_sign_in_invalid": "Dieser Anmeldelink ist unvollständig. Wähle im Runner-Dashboard erneut Sign in with Credimi."
 }

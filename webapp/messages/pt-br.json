@@ -1117,5 +1117,10 @@
 	"Stay_on_page": "Ficar",
 	"Review_replaces": "Substitui a action existente {action}. O registro dela e as pipelines que a usam são mantidos.",
 	"Review_used_by": "Usada por {count} pipelines: elas executarão o código corrigido depois que você salvar.",
-	"Review_previous_save_failed": "O último salvamento falhou"
+	"Review_previous_save_failed": "O último salvamento falhou",
+	"Sign_in": "Entrar",
+	"Signed_in_as": "Conectado como",
+	"Runner_dashboard_sign_in": "Entrar no painel de um runner",
+	"Runner_dashboard_sign_in_description": "Um painel de runner pede ao Credimi para conectar você. Continue apenas se você mesmo o abriu.",
+	"Runner_dashboard_sign_in_invalid": "Este link de acesso está incompleto. Escolha Sign in with Credimi no painel do runner novamente."
 }

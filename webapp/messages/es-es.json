@@ -1117,5 +1117,10 @@
 	"Stay_on_page": "Quedarse",
 	"Review_replaces": "Sustituye la action existente {action}. Se conservan su registro y las pipelines que la usan.",
 	"Review_used_by": "Usada por {count} pipelines: ejecutarán el código corregido después de guardar.",
-	"Review_previous_save_failed": "El último guardado falló"
+	"Review_previous_save_failed": "El último guardado falló",
+	"Sign_in": "Iniciar sesión",
+	"Signed_in_as": "Sesión iniciada como",
+	"Runner_dashboard_sign_in": "Iniciar sesión en el panel de un runner",
+	"Runner_dashboard_sign_in_description": "Un panel de runner pide a Credimi que inicies sesión. Continúa solo si lo has abierto tú.",
+	"Runner_dashboard_sign_in_invalid": "Este enlace de inicio de sesión está incompleto. Vuelve a elegir Sign in with Credimi en el panel del runner."
 }
