@@ -306,6 +306,50 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: End an authoring session
+  /api/action-author/sessions/{session_id}/replay:
+    get:
+      description: 'Whether the chat UI can replay the ended chat of a session the
+        caller started: replayable is true when the runner''s agent answers the chat''s
+        first authoring_events query page, with at least one event, within 10 seconds.
+        A running or missing chat, or a query that fails or times out (no agent polls
+        the runner''s task queue, the agent changed since the chat ran, its history
+        is gone), answers false; the session page then shows the transcript (GET /api/action-author/sessions/{session_id}/transcript).
+        Only the session''s starter can ask (404 otherwise).'
+      operationId: actionAuthor.sessionReplay
+      parameters:
+      - description: The ID for the session_id.
+        in: path
+        name: session_id
+        required: true
+        schema:
+          description: The ID for the session_id.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorReplayResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Check whether an authoring session's ended chat can be replayed
   /api/action-author/sessions/{session_id}/transcript:
     get:
       description: 'The read-only transcript of a session''s chat, read from Temporal
@@ -1051,6 +1095,11 @@ components:
           type: string
         used_by:
           type: integer
+      type: object
+    HandlersActionAuthorReplayResponse:
+      properties:
+        replayable:
+          type: boolean
       type: object
     HandlersActionAuthorReviewRequest:
       properties:
