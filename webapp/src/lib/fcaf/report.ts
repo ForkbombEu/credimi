@@ -51,6 +51,8 @@ export type GroupedGroup = {
 	label: string;
 	passed: number;
 	total: number;
+	displayedCount: number;
+	displayedLabel: string;
 	rate: number;
 	tests: TestResult[];
 };
@@ -59,6 +61,8 @@ export type CategoryGroup = {
 	category: FCAFCategory;
 	passed: number;
 	total: number;
+	displayedCount: number;
+	displayedLabel: string;
 	groups: GroupedGroup[];
 };
 
@@ -164,7 +168,39 @@ export function screenshotsForTest(
 		.map(({ url, label }) => ({ url, label }));
 }
 
-export function groupExecutedTests(tests: TestResult[]): CategoryGroup[] {
+function appendToTestGroup(groups: Map<string, TestResult[]>, key: string, test: TestResult): void {
+	const existing = groups.get(key);
+	if (existing) {
+		existing.push(test);
+		return;
+	}
+	groups.set(key, [test]);
+}
+
+export function groupExecutedTests(
+	tests: TestResult[],
+	options: {
+		countedTests?: TestResult[];
+		visibleTests?: TestResult[];
+		displayedLabel?: string;
+	} = {}
+): CategoryGroup[] {
+	const countedTests =
+		options.countedTests ?? tests.filter((test) => statusIsPassed(test.status));
+	const visibleTests = options.visibleTests ?? tests;
+	const displayedLabel = options.displayedLabel ?? 'passed';
+	const testsByGroup = new Map<string, TestResult[]>();
+	const visibleTestsByGroup = new Map<string, TestResult[]>();
+	const groupKey = (test: TestResult) => {
+		const parsed = parseFCAFTestId(test.test_id);
+		return `${parsed.category.code}/${parsed.key}`;
+	};
+	for (const test of countedTests) {
+		appendToTestGroup(testsByGroup, groupKey(test), test);
+	}
+	for (const test of visibleTests) {
+		appendToTestGroup(visibleTestsByGroup, groupKey(test), test);
+	}
 	const byCategory = new Map<
 		string,
 		{ category: FCAFCategory; groups: Map<string, { label: string; tests: TestResult[] }> }
@@ -183,28 +219,42 @@ export function groupExecutedTests(tests: TestResult[]): CategoryGroup[] {
 			entry.groups.set(parsed.key, { label: parsed.label, tests: [test] });
 		}
 	}
-	return FCAF_CATEGORY_ORDER.filter((code) => byCategory.has(code)).map((code) => {
-		const entry = byCategory.get(code)!;
+	return FCAF_CATEGORY_ORDER.flatMap((code) => {
+		const entry = byCategory.get(code);
+		if (!entry) return [];
 		const groups: GroupedGroup[] = [...entry.groups.entries()]
 			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([key, { label, tests: groupTests }]) => {
+			.flatMap(([key, { label, tests: groupTests }]) => {
+				const groupKeyValue = `${entry.category.code}/${key}`;
+				const matchingTests = testsByGroup.get(groupKeyValue) ?? [];
+				const groupVisibleTests = visibleTestsByGroup.get(groupKeyValue) ?? [];
+				if (groupVisibleTests.length === 0) return [];
 				const passed = groupTests.filter((t) => statusIsPassed(t.status)).length;
 				const total = groupTests.length;
-				return {
-					key,
-					label,
-					passed,
-					total,
-					rate: total > 0 ? Math.round((passed / total) * 100) : 0,
-					tests: groupTests
-				};
+				return [
+					{
+						key,
+						label,
+						passed,
+						total,
+						displayedCount: matchingTests.length,
+						displayedLabel,
+						rate: total > 0 ? Math.round((matchingTests.length / total) * 100) : 0,
+						tests: groupVisibleTests
+					}
+				];
 			});
-		return {
-			category: entry.category,
-			passed: groups.reduce((sum, group) => sum + group.passed, 0),
-			total: groups.reduce((sum, group) => sum + group.total, 0),
-			groups
-		};
+		if (groups.length === 0) return [];
+		return [
+			{
+				category: entry.category,
+				passed: groups.reduce((sum, group) => sum + group.passed, 0),
+				total: groups.reduce((sum, group) => sum + group.total, 0),
+				displayedCount: groups.reduce((sum, group) => sum + group.displayedCount, 0),
+				displayedLabel,
+				groups
+			}
+		];
 	});
 }
 
@@ -230,12 +280,21 @@ export function prepareReportDisplay(
 	const passedTests = executedTests.filter((t) => statusIsPassed(t.status)).length;
 	const failedTests = executedTests.filter((t) => statusIsFailed(t.status)).length;
 	const otherTests = totalTests - passedTests - failedTests;
-	const filteredTests = executedTests.filter(
-		(t) =>
-			(options.filter === 'all' || t.status === options.filter) &&
-			testMatchesSearch(t, options.searchQuery)
+	const statusFilteredTests = executedTests.filter(
+		(t) => options.filter === 'all' || t.status === options.filter
 	);
-	const groupedCategories = groupExecutedTests(filteredTests);
+	const countedTests =
+		options.filter === 'all'
+			? executedTests.filter((t) => statusIsPassed(t.status))
+			: statusFilteredTests;
+	const filteredTests = statusFilteredTests.filter((t) =>
+		testMatchesSearch(t, options.searchQuery)
+	);
+	const groupedCategories = groupExecutedTests(executedTests, {
+		countedTests,
+		visibleTests: filteredTests,
+		displayedLabel: options.filter === 'all' ? 'passed' : options.filter.replaceAll('_', ' ')
+	});
 	const unassignedScreenshots = presentationScreenshots
 		.filter(({ test_ids }) => !test_ids?.length)
 		.map(({ url, label }) => ({ url, label }));
