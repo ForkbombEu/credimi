@@ -12,8 +12,10 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/pocketbase/pocketbase/tools/security"
 )
 
 var ApiKeyRoutes = routing.RouteGroup{
@@ -173,7 +175,9 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 			return err
 		}
 
-		response, err := generateAuthenticateApiKeyResponse(authRecord)
+		response, err := generateAuthenticateApiKeyResponse(func() (string, error) {
+			return newAPIKeyAuthToken(authRecord)
+		})
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
@@ -194,14 +198,65 @@ func AuthenticateInternalAdminAPIKey() func(e *core.RequestEvent) error {
 	}
 }
 
-type HasAuthToken interface {
-	NewAuthToken() (string, error)
+// APIKeyTokenClaim marks an auth token minted from an API key by
+// /api/apikey/authenticate, so endpoints that need a browser session can
+// refuse it.
+const APIKeyTokenClaim = "api_key"
+
+// authorizationClaims returns the claims of the request's Authorization
+// token (with or without the Bearer prefix), read unverified: callers rely on
+// PocketBase having verified the token.
+func authorizationClaims(r *http.Request) (jwt.MapClaims, bool) {
+	token := strings.TrimSpace(r.Header.Get("Authorization"))
+	if len(token) > 7 && strings.EqualFold(token[:7], "Bearer ") {
+		token = token[7:]
+	}
+	if token == "" {
+		return nil, false
+	}
+	claims, err := security.ParseUnverifiedJWT(token)
+	if err != nil {
+		return nil, false
+	}
+	return claims, true
+}
+
+// RequestHasAPIKeyToken reports whether the request's Authorization token
+// was exchanged for an API key (APIKeyTokenClaim).
+func RequestHasAPIKeyToken(r *http.Request) bool {
+	claims, ok := authorizationClaims(r)
+	if !ok {
+		return false
+	}
+	fromAPIKey, _ := claims[APIKeyTokenClaim].(bool)
+	return fromAPIKey
+}
+
+// newAPIKeyAuthToken mints record's auth token as PocketBase's NewAuthToken
+// does (same signing key, type, collectionId and duration), marked with
+// APIKeyTokenClaim and not refreshable, so auth-refresh hands the same token
+// back instead of an unmarked one.
+func newAPIKeyAuthToken(record *core.Record) (string, error) {
+	if !record.Collection().IsAuth() {
+		return "", core.ErrNotAuthRecord
+	}
+	key := record.TokenKey() + record.Collection().AuthToken.Secret
+	if key == "" {
+		return "", core.ErrMissingSigningKey
+	}
+	return security.NewJWT(jwt.MapClaims{
+		core.TokenClaimType:         core.TokenTypeAuth,
+		core.TokenClaimId:           record.Id,
+		core.TokenClaimCollectionId: record.Collection().Id,
+		core.TokenClaimRefreshable:  false,
+		APIKeyTokenClaim:            true,
+	}, key, record.Collection().AuthToken.DurationTime())
 }
 
 func generateAuthenticateApiKeyResponse(
-	authRecord HasAuthToken,
+	newToken func() (string, error),
 ) (AuthenticateApiKeyResponse, error) {
-	token, err := authRecord.NewAuthToken()
+	token, err := newToken()
 	if err != nil {
 		return AuthenticateApiKeyResponse{}, apierror.New(
 			http.StatusInternalServerError,

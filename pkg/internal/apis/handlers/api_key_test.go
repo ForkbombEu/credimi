@@ -25,18 +25,6 @@ import (
 
 const apiKeyHandlerTestDataDir = "../../../../test_pb_data"
 
-type tokenStub struct {
-	token string
-	err   error
-}
-
-func (t tokenStub) NewAuthToken() (string, error) {
-	if t.err != nil {
-		return "", t.err
-	}
-	return t.token, nil
-}
-
 type apiKeyGenerationServiceStub struct {
 	userKey              string
 	internalAdminKey     string
@@ -74,11 +62,15 @@ func (s *apiKeyGenerationServiceStub) GenerateInternalAdminAPIKey(
 func TestGenerateAuthenticateApiKeyResponse(t *testing.T) {
 	t.Parallel()
 
-	response, err := generateAuthenticateApiKeyResponse(tokenStub{token: "token-1"})
+	response, err := generateAuthenticateApiKeyResponse(func() (string, error) {
+		return "token-1", nil
+	})
 	require.NoError(t, err)
 	require.Equal(t, "token-1", response.Token)
 
-	_, err = generateAuthenticateApiKeyResponse(tokenStub{err: errors.New("boom")})
+	_, err = generateAuthenticateApiKeyResponse(func() (string, error) {
+		return "", errors.New("boom")
+	})
 	require.Error(t, err)
 }
 

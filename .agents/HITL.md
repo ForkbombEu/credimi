@@ -912,3 +912,67 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - context: Temporal 1.32.2 lets any holder of `<namespace>:write` call `DeleteWorkflowExecution` (`go.temporal.io/server` `common/api/metadata.go`), and the runner's and its agent's tokens hold `runner-<id>:write`. A compromised runner or agent could read Credimi's session grant from a session's history, delete Credimi's run and start the same session ID again with the copied input: the replay became the earliest run with a valid grant, which `activities.TrustedActionAuthorSession` trusted forever.
 - decision: the trusted run is the earliest run with Credimi's grant and Credimi's signed `credimi_run_grant` signal for that run ID. Right after the start (and on every reuse of its own earlier attempt) the start activity signals the run an `actionauthor.SignRun` token of `RunGrant` (session workflow ID, run ID), signed with the existing action author HMAC key derivation from the users collection's auth token secret under the label `credimi/action-author/run/v1`; no new secret or environment variable. Invalid signals are skipped; a run without a valid one is `ErrSessionNotVisible` for 2 minutes after its start, then refused, so a replay carrying a copied signal of the deleted run is never trusted. AGENTS.md "Action Author Sessions" describes it.
 - follow-up: none. Item 3 of "Action author known risks accepted for the first deploy" is partly closed by the proxy metering (the runner's model proxy meters and enforces the daily limits itself); still open for a compromised agent: concurrent calls can overshoot a limit before the proxy sees their usage, and the proxy secret is per process, not per session, so a compromised agent can make its calls count against another session's pool.
+
+### 2026-11-12 - Runner dashboard sign-in codes in memory, return address not bound
+
+- status: open
+- owner: human maintainer
+- context: "Sign in with Credimi" on the credimi-runner dashboard (`POST /api/mobile-runner/dashboard-code` and `/redeem`) keeps its one-time codes in the Credimi process's memory (`pkg/internal/mobilerunner/dashboard_codes.go`), and accepts any `http(s)://<host>/auth/credimi/callback` as `return_to`, because runners store the address Credimi reaches them at, which often differs from the address the operator opens (loopback, LAN IP, a proxy).
+- question: Must codes survive a Credimi restart or work across several Credimi processes, and must `return_to` be bound to an address the runner registered?
+- options considered: (a) in memory, single process (chosen); (b) a hidden PocketBase collection with expiry; for `return_to`: (a) path-only check plus the host shown on the consent page (chosen); (b) a list of dashboard origins registered by the runner.
+- default risk: a restart drops codes pending for at most 60 s (users sign in again); running several Credimi processes behind one URL would break sign-in. A code sent to a host the user did not mean is redeemable only with a key that already authorizes for that runner, whose holders could sign in anyway.
+- follow-up: revisit (b) if Credimi runs more than one API process.
+
+### 2026-11-13 - Runner dashboard sign-in codes bound to their return address
+
+- status: open
+- owner: human maintainer
+- context: corrects the 2026-11-12 entry "Runner dashboard sign-in codes in memory, return address not bound". Its default risk said a code sent to a host the user did not mean is redeemable only with a key that already authorizes for that runner. That was wrong: the runner's own dashboard redeems any code brought to its callback, so whoever received a code at another host (a crafted consent link the user confirmed) could open the real dashboard's `/auth/credimi/callback?code=` and get a session as that user without any key.
+- decision: each code now stores the `return_to` it was issued for, and `POST /api/mobile-runner/dashboard-code/redeem` requires `{ runner_id, code, return_to }` and answers `400 invalid_code` unless `return_to` is byte-equal to the stored one; the runner sends its own callback URL. `return_to` must have the escaped path exactly `/auth/credimi/callback`. The issue answer is `{ redirect }` only.
+- default risk: still open from the 2026-11-12 entry: codes in one process's memory, and `return_to` is not matched against an address the runner registered; a code sent to another host can still be redeemed there by a holder of a key that authorizes for that runner.
+- follow-up: as in the 2026-11-12 entry.
+
+### 2026-11-13 - Tokens exchanged for API keys cannot open runner dashboards; superuser impersonation still can
+
+- status: open
+- owner: human maintainer
+- context: `GET /api/apikey/authenticate` swaps an API key for a normal PocketBase auth token, so an owner's leaked API key could be exchanged for a token that passes `POST /api/mobile-runner/dashboard-code`'s browser-session check and signs in to runner dashboards.
+- decision: the exchanged token is minted like PocketBase's `NewAuthToken` (same signing key, type, collectionId, duration) with the extra claim `api_key: true` (`handlers.APIKeyTokenClaim`) and `refreshable: false`; PocketBase 0.40.3's auth-refresh (`apis/record_auth_refresh.go`) hands a non-refreshable token back unchanged, so the claim cannot be refreshed away. `dashboardBrowserSession` refuses it with `403 browser_session_required`.
+- question: must a superuser API key be kept from minting an unmarked token through PocketBase's `POST /api/collections/{collection}/impersonate/{id}` (superuser only), whose static token carries no `api_key` claim?
+- options considered: (a) accept it (chosen for now: superuser keys already reach every runner); (b) refuse impersonation for requests authenticated with an `api_key` token.
+- default risk: a leaked superuser API key can still be turned into a token that signs in to any runner dashboard.
+- follow-up: implement (b) if superuser API keys are handed to automation.
+
+### 2026-11-13 - Tokens exchanged for API keys cannot reach a browser session through OAuth2; no superuser impersonation path
+
+- status: closed
+- owner: human maintainer
+- context: corrects the 2026-11-13 entry "Tokens exchanged for API keys cannot open runner dashboards; superuser impersonation still can". `GET /api/apikey/authenticate` accepts only user-scope keys (`ApiKeyService.AuthenticateUserAPIKey`), whose owner is a `users` record, so it never mints a `_superusers` token and PocketBase's superuser-only `POST /api/collections/{collection}/impersonate/{id}` cannot be reached with one: the impersonation path and the default risk described there cannot happen. A path that could: PocketBase's `POST /api/collections/{collection}/auth-with-oauth2` links the provider account to the request's signed-in record and returns a fresh token without the `api_key` claim, so an exchanged token plus any OAuth2 account of the attacker became a browser session.
+- decision: `apis.HookRefuseAPIKeyOAuth2Linking` (`pkg/internal/apis/turnstile.go`, an `OnRecordAuthWithOAuth2Request` hook on every auth collection) answers `403` when the request's Authorization token carries `api_key: true` (`handlers.RequestHasAPIKeyToken`); OAuth2 sign-in without an Authorization header is unchanged.
+- default risk: none known for this path.
+
+### 2026-11-13 - Runner dashboard return address needs https unless local
+
+- status: open
+- owner: human maintainer
+- context: supersedes the 2026-11-12 entry's "accepts any `http(s)://<host>/auth/credimi/callback` as `return_to`": over plain http a code sent to a public host can be read on the network path and redeemed at the real dashboard before the user.
+- decision: `dashboardRedirect` accepts `http` only when the host is `localhost`, an IP literal that is loopback, private (RFC 1918, fc00::/7), in `100.64.0.0/10` or link-local, or a single-label hostname (no dot, e.g. `archlinux`, and not a number a browser reads as an IPv4 address); any other host needs `https`, else `400 invalid_return_to` (`dashboardLocalHost`).
+- default risk: plain http on a LAN, overlay network or single-label name is still readable by others on that network.
+- follow-up: none unless dashboards are reached over untrusted local networks.
+
+### 2026-11-13 - Runner dashboard sign-in: accepted risks
+
+- status: resolved
+- owner: human maintainer
+- context: last review round of "Sign in with Credimi" on the credimi-runner dashboard. Supersedes the 2026-11-13 entry "Tokens exchanged for API keys cannot open runner dashboards; superuser impersonation still can": as the later entry of the same day says, that impersonation path is unreachable (`GET /api/apikey/authenticate` never mints a `_superusers` token). Also extends the entry "Runner dashboard return address needs https unless local": a single-label host must now be ASCII letters, digits and hyphens only, since browsers map `。` and full-width digits onto dots and digits.
+- question: which residual risks of dashboard sign-in are accepted?
+- options considered: restrict what a Credimi session may change on the runner, or shorten sessions, versus accepting the risks below.
+- decision: accepted, by user decision for (a) and (b):
+  - (a) a Credimi dashboard sign-in has the same full operator access as the dashboard token, including changing the Credimi URL and keys, images, model URL and allowed hosts, so a signed-in owner can keep access after revocation by reconfiguring the runner; only `DASHBOARD_TOKEN` cannot be changed from a Credimi session, and the token stays the revocation lever.
+  - (b) dashboard sessions last 30 days and are re-checked hourly with `POST /api/mobile-runner/dashboard-session/check` (401/403/404 sign out; other failures keep the session and retry after 5 minutes); while Credimi is unreachable a revoked user keeps access until a check succeeds.
+  - (c) a leaked owner user API key can add an owner row to the organization and then sign in normally through a browser; the `api_key` token claim only blocks the direct path.
+  - (d) plain http on LAN IPs and single-label hosts exposes the one-time code to network attackers (sniffing, MITM, LLMNR/mDNS name poisoning).
+  - (e) the runner's callback rate limit is per client IP, so behind a reverse proxy all users share 10 attempts a minute.
+  - (f) the global cap of 4096 pending codes (`503 too_many_codes`) can be filled by many owner accounts.
+- default risk: as listed in the decision.
+- follow-up: revisit (a) if dashboards are shared with people who should not reconfigure the runner; (e) if runners are deployed behind proxies.

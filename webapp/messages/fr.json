@@ -1117,5 +1117,10 @@
 	"Stay_on_page": "Rester",
 	"Review_replaces": "Remplace l'action existante {action}. Son enregistrement et les pipelines qui l'utilisent sont conservés.",
 	"Review_used_by": "Utilisée par {count} pipelines : elles exécuteront le code corrigé après l'enregistrement.",
-	"Review_previous_save_failed": "Le dernier enregistrement a échoué"
+	"Review_previous_save_failed": "Le dernier enregistrement a échoué",
+	"Sign_in": "Se connecter",
+	"Signed_in_as": "Connecté en tant que",
+	"Runner_dashboard_sign_in": "Se connecter au tableau de bord d'un runner",
+	"Runner_dashboard_sign_in_description": "Le tableau de bord d'un runner demande à Credimi de vous connecter. Ne continuez que si vous l'avez ouvert vous-même.",
+	"Runner_dashboard_sign_in_invalid": "Ce lien de connexion est incomplet. Choisissez à nouveau Sign in with Credimi dans le tableau de bord du runner."
 }

@@ -1124,5 +1124,10 @@
 	"Stay_on_page": "Resta",
 	"Review_replaces": "Sostituisce l'action esistente {action}. Il suo record e le pipeline che la usano restano invariati.",
 	"Review_used_by": "Usata da {count} pipeline: eseguiranno il codice corretto dopo il salvataggio.",
-	"Review_previous_save_failed": "L'ultimo salvataggio non è riuscito"
+	"Review_previous_save_failed": "L'ultimo salvataggio non è riuscito",
+	"Sign_in": "Accedi",
+	"Signed_in_as": "Accesso come",
+	"Runner_dashboard_sign_in": "Accedi alla dashboard di un runner",
+	"Runner_dashboard_sign_in_description": "Una dashboard di un runner chiede a Credimi di farti accedere. Continua solo se l'hai aperta tu.",
+	"Runner_dashboard_sign_in_invalid": "Questo link di accesso è incompleto. Scegli di nuovo Sign in with Credimi nella dashboard del runner."
 }

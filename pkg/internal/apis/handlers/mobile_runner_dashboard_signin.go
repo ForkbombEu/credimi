@@ -1,0 +1,386 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package handlers
+
+import (
+	"database/sql"
+	"errors"
+	"net/http"
+	"net/netip"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
+)
+
+// DashboardCallbackPath is the runner dashboard path a sign-in code is sent
+// back to.
+const DashboardCallbackPath = "/auth/credimi/callback"
+
+// maxDashboardStateLength bounds the dashboard's state, echoed back verbatim.
+const maxDashboardStateLength = 128
+
+// tooManyDashboardCodesMessage refuses a code while too many are pending,
+// for the user (429) or in all (503).
+const tooManyDashboardCodesMessage = "too many pending dashboard sign-ins; try again in a minute"
+
+// dashboardCodeNow is the clock of dashboard sign-in codes; tests replace it.
+var dashboardCodeNow = time.Now
+
+// dashboardCodes holds this process's pending dashboard sign-in codes; tests
+// replace it.
+var dashboardCodes = mobilerunner.NewDashboardCodeStore()
+
+// MobileRunnerDashboardSignInRoutes lets a signed-in user obtain a one-time
+// code to sign in to the dashboard of a runner they manage.
+var MobileRunnerDashboardSignInRoutes = routing.RouteGroup{
+	BaseURL:                "/api/mobile-runner",
+	AuthenticationRequired: true,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:         http.MethodPost,
+			Path:           "/dashboard-code",
+			Handler:        HandleMobileRunnerDashboardCode,
+			RequestSchema:  MobileRunnerDashboardCodeRequest{},
+			ResponseSchema: MobileRunnerDashboardCodeResponse{},
+		},
+	},
+}
+
+// MobileRunnerDashboardCodeRequest asks for a sign-in code for the dashboard
+// of RunnerID, to be sent back to ReturnTo with State.
+type MobileRunnerDashboardCodeRequest struct {
+	RunnerID string `json:"runner_id" validate:"required"`
+	ReturnTo string `json:"return_to" validate:"required"`
+	State    string `json:"state"     validate:"required"`
+}
+
+// MobileRunnerDashboardCodeResponse carries the dashboard URL the browser goes
+// to with the code.
+type MobileRunnerDashboardCodeResponse struct {
+	Redirect string `json:"redirect"`
+}
+
+// MobileRunnerDashboardRedeemRequest redeems a sign-in code for RunnerID,
+// sent to the dashboard callback ReturnTo.
+type MobileRunnerDashboardRedeemRequest struct {
+	RunnerID string `json:"runner_id" validate:"required"`
+	Code     string `json:"code"      validate:"required"`
+	ReturnTo string `json:"return_to" validate:"required"`
+}
+
+// MobileRunnerDashboardRedeemResponse names the user who signed in.
+type MobileRunnerDashboardRedeemResponse struct {
+	UserID         string `json:"user_id"`
+	AuthCollection string `json:"auth_collection"`
+	Email          string `json:"email"`
+	Name           string `json:"name"`
+}
+
+// MobileRunnerDashboardSessionCheckRequest asks whether the user UserID of
+// AuthCollection (users or _superusers), signed in to the dashboard of
+// RunnerID, may still manage it.
+type MobileRunnerDashboardSessionCheckRequest struct {
+	RunnerID       string `json:"runner_id"       validate:"required"`
+	UserID         string `json:"user_id"         validate:"required"`
+	AuthCollection string `json:"auth_collection" validate:"required"`
+}
+
+// MobileRunnerDashboardSessionCheckResponse is empty: the answer's status
+// says whether the session may go on, and nothing about the user leaks.
+type MobileRunnerDashboardSessionCheckResponse struct{}
+
+// HandleMobileRunnerDashboardCode issues a one-time code that lets the
+// signed-in user into the dashboard of a runner they manage.
+func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[MobileRunnerDashboardCodeRequest](e)
+		if err != nil {
+			return dashboardInvalidRequest(err.Error())
+		}
+		if len(input.State) > maxDashboardStateLength {
+			return dashboardInvalidRequest("state is too long")
+		}
+		if !dashboardBrowserSession(e) {
+			return apierror.New(
+				http.StatusForbidden,
+				"auth",
+				"browser_session_required",
+				"sign in to Credimi to open a runner dashboard",
+			)
+		}
+		redirect, apiErr := dashboardRedirect(input.ReturnTo)
+		if apiErr != nil {
+			return apiErr
+		}
+		record, _, apiErr := authorizeDashboardUser(e.App, e.Auth, input.RunnerID)
+		if apiErr != nil {
+			return apiErr
+		}
+
+		now := dashboardCodeNow()
+		code, err := dashboardCodes.Issue(mobilerunner.DashboardCode{
+			RunnerID:       record.Id,
+			UserID:         e.Auth.Id,
+			AuthCollection: e.Auth.Collection().Name,
+			ReturnTo:       input.ReturnTo,
+			Expires:        now.Add(mobilerunner.DashboardCodeTTL),
+		}, now)
+		if errors.Is(err, mobilerunner.ErrTooManyUserDashboardCodes) {
+			return apierror.New(
+				http.StatusTooManyRequests,
+				"dashboard_code",
+				"too_many_codes",
+				tooManyDashboardCodesMessage,
+			)
+		}
+		if errors.Is(err, mobilerunner.ErrTooManyDashboardCodes) {
+			return apierror.New(
+				http.StatusServiceUnavailable,
+				"dashboard_code",
+				"too_many_codes",
+				tooManyDashboardCodesMessage,
+			)
+		}
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"dashboard_code",
+				"failed_to_issue_code",
+				err.Error(),
+			)
+		}
+
+		query := redirect.Query()
+		query.Set("code", code)
+		query.Set("state", input.State)
+		redirect.RawQuery = query.Encode()
+		return e.JSON(http.StatusOK, MobileRunnerDashboardCodeResponse{
+			Redirect: redirect.String(),
+		})
+	}
+}
+
+// HandleMobileRunnerDashboardSessionCheck answers whether a user signed in to
+// the dashboard of the runner whose key calls it may still manage the runner.
+func HandleMobileRunnerDashboardSessionCheck() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[MobileRunnerDashboardSessionCheckRequest](e)
+		if err != nil {
+			return dashboardInvalidRequest(err.Error())
+		}
+		if input.UserID == "" ||
+			(input.AuthCollection != "users" &&
+				input.AuthCollection != core.CollectionNameSuperusers) {
+			return dashboardInvalidRequest(
+				"user_id is required and auth_collection must be users or _superusers",
+			)
+		}
+		if _, _, apiErr := authorizeDashboardRunnerKey(e, input.RunnerID); apiErr != nil {
+			return apiErr
+		}
+
+		user, apiErr := findDashboardUser(e.App, input.AuthCollection, input.UserID)
+		if apiErr != nil {
+			return apiErr
+		}
+		if _, _, apiErr = authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
+			return apiErr
+		}
+		return e.JSON(http.StatusOK, MobileRunnerDashboardSessionCheckResponse{})
+	}
+}
+
+// HandleMobileRunnerDashboardRedeem redeems a dashboard sign-in code for the
+// runner whose key calls it and names the user who signed in.
+func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[MobileRunnerDashboardRedeemRequest](e)
+		if err != nil {
+			return dashboardInvalidRequest(err.Error())
+		}
+		record, _, apiErr := authorizeDashboardRunnerKey(e, input.RunnerID)
+		if apiErr != nil {
+			return apiErr
+		}
+
+		// A code sent to another dashboard is refused like a missing one, so
+		// the answer reveals nothing about it.
+		code, ok := dashboardCodes.Redeem(input.Code, dashboardCodeNow())
+		if !ok || code.RunnerID != record.Id || code.ReturnTo != input.ReturnTo {
+			return apierror.New(
+				http.StatusBadRequest,
+				"code",
+				"invalid_code",
+				"the sign-in code is invalid, expired or already used: sign in again",
+			)
+		}
+
+		user, apiErr := findDashboardUser(e.App, code.AuthCollection, code.UserID)
+		if apiErr != nil {
+			return apiErr
+		}
+		// The user's role may have changed since the code was issued.
+		if _, _, apiErr = authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
+			return apiErr
+		}
+
+		return e.JSON(http.StatusOK, MobileRunnerDashboardRedeemResponse{
+			UserID:         user.Id,
+			AuthCollection: user.Collection().Name,
+			Email:          user.Email(),
+			Name:           user.GetString("name"),
+		})
+	}
+}
+
+// authorizeDashboardUser allows user to sign in to the dashboard of the
+// runner runnerID when they may manage it (authorizeRunnerManager).
+func authorizeDashboardUser(
+	app core.App,
+	user *core.Record,
+	runnerID string,
+) (*core.Record, string, *apierror.APIError) {
+	return authorizeRunnerManager(
+		app,
+		user,
+		runnerID,
+		"only owners of the runner's organization can sign in to its dashboard",
+		"only superusers can sign in to the dashboard of an admin-managed runner",
+	)
+}
+
+// findDashboardUser finds the user signed in to a dashboard. A user who no
+// longer exists is refused as one outside the runner's organization
+// (runnerOwnerMismatchError), so runner keys cannot probe which users exist.
+func findDashboardUser(
+	app core.App,
+	collection, userID string,
+) (*core.Record, *apierror.APIError) {
+	user, err := app.FindRecordById(collection, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, runnerOwnerMismatchError()
+	}
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"user_id",
+			"failed_to_find_user",
+			err.Error(),
+		)
+	}
+	return user, nil
+}
+
+// authorizeDashboardRunnerKey checks the key the runner's dashboard calls with
+// as authorizeRunnerKey does, with refusals that name the dashboard.
+func authorizeDashboardRunnerKey(
+	e *core.RequestEvent,
+	runnerID string,
+) (*core.Record, string, *apierror.APIError) {
+	return authorizeRunnerManager(
+		e.App,
+		e.Auth,
+		runnerID,
+		"only keys of the runner's organization owners can serve its dashboard sign-in",
+		"only the internal admin key can serve the dashboard sign-in of an admin-managed runner",
+	)
+}
+
+// dashboardBrowserSession reports whether the caller signed in to Credimi
+// with a user or superuser token, not with an API key nor a token exchanged
+// for one (APIKeyTokenClaim): a leaked key must not open dashboards.
+func dashboardBrowserSession(e *core.RequestEvent) bool {
+	claims, ok := authorizationClaims(e.Request)
+	if !ok || e.Auth == nil || e.Auth.Collection() == nil {
+		return false
+	}
+	if fromAPIKey, _ := claims[APIKeyTokenClaim].(bool); fromAPIKey {
+		return false
+	}
+	name := e.Auth.Collection().Name
+	return name == "users" || name == core.CollectionNameSuperusers
+}
+
+// dashboardRedirect accepts returnTo only as an absolute http(s) URL of a
+// dashboard sign-in callback: no credentials, query or fragment, the escaped
+// path exactly DashboardCallbackPath (no percent-encoded variant), and https
+// unless the host is local (dashboardLocalHost).
+func dashboardRedirect(returnTo string) (*url.URL, *apierror.APIError) {
+	invalid := apierror.New(
+		http.StatusBadRequest,
+		"return_to",
+		"invalid_return_to",
+		"return_to must be the URL of a runner dashboard's "+DashboardCallbackPath+
+			", over https unless its host is local",
+	)
+	u, err := url.Parse(returnTo)
+	if err != nil ||
+		(u.Scheme != "https" && (u.Scheme != "http" || !dashboardLocalHost(u.Hostname()))) ||
+		u.Hostname() == "" ||
+		u.User != nil ||
+		u.Opaque != "" ||
+		u.RawPath != "" ||
+		u.EscapedPath() != DashboardCallbackPath ||
+		u.RawQuery != "" || u.ForceQuery ||
+		u.Fragment != "" || strings.Contains(returnTo, "#") {
+		return nil, invalid
+	}
+	return u, nil
+}
+
+// dashboardCGNAT is 100.64.0.0/10, where Tailscale and other overlay networks
+// address their nodes.
+var dashboardCGNAT = netip.MustParsePrefix("100.64.0.0/10")
+
+// dashboardLocalHost reports whether a dashboard at host may be reached over
+// plain http: localhost, a loopback, private (RFC 1918, fc00::/7),
+// 100.64.0.0/10 or link-local IP literal, or a single-label hostname such as
+// "archlinux". A single label a browser reads as a number (an IPv4 address
+// such as 134744072) is not a hostname, nor is a host with a character outside
+// [A-Za-z0-9.-]: browsers map the ideographic full stop and full-width digits
+// onto dots and digits, so "evil。com" would reach a public name.
+func dashboardLocalHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	if addr, err := netip.ParseAddr(host); err == nil {
+		addr = addr.Unmap()
+		return addr.IsLoopback() || addr.IsPrivate() || dashboardCGNAT.Contains(addr) ||
+			addr.IsLinkLocalUnicast()
+	}
+	if host == "" || !dashboardASCIIHost(host) || strings.Contains(host, ".") {
+		return false
+	}
+	_, err := strconv.ParseUint(host, 0, 64)
+	return err != nil
+}
+
+// dashboardASCIIHost reports whether host holds only ASCII letters, digits,
+// dots and hyphens.
+func dashboardASCIIHost(host string) bool {
+	for i := range len(host) {
+		c := host[i]
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') &&
+			c != '.' && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func dashboardInvalidRequest(message string) *apierror.APIError {
+	return apierror.New(http.StatusBadRequest, "mobile_runner", "invalid_request", message)
+}

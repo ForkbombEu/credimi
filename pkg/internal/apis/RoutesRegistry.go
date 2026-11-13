@@ -40,6 +40,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.MobileRunnerRegistrationRoutes,
 	handlers.MobileDeviceRegistrationRoutes,
 	handlers.MobileRunnerLifecycleRoutes,
+	handlers.MobileRunnerDashboardSignInRoutes,
 	handlers.WebPushRoutes,
 	handlers.ConformanceCatalogRoutes,
 	handlers.ConformanceChecksRecordsRoutes,
