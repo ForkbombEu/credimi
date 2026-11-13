@@ -378,13 +378,6 @@ def _create_harness(temporal) -> FastAPI:
             if offset < 0:
                 # Upstream validation answers malformed requests.
                 return await call_next(request)
-            state = await temporal.get_workflow_handle(session_id).describe()
-            if state.status != WorkflowExecutionStatus.RUNNING:
-                return StreamingResponse(
-                    _closed_history(temporal, session_id, offset),
-                    media_type="text/event-stream",
-                    headers=_sse_headers(),
-                )
         elif method == "POST" and path == "/api/chat":
             session_id = (await request.json())["session_id"]
             offset = await WorkflowStreamClient.create(temporal, session_id).get_offset()

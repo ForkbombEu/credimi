@@ -60,8 +60,10 @@ The harness routes run unchanged, on the request's namespace, except:
 - `GET /api/agents` lists the agent on the chat's own task queue (`<runner_id>-ActionAuthor`)
   with whether a worker polls it.
 - `GET /api/sessions` lists only the scoped chat: running, closed, or none before it starts.
-- `GET /api/attach` and `POST /api/chat` replay a closed chat's events through the runner
-  agent's `authoring_events` query, since the upstream stream reader needs a running workflow.
+- `GET /api/attach` and `POST /api/chat` finish a stream that the chat's end cut short with its
+  last events, read through the runner agent's `authoring_events` query, since the upstream
+  stream reader needs a running workflow. Credimi shows a closed chat's transcript itself (from
+  its Temporal history) and never embeds the UI for it.
 - `POST /api/sessions` answers `403 authenticated_start_required` and every
   `/api/callback-result` request `403 review_through_credimi`: Credimi signs save approvals
   through `POST /api/action-author/reviews`, so the harness route cannot settle a review.
