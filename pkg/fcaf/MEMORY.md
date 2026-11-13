@@ -10,6 +10,15 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Run review fixes, 13/11/2026
+
+A review of the 12/11/2026 relying-party run (`fcaf_assessment_0a83f5cgx2`) found these wrong verdicts, now fixed:
+
+- `WS_RP_MS_ProtocolMessages__091`, `__093`: false failures. Capture recorded five of the seven encrypted `invalid_request` responses without `raw.presentation_response_decrypted`, so `oid4vp.no_presentation_returned` read `presentation_valid=false` as a presentation. `findWalletError` now also reads the Wallet's error from Credo's `The wallet returned an openid4vp authorization error response.` message in `checks.errors`; replayed against the run's seven 093 sessions, all pass with `invalid_request`.
+- `WS_RP_IA_MainInteraction__046`: passed on the ordinary baseline presentation; now `fcaf.skipped` until Capture has a credential whose presentation exceeds the user-agent URL limit.
+- `WS_RP_IA_MainInteraction__003`: `credentials_match` only checked that a `vp_token` existed; now `trusted_authorities_match`, as the inventory row already said.
+- `CAPTURE_WALLET_API.md` resynced to upstream `07bd5f0`: Credential Error Responses are never encrypted, and Wallet Authorization Error Responses are acknowledged with `200 {}`.
+
 ## Wallet action cleanup, 12/11/2026
 
 Removed 18 wallet flow files; the manifest went from 41 to 31 actions, and every file under `wallet/` is now registered.

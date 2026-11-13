@@ -19,11 +19,11 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.trusted-authorities-match.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__003_dcql_valid
+- id: ws_rp_ia_maininteraction__003_trusted_authorities_aki_match
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: trusted_authorities_match
 - id: ws_rp_ia_maininteraction__003_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

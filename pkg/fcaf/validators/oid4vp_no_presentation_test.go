@@ -105,6 +105,43 @@ func TestOID4VPNoPresentationValidator(t *testing.T) {
 			want: StatusFail,
 		},
 		{
+			// Capture omitted raw.presentation_response_decrypted for most
+			// encrypted error responses of WS_RP_MS_ProtocolMessages__093
+			// (12/11/2026); Credo's verification error still quoted the
+			// Wallet's error object.
+			name: "wallet error recorded only in the verifier checks",
+			session: map[string]any{
+				"status": "presentation_invalid",
+				"checks": map[string]any{
+					"presentation_valid": false,
+					"errors": []any{
+						"The wallet returned an openid4vp authorization error response.\n" +
+							`{"error": "invalid_request", "error_description": "bad query", "state": "s"}`,
+					},
+				},
+				"raw": map[string]any{
+					"presentation_response": map[string]any{"response": "eyJ.jwe"},
+					"presentation_response_verifier_http": map[string]any{
+						"body": `{"error":"invalid_presentation"}`,
+					},
+				},
+			},
+			want: StatusPass,
+		},
+		{
+			name: "verifier checks carry only the verifier's own failure",
+			session: map[string]any{
+				"status": "presentation_invalid",
+				"checks": map[string]any{
+					"presentation_valid": false,
+					"errors": []any{
+						`Failed to decrypt the JARM authorization response`,
+					},
+				},
+			},
+			want: StatusFail,
+		},
+		{
 			name: "presentation decoded without a terminal status",
 			session: map[string]any{
 				"status":                "request_retrieved",

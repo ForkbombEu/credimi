@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 )
@@ -2052,8 +2053,9 @@ func findObjectKey(value any, key string) (any, bool) {
 }
 
 // verifierReplyKeys name the captured HTTP replies Capture sent to the Wallet.
-// Capture answers a Wallet error with its own error object (for example
-// invalid_presentation), so a Wallet error lookup must not descend into them.
+// Those replies can carry the verifier's own error object (invalid_presentation
+// for a rejected VP Token, or any body a response_scenario sets), so a Wallet
+// error lookup must not descend into them.
 var verifierReplyKeys = map[string]struct{}{
 	"presentation_response_verifier_http": {},
 	"request_uri_response_http":           {},
@@ -2062,8 +2064,60 @@ var verifierReplyKeys = map[string]struct{}{
 // findWalletError returns the error code the Wallet sent, wherever the capture
 // recorded it, ignoring the verifier's own replies.
 func findWalletError(value any) any {
-	found, _ := findObjectKeySkipping(value, "error", verifierReplyKeys)
-	return found
+	if found, ok := findObjectKeySkipping(value, "error", verifierReplyKeys); ok {
+		return found
+	}
+	return walletErrorFromVerifierChecks(value)
+}
+
+// credoAuthorizationErrorPrefix opens the verification error Credo-TS records in
+// a Capture session's checks.errors when the Wallet answered with an
+// Authorization Error Response. The Wallet's decrypted error object follows it
+// as JSON.
+const credoAuthorizationErrorPrefix = "The wallet returned an openid4vp authorization error response."
+
+// walletErrorFromVerifierChecks returns the error code of an Authorization Error
+// Response that the capture records only in checks.errors. Capture keeps the
+// Wallet's decrypted error in raw.presentation_response_decrypted, but on
+// 12/11/2026 it left that member out for five of the seven encrypted error
+// responses of WS_RP_MS_ProtocolMessages__093, while Credo's verification error
+// still quoted the Wallet's payload.
+func walletErrorFromVerifierChecks(value any) any {
+	session, ok := normalizeJSONObject(value)
+	if !ok {
+		return nil
+	}
+	if _, hasChecks := session["checks"]; !hasChecks {
+		if session, ok = captureVerifierSession(value); !ok {
+			return nil
+		}
+	}
+	checks, ok := normalizeJSONObject(session["checks"])
+	if !ok {
+		return nil
+	}
+	messages, ok := checks["errors"].([]any)
+	if !ok {
+		return nil
+	}
+	for _, message := range messages {
+		text, ok := message.(string)
+		if !ok {
+			continue
+		}
+		payload, found := strings.CutPrefix(text, credoAuthorizationErrorPrefix)
+		if !found {
+			continue
+		}
+		var response map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimSpace(payload)), &response); err != nil {
+			continue
+		}
+		if code, ok := response["error"].(string); ok && code != "" {
+			return code
+		}
+	}
+	return nil
 }
 
 func findObjectKeySkipping(value any, key string, skip map[string]struct{}) (any, bool) {
