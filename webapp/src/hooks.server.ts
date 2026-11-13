@@ -7,6 +7,7 @@ import type { Handle, HandleFetch } from '@sveltejs/kit';
 import { context, propagation } from '@opentelemetry/api';
 import { sequence } from '@sveltejs/kit/hooks';
 import { env } from '$env/dynamic/private';
+import { isPrivatePage, noFramingHeaders } from '$lib/utils/private-pages';
 
 import { paraglideMiddleware } from '@/i18n/paraglide/server';
 
@@ -18,6 +19,13 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 			transformPageChunk: ({ html }) => html.replace('%paraglide.lang%', locale)
 		});
 	});
+
+// Signed-in pages (the dashboard sign-in consent page among them) must not be framed by other
+// sites. `/temporal-ui` and `/action-author-ui` are served by PocketBase and never get here.
+const handleFraming: Handle = ({ event, resolve }) => {
+	if (isPrivatePage(event.url)) event.setHeaders(noFramingHeaders);
+	return resolve(event);
+};
 
 const compressibleType = /^(text\/|application\/(json|xml|javascript))/;
 
@@ -46,7 +54,7 @@ const handleCompression: Handle = async ({ event, resolve }) => {
 	});
 };
 
-export const handle: Handle = sequence(handleCompression, handleParaglide);
+export const handle: Handle = sequence(handleCompression, handleFraming, handleParaglide);
 
 // PocketBase listens beside the webapp (Procfile: localhost:8090). Dev points VITE_API elsewhere.
 const pocketbaseURL = env.VITE_API || 'http://localhost:8090';
