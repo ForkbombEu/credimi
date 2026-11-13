@@ -190,6 +190,14 @@ export async function getTranscript(
 	return res.map((r) => r.entries);
 }
 
+/** Whether the chat UI can replay the session's ended chat through its runner's agent. */
+export async function getReplayable(sessionId: string): Promise<Result<boolean, ApiFailure>> {
+	const res = await call<{ replayable: boolean }>(
+		`/sessions/${encodeURIComponent(sessionId)}/replay`
+	);
+	return res.map((r) => r.replayable);
+}
+
 export function closeSession(
 	id: string,
 	options: { keepalive?: boolean } = {}

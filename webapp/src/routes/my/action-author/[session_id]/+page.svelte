@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import {
 		closeSession,
 		endOnExit,
+		getReplayable,
 		getSession,
 		ticketOf,
 		type Session
@@ -282,6 +283,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let loadedChatUrl = $state<string>();
 	const isChatLoading = $derived(loadedChatUrl !== chatUrl);
 
+	// The harness UI keeps showing a chat that ends while it is open. For a chat that had ended
+	// before, Credimi asks once whether the runner's agent can replay it (the UI's
+	// action-embed.js then attaches to it); otherwise it shows the transcript from history.
+	let liveChatSession = $state<string>();
+	let replay = $state<{ sessionId: string; replayable: boolean }>();
+	const endedChatSession = $derived(
+		session?.chat_ready && !session.chat_running ? session.session_id : undefined
+	);
+	$effect(() => {
+		const id = endedChatSession;
+		if (!id || id === untrack(() => liveChatSession)) return;
+		let active = true;
+		void getReplayable(id).then((res) => {
+			if (active) replay = { sessionId: id, replayable: res.isOk && res.value };
+		});
+		return () => {
+			active = false;
+		};
+	});
+	const showChatFrame = $derived(
+		!!session &&
+			(session.chat_running ||
+				liveChatSession === session.session_id ||
+				(replay?.sessionId === session.session_id && replay.replayable))
+	);
+
 	const pendingReview = $derived(
 		session?.pending_review && !settledReviews.has(session.pending_review.tool_id)
 			? session.pending_review
@@ -405,8 +432,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<T class="text-muted-foreground">{m.Session_ended_without_chat()}</T>
 					{/if}
 				</div>
-			{:else if !session.chat_running}
-				{#if running}
+			{:else}
+				{#if running && !session.chat_running}
 					<div
 						class="flex shrink-0 items-center gap-2 border-b bg-slate-50 px-4 py-2 text-sm text-muted-foreground"
 						role="status"
@@ -416,26 +443,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/if}
 
-				<!-- The harness UI never attaches to a closed chat: Credimi reads it from history. -->
-				<Transcript sessionId={session.session_id} {timezone} />
-			{:else if chatUrl}
-				<div class="relative min-h-0 flex-1" aria-busy={isChatLoading}>
-					{#if isChatLoading}
-						<div
-							class="absolute inset-0 z-10 flex animate-pulse items-center justify-center gap-2 bg-white"
-						>
-							<Spinner size={16} />
-							<T class="text-muted-foreground">{m.Loading()}</T>
-						</div>
-					{/if}
+				{#if showChatFrame && chatUrl}
+					<div class="relative min-h-0 flex-1" aria-busy={isChatLoading}>
+						{#if isChatLoading}
+							<div
+								class="absolute inset-0 z-10 flex animate-pulse items-center justify-center gap-2 bg-white"
+							>
+								<Spinner size={16} />
+								<T class="text-muted-foreground">{m.Loading()}</T>
+							</div>
+						{/if}
 
-					<iframe
-						title={m.Authoring_session()}
-						src={chatUrl}
-						class="absolute inset-0 h-full w-full border-0"
-						onload={() => (loadedChatUrl = chatUrl)}
-					></iframe>
-				</div>
+						<iframe
+							title={m.Authoring_session()}
+							src={chatUrl}
+							class="absolute inset-0 h-full w-full border-0"
+							onload={() => {
+								loadedChatUrl = chatUrl;
+								if (session?.chat_running) liveChatSession = session.session_id;
+							}}
+						></iframe>
+					</div>
+				{:else if replay?.sessionId !== session.session_id}
+					<div class="flex flex-1 items-center justify-center gap-2 p-6">
+						<Spinner size={16} />
+						<T class="text-muted-foreground">{m.Loading()}</T>
+					</div>
+				{:else}
+					<Transcript sessionId={session.session_id} {timezone} />
+				{/if}
 			{/if}
 		</section>
 
