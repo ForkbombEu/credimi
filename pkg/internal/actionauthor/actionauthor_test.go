@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -897,4 +898,171 @@ func TestInstallAppSlotRefusedOnIOS(t *testing.T) {
 	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
 	require.ErrorIs(t, err, ErrInvalid)
 	assert.ErrorContains(t, err, "the install-app slot needs a wallet selected from the store")
+}
+
+// publicWalletFixture returns the fixture with userA's selection and userB as
+// the caller, with userB's organization record.
+func publicWalletFixture(t *testing.T) (*tests.TestApp, Selection, Actor, *core.Record) {
+	t.Helper()
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, other.Id)
+	require.NoError(t, err)
+	org, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	require.NotEqual(t, selection.Organization.Id, org.Id)
+	return app, selection, Actor{ActorID: other.Id}, org
+}
+
+func buildOptionsByIdentifier(
+	t *testing.T,
+	app *tests.TestApp,
+	actor Actor,
+) map[string]BuildOption {
+	t.Helper()
+	options, err := ListBuildOptions(app, actor)
+	require.NoError(t, err)
+	byIdentifier := map[string]BuildOption{}
+	for _, option := range options {
+		byIdentifier[option.Identifier] = option
+	}
+	return byIdentifier
+}
+
+func setRecordFields(t *testing.T, app *tests.TestApp, record *core.Record, fields map[string]any) {
+	t.Helper()
+	for field, value := range fields {
+		record.Set(field, value)
+	}
+	require.NoError(t, app.Save(record))
+}
+
+func TestPublicWalletOfAnotherOrganization(t *testing.T) {
+	const notDownloadable = "the owner of this wallet has not made this version's installer downloadable"
+	storeRequest := func(actor Actor, identifier string) BuildRequest {
+		return BuildRequest{
+			Actor:                   actor,
+			WalletVersionIdentifier: identifier,
+			Platform:                PlatformAndroid,
+		}
+	}
+	cases := []struct {
+		name string
+		run  func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, org *core.Record)
+	}{
+		{
+			name: "unpublished wallet",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, _ *core.Record) {
+				store := seedStoreWallet(t, app, owner, "Private store wallet", map[string]any{
+					"google_app_id": "eu.europa.ec.euidi",
+				})
+				prefix := owner.Organization.GetString("canonified_name") + "/"
+				for identifier := range buildOptionsByIdentifier(t, app, caller) {
+					assert.False(t, strings.HasPrefix(identifier, prefix), identifier)
+				}
+				_, err := Select(app, "", storeRequest(caller, store))
+				require.ErrorIs(t, err, ErrForbidden)
+			},
+		},
+		{
+			name: "published store wallet",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, org *core.Record) {
+				store := seedStoreWallet(t, app, owner, "Public store wallet", map[string]any{
+					"google_app_id": "eu.europa.ec.euidi",
+					"published":     true,
+				})
+				option, ok := buildOptionsByIdentifier(t, app, caller)[store]
+				require.True(t, ok)
+				assert.Equal(t, SourceStore, option.Source)
+				selection, err := Select(app, "", storeRequest(caller, store))
+				require.NoError(t, err)
+				assert.Equal(t, org.Id, selection.Organization.Id)
+				assert.Equal(t, owner.Organization.Id, selection.WalletOwner.Id)
+				build, err := Resolve(
+					app,
+					org.GetString("canonified_name"),
+					storeRequest(caller, store),
+				)
+				require.NoError(t, err)
+				assert.Equal(
+					t,
+					owner.Organization.GetString("canonified_name"),
+					build.OwnerNamespace,
+				)
+			},
+		},
+		{
+			name: "published wallet, version not downloadable",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, _ *core.Record) {
+				setRecordFields(t, app, owner.Wallet, map[string]any{"published": true})
+				_, listed := buildOptionsByIdentifier(t, app, caller)[owner.Identifier]
+				assert.False(t, listed)
+				_, err := Select(app, "", storeRequest(caller, owner.Identifier))
+				require.ErrorIs(t, err, ErrForbidden)
+				assert.ErrorContains(t, err, notDownloadable)
+			},
+		},
+		{
+			name: "published wallet, version downloadable",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, _ *core.Record) {
+				setRecordFields(t, app, owner.Wallet, map[string]any{"published": true})
+				setRecordFields(t, app, owner.Version, map[string]any{"downloadable": true})
+				option, listed := buildOptionsByIdentifier(t, app, caller)[owner.Identifier]
+				require.True(t, listed)
+				assert.Equal(t, SourceInstaller, option.Source)
+				_, err := Select(app, "", storeRequest(caller, owner.Identifier))
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "session organization is not the caller's",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, _ *core.Record) {
+				store := seedStoreWallet(t, app, owner, "Public store wallet", map[string]any{
+					"google_app_id": "eu.europa.ec.euidi",
+					"published":     true,
+				})
+				_, err := Select(
+					app,
+					owner.Organization.GetString("canonified_name"),
+					storeRequest(caller, store),
+				)
+				require.ErrorIs(t, err, ErrForbidden)
+			},
+		},
+		{
+			name: "save is owned by the caller's organization",
+			run: func(t *testing.T, app *tests.TestApp, owner Selection, caller Actor, org *core.Record) {
+				store := seedStoreWallet(t, app, owner, "Public store wallet", map[string]any{
+					"google_app_id": "eu.europa.ec.euidi",
+					"published":     true,
+				})
+				namespace := org.GetString("canonified_name")
+				request := storeRequest(caller, store)
+				build, err := Resolve(app, namespace, request)
+				require.NoError(t, err)
+				receipt, err := Save(
+					app, namespace, "workflow", "run",
+					acceptedRequest(request, build.InstallerSHA256), testApproval,
+				)
+				require.NoError(t, err)
+				record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+				require.NoError(t, err)
+				assert.Equal(t, org.Id, record.GetString("owner"))
+				wallet, err := app.FindRecordById("wallets", record.GetString("wallet"))
+				require.NoError(t, err)
+				assert.Equal(t, store, owner.Organization.GetString("canonified_name")+"/"+
+					wallet.GetString("canonified_name"))
+				assert.False(t, record.GetBool("published"))
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app, owner, caller, org := publicWalletFixture(t)
+			tc.run(t, app, owner, caller, org)
+		})
+	}
 }
