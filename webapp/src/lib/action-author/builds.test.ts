@@ -6,7 +6,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { AuthorDevice, BuildOption } from './api';
 
-import { buildPlatforms, preferredDevice, toDeviceRecords, walletBuilds } from './builds';
+import {
+	buildPlatforms,
+	preferredDevice,
+	toDeviceRecords,
+	walletBuilds,
+	walletPath
+} from './builds';
 
 function build(identifier: string, platforms: string[]): BuildOption {
 	return {
@@ -43,6 +49,19 @@ describe('walletBuilds', () => {
 		expect(walletBuilds(builds, 'org/w').map((b) => b.identifier)).toEqual([
 			'org/w',
 			'org/w/v1'
+		]);
+	});
+
+	it("finds a public wallet's builds under its owner's path, not the caller's", () => {
+		const builds = [
+			build('org/w', ['android']),
+			build('other/w', ['android']),
+			build('other/w/v1', ['android'])
+		];
+		const path = walletPath({ canonified_name: 'other' }, { canonified_name: 'w' });
+		expect(walletBuilds(builds, path).map((b) => b.identifier)).toEqual([
+			'other/w',
+			'other/w/v1'
 		]);
 	});
 });

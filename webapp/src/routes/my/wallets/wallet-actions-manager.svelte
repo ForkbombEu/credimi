@@ -36,10 +36,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		wallet: WalletsResponse;
+		/** The caller's organization: it owns the listed and added actions. */
 		organization: OrganizationsResponse;
+		/** The wallet's organization, whose path names the wallet's builds and sessions. */
+		walletOwner: OrganizationsResponse | undefined;
 	};
 
-	let { wallet, organization }: Props = $props();
+	let { wallet, organization, walletOwner }: Props = $props();
 
 	//
 </script>
@@ -78,8 +81,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}}
 		>
 			{#snippet actions()}
-				<SessionsSheet {wallet} {organization} />
-				<StartSessionButton {wallet} {organization} />
+				{#if walletOwner}
+					<SessionsSheet {wallet} {walletOwner} />
+					<StartSessionButton {wallet} {walletOwner} {organization} />
+				{/if}
 			{/snippet}
 		</DashboardCardManagerTop>
 	{/snippet}

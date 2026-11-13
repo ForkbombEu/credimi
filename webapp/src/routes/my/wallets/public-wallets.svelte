@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <CollectionManager
 	collection="wallets"
-	queryOptions={{ filter: `owner.id != '${organization.id}'` }}
+	queryOptions={{ filter: `owner.id != '${organization.id}'`, expand: ['owner'] }}
 >
 	{#snippet top({ Search })}
 		<div class="flex items-center justify-between gap-12">
@@ -51,7 +51,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					hideActions
 				>
 					{#snippet content()}
-						<WalletActionsManager wallet={record} {organization} />
+						<WalletActionsManager
+							wallet={record}
+							{organization}
+							walletOwner={record.expand?.owner}
+						/>
 					{/snippet}
 				</DashboardCard>
 			{/each}

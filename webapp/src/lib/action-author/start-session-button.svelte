@@ -39,10 +39,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		wallet: WalletsResponse;
+		/** The wallet's organization, whose path names the wallet's builds. */
+		walletOwner: OrganizationsResponse;
+		/** The caller's organization. */
 		organization: OrganizationsResponse;
 	};
 
-	let { wallet, organization }: Props = $props();
+	let { wallet, walletOwner, organization }: Props = $props();
 
 	type Options = { builds: BuildOption[]; devices: AuthorDevice[]; records: DeviceRecord[] };
 
@@ -61,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const [devices, builds] = await Promise.all([listDevices(), listBuilds()]);
 		if (devices.isErr) throw new Error(devices.error.message);
 		if (builds.isErr) throw new Error(builds.error.message);
-		const walletBuildList = walletBuilds(builds.value, walletPath(organization, wallet));
+		const walletBuildList = walletBuilds(builds.value, walletPath(walletOwner, wallet));
 		const platforms = buildPlatforms(walletBuildList);
 		if (id === loadId) {
 			const preferred = preferredDevice(devices.value, platforms);
@@ -123,7 +126,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{:then opts}
 			{#if opts}
 				{#if opts.builds.length === 0}
-					<T class="text-sm text-muted-foreground">{m.No_authoring_build()}</T>
+					<T class="text-sm text-muted-foreground">
+						{walletOwner.id === organization.id
+							? m.No_authoring_build()
+							: m.No_authoring_build_public_wallet()}
+					</T>
 				{:else if opts.records.length === 0}
 					<T class="text-sm text-muted-foreground">{m.No_authoring_device()}</T>
 				{:else}
