@@ -26,10 +26,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		wallet: WalletsResponse;
-		organization: OrganizationsResponse;
+		/** The wallet's organization, whose path names the wallet's sessions. */
+		walletOwner: Pick<OrganizationsResponse, 'canonified_name'>;
 	};
 
-	let { wallet, organization }: Props = $props();
+	let { wallet, walletOwner }: Props = $props();
 
 	const user = fromStore(currentUser);
 	const timezone = $derived(user.current?.Timezone);
@@ -39,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	$effect(() => {
 		if (!open) return;
-		sessions = listSessions(walletPath(organization, wallet)).then((res) => {
+		sessions = listSessions(walletPath(walletOwner, wallet)).then((res) => {
 			if (res.isErr) throw new Error(res.error.message);
 			return res.value;
 		});

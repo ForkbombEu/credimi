@@ -89,10 +89,15 @@ type Build struct {
 
 // Selection holds the records reauthorized for a build operation. Version is
 // nil for store selections, whose app is PackageID on the store page StoreURL.
+// Organization is the caller's organization, which owns saved actions and
+// whose records the session may use; WalletOwner owns the wallet and its
+// build, and differs from Organization for published wallets of other
+// organizations.
 type Selection struct {
 	Version      *core.Record
 	Wallet       *core.Record
 	Organization *core.Record
+	WalletOwner  *core.Record
 	Actor        Actor
 	Identifier   string
 	Platform     string
@@ -156,8 +161,10 @@ func playStorePage(storeURL, pkg string) string {
 	return "https://play.google.com/store/apps/details?id=" + pkg
 }
 
-// ListBuildOptions returns the builds of the actor's organization, the
-// organization Select authorizes. A user without an organization gets none.
+// ListBuildOptions returns the builds Select authorizes for the actor: builds
+// of the caller's organization's wallets and of published wallets of other
+// organizations (store builds, and downloadable versions). A user without an
+// organization gets none.
 func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 	actor, err := findActor(app, in)
 	if err != nil {
@@ -170,10 +177,14 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 	if err != nil {
 		return nil, fmt.Errorf("find actor organization: %w", err)
 	}
-	ownerFilter := dbx.HashExp{"owner": orgID}
 	filter := []dbx.Expression{
 		dbx.Or(dbx.NewExp("[[android_installer]] != ''"), dbx.NewExp("[[ios_installer]] != ''")),
-		ownerFilter,
+		dbx.Or(
+			dbx.HashExp{"owner": orgID},
+			dbx.NewExp(
+				"[[downloadable]] = TRUE AND [[owner]] IN (SELECT w.[[owner]] FROM [[wallets]] w WHERE w.[[id]] = [[wallet_versions.wallet]] AND w.[[published]] = TRUE)",
+			),
+		),
 	}
 	versions, err := app.FindAllRecords("wallet_versions", filter...)
 	if err != nil {
@@ -214,7 +225,7 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 			Source:           SourceInstaller,
 		})
 	}
-	stores, err := storeBuildOptions(app, ownerFilter)
+	stores, err := storeBuildOptions(app, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -225,9 +236,13 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 	return options, nil
 }
 
-// storeBuildOptions lists the actor's wallets that have a Play Store app.
-func storeBuildOptions(app core.App, ownerFilter dbx.Expression) ([]BuildOption, error) {
-	wallets, err := app.FindAllRecords("wallets", ownerFilter)
+// storeBuildOptions lists the wallets of the actor's organization and the
+// published wallets of other organizations that have a Play Store app.
+func storeBuildOptions(app core.App, orgID string) ([]BuildOption, error) {
+	wallets, err := app.FindAllRecords(
+		"wallets",
+		dbx.Or(dbx.HashExp{"owner": orgID}, dbx.HashExp{"published": true}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("list authoring wallets: %w", err)
 	}
@@ -268,14 +283,16 @@ func findActor(app core.App, in Actor) (*core.Record, error) {
 	return actor, nil
 }
 
-// Select authorizes members of the wallet's organization, the same rule as
-// pipeline runs: the actor's organization is its first one.
+// Select authorizes members of an organization, the same rule as pipeline
+// runs: the actor's organization is its first one. The wallet must be its
+// own, or a published wallet of another organization, whose versions are
+// accepted only when their installer is downloadable.
 // `organization/wallet/version` selects an uploaded installer and
 // `organization/wallet` the wallet's Play Store app (Android only).
-// organization is the canonified_name of the organization the caller acts
-// for; the wallet must be its own. An empty organization skips that check;
-// activities must pass the organization of their verified session, never a
-// value from their payload.
+// organization is the canonified_name of the caller's organization, the one
+// the session acts for. An empty organization skips that check; activities
+// must pass the organization of their verified session, never a value from
+// their payload.
 func Select(app core.App, organization string, in BuildRequest) (Selection, error) {
 	var selection Selection
 	actor, err := findActor(app, in.Actor)
@@ -292,7 +309,7 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 			break
 		}
 	}
-	var version, wallet, owner *core.Record
+	var version, wallet *core.Record
 	switch len(segments) {
 	case 3:
 		version, err = app.FindFirstRecordByFilter(
@@ -322,16 +339,20 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 			ErrInvalid,
 		)
 	}
-	owner, err = app.FindRecordById("organizations", wallet.GetString("owner"))
-	if err != nil {
-		return selection, ErrForbidden
-	}
-	ownerNamespace := owner.GetString("canonified_name")
-	if ownerNamespace == "" || (organization != "" && organization != ownerNamespace) {
+	walletOwner, err := app.FindRecordById("organizations", wallet.GetString("owner"))
+	if err != nil || walletOwner.GetString("canonified_name") == "" {
 		return selection, ErrForbidden
 	}
 	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
-	if err != nil || orgID != owner.Id {
+	if err != nil {
+		return selection, ErrForbidden
+	}
+	caller, err := app.FindRecordById("organizations", orgID)
+	if err != nil || (organization != "" && organization != caller.GetString("canonified_name")) {
+		return selection, ErrForbidden
+	}
+	foreign := walletOwner.Id != caller.Id
+	if foreign && !wallet.GetBool("published") {
 		return selection, ErrForbidden
 	}
 	installer, ok := installerFields[in.Platform]
@@ -341,7 +362,8 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 	selection = Selection{
 		Version:      version,
 		Wallet:       wallet,
-		Organization: owner,
+		Organization: caller,
+		WalletOwner:  walletOwner,
 		Actor:        in.Actor,
 		Identifier:   strings.Join(segments, "/"),
 		Platform:     in.Platform,
@@ -359,6 +381,12 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 		selection.PackageID = pkg
 		selection.StoreURL = storeURL
 		return selection, nil
+	}
+	if foreign && !version.GetBool("downloadable") {
+		return Selection{}, fmt.Errorf(
+			"%w: the owner of this wallet has not made this version's installer downloadable",
+			ErrForbidden,
+		)
 	}
 	if version.GetString(installer.field) == "" {
 		return Selection{}, fmt.Errorf("%w: %s", ErrInvalid, installer.missing)
@@ -388,7 +416,8 @@ func installerDigest(app core.App, selection Selection) (string, error) {
 // Resolve hashes the authorized platform installer, the provenance Save checks.
 // The runner installs the installer itself, through the pipeline device code.
 // Store builds have no installer: the session installs their app from the store.
-// organization is the caller's organization, as for Select.
+// organization is the caller's organization, as for Select. OwnerNamespace is
+// the wallet owner's namespace, which owns the build.
 func Resolve(app core.App, organization string, in BuildRequest) (Build, error) {
 	selection, err := Select(app, organization, in)
 	if err != nil {
@@ -397,7 +426,7 @@ func Resolve(app core.App, organization string, in BuildRequest) (Build, error) 
 	build := Build{
 		WalletID:          selection.Wallet.Id,
 		VersionIdentifier: selection.Identifier,
-		OwnerNamespace:    selection.Organization.GetString("canonified_name"),
+		OwnerNamespace:    selection.WalletOwner.GetString("canonified_name"),
 		Platform:          selection.Platform,
 		Source:            selection.Source,
 		PackageID:         selection.PackageID,

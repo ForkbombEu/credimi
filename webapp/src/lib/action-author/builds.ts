@@ -12,12 +12,12 @@ import type { AuthorDevice, BuildOption } from './api';
 
 //
 
-/** The `organization/wallet` path that prefixes the wallet's build identifiers. */
+/** The `owner/wallet` path of the wallet's build identifiers; owner is the wallet's organization. */
 export function walletPath(
-	organization: Pick<OrganizationsResponse, 'canonified_name'>,
+	owner: Pick<OrganizationsResponse, 'canonified_name'>,
 	wallet: Pick<WalletsResponse, 'canonified_name'>
 ): string {
-	return `${organization.canonified_name}/${wallet.canonified_name}`;
+	return `${owner.canonified_name}/${wallet.canonified_name}`;
 }
 
 /** The wallet's builds: its store build (`path`) and its versions (`path/…`), in API order. */

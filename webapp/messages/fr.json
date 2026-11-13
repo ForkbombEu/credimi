@@ -1088,6 +1088,7 @@
 	"Authoring_sessions": "Sessions de rédaction",
 	"No_authoring_sessions": "Aucune session de rédaction pour l'instant.",
 	"No_authoring_build": "Ce wallet n'a aucun build utilisable par l'agent : ajoutez une version avec un APK Android ou une app iOS simulator, ou définissez son app Play Store.",
+	"No_authoring_build_public_wallet": "Ce wallet n'a aucun build utilisable par l'agent : son propriétaire n'a défini ni app Play Store, ni version téléchargeable avec un APK Android ou une app iOS simulator.",
 	"No_authoring_device": "Aucun appareil ne peut exécuter l'agent pour ce wallet.",
 	"Action_author_agent_not_running": "L'agent du runner ne fonctionne pas",
 	"Installed_from_the_store": "Installée depuis le store",

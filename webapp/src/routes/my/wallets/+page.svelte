@@ -72,7 +72,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 						<Separator />
 
-						<WalletActionsManager wallet={record} {organization} />
+						<WalletActionsManager
+							wallet={record}
+							{organization}
+							walletOwner={organization}
+						/>
 					{/snippet}
 				</DashboardCard>
 			{/each}

@@ -1088,6 +1088,7 @@
 	"Authoring_sessions": "Forfattersessioner",
 	"No_authoring_sessions": "Ingen forfattersessioner endnu.",
 	"No_authoring_build": "Denne wallet har ingen build, agenten kan bruge: tilføj en version med en Android APK eller en iOS simulator-app, eller angiv dens Play Store-app.",
+	"No_authoring_build_public_wallet": "Denne wallet har ingen build, agenten kan bruge: dens ejer har hverken angivet en Play Store-app eller en version, der kan downloades, med en Android APK eller en iOS simulator-app.",
 	"No_authoring_device": "Ingen enhed kan køre agenten for denne wallet.",
 	"Action_author_agent_not_running": "Runnerens agent kører ikke",
 	"Installed_from_the_store": "Installeret fra butikken",

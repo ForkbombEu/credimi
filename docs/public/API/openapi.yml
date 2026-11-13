@@ -153,20 +153,22 @@ paths:
         the mobile-device semaphore. The session runs in the caller''s organization
         namespace. The device type decides the platform (Android devices: android,
         iOS simulators: ios). wallet_version_identifier is organization/wallet/version
-        for an uploaded installer of that platform of the caller''s organization,
+        for an uploaded installer of that platform of a wallet of the caller''s organization
+        or a published wallet of another organization (downloadable versions only),
         or, on an Android device only, organization/wallet for its wallet installed
         from the Play Store at session start (the device needs the Play Store with
         a signed-in account; otherwise the agent reports the failure in the chat and
-        closes the session); GET /api/action-author/wallet-versions lists both. The
-        iOS simulator has no App Store: organization/wallet on an iOS simulator answers
-        400 invalid_request before anything is queued. A wallet of another organization
-        answers 403 forbidden. The device must belong to an enabled, online runner
-        of the caller''s organization, or to a published runner of another organization
-        that offers the agent to other organizations; any other device answers 404
-        device_not_found, and a disabled runner answers like an offline one (503).
-        A caller who is not a member of any organization answers 403 forbidden. A
-        runner whose action author has not polled <runner_id>-ActionAuthor in the
-        caller''s namespace in the last two minutes answers 503 agent_unavailable.
+        closes the session); GET /api/action-author/wallet-versions lists both. Saved
+        actions are owned by the caller''s organization. The iOS simulator has no
+        App Store: organization/wallet on an iOS simulator answers 400 invalid_request
+        before anything is queued. An unpublished wallet of another organization,
+        or a non-downloadable version of one, answers 403 forbidden. The device must
+        belong to an enabled, online runner of the caller''s organization, or to a
+        published runner of another organization that offers the agent to other organizations;
+        any other device answers 404 device_not_found, and a disabled runner answers
+        like an offline one (503). A caller who is not a member of any organization
+        answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor
+        in the caller''s namespace in the last two minutes answers 503 agent_unavailable.
         The agent sets each action''s plan in the chat and Credimi checks it on every
         call that uses it; the session can save several actions. The runner owner
         sets two daily limits of model tokens (UTC day) in the runner''s configuration:
@@ -306,17 +308,19 @@ paths:
       summary: End an authoring session
   /api/action-author/wallet-versions:
     get:
-      description: List the builds of the authenticated caller's organization (the
-        user's first organization, as for pipeline runs) available for authoring,
-        with the platforms each build supports and its source. A build is a wallet
-        version with an Android APK or iOS simulator app (source installer, identifier
-        organization/wallet/version), or, for Android only, a wallet with a Play Store
-        app (google_app_id, or the id of its play.google.com playstore_url), installed
-        from the Play Store at session start (source store, identifier organization/wallet,
-        version_tag "store install", platforms [android]). The iOS simulator has no
-        App Store, so iOS builds are only wallet versions with an iOS simulator app.
-        These are the only builds accepted by the session start endpoint. A caller
-        without an organization gets an empty list.
+      description: 'List the builds available for authoring to the authenticated caller,
+        member of an organization (the user''s first organization, as for pipeline
+        runs): builds of the caller''s organization''s wallets and of other organizations''
+        published wallets (their Play Store app, and their versions whose installer
+        is downloadable), with the platforms each build supports and its source. A
+        build is a wallet version with an Android APK or iOS simulator app (source
+        installer, identifier organization/wallet/version), or, for Android only,
+        a wallet with a Play Store app (google_app_id, or the id of its play.google.com
+        playstore_url), installed from the Play Store at session start (source store,
+        identifier organization/wallet, version_tag "store install", platforms [android]).
+        The iOS simulator has no App Store, so iOS builds are only wallet versions
+        with an iOS simulator app. These are the only builds accepted by the session
+        start endpoint. A caller without an organization gets an empty list.'
       operationId: actionAuthor.listWalletVersions
       parameters:
       - description: Bearer token for authentication.
