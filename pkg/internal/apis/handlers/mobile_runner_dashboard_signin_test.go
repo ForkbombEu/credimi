@@ -551,6 +551,15 @@ func TestHandleMobileRunnerDashboardRedeem(t *testing.T) {
 func deleteDashboardUser(t *testing.T, f registrationFixture) {
 	t.Helper()
 
+	removeDashboardUserFromOrganizations(t, f)
+	require.NoError(t, f.app.Delete(f.user))
+}
+
+// removeDashboardUserFromOrganizations deletes the fixture user's
+// organization authorizations, leaving the user in no organization.
+func removeDashboardUserFromOrganizations(t *testing.T, f registrationFixture) {
+	t.Helper()
+
 	authorizations, err := f.app.FindAllRecords(
 		"orgAuthorizations",
 		dbx.HashExp{"user": f.user.Id},
@@ -559,7 +568,6 @@ func deleteDashboardUser(t *testing.T, f registrationFixture) {
 	for _, authorization := range authorizations {
 		require.NoError(t, f.app.Delete(authorization))
 	}
-	require.NoError(t, f.app.Delete(f.user))
 }
 
 func (f registrationFixture) checkDashboardSession(
@@ -637,6 +645,13 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 		{
 			name:       "deleted user",
 			prepare:    deleteDashboardUser,
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_owner_mismatch",
+		},
+		{
+			name:       "user in no organization",
+			prepare:    removeDashboardUserFromOrganizations,
 			wantCode:   http.StatusForbidden,
 			wantDomain: "runner_id",
 			wantReason: "runner_owner_mismatch",

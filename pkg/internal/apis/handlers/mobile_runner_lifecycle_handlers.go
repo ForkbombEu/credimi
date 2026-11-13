@@ -497,6 +497,9 @@ func resolveLifecycleRunner(
 
 	if !isSuperuserAuth(auth) {
 		orgID, err := pbutils.GetUserOrganizationID(app, auth.Id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", runnerOwnerMismatchError()
+		}
 		if err != nil {
 			return nil, "", apierror.New(
 				http.StatusInternalServerError,
