@@ -358,6 +358,8 @@ func TestDashboardRedirectScheme(t *testing.T) {
 		{"http://134744072", false},
 		{"http://0x08080808", false},
 		{"http://:8051", false},
+		{"http://evil。com:8051", false},
+		{"http://１３４７４４０７２", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.origin, func(t *testing.T) {

@@ -349,7 +349,9 @@ var dashboardCGNAT = netip.MustParsePrefix("100.64.0.0/10")
 // plain http: localhost, a loopback, private (RFC 1918, fc00::/7),
 // 100.64.0.0/10 or link-local IP literal, or a single-label hostname such as
 // "archlinux". A single label a browser reads as a number (an IPv4 address
-// such as 134744072) is not a hostname.
+// such as 134744072) is not a hostname, nor is a host with a character outside
+// [A-Za-z0-9.-]: browsers map the ideographic full stop and full-width digits
+// onto dots and digits, so "evil。com" would reach a public name.
 func dashboardLocalHost(host string) bool {
 	if strings.EqualFold(host, "localhost") {
 		return true
@@ -359,11 +361,24 @@ func dashboardLocalHost(host string) bool {
 		return addr.IsLoopback() || addr.IsPrivate() || dashboardCGNAT.Contains(addr) ||
 			addr.IsLinkLocalUnicast()
 	}
-	if host == "" || strings.Contains(host, ".") || strings.Contains(host, ":") {
+	if host == "" || !dashboardASCIIHost(host) || strings.Contains(host, ".") {
 		return false
 	}
 	_, err := strconv.ParseUint(host, 0, 64)
 	return err != nil
+}
+
+// dashboardASCIIHost reports whether host holds only ASCII letters, digits,
+// dots and hyphens.
+func dashboardASCIIHost(host string) bool {
+	for i := range len(host) {
+		c := host[i]
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') &&
+			c != '.' && c != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func dashboardInvalidRequest(message string) *apierror.APIError {
