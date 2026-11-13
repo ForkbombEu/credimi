@@ -247,7 +247,9 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 }
 
 // authorizeDashboardUser allows user to sign in to the dashboard of the
-// runner runnerID when they may manage it (authorizeRunnerManager).
+// runner runnerID when they own its organization or are a superuser, for
+// admin-managed runners too: owners of an admin-managed runner's organization
+// are Credimi administrators. A disabled runner is refused.
 func authorizeDashboardUser(
 	app core.App,
 	user *core.Record,
@@ -258,7 +260,7 @@ func authorizeDashboardUser(
 		user,
 		runnerID,
 		"only owners of the runner's organization can sign in to its dashboard",
-		"only superusers can sign in to the dashboard of an admin-managed runner",
+		"",
 	)
 }
 

@@ -62,7 +62,8 @@ func authorizeRunnerKey(
 // authorizeRunnerManager resolves runnerID and allows auth to manage the
 // runner only when it owns the runner's organization or is a superuser, only
 // as a superuser for an admin-managed runner, and never for a disabled runner.
-// ownerRequired and adminManaged are the messages of the two role refusals.
+// ownerRequired and adminManaged are the messages of the two role refusals;
+// an empty adminManaged lets owners manage admin-managed runners too.
 func authorizeRunnerManager(
 	app core.App,
 	auth *core.Record,
@@ -95,7 +96,7 @@ func authorizeRunnerManager(
 			)
 		}
 	}
-	if record.GetBool("admin_managed") && !isSuperuserAuth(auth) {
+	if adminManaged != "" && record.GetBool("admin_managed") && !isSuperuserAuth(auth) {
 		return nil, "", apierror.New(
 			http.StatusForbidden,
 			"runner_id",
