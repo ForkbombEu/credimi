@@ -959,3 +959,20 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: `dashboardRedirect` accepts `http` only when the host is `localhost`, an IP literal that is loopback, private (RFC 1918, fc00::/7), in `100.64.0.0/10` or link-local, or a single-label hostname (no dot, e.g. `archlinux`, and not a number a browser reads as an IPv4 address); any other host needs `https`, else `400 invalid_return_to` (`dashboardLocalHost`).
 - default risk: plain http on a LAN, overlay network or single-label name is still readable by others on that network.
 - follow-up: none unless dashboards are reached over untrusted local networks.
+
+### 2026-11-13 - Runner dashboard sign-in: accepted risks
+
+- status: resolved
+- owner: human maintainer
+- context: last review round of "Sign in with Credimi" on the credimi-runner dashboard. Supersedes the 2026-11-13 entry "Tokens exchanged for API keys cannot open runner dashboards; superuser impersonation still can": as the later entry of the same day says, that impersonation path is unreachable (`GET /api/apikey/authenticate` never mints a `_superusers` token). Also extends the entry "Runner dashboard return address needs https unless local": a single-label host must now be ASCII letters, digits and hyphens only, since browsers map `。` and full-width digits onto dots and digits.
+- question: which residual risks of dashboard sign-in are accepted?
+- options considered: restrict what a Credimi session may change on the runner, or shorten sessions, versus accepting the risks below.
+- decision: accepted, by user decision for (a) and (b):
+  - (a) a Credimi dashboard sign-in has the same full operator access as the dashboard token, including changing the Credimi URL and keys, images, model URL and allowed hosts, so a signed-in owner can keep access after revocation by reconfiguring the runner; only `DASHBOARD_TOKEN` cannot be changed from a Credimi session, and the token stays the revocation lever.
+  - (b) dashboard sessions last 30 days and are re-checked hourly with `POST /api/mobile-runner/dashboard-session/check` (401/403/404 sign out; other failures keep the session and retry after 5 minutes); while Credimi is unreachable a revoked user keeps access until a check succeeds.
+  - (c) a leaked owner user API key can add an owner row to the organization and then sign in normally through a browser; the `api_key` token claim only blocks the direct path.
+  - (d) plain http on LAN IPs and single-label hosts exposes the one-time code to network attackers (sniffing, MITM, LLMNR/mDNS name poisoning).
+  - (e) the runner's callback rate limit is per client IP, so behind a reverse proxy all users share 10 attempts a minute.
+  - (f) the global cap of 4096 pending codes (`503 too_many_codes`) can be filled by many owner accounts.
+- default risk: as listed in the decision.
+- follow-up: revisit (a) if dashboards are shared with people who should not reconfigure the runner; (e) if runners are deployed behind proxies.
