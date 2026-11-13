@@ -34,6 +34,10 @@ const (
 // dashboardCodeNow is the clock of dashboard sign-in codes; tests replace it.
 var dashboardCodeNow = time.Now
 
+// dashboardCodes holds this process's pending dashboard sign-in codes; tests
+// replace it.
+var dashboardCodes = mobilerunner.NewDashboardCodeStore()
+
 // MobileRunnerDashboardSignInRoutes lets a signed-in user obtain a one-time
 // code to sign in to the dashboard of a runner they manage.
 var MobileRunnerDashboardSignInRoutes = routing.RouteGroup{
@@ -118,13 +122,21 @@ func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
 		}
 
 		now := dashboardCodeNow()
-		code, err := mobilerunner.IssueDashboardCode(mobilerunner.DashboardCode{
+		code, err := dashboardCodes.Issue(mobilerunner.DashboardCode{
 			RunnerID:       record.Id,
 			UserID:         e.Auth.Id,
 			AuthCollection: e.Auth.Collection().Name,
 			ReturnTo:       input.ReturnTo,
 			Expires:        now.Add(mobilerunner.DashboardCodeTTL),
 		}, now)
+		if errors.Is(err, mobilerunner.ErrTooManyUserDashboardCodes) {
+			return apierror.New(
+				http.StatusTooManyRequests,
+				"dashboard_code",
+				"too_many_codes",
+				"too many pending sign-ins; try again in a minute",
+			)
+		}
 		if errors.Is(err, mobilerunner.ErrTooManyDashboardCodes) {
 			return apierror.New(
 				http.StatusServiceUnavailable,
@@ -167,7 +179,7 @@ func HandleMobileRunnerDashboardRedeem() func(*core.RequestEvent) error {
 
 		// A code sent to another dashboard is refused like a missing one, so
 		// the answer reveals nothing about it.
-		code, ok := mobilerunner.RedeemDashboardCode(input.Code, dashboardCodeNow())
+		code, ok := dashboardCodes.Redeem(input.Code, dashboardCodeNow())
 		if !ok || code.RunnerID != record.Id || code.ReturnTo != input.ReturnTo {
 			return apierror.New(
 				http.StatusBadRequest,

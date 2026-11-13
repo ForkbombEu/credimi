@@ -19,9 +19,19 @@ const DashboardCodeTTL = 60 * time.Second
 // maxDashboardCodes bounds the pending codes this process keeps.
 const maxDashboardCodes = 4096
 
+// maxDashboardCodesPerUser bounds the pending codes of one user, so a single
+// account cannot fill the process-wide bound.
+const maxDashboardCodesPerUser = 5
+
 // ErrTooManyDashboardCodes is returned when maxDashboardCodes unexpired codes
 // are pending.
 var ErrTooManyDashboardCodes = errors.New("too many pending dashboard sign-in codes")
+
+// ErrTooManyUserDashboardCodes is returned when the user already has
+// maxDashboardCodesPerUser unexpired codes pending.
+var ErrTooManyUserDashboardCodes = errors.New(
+	"too many pending dashboard sign-in codes for the user",
+)
 
 // DashboardCode is a pending sign-in to a runner's dashboard: the user with
 // record UserID in AuthCollection may sign in to the dashboard of the runner
@@ -35,44 +45,58 @@ type DashboardCode struct {
 	Expires        time.Time
 }
 
-// dashboardCodes holds the pending codes of this process, by code. A restart
-// drops them: users then sign in again.
-var dashboardCodes = struct {
-	sync.Mutex
+// DashboardCodeStore holds pending codes by code. It lives in this process's
+// memory: a restart drops them and users sign in again.
+type DashboardCodeStore struct {
+	mu    sync.Mutex
 	codes map[string]DashboardCode
-}{codes: map[string]DashboardCode{}}
+}
 
-// IssueDashboardCode stores c under a new random code and returns the code.
-func IssueDashboardCode(c DashboardCode, now time.Time) (string, error) {
+// NewDashboardCodeStore returns an empty store.
+func NewDashboardCodeStore() *DashboardCodeStore {
+	return &DashboardCodeStore{codes: map[string]DashboardCode{}}
+}
+
+// Issue stores c under a new random code and returns the code. Expired codes
+// are dropped first; then a user with maxDashboardCodesPerUser pending codes
+// gets ErrTooManyUserDashboardCodes and a store with maxDashboardCodes
+// ErrTooManyDashboardCodes.
+func (s *DashboardCodeStore) Issue(c DashboardCode, now time.Time) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", fmt.Errorf("generate dashboard code: %w", err)
 	}
 	code := base64.RawURLEncoding.EncodeToString(raw)
 
-	dashboardCodes.Lock()
-	defer dashboardCodes.Unlock()
-	if len(dashboardCodes.codes) >= maxDashboardCodes {
-		for k, v := range dashboardCodes.codes {
-			if !now.Before(v.Expires) {
-				delete(dashboardCodes.codes, k)
-			}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pending := 0
+	for k, v := range s.codes {
+		if !now.Before(v.Expires) {
+			delete(s.codes, k)
+			continue
 		}
-		if len(dashboardCodes.codes) >= maxDashboardCodes {
-			return "", ErrTooManyDashboardCodes
+		if v.AuthCollection == c.AuthCollection && v.UserID == c.UserID {
+			pending++
 		}
 	}
-	dashboardCodes.codes[code] = c
+	if pending >= maxDashboardCodesPerUser {
+		return "", ErrTooManyUserDashboardCodes
+	}
+	if len(s.codes) >= maxDashboardCodes {
+		return "", ErrTooManyDashboardCodes
+	}
+	s.codes[code] = c
 	return code, nil
 }
 
-// RedeemDashboardCode removes code and returns its sign-in when it had not
-// expired at now. A code can be redeemed once.
-func RedeemDashboardCode(code string, now time.Time) (DashboardCode, bool) {
-	dashboardCodes.Lock()
-	c, ok := dashboardCodes.codes[code]
-	delete(dashboardCodes.codes, code)
-	dashboardCodes.Unlock()
+// Redeem removes code and returns its sign-in when it had not expired at now.
+// A code can be redeemed once.
+func (s *DashboardCodeStore) Redeem(code string, now time.Time) (DashboardCode, bool) {
+	s.mu.Lock()
+	c, ok := s.codes[code]
+	delete(s.codes, code)
+	s.mu.Unlock()
 	if !ok || !now.Before(c.Expires) {
 		return DashboardCode{}, false
 	}
