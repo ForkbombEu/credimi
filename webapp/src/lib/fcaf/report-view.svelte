@@ -273,7 +273,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<span class="font-medium {category.category.text}"
 						>{category.category.label}</span
 					>
-					<span class="text-muted-foreground">{category.passed}/{category.total}</span>
+					<span class="text-muted-foreground"
+						>{category.displayedCount}/{category.total} {category.displayedLabel}</span
+					>
 				</a>
 			{/each}
 		</div>
@@ -296,7 +298,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{category.category.label}
 					</span>
 					<span class="mt-auto font-mono text-[10px] {category.category.text}">
-						{category.passed}/{category.total}
+						{category.displayedCount}/{category.total}
 					</span>
 				</div>
 
@@ -321,7 +323,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									<span class="truncate text-sm font-medium">{group.label}</span>
 								</button>
 								<span class="text-xs text-muted-foreground"
-									>{group.passed}/{group.total} passed</span
+									>{group.displayedCount}/{group.total}
+									{group.displayedLabel}</span
 								>
 								<span class="ml-auto shrink-0 text-xs text-muted-foreground"
 									>{group.total}
