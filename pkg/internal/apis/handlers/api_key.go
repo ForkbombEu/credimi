@@ -203,6 +203,35 @@ func AuthenticateInternalAdminAPIKey() func(e *core.RequestEvent) error {
 // refuse it.
 const APIKeyTokenClaim = "api_key"
 
+// authorizationClaims returns the claims of the request's Authorization
+// token (with or without the Bearer prefix), read unverified: callers rely on
+// PocketBase having verified the token.
+func authorizationClaims(r *http.Request) (jwt.MapClaims, bool) {
+	token := strings.TrimSpace(r.Header.Get("Authorization"))
+	if len(token) > 7 && strings.EqualFold(token[:7], "Bearer ") {
+		token = token[7:]
+	}
+	if token == "" {
+		return nil, false
+	}
+	claims, err := security.ParseUnverifiedJWT(token)
+	if err != nil {
+		return nil, false
+	}
+	return claims, true
+}
+
+// RequestHasAPIKeyToken reports whether the request's Authorization token
+// was exchanged for an API key (APIKeyTokenClaim).
+func RequestHasAPIKeyToken(r *http.Request) bool {
+	claims, ok := authorizationClaims(r)
+	if !ok {
+		return false
+	}
+	fromAPIKey, _ := claims[APIKeyTokenClaim].(bool)
+	return fromAPIKey
+}
+
 // newAPIKeyAuthToken mints record's auth token as PocketBase's NewAuthToken
 // does (same signing key, type, collectionId and duration), marked with
 // APIKeyTokenClaim and not refreshable, so auth-refresh hands the same token

@@ -18,7 +18,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/security"
 )
 
 // DashboardCallbackPath is the runner dashboard path a sign-in code is sent
@@ -296,18 +295,9 @@ func authorizeDashboardRunnerKey(
 // dashboardBrowserSession reports whether the caller signed in to Credimi
 // with a user or superuser token, not with an API key nor a token exchanged
 // for one (APIKeyTokenClaim): a leaked key must not open dashboards.
-// PocketBase has already verified the token, so its claims are read
-// unverified.
 func dashboardBrowserSession(e *core.RequestEvent) bool {
-	token := strings.TrimSpace(e.Request.Header.Get("Authorization"))
-	if len(token) > 7 && strings.EqualFold(token[:7], "Bearer ") {
-		token = token[7:]
-	}
-	if token == "" || e.Auth == nil || e.Auth.Collection() == nil {
-		return false
-	}
-	claims, err := security.ParseUnverifiedJWT(token)
-	if err != nil {
+	claims, ok := authorizationClaims(e.Request)
+	if !ok || e.Auth == nil || e.Auth.Collection() == nil {
 		return false
 	}
 	if fromAPIKey, _ := claims[APIKeyTokenClaim].(bool); fromAPIKey {
