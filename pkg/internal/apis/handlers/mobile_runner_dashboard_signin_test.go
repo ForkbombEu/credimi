@@ -193,13 +193,14 @@ func TestHandleMobileRunnerDashboardCode(t *testing.T) {
 			wantReason: "runner_owner_mismatch",
 		},
 		{
-			name: "owner of an admin-managed runner",
+			name: "member of an admin-managed runner's organization",
 			prepare: func(t *testing.T, f registrationFixture) {
 				setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
+				demoteToMember(t, f.app, f.user.Email())
 			},
 			wantCode:   http.StatusForbidden,
 			wantDomain: "runner_id",
-			wantReason: "admin_managed_runner",
+			wantReason: "runner_owner_role_required",
 		},
 		{
 			name:       "disabled runner",
@@ -272,6 +273,18 @@ func TestHandleMobileRunnerDashboardCode(t *testing.T) {
 		body := decodeJSONBody(t, responseRecorder(t, event))
 		assert.Equal(t, f.superuser.Id, body["user_id"])
 		assert.Equal(t, f.superuser.Email(), body["email"])
+	})
+
+	t.Run("an owner signs in to an admin-managed runner", func(t *testing.T) {
+		f := setupDashboardFixture(t)
+		setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
+
+		code := f.mustDashboardCode(t, f.user)
+		event, err := f.redeemDashboardCode(t, f.superuser, tokenTestRunnerID, code)
+		require.NoError(t, err)
+		body := decodeJSONBody(t, responseRecorder(t, event))
+		assert.Equal(t, f.user.Id, body["user_id"])
+		assert.Equal(t, f.user.Email(), body["email"])
 	})
 
 	t.Run("a user with five pending codes is refused", func(t *testing.T) {
@@ -629,13 +642,21 @@ func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
 			wantReason: "runner_owner_mismatch",
 		},
 		{
-			name: "non-superuser of an admin-managed runner",
+			name: "owner of an admin-managed runner",
 			prepare: func(t *testing.T, f registrationFixture) {
 				setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
 			},
+			wantCode: http.StatusOK,
+		},
+		{
+			name: "member of an admin-managed runner's organization",
+			prepare: func(t *testing.T, f registrationFixture) {
+				setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
+				demoteToMember(t, f.app, f.user.Email())
+			},
 			wantCode:   http.StatusForbidden,
 			wantDomain: "runner_id",
-			wantReason: "admin_managed_runner",
+			wantReason: "runner_owner_role_required",
 		},
 		{
 			name:       "disabled runner",
