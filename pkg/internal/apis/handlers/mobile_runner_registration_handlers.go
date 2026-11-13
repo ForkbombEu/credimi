@@ -83,6 +83,19 @@ var MobileRunnerRegistrationRoutes = routing.RouteGroup{
 				middlewares.RequireCachedAPIKey(),
 			},
 		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/dashboard-session/check",
+			Handler:        HandleMobileRunnerDashboardSessionCheck,
+			RequestSchema:  MobileRunnerDashboardSessionCheckRequest{},
+			ResponseSchema: MobileRunnerDashboardSessionCheckResponse{},
+			// The runner's dashboard checks a signed-in user again with the
+			// runner's own key: same key handling as /temporal-token.
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				{Func: observability.RunnerPreAuthLimit()},
+				middlewares.RequireCachedAPIKey(),
+			},
+		},
 	},
 }
 

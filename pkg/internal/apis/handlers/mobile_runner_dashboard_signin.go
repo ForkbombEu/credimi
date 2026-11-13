@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"net/url"
@@ -82,6 +83,20 @@ type MobileRunnerDashboardRedeemResponse struct {
 	Name           string `json:"name"`
 }
 
+// MobileRunnerDashboardSessionCheckRequest asks whether the user UserID of
+// AuthCollection (users or _superusers), signed in to the dashboard of
+// RunnerID, may still manage it.
+type MobileRunnerDashboardSessionCheckRequest struct {
+	RunnerID       string `json:"runner_id"       validate:"required"`
+	UserID         string `json:"user_id"         validate:"required"`
+	AuthCollection string `json:"auth_collection" validate:"required"`
+}
+
+// MobileRunnerDashboardSessionCheckResponse carries the user's current email.
+type MobileRunnerDashboardSessionCheckResponse struct {
+	Email string `json:"email"`
+}
+
 // HandleMobileRunnerDashboardCode issues a one-time code that lets the
 // signed-in user into the dashboard of a runner they manage.
 func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
@@ -149,6 +164,51 @@ func HandleMobileRunnerDashboardCode() func(*core.RequestEvent) error {
 		redirect.RawQuery = query.Encode()
 		return e.JSON(http.StatusOK, MobileRunnerDashboardCodeResponse{
 			Redirect: redirect.String(),
+		})
+	}
+}
+
+// HandleMobileRunnerDashboardSessionCheck answers whether a user signed in to
+// the dashboard of the runner whose key calls it may still manage the runner.
+func HandleMobileRunnerDashboardSessionCheck() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[MobileRunnerDashboardSessionCheckRequest](e)
+		if err != nil {
+			return dashboardInvalidRequest(err.Error())
+		}
+		if input.UserID == "" ||
+			(input.AuthCollection != "users" &&
+				input.AuthCollection != core.CollectionNameSuperusers) {
+			return dashboardInvalidRequest(
+				"user_id is required and auth_collection must be users or _superusers",
+			)
+		}
+		if _, _, apiErr := authorizeDashboardRunnerKey(e, input.RunnerID); apiErr != nil {
+			return apiErr
+		}
+
+		user, err := e.App.FindRecordById(input.AuthCollection, input.UserID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return apierror.New(
+				http.StatusNotFound,
+				"user_id",
+				"user_not_found",
+				"the user signed in to the dashboard no longer exists",
+			)
+		}
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"user_id",
+				"failed_to_find_user",
+				err.Error(),
+			)
+		}
+		if _, _, apiErr := authorizeDashboardUser(e.App, user, input.RunnerID); apiErr != nil {
+			return apiErr
+		}
+		return e.JSON(http.StatusOK, MobileRunnerDashboardSessionCheckResponse{
+			Email: user.Email(),
 		})
 	}
 }

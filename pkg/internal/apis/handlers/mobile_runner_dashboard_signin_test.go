@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -400,4 +401,152 @@ func TestHandleMobileRunnerDashboardRedeem(t *testing.T) {
 			assert.NotContains(t, apiErr.Message, "Temporal")
 		},
 	)
+}
+
+func (f registrationFixture) checkDashboardSession(
+	t *testing.T,
+	key *core.Record,
+	input MobileRunnerDashboardSessionCheckRequest,
+) (*core.RequestEvent, error) {
+	t.Helper()
+
+	event := performMobileRunnerRequest(
+		t,
+		f.app,
+		key,
+		"/api/mobile-runner/dashboard-session/check",
+		input,
+	)
+	return event, HandleMobileRunnerDashboardSessionCheck()(event)
+}
+
+func TestHandleMobileRunnerDashboardSessionCheck(t *testing.T) {
+	tests := []struct {
+		name       string
+		prepare    func(t *testing.T, f registrationFixture)
+		key        func(f registrationFixture) *core.Record
+		user       func(f registrationFixture) *core.Record
+		collection string
+		userID     string
+		wantCode   int
+		wantDomain string
+		wantReason string
+	}{
+		{
+			name:     "owner",
+			wantCode: http.StatusOK,
+		},
+		{
+			name: "superuser of an admin-managed runner",
+			prepare: func(t *testing.T, f registrationFixture) {
+				setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
+			},
+			user:       func(f registrationFixture) *core.Record { return f.superuser },
+			collection: core.CollectionNameSuperusers,
+			wantCode:   http.StatusOK,
+		},
+		{
+			name:       "demoted member",
+			prepare:    func(t *testing.T, f registrationFixture) { demoteToMember(t, f.app, f.user.Email()) },
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_owner_role_required",
+		},
+		{
+			name:       "user of another organization",
+			user:       func(f registrationFixture) *core.Record { return f.otherUser },
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_owner_mismatch",
+		},
+		{
+			name: "non-superuser of an admin-managed runner",
+			prepare: func(t *testing.T, f registrationFixture) {
+				setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
+			},
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "admin_managed_runner",
+		},
+		{
+			name:       "disabled runner",
+			prepare:    func(t *testing.T, f registrationFixture) { f.setRunnerField(t, "disabled", true) },
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_disabled",
+		},
+		{
+			name: "deleted user",
+			prepare: func(t *testing.T, f registrationFixture) {
+				authorizations, err := f.app.FindAllRecords(
+					"orgAuthorizations",
+					dbx.HashExp{"user": f.user.Id},
+				)
+				require.NoError(t, err)
+				for _, authorization := range authorizations {
+					require.NoError(t, f.app.Delete(authorization))
+				}
+				require.NoError(t, f.app.Delete(f.user))
+			},
+			wantCode:   http.StatusNotFound,
+			wantDomain: "user_id",
+			wantReason: "user_not_found",
+		},
+		{
+			name:       "runner key without rights",
+			key:        func(f registrationFixture) *core.Record { return f.otherUser },
+			wantCode:   http.StatusForbidden,
+			wantDomain: "runner_id",
+			wantReason: "runner_owner_mismatch",
+		},
+		{
+			name:       "unknown auth collection",
+			collection: "organizations",
+			wantCode:   http.StatusBadRequest,
+			wantDomain: "mobile_runner",
+			wantReason: "invalid_request",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := setupDashboardFixture(t)
+			if tc.prepare != nil {
+				tc.prepare(t, f)
+			}
+			key := f.superuser
+			if tc.key != nil {
+				key = tc.key(f)
+			}
+			user := f.user
+			if tc.user != nil {
+				user = tc.user(f)
+			}
+			collection := "users"
+			if tc.collection != "" {
+				collection = tc.collection
+			}
+
+			event, err := f.checkDashboardSession(t, key, MobileRunnerDashboardSessionCheckRequest{
+				RunnerID:       tokenTestRunnerID,
+				UserID:         user.Id,
+				AuthCollection: collection,
+			})
+			if tc.wantCode != http.StatusOK {
+				apiErr := requireRegistrationAPIError(
+					t,
+					err,
+					tc.wantCode,
+					tc.wantDomain,
+					tc.wantReason,
+				)
+				assert.NotContains(t, apiErr.Message, "Temporal")
+				return
+			}
+			require.NoError(t, err)
+			recorder := responseRecorder(t, event)
+			require.Equal(t, http.StatusOK, recorder.Code)
+			assert.Equal(t, map[string]any{"email": user.Email()}, decodeJSONBody(t, recorder))
+		})
+	}
 }
