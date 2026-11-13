@@ -103,6 +103,15 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
+			Method:         http.MethodGet,
+			Path:           "/sessions/{session_id}/transcript",
+			Handler:        HandleActionAuthorSessionTranscript,
+			OperationID:    "actionAuthor.sessionTranscript",
+			Summary:        "Read the transcript of an authoring session's chat",
+			Description:    "The read-only transcript of a session's chat, read from Temporal history: user messages, the agent's replies, its tool calls, review decisions and saved actions. Only the session's starter can read it (404 otherwise).",
+			ResponseSchema: ActionAuthorTranscriptResponse{},
+		},
+		{
 			Method:         http.MethodPost,
 			Path:           "/sessions/{session_id}/close",
 			Handler:        HandleActionAuthorSessionClose,
@@ -673,6 +682,11 @@ type ActionAuthorSessionListItem struct {
 	DeviceName              string `json:"device_name"`
 }
 
+// ActionAuthorTranscriptResponse is the transcript of a session's chat, in event order.
+type ActionAuthorTranscriptResponse struct {
+	Entries []activities.TranscriptEntry `json:"entries"`
+}
+
 // ActionAuthorSessionCloseResponse names the session asked to end.
 type ActionAuthorSessionCloseResponse struct {
 	SessionID string `json:"session_id"`
@@ -787,6 +801,31 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 		}
 		readActionAuthorChat(e, c, response.ChatWorkflowID, running, &response)
 		return e.JSON(http.StatusOK, response)
+	}
+}
+
+// HandleActionAuthorSessionTranscript reads the transcript of the chat of a
+// session the caller started from its Temporal history.
+func HandleActionAuthorSessionTranscript() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		c, info, apiErr := readCallerActionAuthorSession(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		entries, err := activities.ReadActionAuthorTranscript(
+			e.Request.Context(),
+			c,
+			info.SessionWorkflowID+activities.ActionAuthorWorkflowIDSuffix,
+		)
+		switch {
+		case errors.Is(err, activities.ErrActionAuthorTranscriptNotFound):
+			return actionAuthorSessionMissing()
+		case err != nil:
+			e.App.Logger().
+				Warn("action author transcript", "session", info.SessionWorkflowID, "error", err)
+			return temporalUnavailableError()
+		}
+		return e.JSON(http.StatusOK, ActionAuthorTranscriptResponse{Entries: entries})
 	}
 }
 

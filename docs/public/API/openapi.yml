@@ -306,6 +306,46 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: End an authoring session
+  /api/action-author/sessions/{session_id}/transcript:
+    get:
+      description: 'The read-only transcript of a session''s chat, read from Temporal
+        history: user messages, the agent''s replies, its tool calls, review decisions
+        and saved actions. Only the session''s starter can read it (404 otherwise).'
+      operationId: actionAuthor.sessionTranscript
+      parameters:
+      - description: The ID for the session_id.
+        in: path
+        name: session_id
+        required: true
+        schema:
+          description: The ID for the session_id.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorTranscriptResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Read the transcript of an authoring session's chat
   /api/action-author/wallet-versions:
     get:
       description: 'List the builds available for authoring to the authenticated caller,
@@ -915,6 +955,28 @@ components:
         url:
           type: string
       type: object
+    ActivitiesTranscriptEntry:
+      properties:
+        accepted:
+          nullable: true
+          type: boolean
+        arguments:
+          type: string
+        code:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+        replaced:
+          type: boolean
+        text:
+          type: string
+        time:
+          type: string
+        tool:
+          type: string
+      type: object
     ApierrorAPIError:
       properties:
         code:
@@ -1099,6 +1161,14 @@ components:
           type: string
         wallet_version_identifier:
           type: string
+      type: object
+    HandlersActionAuthorTranscriptResponse:
+      properties:
+        entries:
+          items:
+            $ref: '#/components/schemas/ActivitiesTranscriptEntry'
+          nullable: true
+          type: array
       type: object
     HandlersActionAuthorWalletVersionsResponse:
       properties:
