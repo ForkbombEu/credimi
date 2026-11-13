@@ -231,6 +231,7 @@ func TestHandleMobileRunnerDashboardCode(t *testing.T) {
 		returnToRefusal("http://host/auth%2Fcredimi%2Fcallback"),
 		returnToRefusal("http://host/auth/credimi/%63allback"),
 		returnToRefusal("http://host/auth/credimi/callback/"),
+		returnToRefusal("http://runner.example.com/auth/credimi/callback"),
 	}
 
 	for _, tc := range refusals {
@@ -291,6 +292,46 @@ func TestHandleMobileRunnerDashboardCode(t *testing.T) {
 			"too_many_codes",
 		)
 	})
+}
+
+func TestDashboardRedirectScheme(t *testing.T) {
+	cases := []struct {
+		origin string
+		ok     bool
+	}{
+		{"http://localhost:8051", true},
+		{"http://127.0.0.1", true},
+		{"http://[::1]:8051", true},
+		{"http://192.168.1.5:8051", true},
+		{"http://10.0.0.7", true},
+		{"http://100.100.1.1", true},
+		{"http://169.254.10.10", true},
+		{"http://[fd7a:115c::1]:8051", true},
+		{"http://[fe80::1]:8051", true},
+		{"http://archlinux:8051", true},
+		{"https://runner.example.com", true},
+		{"https://8.8.8.8:8051", true},
+		{"http://runner.example.com", false},
+		{"http://8.8.8.8:8051", false},
+		{"http://100.128.0.1", false},
+		{"http://[2001:db8::1]:8051", false},
+		{"http://[::ffff:8.8.8.8]", false},
+		{"http://134744072", false},
+		{"http://0x08080808", false},
+		{"http://:8051", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.origin, func(t *testing.T) {
+			_, apiErr := dashboardRedirect(tc.origin + DashboardCallbackPath)
+			if tc.ok {
+				assert.Nil(t, apiErr)
+				return
+			}
+			require.NotNil(t, apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.Code)
+			assert.Equal(t, "invalid_return_to", apiErr.Reason)
+		})
+	}
 }
 
 func TestHandleMobileRunnerDashboardRedeem(t *testing.T) {

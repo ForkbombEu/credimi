@@ -8,7 +8,9 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -314,19 +316,21 @@ func dashboardBrowserSession(e *core.RequestEvent) bool {
 }
 
 // dashboardRedirect accepts returnTo only as an absolute http(s) URL of a
-// dashboard sign-in callback: no credentials, query or fragment, and the
-// escaped path exactly DashboardCallbackPath (no percent-encoded variant).
+// dashboard sign-in callback: no credentials, query or fragment, the escaped
+// path exactly DashboardCallbackPath (no percent-encoded variant), and https
+// unless the host is local (dashboardLocalHost).
 func dashboardRedirect(returnTo string) (*url.URL, *apierror.APIError) {
 	invalid := apierror.New(
 		http.StatusBadRequest,
 		"return_to",
 		"invalid_return_to",
-		"return_to must be the http(s) URL of a runner dashboard's "+DashboardCallbackPath,
+		"return_to must be the URL of a runner dashboard's "+DashboardCallbackPath+
+			", over https unless its host is local",
 	)
 	u, err := url.Parse(returnTo)
 	if err != nil ||
-		(u.Scheme != "http" && u.Scheme != "https") ||
-		u.Host == "" ||
+		(u.Scheme != "https" && (u.Scheme != "http" || !dashboardLocalHost(u.Hostname()))) ||
+		u.Hostname() == "" ||
 		u.User != nil ||
 		u.Opaque != "" ||
 		u.RawPath != "" ||
@@ -336,6 +340,31 @@ func dashboardRedirect(returnTo string) (*url.URL, *apierror.APIError) {
 		return nil, invalid
 	}
 	return u, nil
+}
+
+// dashboardCGNAT is 100.64.0.0/10, where Tailscale and other overlay networks
+// address their nodes.
+var dashboardCGNAT = netip.MustParsePrefix("100.64.0.0/10")
+
+// dashboardLocalHost reports whether a dashboard at host may be reached over
+// plain http: localhost, a loopback, private (RFC 1918, fc00::/7),
+// 100.64.0.0/10 or link-local IP literal, or a single-label hostname such as
+// "archlinux". A single label a browser reads as a number (an IPv4 address
+// such as 134744072) is not a hostname.
+func dashboardLocalHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	if addr, err := netip.ParseAddr(host); err == nil {
+		addr = addr.Unmap()
+		return addr.IsLoopback() || addr.IsPrivate() || dashboardCGNAT.Contains(addr) ||
+			addr.IsLinkLocalUnicast()
+	}
+	if host == "" || strings.Contains(host, ".") || strings.Contains(host, ":") {
+		return false
+	}
+	_, err := strconv.ParseUint(host, 0, 64)
+	return err != nil
 }
 
 func dashboardInvalidRequest(message string) *apierror.APIError {

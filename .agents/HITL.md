@@ -950,3 +950,12 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - context: corrects the 2026-11-13 entry "Tokens exchanged for API keys cannot open runner dashboards; superuser impersonation still can". `GET /api/apikey/authenticate` accepts only user-scope keys (`ApiKeyService.AuthenticateUserAPIKey`), whose owner is a `users` record, so it never mints a `_superusers` token and PocketBase's superuser-only `POST /api/collections/{collection}/impersonate/{id}` cannot be reached with one: the impersonation path and the default risk described there cannot happen. A path that could: PocketBase's `POST /api/collections/{collection}/auth-with-oauth2` links the provider account to the request's signed-in record and returns a fresh token without the `api_key` claim, so an exchanged token plus any OAuth2 account of the attacker became a browser session.
 - decision: `apis.HookRefuseAPIKeyOAuth2Linking` (`pkg/internal/apis/turnstile.go`, an `OnRecordAuthWithOAuth2Request` hook on every auth collection) answers `403` when the request's Authorization token carries `api_key: true` (`handlers.RequestHasAPIKeyToken`); OAuth2 sign-in without an Authorization header is unchanged.
 - default risk: none known for this path.
+
+### 2026-11-13 - Runner dashboard return address needs https unless local
+
+- status: open
+- owner: human maintainer
+- context: supersedes the 2026-11-12 entry's "accepts any `http(s)://<host>/auth/credimi/callback` as `return_to`": over plain http a code sent to a public host can be read on the network path and redeemed at the real dashboard before the user.
+- decision: `dashboardRedirect` accepts `http` only when the host is `localhost`, an IP literal that is loopback, private (RFC 1918, fc00::/7), in `100.64.0.0/10` or link-local, or a single-label hostname (no dot, e.g. `archlinux`, and not a number a browser reads as an IPv4 address); any other host needs `https`, else `400 invalid_return_to` (`dashboardLocalHost`).
+- default risk: plain http on a LAN, overlay network or single-label name is still readable by others on that network.
+- follow-up: none unless dashboards are reached over untrusted local networks.
