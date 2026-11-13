@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import asyncio
+import base64
 import importlib
 import json
 import logging
@@ -17,6 +18,7 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
+from temporal_agent_harness.harness.agent_protocol import AgentEvent, ReplyDelta
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporal_agent_harness.web.task_queue_status import RegistryWorkers, TaskQueueWorkers
 from temporalio import workflow
@@ -428,12 +430,16 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     async with ui_client() as client:
         page = await client.get("/", params={"s": CHAT})
         css = await client.get("/action-embed.css")
+        script = await client.get("/action-embed.js")
     assert page.status_code == 200
     assert page.headers["x-frame-options"] == "SAMEORIGIN"
     assert page.headers["content-security-policy"] == HTML_CSP
     assert "frame-ancestors 'self'" in HTML_CSP
     assert page.headers["cache-control"] == "no-store"
-    assert '<link rel="stylesheet" href="./action-embed.css"></head>' in page.text
+    assert (
+        '<link rel="stylesheet" href="./action-embed.css">'
+        '<script src="./action-embed.js"></script></head>'
+    ) in page.text
     assert css.status_code == 200
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"
@@ -442,6 +448,12 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     assert "a.session-temporal { display: none !important; }" in css.text
     assert "color-scheme: light" in css.text
     assert ".svelte-flow.dark" in css.text
+    # The replay hides the composer; the script attaches the harness to a closed chat once.
+    assert ".credimi-replay .composer" in css.text
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
+    assert script.headers["x-frame-options"] == "SAMEORIGIN"
+    assert "credimi-replay" in script.text
 
 
 def test_registry_uses_the_chat_task_queue():
@@ -534,15 +546,50 @@ async def test_temporal_errors_answer_503_without_a_traceback(status, path, capl
 
 @workflow.defn(name="ActionAuthor")
 class FinishedSession:
-    """An ActionAuthor run that ends at once."""
+    """A closed ActionAuthor run whose recorded events stay readable by query."""
+
+    def __init__(self) -> None:
+        self._log: list[str] = []
 
     @workflow.run
-    async def run(self) -> None:
-        return None
+    async def run(self, events: list[str]) -> None:
+        self._log = events
+
+    # Same page shape as the runner's ActionAuthor.authoring_events.
+    @workflow.query
+    def authoring_events(self, from_offset: int = 0) -> dict:
+        start = max(0, from_offset)
+        page = self._log[start : start + 25]
+        return {
+            "items": [{"data": data, "offset": start + index} for index, data in enumerate(page)],
+            "next_offset": start + len(page),
+            "end_offset": len(self._log),
+        }
+
+
+async def _encoded_reply(temporal: Client, text: str) -> str:
+    event = AgentEvent(
+        agent_id="agent",
+        turn_id="turn-1",
+        turn_number=1,
+        timestamp=1.0,
+        event=ReplyDelta(text=text),
+    )
+    (payload,) = await temporal.data_converter.encode([event])
+    return base64.b64encode(payload.SerializeToString()).decode("ascii")
+
+
+def _sse_events(body: str) -> list[dict]:
+    return [
+        json.loads(line[len("data: ") :])
+        for frame in body.split("\n\n")
+        for line in frame.splitlines()
+        if line.startswith("data: ")
+    ]
 
 
 @pytest.mark.skipif(shutil.which("temporal") is None, reason="needs the temporal CLI")
-async def test_closed_chat_is_listed_closed_in_its_namespace_only():
+async def test_closed_chat_replays_its_events_and_takes_no_message():
     async with await WorkflowEnvironment.start_local(
         namespace="org-a",
         dev_server_extra_args=["--namespace", "org-b"],
@@ -555,6 +602,8 @@ async def test_closed_chat_is_listed_closed_in_its_namespace_only():
 
         org_b = await connect("org-b")
         chat = f"ActionAuthorSession-testrunner00001-{uuid.uuid4()}-author"
+        events = [await _encoded_reply(org_b, text) for text in ("Hello", " world")]
+        # Queries on the closed run replay it, so the worker stays up.
         async with Worker(
             org_b,
             task_queue="test-runner",
@@ -562,13 +611,36 @@ async def test_closed_chat_is_listed_closed_in_its_namespace_only():
             # The test module imports httpx, which the workflow sandbox refuses.
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
-            await org_b.execute_workflow(FinishedSession.run, id=chat, task_queue="test-runner")
+            await org_b.execute_workflow(
+                FinishedSession.run, events, id=chat, task_queue="test-runner"
+            )
 
-        # Credimi shows a closed chat's transcript itself; the UI only lists it as closed.
-        async with ui_client(create_app(connect=connect), _scope("org-b", chat)) as client:
-            elsewhere = await client.get("/api/sessions", headers=_scope("org-a", chat))
-            assert (elsewhere.status_code, elsewhere.json()) == (200, [])
+            async with ui_client(create_app(connect=connect), _scope("org-b", chat)) as client:
+                elsewhere = await client.get("/api/sessions", headers=_scope("org-a", chat))
+                assert (elsewhere.status_code, elsewhere.json()) == (200, [])
 
-            sessions = await client.get("/api/sessions")
-            assert sessions.status_code == 200
-            assert [(s["workflow_id"], s["closed"]) for s in sessions.json()] == [(chat, True)]
+                sessions = await client.get("/api/sessions")
+                assert sessions.status_code == 200
+                assert [(s["workflow_id"], s["closed"]) for s in sessions.json()] == [(chat, True)]
+
+                attached = await client.get("/api/attach", params={"session_id": chat})
+                assert attached.status_code == 200
+                assert attached.headers["content-type"].startswith("text/event-stream")
+                assert [
+                    (e["type"], e["text"], e["resume_offset"]) for e in _sse_events(attached.text)
+                ] == [("reply_delta", "Hello", 1), ("reply_delta", " world", 2)]
+
+                resumed = await client.get(
+                    "/api/attach", params={"session_id": chat, "from_offset": 1}
+                )
+                assert resumed.status_code == 200
+                assert [(e["text"], e["resume_offset"]) for e in _sse_events(resumed.text)] == [
+                    (" world", 2)
+                ]
+
+                for path in ("/api/chat", "/api/messages"):
+                    sent = await client.post(path, json={"session_id": chat, "message": "Hi"})
+                    assert (sent.status_code, sent.json()) == (
+                        409,
+                        {"error": "session_closed", "message": "This chat has ended."},
+                    )

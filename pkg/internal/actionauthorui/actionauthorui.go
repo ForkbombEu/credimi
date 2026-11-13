@@ -80,6 +80,9 @@ const (
 
 var staticFile = regexp.MustCompile(`^[A-Za-z0-9._-]+\.(svg|css)$`)
 
+// embedScript is the service's own script that lets the UI replay a closed chat.
+const embedScript = "action-embed.js"
+
 // chatRoutes are the GET API routes whose last segment is a workflow ID.
 var chatRoutes = map[string]bool{
 	"workflow-status": true,
@@ -105,7 +108,8 @@ func classify(method string, segments []string, query url.Values, chat string) r
 		return routeProxy
 	case read && len(segments) == 2 && segments[0] == "assets" && segments[1] != "":
 		return routeProxy
-	case read && len(segments) == 1 && staticFile.MatchString(segments[0]):
+	case read && len(segments) == 1 &&
+		(staticFile.MatchString(segments[0]) || segments[0] == embedScript):
 		return routeProxy
 	}
 	if len(segments) < 2 || segments[0] != "api" {

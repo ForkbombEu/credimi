@@ -10,6 +10,9 @@ button.session-new, button.start-new, section.session-manager, [aria-label="Resp
 /* Sessions run in runner namespaces, which the Temporal UI does not open for users. */
 a.session-temporal { display: none !important; }
 
+/* No messages to a closed chat while its events replay (embed.js). */
+.credimi-replay .composer { display: none !important; }
+
 /* Credimi's light theme over the harness's dark-only one. */
 :root {
   color-scheme: light;

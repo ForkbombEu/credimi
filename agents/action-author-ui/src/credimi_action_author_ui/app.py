@@ -120,6 +120,11 @@ EMBED_CSS = Path(__file__).with_name("embed.css")
 EMBED_CSS_PATH = "/action-embed.css"
 # Relative: the page sits under Credimi's /action-author-ui/<session id>/.
 EMBED_CSS_LINK = f'<link rel="stylesheet" href=".{EMBED_CSS_PATH}">'
+# Lets the harness attach to a closed chat once, to replay its events, without sending to it.
+EMBED_JS = Path(__file__).with_name("embed.js")
+EMBED_JS_PATH = "/action-embed.js"
+# A classic script: it runs before the harness's module script.
+EMBED_JS_TAG = f'<script src=".{EMBED_JS_PATH}"></script>'
 NO_STORE = {"Cache-Control": "no-store"}
 # How long a client waits before retrying after a Temporal error.
 TEMPORAL_RETRY_AFTER = "2"
@@ -187,9 +192,7 @@ async def _complete_stream(response, temporal, workflow_id: str, offset: int):
                     offset = max(offset, data.get("resume_offset", offset))
         yield chunk
     # Completing a workflow can race the upstream update-based stream's last poll.
-    if (
-        await temporal.get_workflow_handle(workflow_id).describe()
-    ).status != WorkflowExecutionStatus.RUNNING:
+    if await _chat_closed(temporal, workflow_id):
         async for chunk in _closed_history(temporal, workflow_id, offset):
             yield chunk
 
@@ -257,6 +260,13 @@ async def _describe_chat(temporal, chat: str):
         if exc.status != RPCStatusCode.NOT_FOUND:
             raise
         return None
+
+
+async def _chat_closed(temporal, chat: str) -> bool:
+    """Whether the chat has ended; describing a chat Temporal does not know raises."""
+    return (
+        await temporal.get_workflow_handle(chat).describe()
+    ).status != WorkflowExecutionStatus.RUNNING
 
 
 async def _agents(temporal, chat: str) -> JSONResponse:
@@ -346,6 +356,8 @@ def _create_harness(temporal) -> FastAPI:
             return _other_chat()
         if method == "GET" and path == EMBED_CSS_PATH:
             return FileResponse(EMBED_CSS, media_type="text/css", headers=NO_STORE)
+        if method == "GET" and path == EMBED_JS_PATH:
+            return FileResponse(EMBED_JS, media_type="text/javascript", headers=NO_STORE)
         if method == "GET" and path == "/":
             response = await call_next(request)
             if response.status_code != 200 or not response.headers.get(
@@ -354,7 +366,8 @@ def _create_harness(temporal) -> FastAPI:
                 return response
             html = (await _body(response)).decode()
             return HTMLResponse(
-                html.replace("</head>", EMBED_CSS_LINK + "</head>", 1), headers=NO_STORE
+                html.replace("</head>", EMBED_CSS_LINK + EMBED_JS_TAG + "</head>", 1),
+                headers=NO_STORE,
             )
         if method == "POST" and path.rstrip("/") == "/api/sessions":
             return JSONResponse(
@@ -368,6 +381,12 @@ def _create_harness(temporal) -> FastAPI:
             return await _agents(temporal, chat)
         if method == "GET" and path == "/api/sessions":
             return await _sessions(temporal, chat)
+        if method == "POST" and path in CHAT_BODY_PATHS and await _chat_closed(temporal, chat):
+            return JSONResponse(
+                status_code=409,
+                content={"error": "session_closed", "message": "This chat has ended."},
+                headers=NO_STORE,
+            )
 
         if method == "GET" and path == "/api/attach":
             session_id = request.query_params.get("session_id")
@@ -378,6 +397,12 @@ def _create_harness(temporal) -> FastAPI:
             if offset < 0:
                 # Upstream validation answers malformed requests.
                 return await call_next(request)
+            if await _chat_closed(temporal, session_id):
+                return StreamingResponse(
+                    _closed_history(temporal, session_id, offset),
+                    media_type="text/event-stream",
+                    headers=_sse_headers(),
+                )
         elif method == "POST" and path == "/api/chat":
             session_id = (await request.json())["session_id"]
             offset = await WorkflowStreamClient.create(temporal, session_id).get_offset()
