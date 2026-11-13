@@ -60,6 +60,8 @@ func TestClassify(t *testing.T) {
 		{http.MethodGet, "assets/a/b.js", nil, routeForbidden},
 		{http.MethodGet, "favicon.svg", nil, routeProxy},
 		{http.MethodGet, "action-embed.css", nil, routeProxy},
+		{http.MethodGet, "action-embed.js", nil, routeProxy},
+		{http.MethodPost, "action-embed.js", nil, routeForbidden},
 		{http.MethodGet, "index.js", nil, routeForbidden},
 		{http.MethodGet, "api/agents", nil, routeProxy},
 		{http.MethodGet, "api/sessions", nil, routeProxy},

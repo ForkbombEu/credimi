@@ -85,6 +85,21 @@ export type SessionListItem = {
 	device_name: string;
 };
 
+/** An item of a chat's transcript (GET /api/action-author/sessions/{id}/transcript). */
+export type TranscriptEntry = {
+	kind: 'user' | 'assistant' | 'tool_call' | 'review' | 'saved' | 'unavailable';
+	/** RFC 3339 time of the history event. */
+	time: string;
+	text?: string;
+	tool?: string;
+	/** Pretty JSON arguments of a tool call, cut at 4000 characters. */
+	arguments?: string;
+	accepted?: boolean;
+	name?: string;
+	code?: string;
+	replaced?: boolean;
+};
+
 export type StartedSession = { session_id: string; ticket_id: string; device_id: string };
 
 export type ApiFailure = { status: number; reason: string; message: string };
@@ -164,6 +179,23 @@ export async function listSessions(
 		`/sessions?${params.toString()}`
 	);
 	return res.map((r) => r.sessions ?? []);
+}
+
+export async function getTranscript(
+	sessionId: string
+): Promise<Result<TranscriptEntry[], ApiFailure>> {
+	const res = await call<{ entries: TranscriptEntry[] }>(
+		`/sessions/${encodeURIComponent(sessionId)}/transcript`
+	);
+	return res.map((r) => r.entries);
+}
+
+/** Whether the chat UI can replay the session's ended chat through its runner's agent. */
+export async function getReplayable(sessionId: string): Promise<Result<boolean, ApiFailure>> {
+	const res = await call<{ replayable: boolean }>(
+		`/sessions/${encodeURIComponent(sessionId)}/replay`
+	);
+	return res.map((r) => r.replayable);
 }
 
 export function closeSession(

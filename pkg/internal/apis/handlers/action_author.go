@@ -103,6 +103,24 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
+			Method:         http.MethodGet,
+			Path:           "/sessions/{session_id}/transcript",
+			Handler:        HandleActionAuthorSessionTranscript,
+			OperationID:    "actionAuthor.sessionTranscript",
+			Summary:        "Read the transcript of an authoring session's chat",
+			Description:    "The read-only transcript of a session's chat, read from Temporal history: user messages, the agent's replies, its tool calls, review decisions and saved actions. Only the session's starter can read it (404 otherwise).",
+			ResponseSchema: ActionAuthorTranscriptResponse{},
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/sessions/{session_id}/replay",
+			Handler:        HandleActionAuthorSessionReplay,
+			OperationID:    "actionAuthor.sessionReplay",
+			Summary:        "Check whether an authoring session's ended chat can be replayed",
+			Description:    "Whether the chat UI can replay the ended chat of a session the caller started: replayable is true when the runner's agent answers the chat's first authoring_events query page, with at least one event, within 10 seconds. A running or missing chat, or a query that fails or times out (no agent polls the runner's task queue, the agent changed since the chat ran, its history is gone), answers false; the session page then shows the transcript (GET /api/action-author/sessions/{session_id}/transcript). Only the session's starter can ask (404 otherwise).",
+			ResponseSchema: ActionAuthorReplayResponse{},
+		},
+		{
 			Method:         http.MethodPost,
 			Path:           "/sessions/{session_id}/close",
 			Handler:        HandleActionAuthorSessionClose,
@@ -601,10 +619,17 @@ func rollbackActionAuthorTicket(e *core.RequestEvent, deviceID, ticketID, namesp
 const (
 	actionAuthorIdleStateQuery   = "idle_state"
 	actionAuthorAgentStatusQuery = "agent_status"
-	actionAuthorCloseSignal      = "close"
-	actionAuthorSaveReviewTool   = "confirm_wallet_action_save"
-	actionAuthorRecentSessions   = 10
+	// actionAuthorEventsQuery pages the chat's stream events; the chat UI
+	// replays a closed chat through it.
+	actionAuthorEventsQuery    = "authoring_events"
+	actionAuthorCloseSignal    = "close"
+	actionAuthorSaveReviewTool = "confirm_wallet_action_save"
+	actionAuthorRecentSessions = 10
 )
+
+// actionAuthorReplayTimeout bounds the replay check: without a worker polling
+// the chat's task queue, a query waits for one until its deadline.
+const actionAuthorReplayTimeout = 10 * time.Second
 
 // actionAuthorSessionTemporalClient connects to a session's namespace and is
 // stubbed in unit tests.
@@ -672,6 +697,16 @@ type ActionAuthorSessionListItem struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	DeviceID                string `json:"device_id"`
 	DeviceName              string `json:"device_name"`
+}
+
+// ActionAuthorTranscriptResponse is the transcript of a session's chat, in event order.
+type ActionAuthorTranscriptResponse struct {
+	Entries []activities.TranscriptEntry `json:"entries"`
+}
+
+// ActionAuthorReplayResponse tells whether the chat UI can replay a session's ended chat.
+type ActionAuthorReplayResponse struct {
+	Replayable bool `json:"replayable"`
 }
 
 // ActionAuthorSessionCloseResponse names the session asked to end.
@@ -789,6 +824,76 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 		readActionAuthorChat(e, c, response.ChatWorkflowID, running, &response)
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+// HandleActionAuthorSessionTranscript reads the transcript of the chat of a
+// session the caller started from its Temporal history.
+func HandleActionAuthorSessionTranscript() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		c, info, apiErr := readCallerActionAuthorSession(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		entries, err := activities.ReadActionAuthorTranscript(
+			e.Request.Context(),
+			c,
+			info.SessionWorkflowID+activities.ActionAuthorWorkflowIDSuffix,
+		)
+		switch {
+		case errors.Is(err, activities.ErrActionAuthorTranscriptNotFound):
+			return actionAuthorSessionMissing()
+		case err != nil:
+			e.App.Logger().
+				Warn("action author transcript", "session", info.SessionWorkflowID, "error", err)
+			return temporalUnavailableError()
+		}
+		return e.JSON(http.StatusOK, ActionAuthorTranscriptResponse{Entries: entries})
+	}
+}
+
+// HandleActionAuthorSessionReplay tells whether the runner's agent can replay
+// the ended chat of a session the caller started, by running its first
+// authoring_events query: the chat UI replays a closed chat through it.
+func HandleActionAuthorSessionReplay() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		c, info, apiErr := readCallerActionAuthorSession(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		chatID := info.SessionWorkflowID + activities.ActionAuthorWorkflowIDSuffix
+		replayable, err := actionAuthorChatReplayable(e.Request.Context(), c, chatID)
+		if err != nil {
+			e.App.Logger().Warn("action author chat replay", "chat", chatID, "error", err)
+		}
+		return e.JSON(http.StatusOK, ActionAuthorReplayResponse{Replayable: replayable})
+	}
+}
+
+// actionAuthorChatReplayable reports whether the chat has ended and its
+// agent answers the first page of its events, with at least one event.
+func actionAuthorChatReplayable(ctx context.Context, c client.Client, chatID string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, actionAuthorReplayTimeout)
+	defer cancel()
+	described, err := c.DescribeWorkflowExecution(ctx, chatID, "")
+	if err != nil {
+		return false, err
+	}
+	if described.GetWorkflowExecutionInfo().
+		GetStatus() ==
+		enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
+		return false, nil
+	}
+	var page struct {
+		EndOffset int `json:"end_offset"`
+	}
+	encoded, err := c.QueryWorkflow(ctx, chatID, "", actionAuthorEventsQuery, 0)
+	if err != nil {
+		return false, err
+	}
+	if err := encoded.Get(&page); err != nil {
+		return false, err
+	}
+	return page.EndOffset > 0, nil
 }
 
 // readActionAuthorChat fills the chat state of a session in any state. The

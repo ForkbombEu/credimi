@@ -430,12 +430,16 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     async with ui_client() as client:
         page = await client.get("/", params={"s": CHAT})
         css = await client.get("/action-embed.css")
+        script = await client.get("/action-embed.js")
     assert page.status_code == 200
     assert page.headers["x-frame-options"] == "SAMEORIGIN"
     assert page.headers["content-security-policy"] == HTML_CSP
     assert "frame-ancestors 'self'" in HTML_CSP
     assert page.headers["cache-control"] == "no-store"
-    assert '<link rel="stylesheet" href="./action-embed.css"></head>' in page.text
+    assert (
+        '<link rel="stylesheet" href="./action-embed.css">'
+        '<script src="./action-embed.js"></script></head>'
+    ) in page.text
     assert css.status_code == 200
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"
@@ -444,6 +448,12 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     assert "a.session-temporal { display: none !important; }" in css.text
     assert "color-scheme: light" in css.text
     assert ".svelte-flow.dark" in css.text
+    # The replay hides the composer; the script attaches the harness to a closed chat once.
+    assert ".credimi-replay .composer" in css.text
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
+    assert script.headers["x-frame-options"] == "SAMEORIGIN"
+    assert "credimi-replay" in script.text
 
 
 def test_registry_uses_the_chat_task_queue():
@@ -579,7 +589,7 @@ def _sse_events(body: str) -> list[dict]:
 
 
 @pytest.mark.skipif(shutil.which("temporal") is None, reason="needs the temporal CLI")
-async def test_closed_chat_replays_its_events():
+async def test_closed_chat_replays_its_events_and_takes_no_message():
     async with await WorkflowEnvironment.start_local(
         namespace="org-a",
         dev_server_extra_args=["--namespace", "org-b"],
@@ -627,3 +637,10 @@ async def test_closed_chat_replays_its_events():
                 assert [(e["text"], e["resume_offset"]) for e in _sse_events(resumed.text)] == [
                     (" world", 2)
                 ]
+
+                for path in ("/api/chat", "/api/messages"):
+                    sent = await client.post(path, json={"session_id": chat, "message": "Hi"})
+                    assert (sent.status_code, sent.json()) == (
+                        409,
+                        {"error": "session_closed", "message": "This chat has ended."},
+                    )

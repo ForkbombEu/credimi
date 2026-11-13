@@ -56,12 +56,22 @@ The harness routes run unchanged, on the request's namespace, except:
 - `GET /` serves the packaged chat page with `./action-embed.css` (relative, since the page sits
   under Credimi's sub-path), which hides the harness **New session** and **Start a new session**
   buttons, its sessions drawer and its `confirm_wallet_action_save` callback card: Credimi starts
-  and lists sessions and shows the save review on its session page.
+  and lists sessions and shows the save review on its session page. The page also loads
+  `./action-embed.js`, which lets the harness replay a closed chat: the harness never attaches
+  to a chat that `/api/sessions` or `/api/workflow-status/{id}` report closed, so until the
+  page's first `/api/attach` stream ends the script reports a closed chat open, hides the
+  composer and refuses to send; once the stream ends the harness reads the chat closed, as for
+  a chat that ends while the page is open.
 - `GET /api/agents` lists the agent on the chat's own task queue (`<runner_id>-ActionAuthor`)
   with whether a worker polls it.
 - `GET /api/sessions` lists only the scoped chat: running, closed, or none before it starts.
-- `GET /api/attach` and `POST /api/chat` replay a closed chat's events through the runner
-  agent's `authoring_events` query, since the upstream stream reader needs a running workflow.
+- `GET /api/attach` replays a closed chat's events, and `GET /api/attach` and `POST /api/chat`
+  finish a stream that the chat's end cut short with its last events, both read through the
+  runner agent's `authoring_events` query, since the upstream stream reader needs a running
+  workflow. Credimi embeds the UI for a closed chat only when that query answers
+  (`GET /api/action-author/sessions/{id}/replay`), and shows the chat's transcript from its
+  Temporal history otherwise.
+- `POST /api/chat` and `POST /api/messages` answer `409 session_closed` once the chat has ended.
 - `POST /api/sessions` answers `403 authenticated_start_required` and every
   `/api/callback-result` request `403 review_through_credimi`: Credimi signs save approvals
   through `POST /api/action-author/reviews`, so the harness route cannot settle a review.
