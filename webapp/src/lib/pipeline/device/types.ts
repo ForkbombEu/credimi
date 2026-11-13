@@ -15,6 +15,7 @@ export type DeviceRecord = {
 	statusKnown?: boolean;
 	url?: string;
 	type?: string;
-	queueLength?: number;
+	/** Runs on the device's semaphore, running or waiting: the runs a new run waits for. */
+	runsAhead?: number;
 	unavailableReason?: string;
 };

@@ -44,7 +44,7 @@ export function toDeviceRecords(devices: AuthorDevice[], platforms: Set<string>)
 			isOnline: d.is_online,
 			// The author device list carries its own online status, without the device catalog.
 			statusKnown: true,
-			queueLength: d.queue_length,
+			runsAhead: d.runs_ahead,
 			type: d.type,
 			isOwned: false,
 			isPublished: true,
@@ -53,7 +53,7 @@ export function toDeviceRecords(devices: AuthorDevice[], platforms: Set<string>)
 		}));
 }
 
-/** The device a new session should use: online, with its agent running, shortest queue first; ties keep list order. */
+/** The device a new session should use: online, with its agent running, fewest runs ahead first; ties keep list order. */
 export function preferredDevice(
 	devices: AuthorDevice[],
 	platforms: Set<string>
@@ -61,7 +61,7 @@ export function preferredDevice(
 	let preferred: AuthorDevice | undefined;
 	for (const d of devices) {
 		if (!platforms.has(d.platform) || !d.is_online || !d.agent_available) continue;
-		if (!preferred || (d.queue_length ?? 0) < (preferred.queue_length ?? 0)) preferred = d;
+		if (!preferred || (d.runs_ahead ?? 0) < (preferred.runs_ahead ?? 0)) preferred = d;
 	}
 	return preferred;
 }

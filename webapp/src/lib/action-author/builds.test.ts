@@ -94,9 +94,9 @@ describe('toDeviceRecords', () => {
 describe('preferredDevice', () => {
 	const android = new Set(['android']);
 
-	it('picks the online agent device with the shortest queue', () => {
-		const busy = { ...device('org/r/busy', 'android'), queue_length: 3 };
-		const idle = { ...device('org/r/idle', 'android'), queue_length: 1 };
+	it('picks the online agent device with the fewest runs ahead', () => {
+		const busy = { ...device('org/r/busy', 'android'), runs_ahead: 3 };
+		const idle = { ...device('org/r/idle', 'android'), runs_ahead: 1 };
 		expect(preferredDevice([busy, idle], android)?.path).toBe('org/r/idle');
 	});
 
@@ -104,11 +104,11 @@ describe('preferredDevice', () => {
 		const offline = {
 			...device('org/r/offline', 'android'),
 			is_online: false,
-			queue_length: 0
+			runs_ahead: 0
 		};
-		const noAgent = { ...device('org/r/no-agent', 'android', false), queue_length: 0 };
-		const iphone = { ...device('org/r/iphone', 'ios'), queue_length: 0 };
-		const pixel = { ...device('org/r/pixel', 'android'), queue_length: 2 };
+		const noAgent = { ...device('org/r/no-agent', 'android', false), runs_ahead: 0 };
+		const iphone = { ...device('org/r/iphone', 'ios'), runs_ahead: 0 };
+		const pixel = { ...device('org/r/pixel', 'android'), runs_ahead: 2 };
 		expect(preferredDevice([offline, noAgent, iphone, pixel], android)?.path).toBe(
 			'org/r/pixel'
 		);
@@ -121,7 +121,7 @@ describe('preferredDevice', () => {
 
 	it('keeps list order on ties', () => {
 		const first = device('org/r/first', 'android');
-		const second = { ...device('org/r/second', 'android'), queue_length: 0 };
+		const second = { ...device('org/r/second', 'android'), runs_ahead: 0 };
 		expect(preferredDevice([first, second], android)?.path).toBe('org/r/first');
 	});
 });

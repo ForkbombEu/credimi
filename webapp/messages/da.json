@@ -1093,7 +1093,7 @@
 	"Action_author_agent_not_running": "Runnerens agent kører ikke",
 	"Installed_from_the_store": "Installeret fra butikken",
 	"Runner_of": "Runner tilhørende {owner}",
-	"Device_queue_length": "{count} i kø",
+	"Device_runs_ahead": "Kørsler foran: {count}",
 	"Session_waiting_for_device": "Venter på enheden: position {position} af {total}",
 	"Session_preparing_device": "Forbereder enheden og installerer wallet…",
 	"Session_not_found": "Denne forfattersession findes ikke.",

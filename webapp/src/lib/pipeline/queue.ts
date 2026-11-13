@@ -68,6 +68,8 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 		}
 
 		if (res.status === 'queued' || res.status === 'starting' || res.status === 'running') {
+			// The ticket changes the device's runs ahead, which no realtime event reports.
+			void Device.Catalog.refresh();
 			return ok(res);
 		} else {
 			return err(res.error_message ?? m.Failed_to_enqueue_pipeline());
@@ -87,6 +89,7 @@ export async function cancel(
 		const url = `/api/pipeline/queue/${ticketId}?${params.toString()}`;
 		const res = await pb.send<APIResponse>(url, { method: 'DELETE' });
 		if (res.status === 'canceled') {
+			void Device.Catalog.refresh();
 			return ok(res);
 		} else {
 			return err(res.error_message ?? m.Failed_to_cancel_pipeline());

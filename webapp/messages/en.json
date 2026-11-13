@@ -1137,7 +1137,7 @@
 	"Action_author_agent_not_running": "The runner's agent is not running",
 	"Installed_from_the_store": "Installed from the store",
 	"Runner_of": "Runner of {owner}",
-	"Device_queue_length": "{count} in queue",
+	"Device_runs_ahead": "Runs ahead: {count}",
 	"Session_waiting_for_device": "Waiting for the device: position {position} of {total}",
 	"Session_preparing_device": "Preparing the device and installing the wallet…",
 	"Session_not_found": "This authoring session does not exist.",

@@ -77,10 +77,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Badge>
 			{/if}
 
-			{#if presentation === 'run' && item.queueLength}
-				<Badge variant="secondary"
-					>{m.Device_queue_length({ count: item.queueLength })}</Badge
-				>
+			{#if presentation === 'run' && item.runsAhead}
+				<Badge variant="secondary">{m.Device_runs_ahead({ count: item.runsAhead })}</Badge>
 			{/if}
 
 			{#if presentation === 'run'}

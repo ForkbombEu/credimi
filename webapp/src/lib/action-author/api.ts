@@ -23,7 +23,7 @@ export type AuthorDevice = {
 	platform: string;
 	is_online: boolean;
 	agent_available: boolean;
-	queue_length?: number;
+	runs_ahead?: number;
 };
 
 /** A build the agent can install (GET /api/action-author/wallet-versions). */
