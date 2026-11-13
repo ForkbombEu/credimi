@@ -64,6 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { getPath } from '$lib/utils';
+	import AgentAuthoredIcon from '$lib/wallet/agent-authored-icon.svelte';
 	import { String } from 'effect';
 	import { onMount } from 'svelte';
 
@@ -185,6 +186,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										<div class="flex items-center gap-1">
 											<p class="leading-snug font-medium text-balance">
 												<span>{action.name}</span>
+												<AgentAuthoredIcon
+													authored={Wallet.Action.isAgentAuthored(action)}
+												/>
 												<CopyButtonSmall
 													textToCopy={getPath(action)}
 													size="mini"
