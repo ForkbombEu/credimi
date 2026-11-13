@@ -995,10 +995,10 @@ func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
 // authoringDevice is a device of userA's admin-managed runner, which reports
 // the anthropic provider and model.
 func authoringDevice(name, deviceType, platform string, online bool) ActionAuthorDevice {
-	var queueLength *int
+	var runsAhead *int
 	if online {
-		// Online devices report their queue; stubActionAuthorQueue has none.
-		queueLength = new(int)
+		// Online devices report their runs ahead; stubActionAuthorQueue has none.
+		runsAhead = new(int)
 	}
 	return ActionAuthorDevice{
 		Path:           authoringAdminRunner + "/" + name,
@@ -1010,18 +1010,28 @@ func authoringDevice(name, deviceType, platform string, online bool) ActionAutho
 		Platform:       platform,
 		IsOnline:       online,
 		AgentAvailable: true,
-		QueueLength:    queueLength,
+		RunsAhead:      runsAhead,
 	}
 }
 
-func TestActionAuthorDevicesReportsQueueLengthOfOnlineDevices(t *testing.T) {
+func TestActionAuthorDevicesReportsRunsAheadOfOnlineDevices(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
+		state    workflows.MobileDeviceSemaphoreStateView
 		queueErr error
-		// expected queue_length of the online emulator; nil when absent.
+		// expected runs_ahead of the online emulator; nil when absent.
 		expected *int
 	}{
-		{name: "queue read", expected: func() *int { length := 2; return &length }()},
+		{
+			name:     "waiting runs",
+			state:    workflows.MobileDeviceSemaphoreStateView{QueueLen: 2},
+			expected: func() *int { runs := 2; return &runs }(),
+		},
+		{
+			name:     "running and waiting runs",
+			state:    workflows.MobileDeviceSemaphoreStateView{SlotsUsed: 1, QueueLen: 2},
+			expected: func() *int { runs := 3; return &runs }(),
+		},
 		{name: "queue unreadable", queueErr: errors.New("temporal down")},
 	} {
 		stubActionAuthorQueue(t, true)
@@ -1031,7 +1041,7 @@ func TestActionAuthorDevicesReportsQueueLengthOfOnlineDevices(t *testing.T) {
 			deviceID string,
 		) (workflows.MobileDeviceSemaphoreStateView, error) {
 			queried = append(queried, deviceID)
-			return workflows.MobileDeviceSemaphoreStateView{QueueLen: 2}, tc.queueErr
+			return tc.state, tc.queueErr
 		}
 		var body map[string][]map[string]any
 		(&tests.ApiScenario{
@@ -1052,9 +1062,9 @@ func TestActionAuthorDevicesReportsQueueLengthOfOnlineDevices(t *testing.T) {
 		// Only online devices are queried: userA's admin runner emulator.
 		require.Equal(t, []string{authoringAdminRunner + "/android-emulator"}, queried, tc.name)
 		for _, device := range body["devices"] {
-			length, reported := device["queue_length"]
+			runsAhead, reported := device["runs_ahead"]
 			if device["path"] == authoringAdminRunner+"/android-emulator" && tc.expected != nil {
-				require.Equal(t, float64(*tc.expected), length, tc.name)
+				require.Equal(t, float64(*tc.expected), runsAhead, tc.name)
 				continue
 			}
 			require.False(t, reported, "%s: %v", tc.name, device)

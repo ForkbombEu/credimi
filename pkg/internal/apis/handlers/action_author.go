@@ -160,9 +160,10 @@ type ActionAuthorDevice struct {
 	// AgentAvailable reports whether the runner's action author polled its
 	// task queue in the last two minutes; select only online devices with it.
 	AgentAvailable bool `json:"agent_available"`
-	// QueueLength is the number of tickets in the device's queue, reported
-	// only for online devices whose queue could be read.
-	QueueLength *int `json:"queue_length,omitempty"`
+	// RunsAhead is the number of runs on the device's semaphore, running or
+	// waiting: the runs a new ticket waits for. Reported only for online
+	// devices whose semaphore could be read.
+	RunsAhead *int `json:"runs_ahead,omitempty"`
 }
 
 // runnerAgentModel describes the model a runner reports for its agent.
@@ -258,12 +259,12 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 				}
 				if entry.IsOnline {
 					// One unreadable queue never fails the list.
-					queueLength, apiErr := mobileDeviceQueueLen(e.Request.Context(), path)
+					runsAhead, apiErr := mobileDeviceRunsAhead(e.Request.Context(), path)
 					if apiErr != nil {
 						e.App.Logger().
 							Warn("action author device queue", "device", path, "error", apiErr)
 					} else {
-						entry.QueueLength = &queueLength
+						entry.RunsAhead = &runsAhead
 					}
 				}
 				response.Devices = append(response.Devices, entry)

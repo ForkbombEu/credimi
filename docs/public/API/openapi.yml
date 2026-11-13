@@ -465,8 +465,10 @@ paths:
       summary: Run a custom integration
   /api/mobile-devices:
     get:
-      description: Lists independently schedulable mobile devices visible to the caller,
-        grouped by their hosting runner through runner context fields.
+      description: 'Lists independently schedulable mobile devices visible to the
+        caller, grouped by their hosting runner through runner context fields. Online
+        devices report runs_ahead: the runs on the device''s semaphore, running or
+        waiting, that a new run waits for.'
       operationId: listMobileDevices
       parameters:
       - description: Bearer token for authentication.
@@ -497,8 +499,9 @@ paths:
       summary: List available mobile devices
   /api/mobile-runners:
     get:
-      description: Lists mobile runners visible to the caller, including health, devices,
-        and queue length for online runners.
+      description: 'Lists mobile runners visible to the caller, including health,
+        devices, and, for online runners, runs_ahead: the runs on the runner''s semaphore,
+        running or waiting.'
       operationId: listMobileRunners
       parameters:
       - description: Optional response view. Use 'selector' to return the lightweight
@@ -949,13 +952,13 @@ components:
           type: string
         platform:
           type: string
-        queue_length:
-          nullable: true
-          type: integer
         runner_name:
           type: string
         runner_owner:
           type: string
+        runs_ahead:
+          nullable: true
+          type: integer
         type:
           type: string
       type: object
@@ -1290,13 +1293,13 @@ components:
           type: string
         path:
           type: string
-        queue_length:
-          nullable: true
-          type: integer
         runner_id:
           type: string
         runner_name:
           type: string
+        runs_ahead:
+          nullable: true
+          type: integer
         serial:
           type: string
         type:
@@ -1335,7 +1338,7 @@ components:
           type: string
         path:
           type: string
-        queue_length:
+        runs_ahead:
           nullable: true
           type: integer
         type:
