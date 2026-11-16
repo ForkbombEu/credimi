@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
@@ -138,7 +139,7 @@ func anyWorkflowExists(
 	workflowIDs []string,
 ) bool {
 	for _, workflowID := range workflowIDs {
-		_, err := temporalClient.DescribeWorkflowExecution(ctx, workflowID, "")
+		_, err := temporalclient.Describe(ctx, temporalClient, workflowID, "")
 		if err == nil {
 			return true
 		}

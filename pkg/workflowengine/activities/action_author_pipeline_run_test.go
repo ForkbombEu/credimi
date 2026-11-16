@@ -10,6 +10,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
@@ -68,11 +69,11 @@ func replayedSessionClient(lookup sessionLookup) *temporalmocks.Client {
 	events := lookup.history.(*fcafHistoryIterator).events
 	mockClient := &temporalmocks.Client{}
 	stubSessionRuns(mockClient, authorTestSessionID, lookup.runs...)
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
-		Return(lookup.author, nil).
+	mockClient.On("DescribeWorkflow", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
+		Return(temporalclient.Description(lookup.author), nil).
 		Maybe()
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
-		Return(lookup.session, nil).
+	mockClient.On("DescribeWorkflow", mock.Anything, authorTestSessionID, authorTestParentRun).
+		Return(temporalclient.Description(lookup.session), nil).
 		Maybe()
 	mockClient.On(
 		"GetWorkflowHistory", mock.Anything, authorTestSessionID, authorTestParentRun, false,
@@ -124,8 +125,8 @@ func (f pipelineRunFixture) describeRun(
 	status enumspb.WorkflowExecutionStatus,
 ) {
 	identifier, _ := converter.GetDefaultDataConverter().ToPayload(runTestPipeline)
-	f.client.On("DescribeWorkflowExecution", mock.Anything, workflowID, runID).
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+	f.client.On("DescribeWorkflow", mock.Anything, workflowID, runID).
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
 				Execution: &commonpb.WorkflowExecution{WorkflowId: workflowID, RunId: runTestRunID},
 				Type:      &commonpb.WorkflowType{Name: workflowType},
@@ -136,7 +137,7 @@ func (f pipelineRunFixture) describeRun(
 					},
 				},
 			},
-		}, nil).
+		}), nil).
 		Once()
 }
 
@@ -428,7 +429,7 @@ func TestReadActionAuthorPipelineRunRefusals(t *testing.T) {
 		enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING)
 	f.describeRun("Pipeline-session", "", ActionAuthorSessionWorkflowName,
 		enumspb.WORKFLOW_EXECUTION_STATUS_FAILED)
-	f.client.On("DescribeWorkflowExecution", mock.Anything, "Pipeline-elsewhere", "").
+	f.client.On("DescribeWorkflow", mock.Anything, "Pipeline-elsewhere", "").
 		Return(nil, serviceerror.NewNotFound("not found")).Once()
 
 	notAgent := f.caller

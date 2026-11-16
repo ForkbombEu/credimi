@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -266,8 +267,8 @@ func runningAuthoringSession(
 	c *temporalmocks.Client,
 	status enumspb.WorkflowExecutionStatus,
 ) {
-	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionID, authoringSessionRun).
-		Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 0), nil)
+	c.On("DescribeWorkflow", mock.Anything, authoringSessionID, authoringSessionRun).
+		Return(temporalclient.Description(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 0)), nil)
 	startAuthoringSession(t, app, c, authoringNamespace)
 }
 
@@ -281,12 +282,12 @@ func decodeBody[T any](t testing.TB, res *http.Response, value *T) {
 func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 	c := &temporalmocks.Client{}
 	namespaces := stubAuthoringSessionTemporal(t, c)
-	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
-		Return(authoringExecution(
+	c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+		Return(temporalclient.Description(authoringExecution(
 			activities.ActionAuthorWorkflowType,
 			enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
 			5,
-		), nil)
+		)), nil)
 	c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "idle_state").
 		Return(jsonEncodedValue{map[string]any{"closes_at": "2026-01-02T04:00:00Z"}}, nil)
 	c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "agent_status").
@@ -420,12 +421,12 @@ func TestActionAuthorSessionReadsACompletedChat(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := &temporalmocks.Client{}
 			stubAuthoringSessionTemporal(t, c)
-			c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
-				Return(authoringExecution(
+			c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+				Return(temporalclient.Description(authoringExecution(
 					activities.ActionAuthorWorkflowType,
 					enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 					10,
-				), nil)
+				)), nil)
 			var response ActionAuthorSessionResponse
 			(&tests.ApiScenario{
 				Name:   tc.name,
@@ -468,7 +469,7 @@ func TestActionAuthorSessionReadsACompletedChat(t *testing.T) {
 func TestActionAuthorSessionReadsAClosedSessionWithoutItsChat(t *testing.T) {
 	c := &temporalmocks.Client{}
 	stubAuthoringSessionTemporal(t, c)
-	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
+	c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
 		Return(nil, serviceerror.NewNotFound("no chat"))
 	var response ActionAuthorSessionResponse
 	(&tests.ApiScenario{
@@ -514,7 +515,7 @@ func TestActionAuthorSessionIsHiddenFromAnotherMember(t *testing.T) {
 		},
 	}).Test(t)
 
-	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, mock.Anything, mock.Anything)
+	c.AssertNotCalled(t, "DescribeWorkflow", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestActionAuthorSessionCloseRefusesAnotherMember(t *testing.T) {
@@ -607,7 +608,7 @@ func TestActionAuthorSessionAnswersNotFound(t *testing.T) {
 		}).Test(t)
 		c.AssertNotCalled(
 			t,
-			"DescribeWorkflowExecution",
+			"DescribeWorkflow",
 			mock.Anything,
 			mock.Anything,
 			mock.Anything,
@@ -633,7 +634,7 @@ func TestActionAuthorSessionRefusesOtherWorkflows(t *testing.T) {
 		TestAppFactory:  setupActionAuthorApp,
 	}).Test(t)
 
-	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, mock.Anything, mock.Anything)
+	c.AssertNotCalled(t, "DescribeWorkflow", mock.Anything, mock.Anything, mock.Anything)
 	c.AssertNotCalled(
 		t,
 		"GetWorkflowHistory",
@@ -681,8 +682,8 @@ func (s listedAuthoringSession) stub(t testing.TB, app *tests.TestApp, c *tempor
 	if s.status != enumspb.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED {
 		described := authoringExecution(activities.ActionAuthorSessionWorkflowName, s.status, 0)
 		described.WorkflowExecutionInfo.StartTime = timestamppb.New(s.started)
-		c.On("DescribeWorkflowExecution", mock.Anything, s.sessionID, s.run).
-			Return(described, nil)
+		c.On("DescribeWorkflow", mock.Anything, s.sessionID, s.run).
+			Return(temporalclient.Description(described), nil)
 	}
 }
 
@@ -810,7 +811,7 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 
 	// Each runner's agent namespace is listed.
 	require.Subset(t, *namespaces, []string{adminNamespace, tenantNamespace})
-	c.AssertNumberOfCalls(t, "DescribeWorkflowExecution", 2)
+	c.AssertNumberOfCalls(t, "DescribeWorkflow", 2)
 	require.Equal(t, []ActionAuthorSessionListItem{
 		{
 			SessionID:               newest,
@@ -1192,8 +1193,8 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 			}
 			chat = authoringExecution("ActionAuthor", chatStatus, 0)
 		}
-		c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
-			Return(chat, tc.chatErr)
+		c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+			Return(temporalclient.Description(chat), tc.chatErr)
 		(&tests.ApiScenario{
 			Name:            tc.name,
 			Method:          http.MethodPost,

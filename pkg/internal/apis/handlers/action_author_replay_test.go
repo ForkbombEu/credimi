@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
@@ -19,8 +20,8 @@ import (
 )
 
 func stubAuthoringChat(c *temporalmocks.Client, status enumspb.WorkflowExecutionStatus) {
-	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
-		Return(authoringExecution(activities.ActionAuthorWorkflowType, status, 5), nil)
+	c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+		Return(temporalclient.Description(authoringExecution(activities.ActionAuthorWorkflowType, status, 5)), nil)
 }
 
 func replayScenario(
@@ -104,7 +105,7 @@ func TestActionAuthorSessionReplayOfAChatThatCannotBeQueried(t *testing.T) {
 		{
 			name: "missing chat",
 			stub: func(c *temporalmocks.Client) {
-				c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
+				c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
 					Return(nil, serviceerror.NewNotFound("no chat"))
 			},
 		},
@@ -131,5 +132,5 @@ func TestActionAuthorSessionReplayRefusesAnotherMember(t *testing.T) {
 	c := &temporalmocks.Client{}
 	stubAuthoringSessionTemporal(t, c)
 	replayScenario(t, c, "userB", http.StatusNotFound, `"reason":"session_not_found"`).Test(t)
-	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "")
+	c.AssertNotCalled(t, "DescribeWorkflow", mock.Anything, authoringSessionChat, "")
 }

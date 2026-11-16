@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -177,8 +178,8 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompleted(t *testing.T) {
 		Return(&serviceerror.NotFound{Message: "workflow execution already completed"}).
 		Once()
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-1-log", "").
-		Return(completedWorkflowDescription(), nil).
+		On("DescribeWorkflow", mock.Anything, "wf-1-log", "").
+		Return(temporalclient.Description(completedWorkflowDescription()), nil).
 		Once()
 	mockRun.
 		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
@@ -237,8 +238,8 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompletedErrorLogs(t *testing.T
 		Return(&serviceerror.NotFound{Message: "workflow execution already completed"}).
 		Once()
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-2-log", "").
-		Return(completedWorkflowDescription(), nil).
+		On("DescribeWorkflow", mock.Anything, "wf-2-log", "").
+		Return(temporalclient.Description(completedWorkflowDescription()), nil).
 		Once()
 	mockRun.
 		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
@@ -288,12 +289,12 @@ func TestSendOpenIDNetConformanceLogUpdateStartCompleted(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 	mockRun := &temporalmocks.WorkflowRun{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "verifier-wf", "").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "verifier-wf", "").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 			},
-		}, nil).
+		}), nil).
 		Once()
 	mockRun.
 		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
@@ -946,8 +947,8 @@ func TestGetWorkflowAuthorFromMemo(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-4", "run-4").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "wf-4", "run-4").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Memo: &common.Memo{
 					Fields: map[string]*common.Payload{
@@ -955,7 +956,7 @@ func TestGetWorkflowAuthorFromMemo(t *testing.T) {
 					},
 				},
 			},
-		}, nil).
+		}), nil).
 		Once()
 
 	author, err := getWorkflowAuthor(context.Background(), mockClient, "wf-4", "run-4")
@@ -1143,8 +1144,8 @@ func TestHandleDeeplink(t *testing.T) {
 
 			mockClient := &temporalmocks.Client{}
 			mockClient.
-				On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-				Return(tc.describe, tc.describeErr).
+				On("DescribeWorkflow", mock.Anything, "wf-1", "run-1").
+				Return(temporalclient.Description(tc.describe), tc.describeErr).
 				Once()
 			if tc.history != nil {
 				mockClient.
@@ -1264,12 +1265,12 @@ func TestHandleSendTemporalSignalDispatch(t *testing.T) {
 			name:   "issuer start on a running workflow sends no log replay",
 			signal: workflows.OpenID4VCIIssuerStartCheckSignal,
 			setup: func(c *temporalmocks.Client) {
-				c.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "").
-					Return(&workflowservice.DescribeWorkflowExecutionResponse{
+				c.On("DescribeWorkflow", mock.Anything, "wf-1", "").
+					Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 						WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 							Status: enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
 						},
-					}, nil).
+					}), nil).
 					Once()
 			},
 			wantStatus: http.StatusOK,
@@ -1278,7 +1279,7 @@ func TestHandleSendTemporalSignalDispatch(t *testing.T) {
 			name:   "verifier start on an unknown workflow is not found",
 			signal: workflows.OpenID4VPVerifierStartCheckSignal,
 			setup: func(c *temporalmocks.Client) {
-				c.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "").
+				c.On("DescribeWorkflow", mock.Anything, "wf-1", "").
 					Return(nil, &serviceerror.NotFound{Message: "missing"}).
 					Once()
 			},
@@ -1401,7 +1402,7 @@ func TestSendOpenID4VPWalletLogUpdateStartErrorMapping(t *testing.T) {
 				Return(tc.err).
 				Once()
 			mockClient.
-				On("DescribeWorkflowExecution", mock.Anything, "wf-log", "").
+				On("DescribeWorkflow", mock.Anything, "wf-log", "").
 				Return(nil, &serviceerror.NotFound{Message: "workflow not found"}).
 				Maybe()
 
@@ -1442,12 +1443,12 @@ func TestSendOpenID4VPWalletLogUpdateStartNotFoundRunningIs404(t *testing.T) {
 		Return(&serviceerror.NotFound{Message: "workflow not found"}).
 		Once()
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-log", "").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "wf-log", "").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Status: enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
 			},
-		}, nil).
+		}), nil).
 		Once()
 
 	err := sendOpenID4VPWalletLogUpdateStart(
@@ -1532,7 +1533,7 @@ func TestSendOpenIDNetConformanceLogUpdateStartDescribeErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClient := &temporalmocks.Client{}
 			mockClient.
-				On("DescribeWorkflowExecution", mock.Anything, "wf-1", "").
+				On("DescribeWorkflow", mock.Anything, "wf-1", "").
 				Return(nil, tc.err).
 				Once()
 

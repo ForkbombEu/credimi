@@ -9,6 +9,7 @@ import (
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/dbx"
 	"github.com/stretchr/testify/require"
@@ -96,17 +97,17 @@ func (c *capturingTemporalClient) ExecuteWorkflow(
 	return c.run, nil
 }
 
-// DescribeWorkflowExecution records the described workflow ID and returns the stubbed run ID.
-func (c *capturingTemporalClient) DescribeWorkflowExecution(
+// DescribeWorkflow records the described workflow ID and returns the stubbed run ID.
+func (c *capturingTemporalClient) DescribeWorkflow(
 	ctx context.Context,
 	workflowID, runID string,
-) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+) (*client.WorkflowExecutionDescription, error) {
 	c.described = append(c.described, workflowID+"/"+runID)
-	return &workflowservice.DescribeWorkflowExecutionResponse{
+	return temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 		WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
 			Execution: &commonpb.WorkflowExecution{WorkflowId: workflowID, RunId: c.describeRun},
 		},
-	}, nil
+	}), nil
 }
 
 func newCapturingQueuedPipelineActivity(

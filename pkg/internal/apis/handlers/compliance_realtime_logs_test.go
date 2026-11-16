@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/realtimelogs"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
@@ -42,14 +43,16 @@ func stubRealtimeLogsTemporalClient(t *testing.T) {
 		owned := realtimeLogsTestWorkflows[namespace]
 		mockClient := &temporalmocks.Client{}
 		mockClient.
-			On("DescribeWorkflowExecution", mock.Anything, mock.Anything, "").
+			On("DescribeWorkflow", mock.Anything, mock.Anything, "").
 			Return(func(
 				_ context.Context,
 				workflowID string,
 				_ string,
-			) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+			) (*client.WorkflowExecutionDescription, error) {
 				if slices.Contains(owned, workflowID) {
-					return &workflowservice.DescribeWorkflowExecutionResponse{}, nil
+					return temporalclient.Description(
+						&workflowservice.DescribeWorkflowExecutionResponse{},
+					), nil
 				}
 				return nil, serviceerror.NewNotFound("workflow not found")
 			}).

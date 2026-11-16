@@ -222,7 +222,7 @@ func runningPipelineDevices(
 	workflowID string,
 	runID string,
 ) (map[string]map[string]any, string, *apierror.APIError) {
-	description, err := temporalClient.DescribeWorkflowExecution(ctx, workflowID, runID)
+	description, err := temporalclient.Describe(ctx, temporalClient, workflowID, runID)
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {

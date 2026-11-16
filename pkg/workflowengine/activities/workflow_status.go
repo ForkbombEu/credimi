@@ -77,7 +77,7 @@ func (a *CheckWorkflowClosedActivity) Execute(
 		return result, err
 	}
 
-	describeResp, err := client.DescribeWorkflowExecution(ctx, workflowID, payload.RunID)
+	describeResp, err := temporalclient.Describe(ctx, client, workflowID, payload.RunID)
 	if err != nil {
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {

@@ -25,7 +25,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/pocketbase/pocketbase/core"
 	enumspb "go.temporal.io/api/enums/v1"
-	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
@@ -126,10 +125,10 @@ type temporalWorkflowStarter interface {
 		workflow interface{},
 		args ...interface{},
 	) (client.WorkflowRun, error)
-	DescribeWorkflowExecution(
+	DescribeWorkflow(
 		ctx context.Context,
 		workflowID, runID string,
-	) (*workflowservice.DescribeWorkflowExecutionResponse, error)
+	) (*client.WorkflowExecutionDescription, error)
 	SignalWorkflow(
 		ctx context.Context,
 		workflowID, runID, signalName string,
@@ -590,7 +589,7 @@ func (a *StartQueuedPipelineActivity) startOrReuseWorkflow(
 		return workflowRun.GetID(), workflowRun.GetRunID(), nil
 	case temporal.IsWorkflowExecutionAlreadyStartedError(err):
 		// A retry after the ticket's run already closed: reuse that run.
-		desc, descErr := temporalClient.DescribeWorkflowExecution(ctx, options.ID, "")
+		desc, descErr := temporalclient.Describe(ctx, temporalClient, options.ID, "")
 		if descErr != nil {
 			return "", "", a.NewActivityError(
 				workflowengine.ActivityError{

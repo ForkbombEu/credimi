@@ -874,7 +874,7 @@ func HandleActionAuthorSessionReplay() func(*core.RequestEvent) error {
 func actionAuthorChatReplayable(ctx context.Context, c client.Client, chatID string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, actionAuthorReplayTimeout)
 	defer cancel()
-	described, err := c.DescribeWorkflowExecution(ctx, chatID, "")
+	described, err := temporalclient.Describe(ctx, c, chatID, "")
 	if err != nil {
 		return false, err
 	}
@@ -907,7 +907,7 @@ func readActionAuthorChat(
 	response *ActionAuthorSessionResponse,
 ) {
 	ctx := e.Request.Context()
-	described, err := c.DescribeWorkflowExecution(ctx, chatID, "")
+	described, err := temporalclient.Describe(ctx, c, chatID, "")
 	if err != nil {
 		var notFound *serviceerror.NotFound
 		if !errors.As(err, &notFound) {
@@ -1200,7 +1200,7 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 			// started (the device is still being prepared) from one that ended,
 			// or one that started since the signal.
 			var described *workflowservice.DescribeWorkflowExecutionResponse
-			described, err = c.DescribeWorkflowExecution(ctx, chatID, "")
+			described, err = temporalclient.Describe(ctx, c, chatID, "")
 			switch {
 			case errors.As(err, &notFound):
 				err = c.CancelWorkflow(ctx, info.SessionWorkflowID, info.SessionRunID)

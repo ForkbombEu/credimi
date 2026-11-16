@@ -292,7 +292,7 @@ func getWorkflowTypeName(
 		return "", nil
 	}
 
-	description, err := temporalClient.DescribeWorkflowExecution(ctx, workflowID, runID)
+	description, err := temporalclient.Describe(ctx, temporalClient, workflowID, runID)
 	if err != nil {
 		return "", err
 	}
@@ -409,11 +409,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 		if err != nil {
 			return temporalUnavailableError()
 		}
-		workflowExecution, err := c.DescribeWorkflowExecution(
-			e.Request.Context(),
-			workflowID,
-			runID,
-		)
+		workflowExecution, err := temporalclient.Describe(e.Request.Context(), c, workflowID, runID)
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {

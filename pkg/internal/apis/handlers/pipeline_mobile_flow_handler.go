@@ -192,7 +192,7 @@ func pipelineMobileFlowDevice(
 		)
 	}
 
-	description, err := temporalClient.DescribeWorkflowExecution(ctx, workflowID, runID)
+	description, err := temporalclient.Describe(ctx, temporalClient, workflowID, runID)
 	if err != nil {
 		return "", nil, apierror.New(
 			http.StatusNotFound,

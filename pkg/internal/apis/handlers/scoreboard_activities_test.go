@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -418,19 +419,19 @@ func TestGetScoreboardExecutionDetailsActivity(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-2", "run-2").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "wf-2", "run-2").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: exec2.Info,
-		}, nil).
+		}), nil).
 		Once()
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "Pipeline-Sched-wf-4", "run-4").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "Pipeline-Sched-wf-4", "run-4").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: exec4.Info,
-		}, nil).
+		}), nil).
 		Once()
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "non-existent", "non-existent").
+		On("DescribeWorkflow", mock.Anything, "non-existent", "non-existent").
 		Return(nil, fmt.Errorf("workflow not found")).
 		Once()
 	stubScoreboardTemporalClient(t, mockClient)

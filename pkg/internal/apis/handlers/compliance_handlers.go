@@ -246,7 +246,7 @@ func sendOpenID4VPWalletLogUpdateStart(
 // workflowExecutionClosed reports whether the latest run of workflowID exists
 // and is no longer running.
 func workflowExecutionClosed(ctx context.Context, c client.Client, workflowID string) bool {
-	exec, err := c.DescribeWorkflowExecution(ctx, workflowID, "")
+	exec, err := temporalclient.Describe(ctx, c, workflowID, "")
 	if err != nil {
 		return false
 	}
@@ -259,7 +259,7 @@ func sendOpenIDNetConformanceLogUpdateStart(
 	c client.Client,
 	input HandleSendTemporalSignalInput,
 ) error {
-	exec, err := c.DescribeWorkflowExecution(ctx, input.WorkflowID, "")
+	exec, err := temporalclient.Describe(ctx, c, input.WorkflowID, "")
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {
@@ -683,11 +683,7 @@ func getWorkflowAuthor(
 	c client.Client,
 	workflowID, runID string,
 ) (string, error) {
-	workflowExecution, err := c.DescribeWorkflowExecution(
-		ctx,
-		workflowID,
-		runID,
-	)
+	workflowExecution, err := temporalclient.Describe(ctx, c, workflowID, runID)
 	if err != nil {
 		return "", apierror.New(
 			http.StatusInternalServerError,

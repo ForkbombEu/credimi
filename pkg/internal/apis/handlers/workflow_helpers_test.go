@@ -12,6 +12,7 @@ import (
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -144,12 +145,12 @@ func TestFilterNonPipelineExecutionsDropsLinkedSteps(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "block-unlisted", "run-unlisted").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "block-unlisted", "run-unlisted").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Type: &common.WorkflowType{Name: pipelineinternal.LinkedStepsWorkflowName},
 			},
-		}, nil).
+		}), nil).
 		Once()
 
 	check := &WorkflowExecution{

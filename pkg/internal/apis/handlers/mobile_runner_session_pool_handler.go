@@ -12,6 +12,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -86,7 +87,7 @@ func HandleMobileRunnerSessionPool() func(*core.RequestEvent) error {
 		if err != nil {
 			return temporalUnavailableError()
 		}
-		described, err := c.DescribeWorkflowExecution(ctx, ref.SessionWorkflowID, ref.SessionRunID)
+		described, err := temporalclient.Describe(ctx, c, ref.SessionWorkflowID, ref.SessionRunID)
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
 			return runnerSessionNotFound()
