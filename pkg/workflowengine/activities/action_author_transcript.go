@@ -61,10 +61,13 @@ type TranscriptEntry struct {
 	Tool string `json:"tool,omitempty"`
 	// Arguments is the tool call's pretty JSON, at most 4000 characters, cut with "…".
 	Arguments string `json:"arguments,omitempty"`
-	Accepted  *bool  `json:"accepted,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Code      string `json:"code,omitempty"`
-	Replaced  bool   `json:"replaced,omitempty"`
+	// Decision is a review decision on the action Name: accept, refuse or
+	// change, with the Comment saying what to change.
+	Decision string `json:"decision,omitempty"`
+	Comment  string `json:"comment,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Code     string `json:"code,omitempty"`
+	Replaced bool   `json:"replaced,omitempty"`
 }
 
 // ReadActionAuthorTranscript reads the transcript of the latest run of the
@@ -92,8 +95,9 @@ func ReadActionAuthorTranscript(
 
 // ParseActionAuthorTranscript reads the transcript from the events of a chat
 // history, in event order: user messages, the agent's replies and tool
-// calls, save review decisions and saved actions. A payload it cannot decode,
-// offloaded payloads included, becomes one unavailable entry.
+// calls, one review entry per decision on an action, and saved actions. A
+// payload it cannot decode, offloaded payloads included, becomes one
+// unavailable entry.
 func ParseActionAuthorTranscript(history client.HistoryEventIterator) ([]TranscriptEntry, error) {
 	t := transcriptReader{
 		entries: []TranscriptEntry{},
@@ -234,18 +238,31 @@ func (t *transcriptReader) review(at string, args *commonpb.Payloads) {
 	if !strings.HasPrefix(callback.ToolID, actionAuthorReviewToolID) {
 		return
 	}
-	var decision struct {
-		Accepted bool `json:"accepted"`
+	var review struct {
+		Decisions []struct {
+			Key      string `json:"key"`
+			Name     string `json:"name"`
+			Decision string `json:"decision"`
+			Comment  string `json:"comment"`
+		} `json:"decisions"`
 	}
-	if json.Unmarshal(callback.Result, &decision) != nil {
+	if json.Unmarshal(callback.Result, &review) != nil || len(review.Decisions) == 0 {
 		t.unavailable(at)
 		return
 	}
-	t.entries = append(t.entries, TranscriptEntry{
-		Kind:     TranscriptReview,
-		Time:     at,
-		Accepted: &decision.Accepted,
-	})
+	for _, decision := range review.Decisions {
+		name := decision.Name
+		if name == "" {
+			name = decision.Key
+		}
+		t.entries = append(t.entries, TranscriptEntry{
+			Kind:     TranscriptReview,
+			Time:     at,
+			Name:     name,
+			Decision: decision.Decision,
+			Comment:  decision.Comment,
+		})
+	}
 }
 
 func (t *transcriptReader) modelResponse(at string, result *commonpb.Payloads) {

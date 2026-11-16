@@ -1015,12 +1015,13 @@ components:
       type: object
     ActivitiesTranscriptEntry:
       properties:
-        accepted:
-          nullable: true
-          type: boolean
         arguments:
           type: string
         code:
+          type: string
+        comment:
+          type: string
+        decision:
           type: string
         kind:
           type: string
