@@ -13,7 +13,7 @@ a.session-temporal { display: none !important; }
 /* No messages to a closed chat while its events replay (embed.js). */
 .credimi-replay .composer { display: none !important; }
 
-/* Credimi's light theme over the harness's dark-only one. */
+/* Credimi's palette over the harness's light theme. */
 :root {
   color-scheme: light;
   --surface-0: #f8fafc; --surface-1: #ffffff; --surface-2: #f1f5f9; --surface-3: #e2e8f0;
