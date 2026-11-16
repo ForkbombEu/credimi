@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CheckIcon, SaveIcon, WrenchIcon, XIcon } from '@lucide/svelte';
+	import { CheckIcon, PencilIcon, SaveIcon, WrenchIcon, XIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
@@ -113,19 +113,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{/if}
 						</div>
 					{:else if entry.kind === 'review'}
-						<div class="flex items-center gap-2">
-							{#if entry.accepted}
-								<Badge variant="secondary">
-									<CheckIcon />
-									{m.Transcript_save_accepted()}
-								</Badge>
-							{:else}
-								<Badge variant="outline">
-									<XIcon />
-									{m.Transcript_save_refused()}
-								</Badge>
+						<div class="space-y-1">
+							<div class="flex items-center gap-2">
+								{#if entry.decision === 'accept'}
+									<Badge variant="secondary">
+										<CheckIcon />
+										{m.Transcript_review_accept({ name: entry.name ?? '' })}
+									</Badge>
+								{:else if entry.decision === 'change'}
+									<Badge variant="outline">
+										<PencilIcon />
+										{m.Transcript_review_change({ name: entry.name ?? '' })}
+									</Badge>
+								{:else}
+									<Badge variant="outline">
+										<XIcon />
+										{m.Transcript_review_refuse({ name: entry.name ?? '' })}
+									</Badge>
+								{/if}
+								{@render time(entry)}
+							</div>
+							{#if entry.decision === 'change' && entry.comment}
+								<p
+									class="text-sm wrap-anywhere whitespace-pre-wrap text-muted-foreground"
+								>
+									{entry.comment}
+								</p>
 							{/if}
-							{@render time(entry)}
 						</div>
 					{:else if entry.kind === 'saved'}
 						<div class="space-y-2 rounded-md border p-3 text-sm">
