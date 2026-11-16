@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -637,7 +638,7 @@ steps:
 func TestDescribeWorkflowExecutionErrors(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		On("DescribeWorkflow", mock.Anything, "wf-1", "run-1").
 		Return(nil, &serviceerror.NotFound{Message: "missing"})
 
 	_, apiErr := describeWorkflowExecution(context.Background(), mockClient, "wf-1", "run-1")
@@ -646,7 +647,7 @@ func TestDescribeWorkflowExecutionErrors(t *testing.T) {
 
 	mockClient = &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-2", "run-2").
+		On("DescribeWorkflow", mock.Anything, "wf-2", "run-2").
 		Return(nil, &serviceerror.InvalidArgument{Message: "bad"})
 	_, apiErr = describeWorkflowExecution(context.Background(), mockClient, "wf-2", "run-2")
 	require.NotNil(t, apiErr)
@@ -656,8 +657,8 @@ func TestDescribeWorkflowExecutionErrors(t *testing.T) {
 func TestDescribeWorkflowExecutionWithParent(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-3", "run-3").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "wf-3", "run-3").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Execution: &common.WorkflowExecution{WorkflowId: "wf-3", RunId: "run-3"},
 				ParentExecution: &common.WorkflowExecution{
@@ -666,7 +667,7 @@ func TestDescribeWorkflowExecutionWithParent(t *testing.T) {
 				},
 				Type: &common.WorkflowType{Name: "Pipeline"},
 			},
-		}, nil)
+		}), nil)
 
 	exec, apiErr := describeWorkflowExecution(context.Background(), mockClient, "wf-3", "run-3")
 	require.Nil(t, apiErr)

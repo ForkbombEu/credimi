@@ -1095,7 +1095,7 @@
 	"Runner_of": "Runner de {owner}",
 	"Device_runs_ahead": "Execuções à frente: {count}",
 	"Session_waiting_for_device": "Aguardando o dispositivo: posição {position} de {total}",
-	"Session_preparing_device": "Preparando o dispositivo e instalando o wallet…",
+	"Session_preparing_device": "Preparando o dispositivo…",
 	"Session_not_found": "Esta sessão de autoria não existe.",
 	"End_session": "Encerrar sessão",
 	"Session_idle_warning": "Sem atividade: esta sessão será encerrada em {seconds} s para liberar o dispositivo. Envie uma mensagem para mantê-la aberta.",

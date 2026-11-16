@@ -11,7 +11,10 @@ license = "AGPL-3.0-or-later"
 dependencies = [
     # Pre-1.0 and experimental: APIs change between releases, so the version is pinned exactly.
     # It must match the harness version of the runner's agent (credimi-runner/agent).
-    "temporal-agent-harness[ui]==0.8.0",
+    "temporal-agent-harness[ui]==0.11.0",
+    # 1.35 adds the workflow stream poll query; 1.36.0 turned single-batch activation on
+    # and 1.36.1 turned it back off.
+    "temporalio>=1.36.1",
     "fastapi>=0.115",
     "uvicorn>=0.30",
     # Verifies Credimi's Temporal tokens (ES256) before the service uses them.

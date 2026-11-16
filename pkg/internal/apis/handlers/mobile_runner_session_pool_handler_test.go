@@ -10,6 +10,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
@@ -48,8 +49,8 @@ func (f registrationFixture) startPoolSession(
 ) string {
 	t.Helper()
 	c, sessionID := f.poolSessionRun(t, runnerID, orgID)
-	c.On("DescribeWorkflowExecution", mock.Anything, sessionID, authoringSessionRun).
-		Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 1), nil).
+	c.On("DescribeWorkflow", mock.Anything, sessionID, authoringSessionRun).
+		Return(temporalclient.Description(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 1)), nil).
 		Maybe()
 	stubAuthoringSessionTemporal(t, c)
 	return sessionID
@@ -193,7 +194,7 @@ func TestHandleMobileRunnerSessionPool(t *testing.T) {
 		f := setupRegistrationFixture(t)
 		runner := f.poolTestRunner(t)
 		c, sessionID := f.poolSessionRun(t, runner.Id, f.orgID)
-		c.On("DescribeWorkflowExecution", mock.Anything, sessionID, authoringSessionRun).
+		c.On("DescribeWorkflow", mock.Anything, sessionID, authoringSessionRun).
 			Return(nil, serviceerror.NewNotFound("workflow not found"))
 		stubAuthoringSessionTemporal(t, c)
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/apis"
@@ -202,17 +203,17 @@ func TestHandleGetMyCheckRunSuccess(t *testing.T) {
 
 	mockClient.
 		On(
-			"DescribeWorkflowExecution",
+			"DescribeWorkflow",
 			mock.Anything,
 			"check-1",
 			"run-1",
 		).
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Execution: &common.WorkflowExecution{WorkflowId: "check-1", RunId: "run-1"},
 				Type:      &common.WorkflowType{Name: "CustomCheck"},
 			},
-		}, nil)
+		}), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs/run-1", nil)
 	req.SetPathValue("workflowId", "check-1")
@@ -303,7 +304,7 @@ func TestHandleGetMyWorkflowRunMissingFromNamespace(t *testing.T) {
 				return mockClient, nil
 			}
 			mockClient.
-				On("DescribeWorkflowExecution", mock.Anything, "pipeline-1", "run-1").
+				On("DescribeWorkflow", mock.Anything, "pipeline-1", "run-1").
 				Return(nil, serviceerror.NewNotFound("workflow not found"))
 
 			req := httptest.NewRequest(
@@ -350,8 +351,8 @@ func TestHandleGetMyWorkflowRunIncludesPipelineDevices(t *testing.T) {
 	deviceIDs, err := temporalcrypto.DataConverter().ToPayload([]string{"tenant/runner-1/pixel"})
 	require.NoError(t, err)
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "pipeline-1", "run-1").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "pipeline-1", "run-1").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Execution: &common.WorkflowExecution{WorkflowId: "pipeline-1", RunId: "run-1"},
 				Type:      &common.WorkflowType{Name: "Dynamic Pipeline Workflow"},
@@ -362,7 +363,7 @@ func TestHandleGetMyWorkflowRunIncludesPipelineDevices(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		}), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/workflows/pipeline-1/runs/run-1", nil)
 	req.SetPathValue("workflowId", "pipeline-1")
@@ -416,18 +417,18 @@ func TestHandleGetMyCheckRunIncludesFailureReason(t *testing.T) {
 
 	mockClient.
 		On(
-			"DescribeWorkflowExecution",
+			"DescribeWorkflow",
 			mock.Anything,
 			"check-1",
 			"run-1",
 		).
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Execution: &common.WorkflowExecution{WorkflowId: "check-1", RunId: "run-1"},
 				Type:      &common.WorkflowType{Name: "CustomCheck"},
 				Status:    enums.WORKFLOW_EXECUTION_STATUS_FAILED,
 			},
-		}, nil)
+		}), nil)
 	mockClient.
 		On(
 			"GetWorkflowHistory",
@@ -504,7 +505,7 @@ func TestHandleGetMyCheckRunInvalidArgument(t *testing.T) {
 
 	mockClient.
 		On(
-			"DescribeWorkflowExecution",
+			"DescribeWorkflow",
 			mock.Anything,
 			"check-1",
 			"bad-run",
@@ -952,12 +953,12 @@ func TestHandleListMyWorkflowsFiltersDynamicPipeline(t *testing.T) {
 		}, nil
 	}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-dyn-missing", "run-dyn-missing").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		On("DescribeWorkflow", mock.Anything, "wf-dyn-missing", "run-dyn-missing").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Type: &common.WorkflowType{Name: "Dynamic Pipeline Workflow"},
 			},
-		}, nil).
+		}), nil).
 		Once()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=completed", nil)

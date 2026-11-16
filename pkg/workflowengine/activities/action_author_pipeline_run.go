@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
 	"github.com/pocketbase/pocketbase/core"
@@ -116,7 +117,7 @@ func (a *ReadActionAuthorPipelineRunActivity) read(
 			return output, err
 		}
 	}
-	described, err := c.DescribeWorkflowExecution(ctx, ref.WorkflowID, ref.RunID)
+	described, err := temporalclient.Describe(ctx, c, ref.WorkflowID, ref.RunID)
 	var notFound *serviceerror.NotFound
 	if errors.As(err, &notFound) {
 		return output, actionAuthorError(&a.BaseActivity, notAPipelineRun(ref.WorkflowID))

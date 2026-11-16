@@ -15,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -98,11 +99,11 @@ func stubLiveViewWorkflow(
 	description.WorkflowExecutionInfo.Type.Name = workflowType
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.On(
-		"DescribeWorkflowExecution",
+		"DescribeWorkflow",
 		mock.Anything,
 		workflowID,
 		"run-1",
-	).Return(description, nil).Once()
+	).Return(temporalclient.Description(description), nil).Once()
 	if status == enums.WORKFLOW_EXECUTION_STATUS_RUNNING {
 		mockClient.On(
 			"QueryWorkflow",
@@ -268,8 +269,8 @@ func stubLiveViewSession(t *testing.T, app *tests.TestApp, s liveViewSession) *[
 			false,
 			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 		).Return(s.history(t, app, s.runs[0], !s.unsigned)).Maybe()
-		c.On("DescribeWorkflowExecution", mock.Anything, s.sessionID, s.runs[0]).
-			Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, s.status, 0), nil).
+		c.On("DescribeWorkflow", mock.Anything, s.sessionID, s.runs[0]).
+			Return(temporalclient.Description(authoringExecution(activities.ActionAuthorSessionWorkflowName, s.status, 0)), nil).
 			Maybe()
 	}
 	namespaces := []string{}
@@ -442,7 +443,7 @@ func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
 			require.Empty(t, *calls)
 			workflow.AssertNotCalled(
 				t,
-				"DescribeWorkflowExecution",
+				"DescribeWorkflow",
 				mock.Anything,
 				mock.Anything,
 				mock.Anything,
@@ -550,8 +551,8 @@ func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
 			description := pipelineMobileFlowDescription(t, tc.status, []string{"tenant/runner-1"})
 			description.WorkflowExecutionInfo.Type.Name = activities.ActionAuthorSessionWorkflowName
 			mockClient := &temporalmocks.Client{}
-			mockClient.On("DescribeWorkflowExecution", mock.Anything, authoringSessionID, "run-1").
-				Return(description, nil).
+			mockClient.On("DescribeWorkflow", mock.Anything, authoringSessionID, "run-1").
+				Return(temporalclient.Description(description), nil).
 				Maybe()
 			original := pipelineLiveViewTemporalClient
 			t.Cleanup(func() { pipelineLiveViewTemporalClient = original })
@@ -570,7 +571,7 @@ func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
 			if tc.code == http.StatusNotFound {
 				mockClient.AssertNotCalled(
 					t,
-					"DescribeWorkflowExecution",
+					"DescribeWorkflow",
 					mock.Anything,
 					mock.Anything,
 					mock.Anything,

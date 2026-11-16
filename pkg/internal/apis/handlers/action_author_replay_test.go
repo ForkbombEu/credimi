@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
@@ -19,8 +20,8 @@ import (
 )
 
 func stubAuthoringChat(c *temporalmocks.Client, status enumspb.WorkflowExecutionStatus) {
-	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
-		Return(authoringExecution(activities.ActionAuthorWorkflowType, status, 5), nil)
+	c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+		Return(temporalclient.Description(authoringExecution(activities.ActionAuthorWorkflowType, status, 5)), nil)
 }
 
 func replayScenario(
@@ -56,13 +57,19 @@ func TestActionAuthorSessionReplayAsksTheAgent(t *testing.T) {
 		expect string
 	}{
 		{
-			name:   "agent answers",
-			page:   map[string]any{"items": []any{}, "next_offset": 0, "end_offset": 3},
+			name: "agent answers",
+			page: map[string]any{
+				"items": []any{
+					map[string]any{"topic": "agent", "data": "AAAA", "offset": 0},
+				},
+				"next_offset": 1,
+				"more_ready":  false,
+			},
 			expect: `{"replayable":true}`,
 		},
 		{
 			name:   "no events",
-			page:   map[string]any{"items": []any{}, "next_offset": 0, "end_offset": 0},
+			page:   map[string]any{"items": []any{}, "next_offset": 0, "more_ready": false},
 			expect: `{"replayable":false}`,
 		},
 		{
@@ -79,7 +86,14 @@ func TestActionAuthorSessionReplayAsksTheAgent(t *testing.T) {
 			if tc.err == nil {
 				value = jsonEncodedValue{tc.page}
 			}
-			c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "authoring_events", 0).
+			c.On(
+				"QueryWorkflow",
+				mock.Anything,
+				authoringSessionChat,
+				"",
+				"__temporal_workflow_stream_poll",
+				map[string]any{"topics": []string{}, "from_offset": 0},
+			).
 				Return(value, tc.err).
 				Once()
 			replayScenario(t, c, "userA", http.StatusOK, tc.expect).Test(t)
@@ -104,7 +118,7 @@ func TestActionAuthorSessionReplayOfAChatThatCannotBeQueried(t *testing.T) {
 		{
 			name: "missing chat",
 			stub: func(c *temporalmocks.Client) {
-				c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
+				c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
 					Return(nil, serviceerror.NewNotFound("no chat"))
 			},
 		},
@@ -131,5 +145,5 @@ func TestActionAuthorSessionReplayRefusesAnotherMember(t *testing.T) {
 	c := &temporalmocks.Client{}
 	stubAuthoringSessionTemporal(t, c)
 	replayScenario(t, c, "userB", http.StatusNotFound, `"reason":"session_not_found"`).Test(t)
-	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "")
+	c.AssertNotCalled(t, "DescribeWorkflow", mock.Anything, authoringSessionChat, "")
 }

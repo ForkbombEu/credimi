@@ -363,7 +363,7 @@ func LookupActionAuthorSession(
 			"caller is not an action author session agent",
 		)
 	}
-	self, err := c.DescribeWorkflowExecution(ctx, authorWorkflowID, authorRunID)
+	self, err := temporalclient.Describe(ctx, c, authorWorkflowID, authorRunID)
 	if err != nil {
 		return ActionAuthorSessionRef{}, describeLookupError(err)
 	}
@@ -418,7 +418,7 @@ func lookupSessionStart(
 	c client.Client,
 	namespace, sessionID, sessionRunID string,
 ) (ActionAuthorSessionRef, error) {
-	described, err := c.DescribeWorkflowExecution(ctx, sessionID, sessionRunID)
+	described, err := temporalclient.Describe(ctx, c, sessionID, sessionRunID)
 	if err != nil {
 		return ActionAuthorSessionRef{}, describeLookupError(err)
 	}
@@ -549,7 +549,7 @@ func checkCredimiRun(
 		return fmt.Errorf("look up action author session: %w", err)
 	}
 	// A deleted run is not found.
-	described, err := c.DescribeWorkflowExecution(ctx, sessionID, sessionRunID)
+	described, err := temporalclient.Describe(ctx, c, sessionID, sessionRunID)
 	if err != nil {
 		return describeLookupError(err)
 	}
@@ -756,7 +756,7 @@ func ReadActionAuthorSession(
 	if ref.Organization != organization || ref.Session.ActorID != actorID {
 		return info, sessionForbidden("action author session belongs to another user")
 	}
-	described, err := c.DescribeWorkflowExecution(ctx, sessionID, ref.SessionRunID)
+	described, err := temporalclient.Describe(ctx, c, sessionID, ref.SessionRunID)
 	if err != nil {
 		return info, describeLookupError(err)
 	}

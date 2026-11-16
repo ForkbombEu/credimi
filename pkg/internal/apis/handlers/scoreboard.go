@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -489,11 +490,7 @@ func getWorkflowExecutionWithDecodedAttrs(
 	workflowID string,
 	runID string,
 ) (*WorkflowExecution, error) {
-	resp, err := temporalClient.DescribeWorkflowExecution(
-		ctx,
-		workflowID,
-		runID,
-	)
+	resp, err := temporalclient.Describe(ctx, temporalClient, workflowID, runID)
 	if err != nil {
 		return nil, err
 	}

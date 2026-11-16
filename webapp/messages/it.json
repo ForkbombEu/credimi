@@ -1102,7 +1102,7 @@
 	"Runner_of": "Runner di {owner}",
 	"Device_runs_ahead": "Esecuzioni in corso o in attesa: {count}",
 	"Session_waiting_for_device": "In attesa del dispositivo: posizione {position} di {total}",
-	"Session_preparing_device": "Preparazione del dispositivo e installazione del wallet…",
+	"Session_preparing_device": "Preparazione del dispositivo…",
 	"Session_not_found": "Questa sessione di scrittura non esiste.",
 	"End_session": "Termina sessione",
 	"Session_idle_warning": "Nessuna attività: questa sessione si chiude tra {seconds} s per liberare il dispositivo. Invia un messaggio per tenerla aperta.",

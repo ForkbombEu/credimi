@@ -60,7 +60,7 @@ func TestCheckWorkflowClosedActivityNotFound(t *testing.T) {
 	})
 
 	mockClient.On(
-		"DescribeWorkflowExecution",
+		"DescribeWorkflow",
 		mock.Anything,
 		"wf-1",
 		"",
@@ -102,11 +102,11 @@ func TestCheckWorkflowClosedActivityRunning(t *testing.T) {
 	}
 
 	mockClient.On(
-		"DescribeWorkflowExecution",
+		"DescribeWorkflow",
 		mock.Anything,
 		"wf-1",
 		"",
-	).Return(response, nil).Once()
+	).Return(temporalclient.Description(response), nil).Once()
 
 	activity := NewCheckWorkflowClosedActivity()
 	result, err := activity.Execute(context.Background(), workflowengine.ActivityInput{

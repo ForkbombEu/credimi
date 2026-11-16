@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // The harness UI attaches to a chat only while its sessions and workflow status report it open.
-// Credimi embeds the UI for a closed chat only when the runner agent answers its
-// `authoring_events` query, so until the page's first attach stream ends a closed chat is
-// reported open: the harness attaches, the service replays the chat's events through that
-// query, and the harness then reads the chat closed, as for a chat that ends while it is open.
+// Credimi embeds the UI for a closed chat only when the runner agent answers its workflow
+// stream poll query, so until the page's first attach stream ends a closed chat is reported
+// open: the harness attaches, its own attach replays the chat's events through that query, and
+// the harness then reads the chat closed, as for a chat that ends while it is open.
 // Meanwhile the composer is hidden (embed.css) and messages are refused here and by the service.
 (() => {
 	const api = new URL('api/', document.baseURI).pathname;

@@ -7,6 +7,7 @@ package temporalclient
 import (
 	"sync"
 
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 )
 
@@ -21,4 +22,14 @@ func SetClientForTests(namespace string, c client.Client) {
 // ClearTestClients clears the test cache.
 func ClearTestClients() {
 	testClientCache = nil
+}
+
+// Description wraps a raw describe response as DescribeWorkflow returns it.
+func Description(
+	resp *workflowservice.DescribeWorkflowExecutionResponse,
+) *client.WorkflowExecutionDescription {
+	if resp == nil {
+		return nil
+	}
+	return &client.WorkflowExecutionDescription{RawResponse: resp}
 }

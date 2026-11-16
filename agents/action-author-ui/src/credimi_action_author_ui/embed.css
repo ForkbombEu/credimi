@@ -10,10 +10,18 @@ button.session-new, button.start-new, section.session-manager, [aria-label="Resp
 /* Sessions run in runner namespaces, which the Temporal UI does not open for users. */
 a.session-temporal { display: none !important; }
 
+/* The agent never asks for a tool approval and mounts no Code Mode files, so the Approval
+   decisions and VFS File Mounts panes stay empty. They are the harness's only opt-in kinds:
+   the last two entries of the "Open a view" menu, after its divider, and of the empty rail's
+   buttons (harness 0.11.0). Re-check on harness bumps. */
+[data-pane="decisions"], [data-pane="files"],
+.launch-menu .launch-divider, .launch-menu .launch-divider ~ [role="menuitemcheckbox"],
+.rail-empty .empty-actions > :nth-last-child(-n+2) { display: none !important; }
+
 /* No messages to a closed chat while its events replay (embed.js). */
 .credimi-replay .composer { display: none !important; }
 
-/* Credimi's light theme over the harness's dark-only one. */
+/* Credimi's palette over the harness's light theme. */
 :root {
   color-scheme: light;
   --surface-0: #f8fafc; --surface-1: #ffffff; --surface-2: #f1f5f9; --surface-3: #e2e8f0;
@@ -75,15 +83,8 @@ a.session-temporal { display: none !important; }
   --xy-resize-background-color-default: #3367d9;
 }
 
-/* The rail fits the frame: the graph shrinks, the chat keeps its width. Outside the harness's
-   stacked layout (max-width: 860px), and not over its collapsed or full-width (bleed) panes. */
-@media not all and (max-width: 860px) {
-  .rail:not(.bleed) > .rail-slot[data-slot="graph"]:not(.collapsed) { flex: 1 1 0 !important; min-width: 0 !important; }
-  .rail:not(.bleed) > .rail-slot[data-slot="chat"]:not(.collapsed) { flex: 0 0 min(var(--slot-size), 50%) !important; min-width: min(var(--slot-min), 50%) !important; }
-}
-
 /* Long replies are never collapsed. The harness's "Show all"/"Show less" toggle calls the chat
    list's measure(), which forgets every row's measured height: rows whose size didn't change
-   fall back to the 180 px estimate and the next message is drawn over them (harness 0.8.0).
+   fall back to the 180 px estimate and the next message is drawn over them (harness 0.8.0 to 0.11.0).
    Remove this once the harness re-measures only the toggled row. */
 :root { --long-content-max-lines: 1000000; }

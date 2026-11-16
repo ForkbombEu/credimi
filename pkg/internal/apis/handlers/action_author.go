@@ -117,7 +117,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSessionReplay,
 			OperationID:    "actionAuthor.sessionReplay",
 			Summary:        "Check whether an authoring session's ended chat can be replayed",
-			Description:    "Whether the chat UI can replay the ended chat of a session the caller started: replayable is true when the runner's agent answers the chat's first authoring_events query page, with at least one event, within 10 seconds. A running or missing chat, or a query that fails or times out (no agent polls the runner's task queue, the agent changed since the chat ran, its history is gone), answers false; the session page then shows the transcript (GET /api/action-author/sessions/{session_id}/transcript). Only the session's starter can ask (404 otherwise).",
+			Description:    "Whether the chat UI can replay the ended chat of a session the caller started: replayable is true when the runner's agent answers the chat's first workflow stream poll query, with at least one event, within 10 seconds. A running or missing chat, or a query that fails or times out (no agent polls the runner's task queue, the agent changed since the chat ran, its history is gone), answers false; the session page then shows the transcript (GET /api/action-author/sessions/{session_id}/transcript). Only the session's starter can ask (404 otherwise).",
 			ResponseSchema: ActionAuthorReplayResponse{},
 		},
 		{
@@ -619,12 +619,13 @@ func rollbackActionAuthorTicket(e *core.RequestEvent, deviceID, ticketID, namesp
 const (
 	actionAuthorIdleStateQuery   = "idle_state"
 	actionAuthorAgentStatusQuery = "agent_status"
-	// actionAuthorEventsQuery pages the chat's stream events; the chat UI
-	// replays a closed chat through it.
-	actionAuthorEventsQuery    = "authoring_events"
-	actionAuthorCloseSignal    = "close"
-	actionAuthorSaveReviewTool = "confirm_wallet_action_save"
-	actionAuthorRecentSessions = 10
+	// actionAuthorStreamPollQuery reads the chat's retained stream events
+	// (temporalio's workflow streams); the chat UI's attach replays a closed
+	// chat through it.
+	actionAuthorStreamPollQuery = "__temporal_workflow_stream_poll"
+	actionAuthorCloseSignal     = "close"
+	actionAuthorSaveReviewTool  = "confirm_wallet_action_save"
+	actionAuthorRecentSessions  = 10
 )
 
 // actionAuthorReplayTimeout bounds the replay check: without a worker polling
@@ -853,7 +854,8 @@ func HandleActionAuthorSessionTranscript() func(*core.RequestEvent) error {
 
 // HandleActionAuthorSessionReplay tells whether the runner's agent can replay
 // the ended chat of a session the caller started, by running its first
-// authoring_events query: the chat UI replays a closed chat through it.
+// workflow stream poll query: the chat UI's attach replays a closed chat
+// through it.
 func HandleActionAuthorSessionReplay() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		c, info, apiErr := readCallerActionAuthorSession(e)
@@ -870,11 +872,12 @@ func HandleActionAuthorSessionReplay() func(*core.RequestEvent) error {
 }
 
 // actionAuthorChatReplayable reports whether the chat has ended and its
-// agent answers the first page of its events, with at least one event.
+// agent answers the first workflow stream poll query, with at least one
+// event. Agents on temporalio before 1.35 have no such query.
 func actionAuthorChatReplayable(ctx context.Context, c client.Client, chatID string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, actionAuthorReplayTimeout)
 	defer cancel()
-	described, err := c.DescribeWorkflowExecution(ctx, chatID, "")
+	described, err := temporalclient.Describe(ctx, c, chatID, "")
 	if err != nil {
 		return false, err
 	}
@@ -884,16 +887,22 @@ func actionAuthorChatReplayable(ctx context.Context, c client.Client, chatID str
 		return false, nil
 	}
 	var page struct {
-		EndOffset int `json:"end_offset"`
+		Items []struct{} `json:"items"`
 	}
-	encoded, err := c.QueryWorkflow(ctx, chatID, "", actionAuthorEventsQuery, 0)
+	encoded, err := c.QueryWorkflow(
+		ctx,
+		chatID,
+		"",
+		actionAuthorStreamPollQuery,
+		map[string]any{"topics": []string{}, "from_offset": 0},
+	)
 	if err != nil {
 		return false, err
 	}
 	if err := encoded.Get(&page); err != nil {
 		return false, err
 	}
-	return page.EndOffset > 0, nil
+	return len(page.Items) > 0, nil
 }
 
 // readActionAuthorChat fills the chat state of a session in any state. The
@@ -907,7 +916,7 @@ func readActionAuthorChat(
 	response *ActionAuthorSessionResponse,
 ) {
 	ctx := e.Request.Context()
-	described, err := c.DescribeWorkflowExecution(ctx, chatID, "")
+	described, err := temporalclient.Describe(ctx, c, chatID, "")
 	if err != nil {
 		var notFound *serviceerror.NotFound
 		if !errors.As(err, &notFound) {
@@ -1200,7 +1209,7 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 			// started (the device is still being prepared) from one that ended,
 			// or one that started since the signal.
 			var described *workflowservice.DescribeWorkflowExecutionResponse
-			described, err = c.DescribeWorkflowExecution(ctx, chatID, "")
+			described, err = temporalclient.Describe(ctx, c, chatID, "")
 			switch {
 			case errors.As(err, &notFound):
 				err = c.CancelWorkflow(ctx, info.SessionWorkflowID, info.SessionRunID)

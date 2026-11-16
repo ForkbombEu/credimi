@@ -1095,7 +1095,7 @@
 	"Runner_of": "Runner von {owner}",
 	"Device_runs_ahead": "Läufe davor: {count}",
 	"Session_waiting_for_device": "Warten auf das Gerät: Position {position} von {total}",
-	"Session_preparing_device": "Gerät wird vorbereitet und Wallet installiert…",
+	"Session_preparing_device": "Gerät wird vorbereitet…",
 	"Session_not_found": "Diese Autorensitzung existiert nicht.",
 	"End_session": "Sitzung beenden",
 	"Session_idle_warning": "Keine Aktivität: Diese Sitzung schließt in {seconds} s, um das Gerät freizugeben. Sende eine Nachricht, um sie offen zu halten.",

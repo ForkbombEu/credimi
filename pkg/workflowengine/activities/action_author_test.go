@@ -15,6 +15,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
@@ -236,11 +237,11 @@ func validSessionLookup(t *testing.T, app core.App) sessionLookup {
 func (l sessionLookup) client() *temporalmocks.Client {
 	mockClient := &temporalmocks.Client{}
 	stubSessionRuns(mockClient, authorTestSessionID, l.runs...)
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
-		Return(l.author, l.authorErr).
+	mockClient.On("DescribeWorkflow", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
+		Return(temporalclient.Description(l.author), l.authorErr).
 		Maybe()
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
-		Return(l.session, l.sessionErr).
+	mockClient.On("DescribeWorkflow", mock.Anything, authorTestSessionID, authorTestParentRun).
+		Return(temporalclient.Description(l.session), l.sessionErr).
 		Maybe()
 	mockClient.On(
 		"GetWorkflowHistory",
@@ -783,8 +784,8 @@ func sessionRunsClient(
 	mockClient := &temporalmocks.Client{}
 	stubSessionRuns(mockClient, authorTestSessionID, runs...)
 	for _, run := range runs {
-		mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, run).
-			Return(sessionDescription(), nil).
+		mockClient.On("DescribeWorkflow", mock.Anything, authorTestSessionID, run).
+			Return(temporalclient.Description(sessionDescription()), nil).
 			Maybe()
 		mockClient.On(
 			"GetWorkflowHistory",
@@ -1012,8 +1013,8 @@ func TestLookupSessionStartAcceptsOnlyTheTrustedRun(t *testing.T) {
 		authorTestParentRun: signedSessionHistory(t, app, input),
 		"replayed-run":      signedSessionHistory(t, app, input),
 	}, l.runs...)
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
-		Return(l.author, nil)
+	mockClient.On("DescribeWorkflow", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
+		Return(temporalclient.Description(l.author), nil)
 	a.authorSessionLookup = authorSessionLookup{
 		app:            app,
 		temporalClient: func(string) (client.Client, error) { return mockClient, nil },
@@ -1057,11 +1058,11 @@ func TestReadActionAuthorSessionReadsATrustedSessionInAnyState(t *testing.T) {
 		mockClient := &temporalmocks.Client{}
 		stubSessionRuns(mockClient, authorTestSessionID, authorTestParentRun)
 		mockClient.On(
-			"DescribeWorkflowExecution",
+			"DescribeWorkflow",
 			mock.Anything,
 			authorTestSessionID,
 			authorTestParentRun,
-		).Return(completed, nil).Maybe()
+		).Return(temporalclient.Description(completed), nil).Maybe()
 		mockClient.On(
 			"GetWorkflowHistory",
 			mock.Anything,

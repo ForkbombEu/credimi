@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/dbx"
@@ -989,10 +990,10 @@ func TestHandleGetPipelineExecutionReturnsOneRun(t *testing.T) {
 
 	// The single-run summary counts no steps, so it never reads the run's history.
 	mockClient := &temporalmocks.Client{}
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+	mockClient.On("DescribeWorkflow", mock.Anything, "wf-1", "run-1").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: root,
-		}, nil).
+		}), nil).
 		Once()
 	originalTemporalClient := pipelineTemporalClient
 	t.Cleanup(func() { pipelineTemporalClient = originalTemporalClient })
@@ -1302,10 +1303,10 @@ func newPipelineStepsFixture(t *testing.T) *pipelineStepsFixture {
 }
 
 func (f *pipelineStepsFixture) describePipelineRun(identifier string) {
-	f.mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+	f.mockClient.On("DescribeWorkflow", mock.Anything, "wf-1", "run-1").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: buildPipelineExecutionInfo("wf-1", "run-1", identifier),
-		}, nil).
+		}), nil).
 		Once()
 }
 
@@ -1649,8 +1650,8 @@ func TestHandleListPipelineExecutionStepsCountsBlockAttempts(t *testing.T) {
 func TestHandleListPipelineExecutionStepsRejectsABlockOfAnotherRun(t *testing.T) {
 	f := newPipelineStepsFixture(t)
 	f.describePipelineRun(f.identifier)
-	f.mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-2-offer", "block-run").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+	f.mockClient.On("DescribeWorkflow", mock.Anything, "wf-2-offer", "block-run").
+		Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
 				Execution: &common.WorkflowExecution{WorkflowId: "wf-2-offer", RunId: "block-run"},
 				Type:      &common.WorkflowType{Name: pipelineinternal.LinkedStepsWorkflowName},
@@ -1659,7 +1660,7 @@ func TestHandleListPipelineExecutionStepsRejectsABlockOfAnotherRun(t *testing.T)
 					RunId:      "run-2",
 				},
 			},
-		}, nil).
+		}), nil).
 		Once()
 
 	rec := f.serve(t, "?block_workflow_id=wf-2-offer&block_run_id=block-run")

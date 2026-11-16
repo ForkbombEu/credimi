@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/stretchr/testify/mock"
@@ -40,13 +41,13 @@ func (v pipelineMobileFlowEncodedValue) Get(valuePtr interface{}) error {
 func TestPipelineMobileFlowDevice(t *testing.T) {
 	client := temporalmocks.NewClient(t)
 	client.On(
-		"DescribeWorkflowExecution",
+		"DescribeWorkflow",
 		mock.Anything,
 		"pipeline-1",
 		"run-1",
-	).Return(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, []string{
+	).Return(temporalclient.Description(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, []string{
 		"tenant/runner-1",
-	}), nil).Once()
+	})), nil).Once()
 	client.On(
 		"QueryWorkflow",
 		mock.Anything,
@@ -76,14 +77,14 @@ func TestPipelineMobileFlowDevice(t *testing.T) {
 func TestPipelineMobileFlowDeviceRejectsMultipleDevices(t *testing.T) {
 	client := temporalmocks.NewClient(t)
 	client.On(
-		"DescribeWorkflowExecution",
+		"DescribeWorkflow",
 		mock.Anything,
 		"pipeline-1",
 		"run-1",
-	).Return(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, []string{
+	).Return(temporalclient.Description(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, []string{
 		"tenant/runner-1",
 		"tenant/runner-2",
-	}), nil).Once()
+	})), nil).Once()
 
 	_, _, apiErr := pipelineMobileFlowDevice(context.Background(), client, "pipeline-1", "run-1")
 	require.NotNil(t, apiErr)
@@ -93,13 +94,13 @@ func TestPipelineMobileFlowDeviceRejectsMultipleDevices(t *testing.T) {
 func TestPipelineMobileFlowDeviceRequiresInitializedDevice(t *testing.T) {
 	client := temporalmocks.NewClient(t)
 	client.On(
-		"DescribeWorkflowExecution",
+		"DescribeWorkflow",
 		mock.Anything,
 		"pipeline-1",
 		"run-1",
-	).Return(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, []string{
+	).Return(temporalclient.Description(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, []string{
 		"tenant/runner-1",
-	}), nil).Once()
+	})), nil).Once()
 	client.On(
 		"QueryWorkflow",
 		mock.Anything,
@@ -118,13 +119,13 @@ func TestPipelineMobileFlowDeviceRequiresInitializedDevice(t *testing.T) {
 func TestPipelineMobileFlowDeviceRequiresRunningPipeline(t *testing.T) {
 	client := temporalmocks.NewClient(t)
 	client.On(
-		"DescribeWorkflowExecution",
+		"DescribeWorkflow",
 		mock.Anything,
 		"pipeline-1",
 		"run-1",
-	).Return(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED, []string{
+	).Return(temporalclient.Description(pipelineMobileFlowDescription(t, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED, []string{
 		"tenant/runner-1",
-	}), nil).Once()
+	})), nil).Once()
 
 	_, _, apiErr := pipelineMobileFlowDevice(context.Background(), client, "pipeline-1", "run-1")
 	require.NotNil(t, apiErr)

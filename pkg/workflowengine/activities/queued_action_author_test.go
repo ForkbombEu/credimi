@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/pocketbase/dbx"
@@ -192,13 +193,13 @@ func startedSessionClient(
 	mockClient := &temporalmocks.Client{}
 	stubSessionRuns(mockClient, queuedSessionID, runs...)
 	for _, run := range runs {
-		mockClient.On("DescribeWorkflowExecution", mock.Anything, queuedSessionID, run).
-			Return(&workflowservice.DescribeWorkflowExecutionResponse{
+		mockClient.On("DescribeWorkflow", mock.Anything, queuedSessionID, run).
+			Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
 				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
 					Execution: &commonpb.WorkflowExecution{WorkflowId: queuedSessionID, RunId: run},
 					Type:      &commonpb.WorkflowType{Name: ActionAuthorSessionWorkflowName},
 				},
-			}, nil).Maybe()
+			}), nil).Maybe()
 		mockClient.On(
 			"GetWorkflowHistory",
 			mock.Anything,
@@ -208,7 +209,7 @@ func startedSessionClient(
 			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 		).Return(replayHistory(histories[run])).Maybe()
 	}
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, queuedSessionID, mock.Anything).
+	mockClient.On("DescribeWorkflow", mock.Anything, queuedSessionID, mock.Anything).
 		Return(nil, serviceerror.NewNotFound("workflow not found")).Maybe()
 	var namespaces []string
 	act.sessionClientFactory = func(namespace string) (client.Client, error) {

@@ -1139,7 +1139,7 @@
 	"Runner_of": "Runner of {owner}",
 	"Device_runs_ahead": "Runs ahead: {count}",
 	"Session_waiting_for_device": "Waiting for the device: position {position} of {total}",
-	"Session_preparing_device": "Preparing the device and installing the wallet…",
+	"Session_preparing_device": "Preparing the device…",
 	"Session_not_found": "This authoring session does not exist.",
 	"End_session": "End session",
 	"Session_idle_warning": "No activity: this session closes in {seconds} s to free the device. Send a message to keep it open.",

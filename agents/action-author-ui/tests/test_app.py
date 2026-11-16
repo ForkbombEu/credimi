@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import asyncio
-import base64
 import importlib
 import json
 import logging
@@ -18,11 +17,19 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
-from temporal_agent_harness.harness.agent_protocol import AgentEvent, ReplyDelta
+from temporal_agent_harness.harness import agent
+from temporal_agent_harness.harness.agent_client import AgentClient
+from temporal_agent_harness.harness.agent_protocol import (
+    AgentConfig,
+    TextMessage,
+    TextReply,
+    ToolApprovalPolicy,
+)
+from temporal_agent_harness.harness.agent_workflow import AgentWorkflowRunner
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporal_agent_harness.web.task_queue_status import RegistryWorkers, TaskQueueWorkers
-from temporalio import workflow
 from temporalio.client import Client, WorkflowExecutionStatus
+from temporalio.contrib.workflow_streams import WorkflowStream
 from temporalio.service import RPCError, RPCStatusCode
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import UnsandboxedWorkflowRunner, Worker
@@ -440,6 +447,9 @@ async def test_chat_page_is_embeddable_by_credimi_only():
         '<link rel="stylesheet" href="./action-embed.css">'
         '<script src="./action-embed.js"></script></head>'
     ) in page.text
+    # The harness ships its page dark; Credimi has no dark mode.
+    assert 'data-theme="light"' in page.text
+    assert 'data-theme="dark"' not in page.text
     assert css.status_code == 200
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"
@@ -544,39 +554,22 @@ async def test_temporal_errors_answer_503_without_a_traceback(status, path, capl
     ]
 
 
-@workflow.defn(name="ActionAuthor")
-class FinishedSession:
-    """A closed ActionAuthor run whose recorded events stay readable by query."""
+@agent.defn(name="ActionAuthor")
+class EchoAgent:
+    """A harness agent that answers without a model, like the starter template's ``ping``."""
 
-    def __init__(self) -> None:
-        self._log: list[str] = []
+    @agent.init
+    def __init__(self, config: AgentConfig) -> None:
+        self._runner = AgentWorkflowRunner(
+            config,
+            stream=WorkflowStream(),
+            approval_policy_default=ToolApprovalPolicy.allow_inherently_safe(),
+        )
 
-    @workflow.run
-    async def run(self, events: list[str]) -> None:
-        self._log = events
-
-    # Same page shape as the runner's ActionAuthor.authoring_events.
-    @workflow.query
-    def authoring_events(self, from_offset: int = 0) -> dict:
-        start = max(0, from_offset)
-        page = self._log[start : start + 25]
-        return {
-            "items": [{"data": data, "offset": start + index} for index, data in enumerate(page)],
-            "next_offset": start + len(page),
-            "end_offset": len(self._log),
-        }
-
-
-async def _encoded_reply(temporal: Client, text: str) -> str:
-    event = AgentEvent(
-        agent_id="agent",
-        turn_id="turn-1",
-        turn_number=1,
-        timestamp=1.0,
-        event=ReplyDelta(text=text),
-    )
-    (payload,) = await temporal.data_converter.encode([event])
-    return base64.b64encode(payload.SerializeToString()).decode("ascii")
+    @agent.accepts
+    async def ask(self, message: TextMessage) -> TextReply:
+        """Echo the message."""
+        return TextReply(text=message.text)
 
 
 def _sse_events(body: str) -> list[dict]:
@@ -589,7 +582,7 @@ def _sse_events(body: str) -> list[dict]:
 
 
 @pytest.mark.skipif(shutil.which("temporal") is None, reason="needs the temporal CLI")
-async def test_closed_chat_replays_its_events_and_takes_no_message():
+async def test_closed_chat_replays_through_the_harness_attach():
     async with await WorkflowEnvironment.start_local(
         namespace="org-a",
         dev_server_extra_args=["--namespace", "org-b"],
@@ -602,18 +595,23 @@ async def test_closed_chat_replays_its_events_and_takes_no_message():
 
         org_b = await connect("org-b")
         chat = f"ActionAuthorSession-testrunner00001-{uuid.uuid4()}-author"
-        events = [await _encoded_reply(org_b, text) for text in ("Hello", " world")]
         # Queries on the closed run replay it, so the worker stays up.
         async with Worker(
             org_b,
             task_queue="test-runner",
-            workflows=[FinishedSession],
+            workflows=[EchoAgent],
             # The test module imports httpx, which the workflow sandbox refuses.
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
-            await org_b.execute_workflow(
-                FinishedSession.run, events, id=chat, task_queue="test-runner"
+            handle = await org_b.start_workflow(
+                "ActionAuthor", AgentConfig(), id=chat, task_queue="test-runner"
             )
+            async for _ in await AgentClient(org_b, chat).send_message(
+                "ask", {"text": "Hello"}, on_item=lambda item, _offset: item
+            ):
+                pass
+            await handle.signal("close")
+            await handle.result()
 
             async with ui_client(create_app(connect=connect), _scope("org-b", chat)) as client:
                 elsewhere = await client.get("/api/sessions", headers=_scope("org-a", chat))
@@ -626,17 +624,22 @@ async def test_closed_chat_replays_its_events_and_takes_no_message():
                 attached = await client.get("/api/attach", params={"session_id": chat})
                 assert attached.status_code == 200
                 assert attached.headers["content-type"].startswith("text/event-stream")
-                assert [
-                    (e["type"], e["text"], e["resume_offset"]) for e in _sse_events(attached.text)
-                ] == [("reply_delta", "Hello", 1), ("reply_delta", " world", 2)]
+                events = _sse_events(attached.text)
+                assert any(
+                    e["type"] == "message_accepted" and e["payload"]["text"] == "Hello"
+                    for e in events
+                )
+                assert any(
+                    e["type"] == "message_handler_end" and e["output"]["text"] == "Hello"
+                    for e in events
+                )
 
                 resumed = await client.get(
-                    "/api/attach", params={"session_id": chat, "from_offset": 1}
+                    "/api/attach",
+                    params={"session_id": chat, "from_offset": events[-1]["resume_offset"]},
                 )
                 assert resumed.status_code == 200
-                assert [(e["text"], e["resume_offset"]) for e in _sse_events(resumed.text)] == [
-                    (" world", 2)
-                ]
+                assert _sse_events(resumed.text) == []
 
                 for path in ("/api/chat", "/api/messages"):
                     sent = await client.post(path, json={"session_id": chat, "message": "Hi"})

@@ -999,11 +999,7 @@ func describeWorkflowExecution(
 	workflowID string,
 	runID string,
 ) (*WorkflowExecution, *apierror.APIError) {
-	workflowExecution, err := temporalClient.DescribeWorkflowExecution(
-		ctx,
-		workflowID,
-		runID,
-	)
+	workflowExecution, err := temporalclient.Describe(ctx, temporalClient, workflowID, runID)
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {
