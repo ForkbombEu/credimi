@@ -29,9 +29,7 @@ holding Credimi's ``jwks.json``, re-read whenever the file changes).
 """
 
 import asyncio
-import base64
 import importlib.metadata
-import json
 import logging
 import os
 import re
@@ -43,23 +41,18 @@ import jwt
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.types import ASGIApp, Receive, Scope, Send
-from temporal_agent_harness.harness.agent_protocol import AgentEvent
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporal_agent_harness.web import create_agent_harness_app
 from temporal_agent_harness.web.app import (
     _sessions_with_execution_state,
-    _sse_headers,
-    _yield_item,
 )
 from temporal_agent_harness.web.session_manager import AgentDescriptor, AgentRegistry, Session
 from temporal_agent_harness.web.task_queue_status import describe_task_queue_workers
-from temporalio.api.common.v1 import Payload
 from temporalio.client import Client, WorkflowExecutionStatus
-from temporalio.contrib.workflow_streams import WorkflowStreamClient
 from temporalio.envconfig import ClientConfig
 from temporalio.service import RPCError, RPCStatusCode
 
@@ -162,39 +155,6 @@ async def connect_namespace(namespace: str, token: str) -> Client:
 
 async def _body(response) -> bytes:
     return b"".join([chunk async for chunk in response.body_iterator])
-
-
-async def _closed_history(temporal, workflow_id: str, offset: int):
-    """Use read-only queries for closed runs; the upstream stream reader uses updates."""
-    handle = temporal.get_workflow_handle(workflow_id)
-    while True:
-        page = await handle.query("authoring_events", offset)
-        for item in page["items"]:
-            payload = Payload.FromString(base64.b64decode(item["data"]))
-            (event,) = await temporal.data_converter.decode([payload], [AgentEvent])
-            yield _yield_item(event, item["offset"] + 1)
-        offset = page["next_offset"]
-        if offset >= page["end_offset"]:
-            return
-
-
-async def _complete_stream(response, temporal, workflow_id: str, offset: int):
-    pending = b""
-    async for chunk in response.body_iterator:
-        if isinstance(chunk, str):
-            chunk = chunk.encode()
-        pending += chunk
-        while b"\n\n" in pending:
-            frame, pending = pending.split(b"\n\n", 1)
-            for line in frame.splitlines():
-                if line.startswith(b"data: "):
-                    data = json.loads(line[6:])
-                    offset = max(offset, data.get("resume_offset", offset))
-        yield chunk
-    # Completing a workflow can race the upstream update-based stream's last poll.
-    if await _chat_closed(temporal, workflow_id):
-        async for chunk in _closed_history(temporal, workflow_id, offset):
-            yield chunk
 
 
 def _closed_session(execution) -> dict:
@@ -387,37 +347,7 @@ def _create_harness(temporal) -> FastAPI:
                 content={"error": "session_closed", "message": "This chat has ended."},
                 headers=NO_STORE,
             )
-
-        if method == "GET" and path == "/api/attach":
-            session_id = request.query_params.get("session_id")
-            try:
-                offset = int(request.query_params.get("from_offset", "0"))
-            except ValueError:
-                offset = -1
-            if offset < 0:
-                # Upstream validation answers malformed requests.
-                return await call_next(request)
-            if await _chat_closed(temporal, session_id):
-                return StreamingResponse(
-                    _closed_history(temporal, session_id, offset),
-                    media_type="text/event-stream",
-                    headers=_sse_headers(),
-                )
-        elif method == "POST" and path == "/api/chat":
-            session_id = (await request.json())["session_id"]
-            offset = await WorkflowStreamClient.create(temporal, session_id).get_offset()
-        else:
-            return await call_next(request)
-        response = await call_next(request)
-        if response.status_code != 200 or not response.headers.get("content-type", "").startswith(
-            "text/event-stream"
-        ):
-            return response
-        return StreamingResponse(
-            _complete_stream(response, temporal, session_id, offset),
-            media_type="text/event-stream",
-            headers=_sse_headers(),
-        )
+        return await call_next(request)
 
     @harness.middleware("http")
     async def scoped_chat(request, call_next):

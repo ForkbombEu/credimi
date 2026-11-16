@@ -57,13 +57,19 @@ func TestActionAuthorSessionReplayAsksTheAgent(t *testing.T) {
 		expect string
 	}{
 		{
-			name:   "agent answers",
-			page:   map[string]any{"items": []any{}, "next_offset": 0, "end_offset": 3},
+			name: "agent answers",
+			page: map[string]any{
+				"items": []any{
+					map[string]any{"topic": "agent", "data": "AAAA", "offset": 0},
+				},
+				"next_offset": 1,
+				"more_ready":  false,
+			},
 			expect: `{"replayable":true}`,
 		},
 		{
 			name:   "no events",
-			page:   map[string]any{"items": []any{}, "next_offset": 0, "end_offset": 0},
+			page:   map[string]any{"items": []any{}, "next_offset": 0, "more_ready": false},
 			expect: `{"replayable":false}`,
 		},
 		{
@@ -80,7 +86,14 @@ func TestActionAuthorSessionReplayAsksTheAgent(t *testing.T) {
 			if tc.err == nil {
 				value = jsonEncodedValue{tc.page}
 			}
-			c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "authoring_events", 0).
+			c.On(
+				"QueryWorkflow",
+				mock.Anything,
+				authoringSessionChat,
+				"",
+				"__temporal_workflow_stream_poll",
+				map[string]any{"topics": []string{}, "from_offset": 0},
+			).
 				Return(value, tc.err).
 				Once()
 			replayScenario(t, c, "userA", http.StatusOK, tc.expect).Test(t)
