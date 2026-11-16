@@ -190,6 +190,13 @@ func scopedParameters(
 				payload.Index,
 			)
 		}
+		if spec.Prerequisites[payload.Index].Candidate != "" {
+			return nil, fmt.Errorf(
+				"%w: prerequisite %d is a session candidate: generate its values with its own plan",
+				actionauthor.ErrInvalid,
+				payload.Index,
+			)
+		}
 		return spec.Prerequisites[payload.Index].Parameters, nil
 	default:
 		return nil, fmt.Errorf(

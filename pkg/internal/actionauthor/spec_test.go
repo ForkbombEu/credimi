@@ -382,6 +382,61 @@ func TestSpecNormalize(t *testing.T) {
 			},
 		},
 		{
+			name: "candidate prerequisite",
+			edit: func(s *Spec) {
+				s.Prerequisites = append(s.Prerequisites, PrerequisiteSpec{Candidate: "a12"})
+			},
+		},
+		{
+			name: "candidate and action",
+			edit: func(s *Spec) {
+				s.Prerequisites = append(s.Prerequisites,
+					PrerequisiteSpec{Action: "org/wallet/pid", Candidate: "a1"})
+			},
+			message: "prerequisites[1]: give action or candidate, not both",
+		},
+		{
+			name: "candidate with parameters",
+			edit: func(s *Spec) {
+				s.Prerequisites = append(s.Prerequisites, PrerequisiteSpec{
+					Candidate:  "a1",
+					Parameters: []ParameterSpec{{Name: "pin", Source: httpSource()}},
+				})
+			},
+			message: "prerequisites[1].parameters: a candidate's parameters come from its own plan",
+		},
+		{
+			name: "candidate bad key",
+			edit: func(s *Spec) {
+				s.Prerequisites = append(s.Prerequisites, PrerequisiteSpec{Candidate: "a0"})
+			},
+			message: "prerequisites[1].candidate: must match a<number>",
+		},
+		{
+			name: "candidate key too long",
+			edit: func(s *Spec) {
+				s.Prerequisites = append(s.Prerequisites, PrerequisiteSpec{Candidate: "a1000"})
+			},
+			message: "prerequisites[1].candidate: must match a<number>",
+		},
+		{
+			name: "duplicate candidate",
+			edit: func(s *Spec) {
+				s.Prerequisites = append(s.Prerequisites,
+					PrerequisiteSpec{Candidate: "a1"}, PrerequisiteSpec{Candidate: "a1"})
+			},
+			message: "prerequisites[2].candidate: duplicate a1",
+		},
+		{
+			name: "candidates count toward the prerequisite limit",
+			edit: func(s *Spec) {
+				for _, key := range []string{"a1", "a2", "a3", "a4", "a5"} {
+					s.Prerequisites = append(s.Prerequisites, PrerequisiteSpec{Candidate: key})
+				}
+			},
+			message: "prerequisites: at most 5",
+		},
+		{
 			name:    "replaces without action",
 			edit:    func(s *Spec) { s.Replaces = &ReplaceSpec{Action: " / "} },
 			message: "replaces.action is required",
@@ -656,6 +711,24 @@ func TestResolvePrerequisitesRequiresStartingActions(t *testing.T) {
 		": list it before "+present)
 	require.NoError(t, resolve(handWritten))
 	require.NoError(t, resolve(handWritten, onboarding))
+
+	spec := Spec{Slot: "other", Prerequisites: []PrerequisiteSpec{
+		{Action: onboarding}, {Candidate: "a1"}, {Action: getPID},
+	}}
+	require.NoError(t, spec.Normalize())
+	resolved, err := ResolvePrerequisites(app, selection, &spec)
+	require.NoError(t, err)
+	require.Len(t, resolved, 3)
+	assert.Equal(t, "Chain onboarding", resolved[0].Name)
+	assert.Equal(t, ResolvedPrerequisite{Candidate: "a1", Parameters: []string{}}, resolved[1])
+	assert.Equal(t, getPID, resolved[2].Action)
+	spec = Spec{Slot: "other", Prerequisites: []PrerequisiteSpec{
+		{Candidate: "a1"}, {Action: getPID},
+	}}
+	require.NoError(t, spec.Normalize())
+	_, err = ResolvePrerequisites(app, selection, &spec)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.Contains(t, err.Error(), "prerequisite "+getPID+" starts from "+onboarding)
 }
 
 func TestStartsFromIgnoresUndecodableProvenance(t *testing.T) {

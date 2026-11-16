@@ -937,6 +937,8 @@ components:
       properties:
         action:
           type: string
+        candidate:
+          type: string
         parameters:
           items:
             $ref: '#/components/schemas/ActionauthorParameterSpec'
