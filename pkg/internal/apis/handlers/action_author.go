@@ -887,7 +887,7 @@ func actionAuthorChatReplayable(ctx context.Context, c client.Client, chatID str
 		return false, nil
 	}
 	var page struct {
-		Items []json.RawMessage `json:"items"`
+		Items []struct{} `json:"items"`
 	}
 	encoded, err := c.QueryWorkflow(
 		ctx,
