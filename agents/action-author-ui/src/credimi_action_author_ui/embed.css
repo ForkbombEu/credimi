@@ -81,3 +81,9 @@ a.session-temporal { display: none !important; }
   .rail:not(.bleed) > .rail-slot[data-slot="graph"]:not(.collapsed) { flex: 1 1 0 !important; min-width: 0 !important; }
   .rail:not(.bleed) > .rail-slot[data-slot="chat"]:not(.collapsed) { flex: 0 0 min(var(--slot-size), 50%) !important; min-width: min(var(--slot-min), 50%) !important; }
 }
+
+/* Long replies are never collapsed. The harness's "Show all"/"Show less" toggle calls the chat
+   list's measure(), which forgets every row's measured height: rows whose size didn't change
+   fall back to the 180 px estimate and the next message is drawn over them (harness 0.8.0).
+   Remove this once the harness re-measures only the toggled row. */
+:root { --long-content-max-lines: 1000000; }
