@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
@@ -98,6 +99,23 @@ func TestStoreFCAFReportStoresJSONAndPDF(t *testing.T) {
 	require.Len(t, enrichedReport.Presentation.Screenshots, 1)
 	maestroURLs := pipelineresults.ComputeMaestroScreenshotURLs(app, reloaded)
 	require.Equal(t, maestroURLs[0], enrichedReport.Presentation.Screenshots[0].URL)
+}
+
+func TestStoreFCAFReportStoresReportAbovePocketBaseDefault(t *testing.T) {
+	app, record := newFCAFReportStoreTestApp(t, "workflow-fcaf-large", "run-fcaf-large")
+	reportJSON, err := json.Marshal(engine.Report{
+		Evidence: engine.EvidenceMap{
+			"capture_session": {Value: strings.Repeat("x", 5*1024*1024)},
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = storeFCAFReport(t.Context(), app, "workflow-fcaf-large", "run-fcaf-large", reportJSON)
+	require.NoError(t, err)
+
+	reloaded, err := app.FindRecordById("pipeline_results", record.Id)
+	require.NoError(t, err)
+	require.Greater(t, len(readPipelineResultFile(t, app, reloaded, "fcaf_report")), 5*1024*1024)
 }
 
 func TestStoreFCAFReportPreservesJSONWhenPDFGenerationFails(t *testing.T) {

@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const fcafReportFileMaxSize = 50 * 1024 * 1024
+
 const pipelineResultsTestAppURL = "https://credimi.test"
 
 // newPipelineResultsTestApp returns a test app with canonify hooks and the
@@ -79,13 +81,19 @@ func readPipelineResultFile(t *testing.T, app core.App, record *core.Record, fie
 }
 
 // ensureFCAFReportFields adds the FCAF report file fields to pipeline_results
-// when the test schema lacks them.
+// when the test schema lacks them and matches the production report size limit.
 func ensureFCAFReportFields(t *testing.T, app core.App) {
 	t.Helper()
 	collection, err := app.FindCollectionByNameOrId("pipeline_results")
 	require.NoError(t, err)
-	if collection.Fields.GetByName("fcaf_report") == nil {
-		collection.Fields.Add(&core.FileField{Name: "fcaf_report", MaxSelect: 1})
+	if field := collection.Fields.GetByName("fcaf_report"); field == nil {
+		collection.Fields.Add(&core.FileField{
+			Name: "fcaf_report", MaxSelect: 1, MaxSize: fcafReportFileMaxSize,
+		})
+	} else {
+		report, ok := field.(*core.FileField)
+		require.True(t, ok)
+		report.MaxSize = fcafReportFileMaxSize
 	}
 	if collection.Fields.GetByName("fcaf_report_pdf") == nil {
 		collection.Fields.Add(&core.FileField{Name: "fcaf_report_pdf", MaxSelect: 1})
