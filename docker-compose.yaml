@@ -149,7 +149,6 @@ services:
       args:
         - ACTION_AUTHOR_UI_PYTHON_VERSION
         - ACTION_AUTHOR_UI_UV_VERSION
-        - AGENT_HARNESS_VERSION
     depends_on:
       temporal:
         condition: service_healthy
