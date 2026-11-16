@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-/* Credimi starts and lists sessions and shows the save review on its session page. */
-button.session-new, button.start-new, section.session-manager, [aria-label="Response: confirm_wallet_action_save"] { display: none !important; }
+/* Credimi starts and lists sessions and shows the review of the actions on its session page. */
+button.session-new, button.start-new, section.session-manager, [aria-label="Response: review_wallet_actions"] { display: none !important; }
 
 /* Sessions run in runner namespaces, which the Temporal UI does not open for users. */
 a.session-temporal { display: none !important; }

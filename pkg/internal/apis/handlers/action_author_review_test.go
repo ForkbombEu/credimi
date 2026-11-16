@@ -29,7 +29,10 @@ const (
 	reviewAuthorWorkflow  = reviewSessionWorkflow + "-author"
 )
 
-var reviewCandidate = strings.Repeat("ab", 32)
+var (
+	reviewSHA1 = strings.Repeat("ab", 32)
+	reviewSHA2 = strings.Repeat("cd", 32)
+)
 
 // reviewStub records the decision delivered to the agent workflow; session
 // is the running session the lookup answers, started for organization.
@@ -95,291 +98,354 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 	return stub
 }
 
-// reviewBody reviews the candidate of an onboarding plan.
-func reviewBody(accepted bool) string {
-	return fmt.Sprintf(
-		`{"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":%t,"plan":{"slot":"onboarding"}}`,
-		reviewAuthorWorkflow,
-		reviewCandidate,
-		accepted,
-	)
+// reviewBody sends decisions on the pending review tool-1.
+func reviewBody(t testing.TB, decisions ...ActionAuthorReviewDecision) string {
+	t.Helper()
+	encoded, err := json.Marshal(ActionAuthorReviewRequest{
+		AuthorWorkflowID: reviewAuthorWorkflow,
+		ToolID:           "tool-1",
+		Decisions:        decisions,
+	})
+	require.NoError(t, err)
+	return string(encoded)
 }
 
-func TestActionAuthorReviewSignsAcceptedCandidates(t *testing.T) {
-	user, err := getUserRecordFromName("userA")
-	require.NoError(t, err)
-	stub := stubActionAuthorReview(t, user.Id, nil, nil)
-	(&tests.ApiScenario{
-		Name:            "accepted",
-		Method:          http.MethodPost,
-		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBody(true)),
-		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"accepted":true`, `"tool_id":"tool-1"`},
-		TestAppFactory:  setupActionAuthorApp,
-		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			// The session is looked up in the runner namespace it runs in.
-			require.Equal(t, []string{authoringSessionNamespace}, stub.namespaces)
-			require.Equal(t, reviewAuthorWorkflow, stub.workflowID)
-			require.Equal(t, "tool-1", stub.toolID)
-			require.Equal(t, true, stub.result["accepted"])
-			token, _ := stub.result["approval"].(string)
-			approval, err := actionauthor.VerifyApproval(
-				app, token, reviewAuthorWorkflow, reviewCandidate, time.Now(),
-			)
-			require.NoError(t, err)
-			require.Equal(t, user.Id, approval.ApproverID)
-			require.Equal(t, actionauthor.PlanSHA256(actionauthor.Spec{
-				Slot:    "onboarding",
-				Outcome: actionauthor.OutcomeSuccess,
-			}), approval.PlanSHA256)
-		},
-	}).Test(t)
-
-	stub = stubActionAuthorReview(t, user.Id, nil, nil)
-	(&tests.ApiScenario{
-		Name:            "refused",
-		Method:          http.MethodPost,
-		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBody(false)),
-		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"accepted":false`},
-		TestAppFactory:  setupActionAuthorApp,
-	}).Test(t)
-	require.Equal(t, map[string]any{"accepted": false, "approval": ""}, stub.result)
-
-	stub = stubActionAuthorReview(t, user.Id, nil, nil)
-	(&tests.ApiScenario{
-		Name:            "accepted by a member who is not an owner",
-		Method:          http.MethodPost,
-		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBody(true)),
-		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"accepted":true`},
-		TestAppFactory: func(t testing.TB) *tests.TestApp {
-			app := setupActionAuthorApp(t)
-			demoteToMember(t, app, "userA@example.org")
-			return app
-		},
-	}).Test(t)
-	require.Equal(t, true, stub.result["accepted"])
-
-	// A body that still names a namespace is accepted; the field is ignored.
-	stub = stubActionAuthorReview(t, user.Id, nil, nil)
-	(&tests.ApiScenario{
-		Name:   "body with a namespace",
-		Method: http.MethodPost,
-		URL:    "/api/action-author/reviews",
-		Body: strings.NewReader(
-			strings.Replace(reviewBody(true), "{", `{"namespace":"userb-s-organization",`, 1),
-		),
-		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"accepted":true`},
-		TestAppFactory:  setupActionAuthorApp,
-	}).Test(t)
-	require.Equal(t, []string{authoringSessionNamespace}, stub.namespaces)
-	require.Equal(t, true, stub.result["accepted"])
+// reviewDecision is a decision on key, whose code hashes to sha.
+func reviewDecision(
+	key, sha, decision string,
+	plan actionauthor.Spec,
+	comment string,
+) ActionAuthorReviewDecision {
+	return ActionAuthorReviewDecision{
+		Key:             key,
+		Name:            "Action " + key,
+		CandidateSHA256: sha,
+		Decision:        decision,
+		Comment:         comment,
+		Plan:            plan,
+	}
 }
 
-func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
+// deliveredDecisions returns the decisions the stub delivered to the agent.
+func deliveredDecisions(t testing.TB, stub *reviewStub) []map[string]any {
+	t.Helper()
+	decisions, ok := stub.result["decisions"].([]map[string]any)
+	require.True(t, ok, "delivered result: %v", stub.result)
+	return decisions
+}
+
+// requireApproval checks that decision carries the caller's approval of sha
+// and of plan once normalized.
+func requireApproval(
+	t testing.TB,
+	app core.App,
+	decision map[string]any,
+	sha string,
+	plan actionauthor.Spec,
+	approverID string,
+) {
+	t.Helper()
+	token, _ := decision["approval"].(string)
+	approval, err := actionauthor.VerifyApproval(app, token, reviewAuthorWorkflow, sha, time.Now())
+	require.NoError(t, err)
+	require.Equal(t, approverID, approval.ApproverID)
+	require.NoError(t, plan.Normalize())
+	require.Equal(t, actionauthor.PlanSHA256(plan), approval.PlanSHA256)
+}
+
+func TestActionAuthorReviewDecisions(t *testing.T) {
 	user, err := getUserRecordFromName("userA")
 	require.NoError(t, err)
+	onboarding := actionauthor.Spec{Slot: "onboarding"}
+	pinPlan := func() actionauthor.Spec {
+		return actionauthor.Spec{
+			Slot:          "other",
+			Prerequisites: []actionauthor.PrerequisiteSpec{{Candidate: "a1"}},
+			Parameters: []actionauthor.ParameterSpec{{
+				Name: "PIN",
+				Source: actionauthor.SourceSpec{
+					Kind:  actionauthor.SourceLiteral,
+					Value: "123456",
+				},
+			}},
+		}
+	}
 	for _, tc := range []struct {
-		name string
-		user string
-		// organization the session was started for, empty for userA's.
-		organization string
-		actorID      string
-		lookupErr    error
-		updateErr    error
-		status       int
-		expected     []string
-		delivered    bool
+		name      string
+		user      string
+		actorID   string
+		updateErr error
+		app       func(testing.TB) *tests.TestApp
+		body      string
+		status    int
+		expected  []string
+		delivered bool
+		check     func(t testing.TB, app *tests.TestApp, stub *reviewStub)
 	}{
 		{
-			name:     "member of another organization",
-			user:     "userB",
-			status:   http.StatusNotFound,
-			expected: []string{`"session_not_found"`},
+			name: "accept two actions",
+			body: reviewBody(t,
+				reviewDecision("a1", reviewSHA1, "accept", onboarding, ""),
+				reviewDecision("a2", reviewSHA2, "accept", pinPlan(), ""),
+			),
+			status: http.StatusOK,
+			expected: []string{
+				`"tool_id":"tool-1"`,
+				`"decisions":[{"key":"a1","decision":"accept"},{"key":"a2","decision":"accept"}]`,
+			},
+			delivered: true,
+			check: func(t testing.TB, app *tests.TestApp, stub *reviewStub) {
+				// The session is looked up in the runner namespace it runs in.
+				require.Equal(t, []string{authoringSessionNamespace}, stub.namespaces)
+				require.Equal(t, "tool-1", stub.toolID)
+				decisions := deliveredDecisions(t, stub)
+				require.Len(t, decisions, 2)
+				require.Equal(t, "a1", decisions[0]["key"])
+				require.Equal(t, "Action a1", decisions[0]["name"])
+				require.Equal(t, "accept", decisions[0]["decision"])
+				require.Empty(t, decisions[0]["comment"])
+				requireApproval(t, app, decisions[0], reviewSHA1, onboarding, user.Id)
+				require.Equal(t, "a2", decisions[1]["key"])
+				requireApproval(t, app, decisions[1], reviewSHA2, pinPlan(), user.Id)
+			},
 		},
 		{
-			name:      "session not visible in Temporal",
-			user:      "userA",
-			lookupErr: actionauthor.ErrSessionNotVisible,
-			status:    http.StatusNotFound,
-			expected:  []string{`"session_not_found"`},
+			name: "refuse, then change with a comment",
+			body: reviewBody(t,
+				reviewDecision("a1", reviewSHA1, "refuse", actionauthor.Spec{}, "ignored"),
+				reviewDecision("a2", reviewSHA2, "change", actionauthor.Spec{}, " name it E2E "),
+			),
+			status:    http.StatusOK,
+			expected:  []string{`{"key":"a1","decision":"refuse"},{"key":"a2","decision":"change"}`},
+			delivered: true,
+			check: func(t testing.TB, _ *tests.TestApp, stub *reviewStub) {
+				require.Equal(t, []map[string]any{
+					{
+						"key": "a1", "name": "Action a1", "decision": "refuse",
+						"approval": "", "comment": "",
+					},
+					{
+						"key": "a2", "name": "Action a2", "decision": "change",
+						"approval": "", "comment": "name it E2E",
+					},
+				}, deliveredDecisions(t, stub))
+			},
 		},
 		{
-			name:         "session of another organization",
-			user:         "userA",
-			organization: authoringForeignNS,
-			status:       http.StatusNotFound,
-			expected:     []string{`"session_not_found"`},
+			name: "accepted by a member who is not an owner",
+			body: reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", onboarding, "")),
+			app: func(t testing.TB) *tests.TestApp {
+				app := setupActionAuthorApp(t)
+				demoteToMember(t, app, "userA@example.org")
+				return app
+			},
+			status:    http.StatusOK,
+			expected:  []string{`"decision":"accept"`},
+			delivered: true,
 		},
 		{
-			name:      "not a running session agent",
-			user:      "userA",
-			lookupErr: fmt.Errorf("%w: action author session is not running", actionauthor.ErrForbidden),
-			status:    http.StatusNotFound,
-			expected:  []string{`"session_not_found"`},
+			name:      "accept from a candidate saved by an earlier review",
+			body:      reviewBody(t, reviewDecision("a2", reviewSHA2, "accept", pinPlan(), "")),
+			status:    http.StatusOK,
+			expected:  []string{`"decision":"accept"`},
+			delivered: true,
 		},
 		{
-			name:      "Temporal unavailable",
-			user:      "userA",
-			lookupErr: errors.New("dial failed"),
-			status:    http.StatusServiceUnavailable,
-			expected:  []string{`"temporal_unavailable"`},
+			// A body that still names a namespace is accepted; the field is ignored.
+			name: "body with a namespace",
+			body: strings.Replace(
+				reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", onboarding, "")),
+				"{", `{"namespace":"userb-s-organization",`, 1,
+			),
+			status:    http.StatusOK,
+			expected:  []string{`"decision":"accept"`},
+			delivered: true,
+			check: func(t testing.TB, _ *tests.TestApp, stub *reviewStub) {
+				require.Equal(t, []string{authoringSessionNamespace}, stub.namespaces)
+			},
+		},
+		{
+			name: "change without a comment",
+			body: reviewBody(t,
+				reviewDecision("a1", reviewSHA1, "accept", onboarding, ""),
+				reviewDecision("a2", reviewSHA2, "change", actionauthor.Spec{}, "  "),
+			),
+			status:   http.StatusBadRequest,
+			expected: []string{`"invalid_request"`, "request changes for a2: say what to change"},
+		},
+		{
+			name: "accept starting from a refused action",
+			body: reviewBody(t,
+				reviewDecision("a1", reviewSHA1, "refuse", actionauthor.Spec{}, ""),
+				reviewDecision("a2", reviewSHA2, "accept", pinPlan(), ""),
+			),
+			status:   http.StatusBadRequest,
+			expected: []string{`"invalid_request"`, "a2 starts from a1, which you did not accept"},
+		},
+		{
+			name: "duplicate key",
+			body: reviewBody(t,
+				reviewDecision("a1", reviewSHA1, "refuse", actionauthor.Spec{}, ""),
+				reviewDecision("a1", reviewSHA2, "refuse", actionauthor.Spec{}, ""),
+			),
+			status:   http.StatusBadRequest,
+			expected: []string{`"invalid_request"`, "decision a1 is given twice"},
+		},
+		{
+			name: "accept without a plan",
+			body: reviewBody(t,
+				reviewDecision("a1", reviewSHA1, "accept", actionauthor.Spec{}, ""),
+			),
+			status: http.StatusBadRequest,
+			expected: []string{
+				`"invalid_request"`,
+				"no plan: describe the action with describe_action",
+			},
+		},
+		{
+			name: "accept with an invalid plan",
+			body: reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", actionauthor.Spec{
+				Slot: "onboarding", Outcome: actionauthor.OutcomeRejection,
+			}, "")),
+			status:   http.StatusBadRequest,
+			expected: []string{`"invalid_request"`},
+		},
+		{
+			name:     "unknown decision",
+			body:     reviewBody(t, reviewDecision("a1", reviewSHA1, "maybe", onboarding, "")),
+			status:   http.StatusBadRequest,
+			expected: []string{"Validation failed", "Decisions[0].Decision"},
+		},
+		{
+			name:     "no decision",
+			body:     reviewBody(t),
+			status:   http.StatusBadRequest,
+			expected: []string{"Validation failed", "ActionAuthorReviewRequest.Decisions"},
+		},
+		{
+			name:     "invalid candidate digest",
+			body:     reviewBody(t, reviewDecision("a1", "short", "refuse", onboarding, "")),
+			status:   http.StatusBadRequest,
+			expected: []string{"CandidateSHA256"},
 		},
 		{
 			name:     "another user's session",
-			user:     "userA",
 			actorID:  "another-user",
+			body:     reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", onboarding, "")),
 			status:   http.StatusNotFound,
 			expected: []string{`"session_not_found"`},
 		},
 		{
-			name:      "settled review",
-			user:      "userA",
+			name:     "member of another organization",
+			user:     "userB",
+			body:     reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", onboarding, "")),
+			status:   http.StatusNotFound,
+			expected: []string{`"session_not_found"`},
+		},
+		{
+			name:      "update rejected",
 			updateErr: temporal.NewApplicationError("unknown tool id", "ValueError"),
+			body:      reviewBody(t, reviewDecision("a1", reviewSHA1, "refuse", onboarding, "")),
 			status:    http.StatusConflict,
 			expected: []string{
 				`"review_not_pending"`,
-				"this save review is no longer pending; reload the chat",
+				"this review is no longer pending; reload the chat",
 			},
 			delivered: true,
 		},
 	} {
-		actorID := tc.actorID
-		if actorID == "" {
-			actorID = user.Id
-		}
-		stub := stubActionAuthorReview(t, actorID, tc.lookupErr, tc.updateErr)
+		t.Run(tc.name, func(t *testing.T) {
+			userName, actorID, appFactory := tc.user, tc.actorID, tc.app
+			if userName == "" {
+				userName = "userA"
+			}
+			if actorID == "" {
+				actorID = user.Id
+			}
+			if appFactory == nil {
+				appFactory = setupActionAuthorApp
+			}
+			stub := stubActionAuthorReview(t, actorID, nil, tc.updateErr)
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body:   strings.NewReader(tc.body),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, userName),
+				},
+				ExpectedStatus:     tc.status,
+				ExpectedContent:    tc.expected,
+				NotExpectedContent: []string{"not authorized to author actions for this wallet"},
+				TestAppFactory:     appFactory,
+				AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+					require.Equal(t, tc.delivered, stub.workflowID != "")
+					if tc.delivered {
+						require.Equal(t, reviewAuthorWorkflow, stub.workflowID)
+					}
+					if tc.check != nil {
+						tc.check(t, app, stub)
+					}
+				},
+			}).Test(t)
+		})
+	}
+}
+
+func TestActionAuthorReviewRejectsSessionsTheCallerCannotReview(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name string
+		// organization the session was started for, empty for userA's.
+		organization string
+		lookupErr    error
+		status       int
+		expected     string
+	}{
+		{
+			name:      "session not visible in Temporal",
+			lookupErr: actionauthor.ErrSessionNotVisible,
+			status:    http.StatusNotFound,
+			expected:  `"session_not_found"`,
+		},
+		{
+			name:         "session of another organization",
+			organization: authoringForeignNS,
+			status:       http.StatusNotFound,
+			expected:     `"session_not_found"`,
+		},
+		{
+			name:      "not a running session agent",
+			lookupErr: fmt.Errorf("%w: action author session is not running", actionauthor.ErrForbidden),
+			status:    http.StatusNotFound,
+			expected:  `"session_not_found"`,
+		},
+		{
+			name:      "Temporal unavailable",
+			lookupErr: errors.New("dial failed"),
+			status:    http.StatusServiceUnavailable,
+			expected:  `"temporal_unavailable"`,
+		},
+	} {
+		stub := stubActionAuthorReview(t, user.Id, tc.lookupErr, nil)
 		if tc.organization != "" {
 			stub.organization = tc.organization
 		}
 		(&tests.ApiScenario{
-			Name:            tc.name,
-			Method:          http.MethodPost,
-			URL:             "/api/action-author/reviews",
-			Body:            strings.NewReader(reviewBody(true)),
-			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, tc.user)},
+			Name:   tc.name,
+			Method: http.MethodPost,
+			URL:    "/api/action-author/reviews",
+			Body: strings.NewReader(reviewBody(t, reviewDecision(
+				"a1", reviewSHA1, "accept", actionauthor.Spec{Slot: "onboarding"}, "",
+			))),
+			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 			ExpectedStatus:  tc.status,
-			ExpectedContent: tc.expected,
+			ExpectedContent: []string{tc.expected},
 			TestAppFactory:  setupActionAuthorApp,
-		}).Test(t)
-		require.Equal(t, tc.delivered, stub.workflowID != "", tc.name)
-	}
-
-	(&tests.ApiScenario{
-		Name:   "invalid candidate digest",
-		Method: http.MethodPost,
-		URL:    "/api/action-author/reviews",
-		Body: strings.NewReader(
-			`{"author_workflow_id":"y","tool_id":"z","candidate_sha256":"short","accepted":true}`,
-		),
-		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-		ExpectedStatus:  http.StatusBadRequest,
-		ExpectedContent: []string{"CandidateSHA256"},
-		TestAppFactory:  setupActionAuthorApp,
-	}).Test(t)
-}
-
-// reviewBodyWithPlan accepts the candidate of plan.
-func reviewBodyWithPlan(t *testing.T, plan actionauthor.Spec) string {
-	t.Helper()
-	encoded, err := json.Marshal(plan)
-	require.NoError(t, err)
-	return fmt.Sprintf(
-		`{"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":true,"plan":%s}`,
-		reviewAuthorWorkflow,
-		reviewCandidate,
-		encoded,
-	)
-}
-
-func TestActionAuthorReviewBindsThePlan(t *testing.T) {
-	user, err := getUserRecordFromName("userA")
-	require.NoError(t, err)
-	plan := actionauthor.Spec{
-		Slot: "other",
-		Parameters: []actionauthor.ParameterSpec{{
-			Name:   "PIN",
-			Source: actionauthor.SourceSpec{Kind: actionauthor.SourceLiteral, Value: "123456"},
-		}},
-	}
-
-	stub := stubActionAuthorReview(t, user.Id, nil, nil)
-	(&tests.ApiScenario{
-		Name:            "accepted with the sent plan",
-		Method:          http.MethodPost,
-		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBodyWithPlan(t, plan)),
-		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"accepted":true`},
-		TestAppFactory:  setupActionAuthorApp,
-		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			approvalToken, _ := stub.result["approval"].(string)
-			approval, err := actionauthor.VerifyApproval(
-				app, approvalToken, reviewAuthorWorkflow, reviewCandidate, time.Now(),
-			)
-			require.NoError(t, err)
-			normalized := plan
-			normalized.Outcome = actionauthor.OutcomeSuccess
-			require.Equal(t, actionauthor.PlanSHA256(normalized), approval.PlanSHA256)
-		},
-	}).Test(t)
-
-	for _, tc := range []struct {
-		name     string
-		plan     actionauthor.Spec
-		expected []string
-	}{
-		{
-			name:     "no plan",
-			expected: []string{`"invalid_request"`, "no plan: describe the action with describe_action"},
-		},
-		{
-			name:     "invalid plan",
-			plan:     actionauthor.Spec{Slot: "onboarding", Outcome: actionauthor.OutcomeRejection},
-			expected: []string{`"invalid_request"`},
-		},
-	} {
-		stub := stubActionAuthorReview(t, user.Id, nil, nil)
-		(&tests.ApiScenario{
-			Name:               tc.name,
-			Method:             http.MethodPost,
-			URL:                "/api/action-author/reviews",
-			Body:               strings.NewReader(reviewBodyWithPlan(t, tc.plan)),
-			Headers:            map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-			ExpectedStatus:     http.StatusBadRequest,
-			ExpectedContent:    tc.expected,
-			NotExpectedContent: []string{"not authorized to author actions for this wallet"},
-			TestAppFactory:     setupActionAuthorApp,
 		}).Test(t)
 		require.Empty(t, stub.workflowID, tc.name)
 	}
-
-	// A refusal signs nothing: a missing plan still delivers it.
-	stub = stubActionAuthorReview(t, user.Id, nil, nil)
-	(&tests.ApiScenario{
-		Name:   "refused without a plan",
-		Method: http.MethodPost,
-		URL:    "/api/action-author/reviews",
-		Body: strings.NewReader(strings.Replace(
-			reviewBodyWithPlan(t, actionauthor.Spec{}), `"accepted":true`, `"accepted":false`, 1,
-		)),
-		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"accepted":false`, `"tool_id":"tool-1"`},
-		TestAppFactory:  setupActionAuthorApp,
-	}).Test(t)
-	require.Equal(t, reviewAuthorWorkflow, stub.workflowID)
-	require.Equal(t, map[string]any{"accepted": false, "approval": ""}, stub.result)
 }
 
 func TestActionAuthorReviewBindsTheReplacedCode(t *testing.T) {
@@ -411,29 +477,31 @@ func TestActionAuthorReviewBindsTheReplacedCode(t *testing.T) {
 
 	stub := stubActionAuthorReview(t, user.Id, nil, nil)
 	(&tests.ApiScenario{
-		Name:            "accepted replacing an action",
-		Method:          http.MethodPost,
-		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBodyWithPlan(t, plan)),
+		Name:   "accepted replacing an action",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/reviews",
+		Body: strings.NewReader(
+			reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", plan, "")),
+		),
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"accepted":true`},
+		ExpectedContent: []string{`"decision":"accept"`},
 		TestAppFactory:  appWithTarget,
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			approvalToken, _ := stub.result["approval"].(string)
-			approval, err := actionauthor.VerifyApproval(
-				app, approvalToken, reviewAuthorWorkflow, reviewCandidate, time.Now(),
-			)
-			require.NoError(t, err)
 			normalized := actionauthor.Spec{
-				Slot:    "onboarding",
-				Outcome: actionauthor.OutcomeSuccess,
+				Slot: "onboarding",
 				Replaces: &actionauthor.ReplaceSpec{
 					Action:     target,
 					CodeSHA256: actionauthor.CodeSHA256(code),
 				},
 			}
-			require.Equal(t, actionauthor.PlanSHA256(normalized), approval.PlanSHA256)
+			decisions := deliveredDecisions(t, stub)
+			requireApproval(t, app, decisions[0], reviewSHA1, normalized, user.Id)
+			token, _ := decisions[0]["approval"].(string)
+			approval, err := actionauthor.VerifyApproval(
+				app, token, reviewAuthorWorkflow, reviewSHA1, time.Now(),
+			)
+			require.NoError(t, err)
 			normalized.Replaces.CodeSHA256 = actionauthor.CodeSHA256("other code")
 			require.NotEqual(t, actionauthor.PlanSHA256(normalized), approval.PlanSHA256)
 		},
@@ -448,10 +516,12 @@ func TestActionAuthorReviewBindsTheReplacedCode(t *testing.T) {
 	}
 	stub = stubActionAuthorReview(t, user.Id, nil, nil)
 	(&tests.ApiScenario{
-		Name:           "stale replaced code",
-		Method:         http.MethodPost,
-		URL:            "/api/action-author/reviews",
-		Body:           strings.NewReader(reviewBodyWithPlan(t, stale)),
+		Name:   "stale replaced code",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/reviews",
+		Body: strings.NewReader(
+			reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", stale, "")),
+		),
 		Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus: http.StatusBadRequest,
 		ExpectedContent: []string{

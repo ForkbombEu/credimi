@@ -7,6 +7,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -23,25 +24,47 @@ import (
 )
 
 // actionAuthorReviewUpdate is the agent workflow's update that settles a
-// pending save review.
+// pending review.
 const actionAuthorReviewUpdate = "provide_callback_result"
 
-// ActionAuthorReviewRequest is a human decision on a pending save review.
+// ActionAuthorReviewRequest holds the human decisions on the actions of a
+// pending review, one per action key.
 type ActionAuthorReviewRequest struct {
-	AuthorWorkflowID string `json:"author_workflow_id" validate:"required"`
-	ToolID           string `json:"tool_id"            validate:"required"`
-	CandidateSHA256  string `json:"candidate_sha256"   validate:"required,len=64,hexadecimal"`
-	Accepted         *bool  `json:"accepted"           validate:"required"`
-	// Plan is the plan the save card shows; Credimi checks it again and binds
-	// the approval to it.
-	Plan actionauthor.Spec `json:"plan"`
+	AuthorWorkflowID string                       `json:"author_workflow_id" validate:"required"`
+	ToolID           string                       `json:"tool_id"            validate:"required"`
+	Decisions        []ActionAuthorReviewDecision `json:"decisions"          validate:"required,min=1,max=10,dive"`
 }
 
-// ActionAuthorReviewResponse confirms the decision the agent received.
-type ActionAuthorReviewResponse struct {
-	Accepted bool   `json:"accepted"`
-	ToolID   string `json:"tool_id"`
+// ActionAuthorReviewDecision is the decision on one action of the review:
+// accept, refuse or change (with a comment saying what to change). Plan is
+// the action's plan as the review shows it, with its candidate prerequisites
+// unresolved; Credimi checks it again and binds an accept's approval to it.
+type ActionAuthorReviewDecision struct {
+	Key             string            `json:"key"              validate:"required"`
+	Name            string            `json:"name"             validate:"max=200"`
+	CandidateSHA256 string            `json:"candidate_sha256" validate:"required,len=64,hexadecimal"`
+	Decision        string            `json:"decision"         validate:"required,oneof=accept refuse change"`
+	Comment         string            `json:"comment"          validate:"max=2000"`
+	Plan            actionauthor.Spec `json:"plan"`
 }
+
+// ActionAuthorReviewResponse confirms the decisions the agent received.
+type ActionAuthorReviewResponse struct {
+	ToolID    string                     `json:"tool_id"`
+	Decisions []ActionAuthorReviewResult `json:"decisions"`
+}
+
+// ActionAuthorReviewResult is one decision the agent received.
+type ActionAuthorReviewResult struct {
+	Key      string `json:"key"`
+	Decision string `json:"decision"`
+}
+
+// Review decisions.
+const (
+	reviewAccept = "accept"
+	reviewChange = "change"
+)
 
 // updateActionAuthorWorkflow settles the agent's pending review and is
 // stubbed in unit tests.
@@ -123,10 +146,11 @@ func actionAuthorCallerSession(
 	return c, ref, actor, nil
 }
 
-// HandleActionAuthorReview signs the caller's acceptance of a candidate of
-// the plan the save card shows, checked again for the session, and delivers
-// the decision to the agent's pending save review. Only the user who started
-// the session can review it.
+// HandleActionAuthorReview checks the caller's decisions on the actions of a
+// pending review, signs an approval of each accepted action and its plan,
+// checked again for the session, and delivers all decisions to the agent's
+// pending review at once. Only the user who started the session can review
+// it.
 func HandleActionAuthorReview() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[ActionAuthorReviewRequest](e)
@@ -137,49 +161,124 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		// A refusal signs nothing, so it never needs the plan: a refused
-		// candidate with a missing or invalid plan must still reach the agent.
-		result := map[string]any{"accepted": false, "approval": ""}
-		if *input.Accepted {
-			selection, err := actionauthor.Select(e.App, ref.Organization, ref.Session)
-			if err != nil {
-				return authoringAPIError(e, err)
+		if err := checkReviewDecisions(input.Decisions); err != nil {
+			return authoringAPIError(e, err)
+		}
+		decisions := make([]map[string]any, 0, len(input.Decisions))
+		results := make([]ActionAuthorReviewResult, 0, len(input.Decisions))
+		for _, decision := range input.Decisions {
+			// A refusal or a change request signs nothing, so it never needs
+			// the plan: it must reach the agent even with an invalid plan.
+			approval := ""
+			if decision.Decision == reviewAccept {
+				approval, err = signReviewApproval(e, ref, actor, input.AuthorWorkflowID, decision)
+				if err != nil {
+					return authoringAPIError(e, err)
+				}
 			}
-			plan, err := activities.SessionPlan(e.App, selection, input.Plan)
-			if err != nil {
-				return authoringAPIError(e, err)
+			comment := ""
+			if decision.Decision == reviewChange {
+				comment = strings.TrimSpace(decision.Comment)
 			}
-			approval, err := actionauthor.SignApproval(e.App, actionauthor.Approval{
-				AuthorWorkflowID: input.AuthorWorkflowID,
-				CandidateSHA256:  input.CandidateSHA256,
-				ApproverID:       actor.ActorID,
-				ApprovedAt:       time.Now().Unix(),
-				PlanSHA256:       actionauthor.PlanSHA256(plan),
+			decisions = append(decisions, map[string]any{
+				"key":      decision.Key,
+				"name":     decision.Name,
+				"decision": decision.Decision,
+				"approval": approval,
+				"comment":  comment,
 			})
-			if err != nil {
-				return authoringAPIError(e, err)
-			}
-			result = map[string]any{"accepted": true, "approval": approval}
+			results = append(results, ActionAuthorReviewResult{
+				Key:      decision.Key,
+				Decision: decision.Decision,
+			})
 		}
 		err = updateActionAuthorWorkflow(
 			e.Request.Context(),
 			c,
 			input.AuthorWorkflowID,
 			input.ToolID,
-			result,
+			map[string]any{"decisions": decisions},
 		)
 		if err != nil {
 			return actionAuthorUpdateError(
 				err,
 				"review_not_pending",
-				"this save review is no longer pending; reload the chat",
+				"this review is no longer pending; reload the chat",
 			)
 		}
 		return e.JSON(http.StatusOK, ActionAuthorReviewResponse{
-			Accepted: *input.Accepted,
-			ToolID:   input.ToolID,
+			ToolID:    input.ToolID,
+			Decisions: results,
 		})
 	}
+}
+
+// checkReviewDecisions refuses a key given twice, a change request without a
+// comment, and an accepted action starting from an action of the same review
+// that is not accepted. A candidate missing from the decisions was saved by
+// an earlier review; the save checks it.
+func checkReviewDecisions(decisions []ActionAuthorReviewDecision) error {
+	given := make(map[string]string, len(decisions))
+	for _, decision := range decisions {
+		if _, ok := given[decision.Key]; ok {
+			return fmt.Errorf(
+				"%w: decision %s is given twice",
+				actionauthor.ErrInvalid,
+				decision.Key,
+			)
+		}
+		given[decision.Key] = decision.Decision
+		if decision.Decision == reviewChange && strings.TrimSpace(decision.Comment) == "" {
+			return fmt.Errorf(
+				"%w: request changes for %s: say what to change",
+				actionauthor.ErrInvalid,
+				decision.Key,
+			)
+		}
+	}
+	for _, decision := range decisions {
+		if decision.Decision != reviewAccept {
+			continue
+		}
+		for _, prerequisite := range decision.Plan.Prerequisites {
+			start, ok := given[prerequisite.Candidate]
+			if prerequisite.Candidate != "" && ok && start != reviewAccept {
+				return fmt.Errorf(
+					"%w: %s starts from %s, which you did not accept",
+					actionauthor.ErrInvalid,
+					decision.Key,
+					prerequisite.Candidate,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+// signReviewApproval checks an accepted action's plan again for the session
+// and signs the caller's approval of its code and plan.
+func signReviewApproval(
+	e *core.RequestEvent,
+	ref activities.ActionAuthorSessionRef,
+	actor actionauthor.Actor,
+	authorWorkflowID string,
+	decision ActionAuthorReviewDecision,
+) (string, error) {
+	selection, err := actionauthor.Select(e.App, ref.Organization, ref.Session)
+	if err != nil {
+		return "", err
+	}
+	plan, err := activities.SessionPlan(e.App, selection, decision.Plan)
+	if err != nil {
+		return "", err
+	}
+	return actionauthor.SignApproval(e.App, actionauthor.Approval{
+		AuthorWorkflowID: authorWorkflowID,
+		CandidateSHA256:  decision.CandidateSHA256,
+		ApproverID:       actor.ActorID,
+		ApprovedAt:       time.Now().Unix(),
+		PlanSHA256:       actionauthor.PlanSHA256(plan),
+	})
 }
 
 // actionAuthorUpdateError answers a rejected update (an unknown or settled

@@ -58,19 +58,24 @@ paths:
       summary: List devices available for authoring
   /api/action-author/reviews:
     post:
-      description: 'Deliver the human decision on the pending save review tool_id
-        of the agent workflow author_workflow_id in the organization namespace. Only
-        the user who started the session can review it (403 forbidden otherwise);
-        a namespace of an organization the caller is not a member of, or a workflow
-        that is not the agent of a running session, answers 404 session_not_found.
-        plan is the plan the save card shows; Credimi checks it again and binds the
-        approval to it: for an acceptance, a missing or invalid plan answers 400 invalid_request;
-        a refusal never reads the plan. An acceptance carries a Credimi-signed approval
-        of candidate_sha256 and of the plan''s hash (plan_sha256) that the save activity
-        verifies (valid for 30 minutes); the agent cannot save without it, nor with
-        another plan. A review that is no longer pending (unknown or settled tool_id)
-        answers 409 review_not_pending.'
-      operationId: actionAuthor.reviewCandidate
+      description: 'Deliver the human decisions on the pending review tool_id of the
+        agent workflow author_workflow_id, one per action key: accept, refuse, or
+        change with a comment saying what to change. Only the user who started the
+        session can review it; a namespace of an organization the caller is not a
+        member of, or a workflow that is not the agent of a running session, answers
+        404 session_not_found. A key given twice, a change without a comment, or an
+        accept of an action whose plan starts from a candidate of the same review
+        that is not accepted answers 400 invalid_request, and nothing is sent. Each
+        decision''s plan is the action''s plan as the review shows it, its candidate
+        prerequisites unresolved; Credimi checks it again and binds the approval to
+        it: for an accept, a missing or invalid plan answers 400 invalid_request;
+        a refusal or change never reads the plan. Each accept carries a Credimi-signed
+        approval of its candidate_sha256 and of its plan''s hash (plan_sha256) that
+        the save activity verifies (valid for 30 minutes); the agent cannot save without
+        it, nor with another plan. The save resolves candidate prerequisites to the
+        actions this session saved for them. A review that is no longer pending (unknown
+        or settled tool_id) answers 409 review_not_pending.'
+      operationId: actionAuthor.reviewActions
       parameters:
       - description: Bearer token for authentication.
         in: header
@@ -103,7 +108,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
-      summary: Accept or refuse a candidate action of an authoring session
+      summary: Decide on the actions of an authoring session's review
   /api/action-author/sessions:
     get:
       description: List the ten latest authoring sessions the caller started in their
@@ -224,10 +229,14 @@ paths:
         ID and run). For a running session, chat_ready reports whether the agent chat
         has started its first turn, closes_at (RFC 3339, empty while a turn runs or
         when unknown) when the idle session closes to free the device, and pending_review
-        the candidate action waiting for the caller''s review (POST /api/action-author/reviews),
-        null otherwise. A session that has not started yet, an unknown session and
-        one another user started all answer 404 session_not_found (follow a queued
-        session''s ticket in the device queue).'
+        the review waiting for the caller''s decisions (POST /api/action-author/reviews),
+        null otherwise: its tool_id and its actions, one per candidate key, each with
+        its name, build, code, candidate_sha256, plan, the keys of the actions of
+        the review it starts from (starts_from), the action it replaces with the pipelines
+        using it (used_by), and why its previous accept did not save (error). A session
+        that has not started yet, an unknown session and one another user started
+        all answer 404 session_not_found (follow a queued session''s ticket in the
+        device queue).'
       operationId: actionAuthor.getSession
       parameters:
       - description: The ID for the session_id.
@@ -1080,6 +1089,21 @@ components:
       type: object
     HandlersActionAuthorPendingReview:
       properties:
+        actions:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorReviewAction'
+          nullable: true
+          type: array
+        tool_id:
+          type: string
+      type: object
+    HandlersActionAuthorReplayResponse:
+      properties:
+        replayable:
+          type: boolean
+      type: object
+    HandlersActionAuthorReviewAction:
+      properties:
         build:
           type: string
         candidate_sha256:
@@ -1087,6 +1111,8 @@ components:
         code:
           type: string
         error:
+          type: string
+        key:
           type: string
         name:
           type: string
@@ -1096,35 +1122,56 @@ components:
           type: object
         replaces:
           type: string
-        tool_id:
-          type: string
+        starts_from:
+          items:
+            type: string
+          nullable: true
+          type: array
         used_by:
           type: integer
       type: object
-    HandlersActionAuthorReplayResponse:
+    HandlersActionAuthorReviewDecision:
       properties:
-        replayable:
-          type: boolean
-      type: object
-    HandlersActionAuthorReviewRequest:
-      properties:
-        accepted:
-          nullable: true
-          type: boolean
-        author_workflow_id:
-          type: string
         candidate_sha256:
+          type: string
+        comment:
+          type: string
+        decision:
+          type: string
+        key:
+          type: string
+        name:
           type: string
         plan:
           $ref: '#/components/schemas/ActionauthorSpec'
+      type: object
+    HandlersActionAuthorReviewRequest:
+      properties:
+        author_workflow_id:
+          type: string
+        decisions:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorReviewDecision'
+          nullable: true
+          type: array
         tool_id:
           type: string
       type: object
     HandlersActionAuthorReviewResponse:
       properties:
-        accepted:
-          type: boolean
+        decisions:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorReviewResult'
+          nullable: true
+          type: array
         tool_id:
+          type: string
+      type: object
+    HandlersActionAuthorReviewResult:
+      properties:
+        decision:
+          type: string
+        key:
           type: string
       type: object
     HandlersActionAuthorSessionCloseResponse:

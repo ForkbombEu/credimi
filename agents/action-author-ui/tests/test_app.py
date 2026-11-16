@@ -454,6 +454,8 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"
     assert "button.session-new, button.start-new, section.session-manager" in css.text
+    # The harness's own card for the review callback; Credimi shows the review.
+    assert '[aria-label="Response: review_wallet_actions"]' in css.text
     # Runner namespaces are not open to users in the Temporal UI.
     assert "a.session-temporal { display: none !important; }" in css.text
     assert "color-scheme: light" in css.text

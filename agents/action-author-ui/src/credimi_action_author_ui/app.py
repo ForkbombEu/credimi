@@ -98,17 +98,17 @@ CHAT_BODY_PATHS = frozenset({"/api/chat", "/api/messages"})
 AGENT_LABEL = "Credimi action author"
 AGENT_DESCRIPTION = (
     "Authors actions for the wallet version selected in Credimi, on a device of an "
-    "admin-managed Credimi runner (an Android device or an iOS simulator). Describe the action "
-    "in the chat with its input values and references (a Credimi URL or identifier, or a "
-    'deeplink), e.g. "Write the onboarding action with PIN 123456". The agent works out the '
-    "plan (category, outcome, starting actions and parameter sources) and asks only when "
-    "something is unclear. After a clean replay on the runner device, review the YAML and the "
-    "plan on the Credimi session page and choose Accept or Refuse to save an unpublished Credimi "
-    "action; then ask for the next action in the same chat. Credimi signs the save: the model "
-    "cannot approve saving."
+    "admin-managed Credimi runner (an Android device or an iOS simulator). Describe the actions "
+    "in the chat with their input values and references (a Credimi URL or identifier, or a "
+    'deeplink), e.g. "Write the onboarding action with PIN 123456". One message may ask for '
+    "several actions. The agent works out each plan (category, outcome, starting actions and "
+    "parameter sources) and asks only when something is unclear. After clean replays on the "
+    "runner device, review every action on the Credimi session page, one tab each, and accept, "
+    "refuse or request changes; accepted actions are saved unpublished. Credimi signs each save: "
+    "the model cannot approve saving."
 )
 
-# Hides what Credimi does itself: starting and listing sessions, and the save review.
+# Hides what Credimi does itself: starting and listing sessions, and the review.
 EMBED_CSS = Path(__file__).with_name("embed.css")
 EMBED_CSS_PATH = "/action-embed.css"
 # Relative: the page sits under Credimi's /action-author-ui/<session id>/.
