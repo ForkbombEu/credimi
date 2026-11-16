@@ -1095,7 +1095,7 @@
 	"Runner_of": "Runner tilhørende {owner}",
 	"Device_runs_ahead": "Kørsler foran: {count}",
 	"Session_waiting_for_device": "Venter på enheden: position {position} af {total}",
-	"Session_preparing_device": "Forbereder enheden og installerer wallet…",
+	"Session_preparing_device": "Forbereder enheden…",
 	"Session_not_found": "Denne forfattersession findes ikke.",
 	"End_session": "Afslut session",
 	"Session_idle_warning": "Ingen aktivitet: denne session lukker om {seconds} s for at frigøre enheden. Send en besked for at holde den åben.",
