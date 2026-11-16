@@ -605,6 +605,7 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		ReplayCount:     1,
 		Approval:        approval(nil),
 		Spec:            actionauthor.Spec{Slot: "other"},
+		BatchKey:        "a1",
 	}
 
 	for name, token := range map[string]string{

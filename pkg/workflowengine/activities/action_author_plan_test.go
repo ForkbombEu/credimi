@@ -224,6 +224,7 @@ func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 			ReplayCount:     1,
 			Approval:        approvalToken,
 			Spec:            plan,
+			BatchKey:        "a1",
 		}
 	}
 	save := func(payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
@@ -294,6 +295,7 @@ func TestSaveAuthoredWalletActionReplacesInPlace(t *testing.T) {
 			ReplayCount:     1,
 			Approval:        token,
 			Spec:            plan,
+			BatchKey:        "a1",
 		}
 	}
 	save := func(payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
@@ -323,6 +325,62 @@ func TestSaveAuthoredWalletActionReplacesInPlace(t *testing.T) {
 	retried, err := save(request(normalized))
 	require.NoError(t, err)
 	require.Equal(t, receipt, retried)
+}
+
+func TestSaveAuthoredWalletActionResolvesCandidatePrerequisites(t *testing.T) {
+	setFCAFTestEnv(t)
+	app, session, namespace := authorSaveFixture(t)
+	build, err := actionauthor.Resolve(app, namespace, session)
+	require.NoError(t, err)
+	caller := authorTestCaller()
+	code := "appId: eu.wallet\n---\n- launchApp\n- assertVisible: Home\n- takeScreenshot: home\n"
+	save := func(
+		key, name string,
+		plan actionauthor.Spec,
+		candidates map[string]string,
+	) (actionauthor.Receipt, error) {
+		normalized := plan
+		require.NoError(t, normalized.Normalize())
+		token, err := actionauthor.SignApproval(app, actionauthor.Approval{
+			AuthorWorkflowID: caller.WorkflowID,
+			CandidateSHA256:  actionauthor.CodeSHA256(code),
+			ApproverID:       session.ActorID,
+			ApprovedAt:       time.Now().Unix(),
+			PlanSHA256:       actionauthor.PlanSHA256(normalized),
+		})
+		require.NoError(t, err)
+		return buildSessionLookup(t, app, session).activity(t, app).
+			save(t.Context(), caller, actionauthor.SaveRequest{
+				Name:            name,
+				Code:            code,
+				CandidateSHA256: actionauthor.CodeSHA256(code),
+				InstallerSHA256: build.InstallerSHA256,
+				PackageID:       "eu.wallet",
+				ReplayCount:     1,
+				Approval:        token,
+				Spec:            plan,
+				BatchKey:        key,
+				Candidates:      candidates,
+			})
+	}
+	onboarding, err := save("a1", "Batch onboarding", actionauthor.Spec{Slot: "onboarding"}, nil)
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", onboarding.RecordID)
+	require.NoError(t, err)
+	selection, err := actionauthor.Select(app, namespace, session)
+	require.NoError(t, err)
+	onboardingPath := selection.Organization.GetString("canonified_name") + "/" +
+		selection.Wallet.GetString("canonified_name") + "/" + record.GetString("canonified_name")
+
+	// The approval binds the plan as reviewed, with the candidate unresolved.
+	receipt, err := save("a2", "Batch other", actionauthor.Spec{
+		Slot:          "other",
+		Prerequisites: []actionauthor.PrerequisiteSpec{{Candidate: "a1"}},
+	}, map[string]string{"a1": onboarding.RecordID})
+	require.NoError(t, err)
+	require.True(t, receipt.Created)
+	require.Equal(t, []string{onboardingPath}, receipt.Provenance.Prerequisites)
+	require.Equal(t, "a2", receipt.Provenance.BatchKey)
 }
 
 func TestListActionAuthorWalletActions(t *testing.T) {
