@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type ReviewAction,
 		type Session
 	} from './api';
-	import { blockedBy, canAccept, canSend, hasPlan, type Choices } from './review';
+	import { blockedBy, canAccept, canSend, decidedActions, hasPlan, type Choices } from './review';
 
 	//
 
@@ -91,7 +91,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const res = await sendReview({
 			author_workflow_id: session.chat_workflow_id,
 			tool_id: toolId,
-			decisions: actions.map((action) => {
+			decisions: decidedActions(actions, choices).map((action) => {
 				const choice = choices[action.key];
 				const decision = choice.decision as Decision;
 				return {

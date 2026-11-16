@@ -53,13 +53,25 @@ export function blockedBy(
 	);
 }
 
-/** Whether every action has a decision, every accept is unblocked and every change says what. */
+/**
+ * Whether the review can be sent: every action has a decision, except one whose starting
+ * action is not accepted (it waits for the next review), at least one action is decided,
+ * every accept is unblocked and every change says what.
+ */
 export function canSend(actions: ReviewAction[], choices: Choices): boolean {
-	return actions.every((action) => {
+	let decided = false;
+	const valid = actions.every((action) => {
 		const choice = choices[action.key];
-		if (!choice || choice.decision === null) return false;
+		if (!choice || choice.decision === null) return blockedBy(action, choices) !== undefined;
+		decided = true;
 		if (choice.decision === 'change') return choice.comment.trim() !== '';
 		if (choice.decision === 'accept') return blockedBy(action, choices) === undefined;
 		return true;
 	});
+	return valid && decided;
+}
+
+/** The decided actions of a review, in review order: the ones the review sends. */
+export function decidedActions(actions: ReviewAction[], choices: Choices): ReviewAction[] {
+	return actions.filter((action) => (choices[action.key]?.decision ?? null) !== null);
 }

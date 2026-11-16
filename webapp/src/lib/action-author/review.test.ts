@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ReviewAction } from './api';
 
-import { blockedBy, canAccept, canSend, type Choices } from './review';
+import { blockedBy, canAccept, canSend, decidedActions, type Choices } from './review';
 
 // sha256("a")
 const SHA_A = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb';
@@ -71,10 +71,28 @@ describe('blockedBy', () => {
 describe('canSend', () => {
 	const actions = [onboarding, credential];
 
-	it('needs a decision on every action', () => {
+	it('needs a decision on every action that is not blocked', () => {
 		expect(
 			canSend(actions, {
 				a1: { decision: 'accept', comment: '' },
+				a2: { decision: null, comment: '' }
+			})
+		).toBe(false);
+	});
+
+	it('lets an action whose starting action is not accepted wait for the next review', () => {
+		const choices: Choices = {
+			a1: { decision: 'change', comment: 'name it E2E onboarding' },
+			a2: { decision: null, comment: '' }
+		};
+		expect(canSend(actions, choices)).toBe(true);
+		expect(decidedActions(actions, choices).map((action) => action.key)).toEqual(['a1']);
+	});
+
+	it('needs at least one decision', () => {
+		expect(
+			canSend(actions, {
+				a1: { decision: null, comment: '' },
 				a2: { decision: null, comment: '' }
 			})
 		).toBe(false);
