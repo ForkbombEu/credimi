@@ -447,6 +447,9 @@ async def test_chat_page_is_embeddable_by_credimi_only():
         '<link rel="stylesheet" href="./action-embed.css">'
         '<script src="./action-embed.js"></script></head>'
     ) in page.text
+    # The harness ships its page dark; Credimi has no dark mode.
+    assert 'data-theme="light"' in page.text
+    assert 'data-theme="dark"' not in page.text
     assert css.status_code == 200
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"

@@ -325,6 +325,9 @@ def _create_harness(temporal) -> FastAPI:
             ).startswith("text/html"):
                 return response
             html = (await _body(response)).decode()
+            # Harness 0.11 picks its color tokens from <html data-theme>, shipped as "dark";
+            # Credimi has no dark mode.
+            html = html.replace('data-theme="dark"', 'data-theme="light"', 1)
             return HTMLResponse(
                 html.replace("</head>", EMBED_CSS_LINK + EMBED_JS_TAG + "</head>", 1),
                 headers=NO_STORE,
