@@ -10,6 +10,14 @@ button.session-new, button.start-new, section.session-manager, [aria-label="Resp
 /* Sessions run in runner namespaces, which the Temporal UI does not open for users. */
 a.session-temporal { display: none !important; }
 
+/* The agent never asks for a tool approval and mounts no Code Mode files, so the Approval
+   decisions and VFS File Mounts panes stay empty. They are the harness's only opt-in kinds:
+   the last two entries of the "Open a view" menu, after its divider, and of the empty rail's
+   buttons (harness 0.11.0). Re-check on harness bumps. */
+[data-pane="decisions"], [data-pane="files"],
+.launch-menu .launch-divider, .launch-menu .launch-divider ~ [role="menuitemcheckbox"],
+.rail-empty .empty-actions > :nth-last-child(-n+2) { display: none !important; }
+
 /* No messages to a closed chat while its events replay (embed.js). */
 .credimi-replay .composer { display: none !important; }
 
