@@ -53,7 +53,8 @@ temporal_unavailable` and is retried on the next request.
 
 The harness routes run unchanged, on the request's namespace, except:
 
-- `GET /` serves the packaged chat page with `./action-embed.css` (relative, since the page sits
+- `GET /` serves the packaged chat page in its light theme (`data-theme="light"`; the harness
+  ships it dark) with `./action-embed.css` (relative, since the page sits
   under Credimi's sub-path), which hides the harness **New session** and **Start a new session**
   buttons, its sessions drawer and its `confirm_wallet_action_save` callback card: Credimi starts
   and lists sessions and shows the save review on its session page. The page also loads
@@ -65,10 +66,10 @@ The harness routes run unchanged, on the request's namespace, except:
 - `GET /api/agents` lists the agent on the chat's own task queue (`<runner_id>-ActionAuthor`)
   with whether a worker polls it.
 - `GET /api/sessions` lists only the scoped chat: running, closed, or none before it starts.
-- `GET /api/attach` replays a closed chat's events, and `GET /api/attach` and `POST /api/chat`
-  finish a stream that the chat's end cut short with its last events, both read through the
-  runner agent's `authoring_events` query, since the upstream stream reader needs a running
-  workflow. Credimi embeds the UI for a closed chat only when that query answers
+- `GET /api/attach` and `POST /api/chat` are the harness's own: once the chat has ended, the
+  workflow stream client reads its events through the workflow stream poll query
+  (`__temporal_workflow_stream_poll`, temporalio 1.35+), which the runner agent answers on the
+  closed run. Credimi embeds the UI for a closed chat only when that query answers
   (`GET /api/action-author/sessions/{id}/replay`), and shows the chat's transcript from its
   Temporal history otherwise.
 - `POST /api/chat` and `POST /api/messages` answer `409 session_closed` once the chat has ended.
