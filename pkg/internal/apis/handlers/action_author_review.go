@@ -220,6 +220,13 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 func checkReviewDecisions(decisions []ActionAuthorReviewDecision) error {
 	given := make(map[string]string, len(decisions))
 	for _, decision := range decisions {
+		if !actionauthor.IsCandidateKey(decision.Key) {
+			return fmt.Errorf(
+				"%w: decision key %s: must match a<number>",
+				actionauthor.ErrInvalid,
+				decision.Key,
+			)
+		}
 		if _, ok := given[decision.Key]; ok {
 			return fmt.Errorf(
 				"%w: decision %s is given twice",

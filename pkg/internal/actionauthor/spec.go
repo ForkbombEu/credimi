@@ -427,6 +427,11 @@ func checkCandidatePrerequisite(
 	return nil
 }
 
+// IsCandidateKey reports whether key is a candidate key (a<number>).
+func IsCandidateKey(key string) bool {
+	return candidateKey.MatchString(key)
+}
+
 // validateParameters checks one parameter list; outcome is empty for
 // prerequisite lists, which cannot check a protocol status.
 func validateParameters(field string, parameters []ParameterSpec, outcome string) error {

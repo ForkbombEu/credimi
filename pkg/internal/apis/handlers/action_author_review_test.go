@@ -293,6 +293,14 @@ func TestActionAuthorReviewDecisions(t *testing.T) {
 			expected: []string{`"invalid_request"`, "decision a1 is given twice"},
 		},
 		{
+			name: "key not a candidate key",
+			body: reviewBody(t,
+				reviewDecision("a0", reviewSHA1, "refuse", actionauthor.Spec{}, ""),
+			),
+			status:   http.StatusBadRequest,
+			expected: []string{`"invalid_request"`, "decision key a0: must match a<number>"},
+		},
+		{
 			name: "accept without a plan",
 			body: reviewBody(t,
 				reviewDecision("a1", reviewSHA1, "accept", actionauthor.Spec{}, ""),
