@@ -454,8 +454,14 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"
     assert "button.session-new, button.start-new, section.session-manager" in css.text
-    # The harness's own card for the review callback; Credimi shows the review.
-    assert '[aria-label="Response: review_wallet_actions"]' in css.text
+    # The harness's own pending-response indicators for the review callback (its queue with the
+    # card and chip, the header state, the feed step); Credimi shows the review.
+    assert '.pending-banners .queue:has([aria-label="Response: review_wallet_actions"])' in css.text
+    assert (
+        '.session-anchor:is([aria-label$=" response needed"], [aria-label$=" responses needed"])'
+        " > :is(.session-glyph, .session-state)"
+    ) in css.text
+    assert ".activity-list .trace-row.glyph-approval" in css.text
     # Runner namespaces are not open to users in the Temporal UI.
     assert "a.session-temporal { display: none !important; }" in css.text
     assert "color-scheme: light" in css.text
