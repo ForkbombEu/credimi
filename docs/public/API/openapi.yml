@@ -232,12 +232,13 @@ paths:
         when unknown) when the idle session closes to free the device, and pending_review
         the review waiting for the caller''s decisions (POST /api/action-author/reviews),
         null otherwise: its tool_id and its actions, one per candidate key, each with
-        its name, build, code, candidate_sha256, plan, the keys of the actions of
-        the review it starts from (starts_from), the action it replaces with the pipelines
-        using it (used_by), and why its previous accept did not save (error). A session
-        that has not started yet, an unknown session and one another user started
-        all answer 404 session_not_found (follow a queued session''s ticket in the
-        device queue).'
+        its name, build, code, candidate_sha256, plan, the candidate keys among its
+        plan''s prerequisites (starts_from) and their names (starts_from_names: the
+        review''s action of that key, else the action the session saved for it, else
+        the key), the action it replaces with the pipelines using it (used_by), and
+        why its previous accept did not save (error). A session that has not started
+        yet, an unknown session and one another user started all answer 404 session_not_found
+        (follow a queued session''s ticket in the device queue).'
       operationId: actionAuthor.getSession
       parameters:
       - description: The ID for the session_id.
@@ -1129,6 +1130,11 @@ components:
             type: string
           nullable: true
           type: array
+        starts_from_names:
+          additionalProperties:
+            type: string
+          nullable: true
+          type: object
         used_by:
           type: integer
       type: object

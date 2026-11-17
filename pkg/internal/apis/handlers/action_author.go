@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -99,7 +100,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSession,
 			OperationID:    "actionAuthor.getSession",
 			Summary:        "Read an authoring session",
-			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the keys of the actions of the review it starts from (starts_from), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
@@ -687,8 +688,11 @@ type ActionAuthorReviewAction struct {
 	Error string `json:"error"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
-	// StartsFrom lists the candidate keys among the action's prerequisites.
+	// StartsFrom lists the candidate keys among the plan's prerequisites.
 	StartsFrom []string `json:"starts_from"`
+	// StartsFromNames names each key of StartsFrom: the review's action of
+	// that key, else the action this session saved for it, else the key.
+	StartsFromNames map[string]string `json:"starts_from_names"`
 	// UsedBy counts the pipelines of the caller's organization or published
 	// that use the replaced action, 0 without a replacement.
 	UsedBy int `json:"used_by"`
@@ -969,19 +973,26 @@ func readActionAuthorChat(
 		if callback.ToolName != actionAuthorReviewTool {
 			continue
 		}
-		response.PendingReview = actionAuthorPendingReview(e, callback.ToolID, callback.ToolInput)
+		response.PendingReview = actionAuthorPendingReview(
+			e,
+			chatID,
+			callback.ToolID,
+			callback.ToolInput,
+		)
 		return
 	}
 }
 
 // actionAuthorPendingReview decodes the actions of a review callback's
-// input; an action without a string key or code is skipped.
+// input of the chat chatID; an action without a string key or code is
+// skipped. Each action starts from the candidate prerequisites of its plan.
 func actionAuthorPendingReview(
 	e *core.RequestEvent,
-	toolID string,
+	chatID, toolID string,
 	input map[string]any,
 ) *ActionAuthorPendingReview {
 	review := &ActionAuthorPendingReview{ToolID: toolID, Actions: []ActionAuthorReviewAction{}}
+	names := map[string]string{}
 	items, _ := input["actions"].([]any)
 	for _, item := range items {
 		fields, _ := item.(map[string]any)
@@ -1004,20 +1015,66 @@ func actionAuthorPendingReview(
 			Replaces:        text("replaces"),
 			Error:           text("error"),
 			Plan:            plan,
-			StartsFrom:      []string{},
-		}
-		starts, _ := fields["starts_from"].([]any)
-		for _, start := range starts {
-			if start, ok := start.(string); ok {
-				action.StartsFrom = append(action.StartsFrom, start)
-			}
+			StartsFrom:      planCandidates(plan),
+			StartsFromNames: map[string]string{},
 		}
 		if action.Replaces != "" {
 			action.UsedBy = actionAuthorUsedBy(e, action.Replaces)
 		}
+		names[key] = action.Name
 		review.Actions = append(review.Actions, action)
 	}
+	for _, action := range review.Actions {
+		for _, start := range action.StartsFrom {
+			name, ok := names[start]
+			if !ok {
+				name = actionAuthorSavedName(e, chatID, start)
+				names[start] = name
+			}
+			if name == "" {
+				name = start
+			}
+			action.StartsFromNames[start] = name
+		}
+	}
 	return review
+}
+
+// planCandidates lists the candidate keys among plan's prerequisites, in
+// order.
+func planCandidates(plan map[string]any) []string {
+	keys := []string{}
+	prerequisites, _ := plan["prerequisites"].([]any)
+	for _, prerequisite := range prerequisites {
+		fields, _ := prerequisite.(map[string]any)
+		if key, _ := fields["candidate"].(string); key != "" && !slices.Contains(keys, key) {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+// actionAuthorSavedName is the name of the action of the caller's
+// organization that the chat chatID saved as key, empty when none.
+func actionAuthorSavedName(e *core.RequestEvent, chatID, key string) string {
+	orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
+	if err != nil {
+		e.App.Logger().Warn("action author starting action", "key", key, "error", err)
+		return ""
+	}
+	record, err := e.App.FindFirstRecordByFilter(
+		"wallet_actions",
+		"owner = {:owner} && authoring_provenance.workflow_id = {:workflow} && "+
+			"authoring_provenance.batch_key = {:key}",
+		dbx.Params{"owner": orgID, "workflow": chatID, "key": key},
+	)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			e.App.Logger().Warn("action author starting action", "key", key, "error", err)
+		}
+		return ""
+	}
+	return record.GetString("name")
 }
 
 // actionAuthorUsedBy counts the pipelines owned by the caller's organization

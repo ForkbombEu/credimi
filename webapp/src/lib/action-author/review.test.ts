@@ -6,7 +6,14 @@ import { describe, expect, it } from 'vitest';
 
 import type { ReviewAction } from './api';
 
-import { blockedBy, canAccept, canSend, decidedActions, type Choices } from './review';
+import {
+	blockedBy,
+	canAccept,
+	canSend,
+	decidedActions,
+	startingName,
+	type Choices
+} from './review';
 
 // sha256("a")
 const SHA_A = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb';
@@ -22,13 +29,19 @@ function action(overrides: Partial<ReviewAction>): ReviewAction {
 		replaces: '',
 		error: '',
 		starts_from: [],
+		starts_from_names: {},
 		used_by: 0,
 		...overrides
 	};
 }
 
 const onboarding = action({ key: 'a1', name: 'Onboarding' });
-const credential = action({ key: 'a2', name: 'Credential', starts_from: ['a1'] });
+const credential = action({
+	key: 'a2',
+	name: 'Credential',
+	starts_from: ['a1'],
+	starts_from_names: { a1: 'Onboarding' }
+});
 
 describe('canAccept', () => {
 	it('refuses a wrong hash', async () => {
@@ -65,6 +78,22 @@ describe('blockedBy', () => {
 
 	it('ignores a starting action saved by an earlier review', () => {
 		expect(blockedBy(credential, { a2: { decision: null, comment: '' } })).toBeUndefined();
+	});
+});
+
+describe('startingName', () => {
+	const names = { a1: 'Onboarding in review', a2: 'Credential' };
+
+	it("prefers Credimi's name, which also names actions saved by an earlier review", () => {
+		const saved = action({ starts_from: ['a3'], starts_from_names: { a3: 'Saved earlier' } });
+		expect(startingName(credential, 'a1', names)).toBe('Onboarding');
+		expect(startingName(saved, 'a3', names)).toBe('Saved earlier');
+	});
+
+	it("falls back to the review's name, then to the key", () => {
+		const unnamed = action({ starts_from: ['a1', 'a4'] });
+		expect(startingName(unnamed, 'a1', names)).toBe('Onboarding in review');
+		expect(startingName(unnamed, 'a4', names)).toBe('a4');
 	});
 });
 

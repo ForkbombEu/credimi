@@ -49,8 +49,10 @@ export type ReviewAction = {
 	replaces: string;
 	/** Why the previous Accept of this action did not save, empty when none. */
 	error: string;
-	/** Candidate keys among the action's prerequisites. */
+	/** Candidate keys among the prerequisites of the action's plan. */
 	starts_from: string[];
+	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
+	starts_from_names: Record<string, string>;
 	/** Pipelines of the caller's organization or published that use the replaced action. */
 	used_by: number;
 };

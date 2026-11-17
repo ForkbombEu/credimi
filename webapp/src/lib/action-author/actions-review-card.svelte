@@ -22,7 +22,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type ReviewAction,
 		type Session
 	} from './api';
-	import { blockedBy, canAccept, canSend, decidedActions, hasPlan, type Choices } from './review';
+	import {
+		blockedBy,
+		canAccept,
+		canSend,
+		decidedActions,
+		hasPlan,
+		startingName,
+		type Choices
+	} from './review';
 
 	//
 
@@ -58,8 +66,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const names = $derived(Object.fromEntries(actions.map((action) => [action.key, action.name])));
 
-	function nameOf(key: string): string {
-		return names[key] || key;
+	function nameOf(action: ReviewAction, key: string): string {
+		return startingName(action, key, names);
 	}
 
 	function accepts(action: ReviewAction): boolean {
@@ -153,7 +161,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				{#if action.starts_from?.length}
 					<p class="break-words">
-						{m.Review_starts_from({ names: action.starts_from.map(nameOf).join(', ') })}
+						{m.Review_starts_from({
+							names: action.starts_from.map((key) => nameOf(action, key)).join(', ')
+						})}
 					</p>
 				{/if}
 
@@ -186,7 +196,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<p class="break-words">{m.Review_hash_mismatch()}</p>
 				{/if}
 				{#if blocker}
-					<p class="break-words">{m.Review_blocked_by({ name: nameOf(blocker) })}</p>
+					<p class="break-words">
+						{m.Review_blocked_by({ name: nameOf(action, blocker) })}
+					</p>
 				{/if}
 
 				<RadioGroup.Root

@@ -54,6 +54,18 @@ export function blockedBy(
 }
 
 /**
+ * The name of the action that action starts from by key: Credimi's starts_from_names,
+ * else the name of the review's action of that key, else the key.
+ */
+export function startingName(
+	action: Pick<ReviewAction, 'starts_from_names'>,
+	key: string,
+	names: Record<string, string>
+): string {
+	return action.starts_from_names?.[key] || names[key] || key;
+}
+
+/**
  * Whether the review can be sent: every action has a decision, except one whose starting
  * action is not accepted (it waits for the next review), at least one action is decided,
  * every accept is unblocked and every change says what.

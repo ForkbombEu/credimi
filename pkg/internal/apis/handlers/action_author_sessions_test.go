@@ -308,7 +308,8 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"plan":             map[string]any{"slot": "install-app"},
 							"replaces":         "usera-s-organization/authoring-handler-wallet/install",
 							"error":            "save failed: try again",
-							"starts_from":      []any{},
+							// The agent's starts_from is ignored: the plan says it.
+							"starts_from": []any{"a7"},
 						},
 						map[string]any{"key": "a9", "name": "no code"},
 						map[string]any{
@@ -318,12 +319,17 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"code":             "appId: eu.wallet\n---\n- launchApp\n",
 							"candidate_sha256": "def",
 							"plan": map[string]any{
-								"slot":          "onboarding",
-								"prerequisites": []any{map[string]any{"candidate": "a1"}},
+								"slot": "onboarding",
+								"prerequisites": []any{
+									map[string]any{"candidate": "a1"},
+									map[string]any{"candidate": "a3"},
+									map[string]any{"candidate": "a4"},
+									map[string]any{"candidate": "a5"},
+								},
 							},
 							"replaces":    "",
 							"error":       "",
-							"starts_from": []any{"a1"},
+							"starts_from": []any{},
 						},
 					},
 				},
@@ -359,6 +365,10 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			seedUsedByPipeline(t, app, "userA's organization", "Own other", "acme/x/y", false)
 			seedUsedByPipeline(t, app, "userB's organization", "Published user", replaced, true)
 			seedUsedByPipeline(t, app, "userB's organization", "Private user", replaced, false)
+			// a3 was saved by this chat; a4 only by another chat, a5 by another organization.
+			seedSessionAction(t, app, "userA's organization", "Saved start", authoringSessionChat, "a3")
+			seedSessionAction(t, app, "userA's organization", "Other chat", "another-chat", "a4")
+			seedSessionAction(t, app, "userB's organization", "Foreign", authoringSessionChat, "a5")
 			return app
 		},
 		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -402,6 +412,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					Replaces:        "usera-s-organization/authoring-handler-wallet/install",
 					Error:           "save failed: try again",
 					StartsFrom:      []string{},
+					StartsFromNames: map[string]string{},
 					UsedBy:          2,
 				},
 				{
@@ -411,10 +422,21 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					Code:            "appId: eu.wallet\n---\n- launchApp\n",
 					CandidateSHA256: "def",
 					Plan: map[string]any{
-						"slot":          "onboarding",
-						"prerequisites": []any{map[string]any{"candidate": "a1"}},
+						"slot": "onboarding",
+						"prerequisites": []any{
+							map[string]any{"candidate": "a1"},
+							map[string]any{"candidate": "a3"},
+							map[string]any{"candidate": "a4"},
+							map[string]any{"candidate": "a5"},
+						},
 					},
-					StartsFrom: []string{"a1"},
+					StartsFrom: []string{"a1", "a3", "a4", "a5"},
+					StartsFromNames: map[string]string{
+						"a1": "install",
+						"a3": "Saved start",
+						"a4": "a4",
+						"a5": "a5",
+					},
 				},
 			},
 		},
@@ -441,6 +463,37 @@ func seedUsedByPipeline(
 		"    with:\n      action_id: "+action+"\n")
 	record.Set("published", published)
 	require.NoError(t, app.Save(record))
+}
+
+// seedSessionAction adds an action of the organization that the chat
+// workflowID saved as key.
+func seedSessionAction(
+	t testing.TB,
+	app *tests.TestApp,
+	organization, name, workflowID, key string,
+) {
+	t.Helper()
+	org, err := app.FindFirstRecordByData("organizations", "name", organization)
+	require.NoError(t, err)
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", org.Id)
+	wallet.Set("name", name+" wallet")
+	require.NoError(t, app.Save(wallet))
+	actions, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	action := core.NewRecord(actions)
+	action.Set("owner", org.Id)
+	action.Set("wallet", wallet.Id)
+	action.Set("name", name)
+	action.Set("code", "appId: eu.wallet\n---\n- launchApp\n")
+	action.Set("category", "onboarding")
+	action.Set("authoring_provenance", actionauthor.Provenance{
+		WorkflowID: workflowID,
+		BatchKey:   key,
+	})
+	require.NoError(t, app.Save(action))
 }
 
 // A completed chat is still shown, of a running session that releases its
