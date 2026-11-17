@@ -7,9 +7,8 @@ wallet-solution relying-party definitions for the canonified organization
 ## Contents
 
 - `wallet/`: reusable Maestro wallet flows used by the FCAF scenarios and by
-  `cmd/fcaf-pipeline-gen` (PID issuance and the wallet reset), plus the
-  `unlock-wallet` operator helper. Every file is registered in
-  `wallet-actions.yaml`.
+  `cmd/fcaf-pipeline-gen` (PID issuance and the wallet reset). Every file is
+  registered in `wallet-actions.yaml`.
 - `wallet-actions.yaml`: portable Wallet actions import manifest. It maps each
   action's name, category, tags, and separate Maestro YAML file to the target
   wallet and version.
@@ -38,10 +37,6 @@ forkbomb-bv-andrea/credentials/<canonified-issuer-name>/<canonified-credential-n
 These are YAML source copies for import or review. They do not contain local
 database records, API keys, wallet APKs, screenshots, or runner state.
 
-The public wallet action exports included here are:
-
-- `unlock-wallet`
-- `fcaf-engagement-haip-vp`
 
 The FCAF scenarios additionally share flows that must exist as `wallet_actions`
 records before the aggregate pipeline runs:
