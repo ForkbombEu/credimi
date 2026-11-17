@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	const names = $derived(Object.fromEntries(actions.map((action) => [action.key, action.name])));
+	const names = Object.fromEntries(actions.map((action) => [action.key, action.name]));
 
 	function nameOf(action: ReviewAction, key: string): string {
 		return startingName(action, key, names);
@@ -114,7 +114,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 		submitting = false;
 		if (res.isOk) {
-			if (res.value.tool_id !== toolId) return;
 			status = m.Review_sent();
 			onSettled();
 			return;
@@ -123,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (res.error.status === 409) onSettled();
 	}
 
-	const build = $derived(actions[0]?.build ?? '');
+	const build = actions[0]?.build ?? '';
 </script>
 
 <section
@@ -212,7 +211,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<RadioGroup.Item
 							value="accept"
 							id="{toolId}-{action.key}-accept"
-							disabled={!verified || !planPresent || !!blocker}
+							disabled={!verified || !!blocker}
 						/>
 						<Label for="{toolId}-{action.key}-accept"
 							>{m.Review_decision_accept()}</Label
