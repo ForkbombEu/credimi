@@ -17,6 +17,25 @@ button.session-new, button.start-new, section.session-manager { display: none !i
 .session-anchor:is([aria-label$=" response needed"], [aria-label$=" responses needed"]) > :is(.session-glyph, .session-state),
 .activity-list .trace-row.glyph-approval { display: none !important; }
 
+/* The chat pane's minimap tick is painted with --live while the callback is pending (its label says
+   "needs you", the only status that colour stands for): the mark takes back the colour it would
+   have without it, per the harness's tick states (default, folded or behind, current, hovered). */
+button[data-pane-tick][aria-label*=" · needs you"] > .mark { --live: var(--text-3); }
+button[data-pane-tick][aria-label*=" · needs you"]:is(.folded, .behind) > .mark { --live: var(--text-4); }
+button[data-pane-tick][aria-label*=" · needs you"][aria-current] > .mark { --live: var(--text-1); }
+@media (hover: hover) and (pointer: fine) {
+  button[data-pane-tick][aria-label*=" · needs you"]:hover > .mark { --live: var(--text-1); }
+}
+
+/* The Session flow's review_wallet_actions node stays, as a running tool: without its "waiting on
+   client" subtitle and with the tool colour in place of --live, on the node and on the edge flowing
+   into it. Hiding the node would leave that edge pointing at nothing: edges name nodes by tool call
+   id ("Edge from model:… to tool:<call id>"), never by tool name, so CSS can't pick them per tool.
+   No other node waits while the review does: the agent asks for no approval (harness 0.11.0). */
+.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"] { --live: var(--tool); }
+.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"] .kind { display: none !important; }
+.svelte-flow:has(.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"]) .svelte-flow__edges { --live: var(--edge-main); }
+
 /* Sessions run in runner namespaces, which the Temporal UI does not open for users. */
 a.session-temporal { display: none !important; }
 

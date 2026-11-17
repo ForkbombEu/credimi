@@ -462,6 +462,13 @@ async def test_chat_page_is_embeddable_by_credimi_only():
         " > :is(.session-glyph, .session-state)"
     ) in css.text
     assert ".activity-list .trace-row.glyph-approval" in css.text
+    # ...and its "needs you" tick colour and the flow graph's "waiting on client" review node.
+    needs_you_tick = 'button[data-pane-tick][aria-label*=" · needs you"] > .mark'
+    assert f"{needs_you_tick} {{ --live: var(--text-3); }}" in css.text
+    review_node = '.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"]'
+    assert f"{review_node} {{ --live: var(--tool); }}" in css.text
+    assert f"{review_node} .kind {{ display: none !important; }}" in css.text
+    assert f".svelte-flow:has({review_node}) .svelte-flow__edges" in css.text
     # Runner namespaces are not open to users in the Temporal UI.
     assert "a.session-temporal { display: none !important; }" in css.text
     assert "color-scheme: light" in css.text
