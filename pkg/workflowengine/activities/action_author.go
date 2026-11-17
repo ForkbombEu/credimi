@@ -231,6 +231,12 @@ func (a *SaveAuthoredWalletActionActivity) save(
 			"%w: approval is for another plan", actionauthor.ErrForbidden,
 		))
 	}
+	if approval.Key == "" {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: the approval predates this release; accept the action again",
+			actionauthor.ErrForbidden,
+		))
+	}
 	if payload.BatchKey != approval.Key {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
 			"%w: approval is for another action", actionauthor.ErrForbidden,

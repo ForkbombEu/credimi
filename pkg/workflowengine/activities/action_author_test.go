@@ -634,6 +634,13 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 	require.ErrorContains(t, err, "approval is for another action")
 
+	// An approval signed before approvals named their action asks for a new one.
+	keyless := payload
+	keyless.Approval = approval(func(a *actionauthor.Approval) { a.Key = "" })
+	_, err = a().save(t.Context(), caller, keyless)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "the approval predates this release; accept the action again")
+
 	disallowed := payload
 	disallowed.Code = "appId: eu.wallet\n---\n- runScript: x.js\n- assertVisible: Home\n- takeScreenshot: home\n"
 	disallowed.CandidateSHA256 = actionauthor.CodeSHA256(disallowed.Code)
