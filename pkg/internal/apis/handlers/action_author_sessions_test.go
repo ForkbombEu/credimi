@@ -6,11 +6,13 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
@@ -336,6 +339,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			},
 		}}}, nil)
 	var response ActionAuthorSessionResponse
+	var orgLookups atomic.Int32
 	(&tests.ApiScenario{
 		Name:           "running session",
 		Method:         http.MethodGet,
@@ -371,10 +375,23 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			seedSessionAction(t, app, "userB's organization", "Foreign", authoringSessionChat, "a5")
 			return app
 		},
+		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+			db, ok := app.ConcurrentDB().(*dbx.DB)
+			require.True(t, ok)
+			db.QueryLogFunc = func(_ context.Context, _ time.Duration, query string, _ *sql.Rows, _ error) {
+				if strings.Contains(query, "FROM `orgAuthorizations`") {
+					orgLookups.Add(1)
+				}
+			}
+		},
 		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
 			decodeBody(t, res, &response)
 		},
 	}).Test(t)
+
+	// The access check and the pending review each resolve the caller's
+	// organization once, however many actions the review has.
+	require.Equal(t, int32(2), orgLookups.Load())
 
 	// The session and its chat are read in the runner namespace it runs in.
 	require.Equal(

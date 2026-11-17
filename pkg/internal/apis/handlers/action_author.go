@@ -986,11 +986,16 @@ func readActionAuthorChat(
 // actionAuthorPendingReview decodes the actions of a review callback's
 // input of the chat chatID; an action without a string key or code is
 // skipped. Each action starts from the candidate prerequisites of its plan.
+// The caller's organization is resolved once for the whole review.
 func actionAuthorPendingReview(
 	e *core.RequestEvent,
 	chatID, toolID string,
 	input map[string]any,
 ) *ActionAuthorPendingReview {
+	orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
+	if err != nil {
+		e.App.Logger().Warn("action author pending review organization", "error", err)
+	}
 	review := &ActionAuthorPendingReview{ToolID: toolID, Actions: []ActionAuthorReviewAction{}}
 	names := map[string]string{}
 	items, _ := input["actions"].([]any)
@@ -1019,7 +1024,7 @@ func actionAuthorPendingReview(
 			StartsFromNames: map[string]string{},
 		}
 		if action.Replaces != "" {
-			action.UsedBy = actionAuthorUsedBy(e, action.Replaces)
+			action.UsedBy = actionAuthorUsedBy(e, orgID, action.Replaces)
 		}
 		names[key] = action.Name
 		review.Actions = append(review.Actions, action)
@@ -1028,7 +1033,7 @@ func actionAuthorPendingReview(
 		for _, start := range action.StartsFrom {
 			name, ok := names[start]
 			if !ok {
-				name = actionAuthorSavedName(e, chatID, start)
+				name = actionAuthorSavedName(e, orgID, chatID, start)
 				names[start] = name
 			}
 			if name == "" {
@@ -1054,12 +1059,10 @@ func planCandidates(plan map[string]any) []string {
 	return keys
 }
 
-// actionAuthorSavedName is the name of the action of the caller's
-// organization that the chat chatID saved as key, empty when none.
-func actionAuthorSavedName(e *core.RequestEvent, chatID, key string) string {
-	orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
-	if err != nil {
-		e.App.Logger().Warn("action author starting action", "key", key, "error", err)
+// actionAuthorSavedName is the name of the action of the organization orgID
+// that the chat chatID saved as key, empty when none or orgID is empty.
+func actionAuthorSavedName(e *core.RequestEvent, orgID, chatID, key string) string {
+	if orgID == "" {
 		return ""
 	}
 	record, err := e.App.FindFirstRecordByFilter(
@@ -1077,12 +1080,11 @@ func actionAuthorSavedName(e *core.RequestEvent, chatID, key string) string {
 	return record.GetString("name")
 }
 
-// actionAuthorUsedBy counts the pipelines owned by the caller's organization
-// or published whose YAML names action; 0, with a warning, on error.
-func actionAuthorUsedBy(e *core.RequestEvent, action string) int {
-	orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
-	if err != nil {
-		e.App.Logger().Warn("action author used by", "action", action, "error", err)
+// actionAuthorUsedBy counts the pipelines owned by the organization orgID or
+// published whose YAML names action; 0 when orgID is empty, with a warning
+// on error.
+func actionAuthorUsedBy(e *core.RequestEvent, orgID, action string) int {
+	if orgID == "" {
 		return 0
 	}
 	count, err := e.App.CountRecords(
