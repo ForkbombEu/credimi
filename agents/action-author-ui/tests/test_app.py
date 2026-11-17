@@ -376,9 +376,6 @@ OTHER = CHAT.replace("abcd-author", "dcba-author")
         ("GET", f"/api/workflow-status/{OTHER}", {}, "other_chat"),
         ("GET", "/api/attach", {"params": {"session_id": OTHER}}, "other_chat"),
         ("POST", "/api/messages", {"json": {"session_id": OTHER, "text": "hi"}}, "other_chat"),
-        ("POST", "/api/chat", {"json": {"session_id": OTHER, "message": "hi"}}, "other_chat"),
-        ("POST", "/api/chat", {"json": [CHAT]}, "other_chat"),
-        ("POST", "/api/chat", {"content": b"{"}, "other_chat"),
         ("POST", f"/api/sessions/{OTHER}/close", {}, "other_chat"),
         ("POST", "/api/approve", {"json": {"session_id": CHAT}}, "approvals_disabled"),
         ("POST", "/api/files/view", {"json": {"path": "/etc/passwd"}}, "files_disabled"),
@@ -389,6 +386,13 @@ async def test_requests_for_another_chat_are_refused(method, path, kwargs, error
     async with ui_client() as client:
         response = await client.request(method, path, **kwargs)
     assert (response.status_code, response.json()) == (403, {"error": error})
+
+
+async def test_the_chat_stream_route_is_refused():
+    async with ui_client() as client:
+        response = await client.post("/api/chat", json={"session_id": CHAT, "message": "hi"})
+    assert response.status_code == 403
+    assert response.json()["error"] == "chat_stream_disabled"
 
 
 @pytest.mark.parametrize("method", ["GET", "POST", "PUT"])
@@ -656,9 +660,10 @@ async def test_closed_chat_replays_through_the_harness_attach():
                 assert resumed.status_code == 200
                 assert _sse_events(resumed.text) == []
 
-                for path in ("/api/chat", "/api/messages"):
-                    sent = await client.post(path, json={"session_id": chat, "message": "Hi"})
-                    assert (sent.status_code, sent.json()) == (
-                        409,
-                        {"error": "session_closed", "message": "This chat has ended."},
-                    )
+                sent = await client.post(
+                    "/api/messages", json={"session_id": chat, "message": "Hi"}
+                )
+                assert (sent.status_code, sent.json()) == (
+                    409,
+                    {"error": "session_closed", "message": "This chat has ended."},
+                )

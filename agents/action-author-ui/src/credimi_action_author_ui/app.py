@@ -93,7 +93,7 @@ CHAT_PATH_PATTERNS = (
     re.compile(r"^/api/sessions/([^/]+)/close$"),
 )
 # Routes naming a chat in their JSON body's session_id.
-CHAT_BODY_PATHS = frozenset({"/api/chat", "/api/messages"})
+CHAT_BODY_PATHS = frozenset({"/api/messages"})
 
 AGENT_LABEL = "Credimi action author"
 AGENT_DESCRIPTION = (
@@ -312,6 +312,15 @@ def _create_harness(temporal) -> FastAPI:
         if path.startswith("/api/files/"):
             # The agent works on the device, not on files of the service.
             return JSONResponse(status_code=403, content={"error": "files_disabled"})
+        if path.rstrip("/") == "/api/chat":
+            # The harness cuts this stream after 300 s; the UI sends and attaches instead.
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "chat_stream_disabled",
+                    "message": "Send with POST /api/messages and follow GET /api/attach.",
+                },
+            )
         if await _names_other_chat(request, chat):
             return _other_chat()
         if method == "GET" and path == EMBED_CSS_PATH:

@@ -37,7 +37,7 @@
 		const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
 		if (attached || !path.startsWith(api)) return fetch(input, init);
 		const route = path.slice(api.length);
-		if (method === 'POST' && (route === 'chat' || route === 'messages')) {
+		if (method === 'POST' && route === 'messages') {
 			if (root.classList.contains('credimi-replay')) {
 				return json({ error: 'session_closed', message: 'This chat has ended.' }, 409);
 			}
