@@ -474,7 +474,7 @@ func TestAuthoringSaveReplacesInPlace(t *testing.T) {
 	target, path := seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
 		"Existing onboarding", "onboarding", oldCode, true)
 	canonified := target.GetString("canonified_name")
-	seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
+	_, otherPath := seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
 		"Other onboarding", "onboarding", oldCode, false)
 	in := acceptedRequest(request, build.InstallerSHA256)
 	in.Name = "Existing onboarding"
@@ -536,6 +536,19 @@ func TestAuthoringSaveReplacesInPlace(t *testing.T) {
 		replacing(CodeSHA256(oldCode)), testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 	assert.ErrorContains(t, err, "changed since the plan was checked")
+
+	// A key the session already saved as a new action cannot replace another
+	// action.
+	created := in
+	created.Name = "Keyed onboarding"
+	_, err = Save(app, namespace, "keyed-workflow", "keyed-run", created, testApproval)
+	require.NoError(t, err)
+	keyed := in
+	keyed.Name = "Other onboarding"
+	keyed.Spec.Replaces = &ReplaceSpec{Action: otherPath, CodeSHA256: CodeSHA256(oldCode)}
+	_, err = Save(app, namespace, "keyed-workflow", "keyed-run", keyed, testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "action a1 of this session is already saved")
 }
 
 func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
