@@ -118,7 +118,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{#if entry.decision === 'accept'}
 									<Badge variant="secondary">
 										<CheckIcon />
-										{m.Transcript_review_accept({ name: entry.name ?? '' })}
+										{entry.name
+											? m.Transcript_review_accept({ name: entry.name })
+											: m.Transcript_review_accept_unnamed()}
 									</Badge>
 								{:else if entry.decision === 'change'}
 									<Badge variant="outline">
@@ -128,7 +130,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{:else}
 									<Badge variant="outline">
 										<XIcon />
-										{m.Transcript_review_refuse({ name: entry.name ?? '' })}
+										{entry.name
+											? m.Transcript_review_refuse({ name: entry.name })
+											: m.Transcript_review_refuse_unnamed()}
 									</Badge>
 								{/if}
 								{@render time(entry)}

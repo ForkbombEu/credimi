@@ -1130,6 +1130,8 @@
 	"Transcript_review_accept": "Aceita “{name}”",
 	"Transcript_review_refuse": "Recusada “{name}”",
 	"Transcript_review_change": "Alterações pedidas para “{name}”",
+	"Transcript_review_accept_unnamed": "Salvamento aceito",
+	"Transcript_review_refuse_unnamed": "Salvamento recusado",
 	"Transcript_saved": "Salva “{name}”",
 	"Transcript_replaced": "Substituída",
 	"Tool_call_arguments": "Argumentos",

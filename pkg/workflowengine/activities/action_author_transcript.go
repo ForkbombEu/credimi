@@ -62,7 +62,8 @@ type TranscriptEntry struct {
 	// Arguments is the tool call's pretty JSON, at most 4000 characters, cut with "…".
 	Arguments string `json:"arguments,omitempty"`
 	// Decision is a review decision on the action Name: accept, refuse or
-	// change, with the Comment saying what to change.
+	// change, with the Comment saying what to change. A save review of a chat
+	// older than batch reviews gives accept or refuse without a Name.
 	Decision string `json:"decision,omitempty"`
 	Comment  string `json:"comment,omitempty"`
 	Name     string `json:"name,omitempty"`
@@ -245,9 +246,27 @@ func (t *transcriptReader) review(at string, args *commonpb.Payloads) {
 			Decision string `json:"decision"`
 			Comment  string `json:"comment"`
 		} `json:"decisions"`
+		// Accepted is the single save review's result, before reviews had decisions.
+		Accepted *bool `json:"accepted"`
 	}
-	if json.Unmarshal(callback.Result, &review) != nil || len(review.Decisions) == 0 {
+	if json.Unmarshal(callback.Result, &review) != nil {
 		t.unavailable(at)
+		return
+	}
+	if len(review.Decisions) == 0 {
+		if review.Accepted == nil {
+			t.unavailable(at)
+			return
+		}
+		decision := "refuse"
+		if *review.Accepted {
+			decision = "accept"
+		}
+		t.entries = append(t.entries, TranscriptEntry{
+			Kind:     TranscriptReview,
+			Time:     at,
+			Decision: decision,
+		})
 		return
 	}
 	for _, decision := range review.Decisions {

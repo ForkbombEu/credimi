@@ -221,6 +221,30 @@ func TestParseActionAuthorTranscriptCapsEntries(t *testing.T) {
 	require.Equal(t, TranscriptUnavailable, entries[TranscriptMaxEntries].Kind)
 }
 
+func TestParseActionAuthorTranscriptReadsTheOldSaveReview(t *testing.T) {
+	setFCAFTestEnv(t)
+	h := &chatHistory{t: t}
+	for _, result := range []map[string]any{
+		{"accepted": true, "approval": "signed"},
+		{"accepted": false},
+		{},
+	} {
+		h.update(actionAuthorCallbackUpdate, h.payloads(map[string]any{
+			"tool_id": "save-review-1",
+			"result":  result,
+			"error":   nil,
+		}))
+	}
+	entries, err := ParseActionAuthorTranscript(h.iterator())
+	require.NoError(t, err)
+	require.Len(t, entries, 3)
+	require.Equal(t, TranscriptEntry{Kind: TranscriptReview, Time: entries[0].Time,
+		Decision: "accept"}, entries[0])
+	require.Equal(t, TranscriptEntry{Kind: TranscriptReview, Time: entries[1].Time,
+		Decision: "refuse"}, entries[1])
+	require.Equal(t, TranscriptUnavailable, entries[2].Kind)
+}
+
 func TestTranscriptArguments(t *testing.T) {
 	require.Equal(t, "not json", transcriptArguments("not json"))
 	long := transcriptArguments(`"` + strings.Repeat("é", 5000) + `"`)

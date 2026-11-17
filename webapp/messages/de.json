@@ -1130,6 +1130,8 @@
 	"Transcript_review_accept": "„{name}“ akzeptiert",
 	"Transcript_review_refuse": "„{name}“ abgelehnt",
 	"Transcript_review_change": "Änderungen für „{name}“ angefordert",
+	"Transcript_review_accept_unnamed": "Speichern akzeptiert",
+	"Transcript_review_refuse_unnamed": "Speichern abgelehnt",
 	"Transcript_saved": "„{name}“ gespeichert",
 	"Transcript_replaced": "Ersetzt",
 	"Tool_call_arguments": "Argumente",

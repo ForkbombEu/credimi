@@ -1130,6 +1130,8 @@
 	"Transcript_review_accept": "Accepterede “{name}”",
 	"Transcript_review_refuse": "Afviste “{name}”",
 	"Transcript_review_change": "Ændringer anmodet for “{name}”",
+	"Transcript_review_accept_unnamed": "Gemning accepteret",
+	"Transcript_review_refuse_unnamed": "Gemning afvist",
 	"Transcript_saved": "Gemt “{name}”",
 	"Transcript_replaced": "Erstattet",
 	"Tool_call_arguments": "Argumenter",

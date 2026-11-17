@@ -1174,6 +1174,8 @@
 	"Transcript_review_accept": "Accepted “{name}”",
 	"Transcript_review_refuse": "Refused “{name}”",
 	"Transcript_review_change": "Changes requested for “{name}”",
+	"Transcript_review_accept_unnamed": "Save accepted",
+	"Transcript_review_refuse_unnamed": "Save refused",
 	"Transcript_saved": "Saved “{name}”",
 	"Transcript_replaced": "Replaced",
 	"Tool_call_arguments": "Arguments",
