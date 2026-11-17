@@ -587,6 +587,7 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 				Slot:    "other",
 				Outcome: actionauthor.OutcomeSuccess,
 			}),
+			Key: "a1",
 		}
 		if edit != nil {
 			edit(&approval)
@@ -625,6 +626,13 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 		require.ErrorContains(t, err, actionauthor.ErrForbidden.Error(), name)
 	}
+
+	// An approval of a1 does not save a2.
+	another := payload
+	another.BatchKey = "a2"
+	_, err = a().save(t.Context(), caller, another)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "approval is for another action")
 
 	disallowed := payload
 	disallowed.Code = "appId: eu.wallet\n---\n- runScript: x.js\n- assertVisible: Home\n- takeScreenshot: home\n"

@@ -387,6 +387,13 @@ func TestAuthoringSaveResolvesCandidatePrerequisites(t *testing.T) {
 	assert.False(t, retried.Created)
 	assert.Equal(t, receipt.RecordID, retried.RecordID)
 
+	// The session saves each key as one record only.
+	duplicate := in
+	duplicate.Name = "Batch duplicate"
+	_, err = Save(app, namespace, "workflow", "run", duplicate, testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "action a2 of this session is already saved")
+
 	// Another wallet's action with the same session provenance.
 	wallets, err := app.FindCollectionByNameOrId("wallets")
 	require.NoError(t, err)
@@ -398,6 +405,13 @@ func TestAuthoringSaveResolvesCandidatePrerequisites(t *testing.T) {
 		"Foreign onboarding", "onboarding", first.Code, false)
 	foreign.Set("authoring_provenance", Provenance{WorkflowID: "workflow", BatchKey: "a1"})
 	require.NoError(t, app.Save(foreign))
+	// Another organization's action with the same session provenance.
+	otherOrg, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
+	require.NoError(t, err)
+	stranger, _ := seedWalletAction(t, app, otherOrg.Id, selection.Wallet,
+		"Stranger onboarding", "onboarding", first.Code, false)
+	stranger.Set("authoring_provenance", Provenance{WorkflowID: "workflow", BatchKey: "a1"})
+	require.NoError(t, app.Save(stranger))
 
 	for name, tc := range map[string]struct {
 		in         SaveRequest
@@ -428,6 +442,11 @@ func TestAuthoringSaveResolvesCandidatePrerequisites(t *testing.T) {
 			in:         dependent("a1", map[string]string{"a1": foreign.Id}),
 			workflowID: "workflow", err: ErrForbidden,
 			message: "prerequisite a1 was not saved by this session",
+		},
+		"another organization": {
+			in:         dependent("a1", map[string]string{"a1": stranger.Id}),
+			workflowID: "workflow", err: ErrInvalid,
+			message: "prerequisite a1 is not saved yet: save it first",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

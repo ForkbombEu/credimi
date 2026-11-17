@@ -134,8 +134,8 @@ func deliveredDecisions(t testing.TB, stub *reviewStub) []map[string]any {
 	return decisions
 }
 
-// requireApproval checks that decision carries the caller's approval of sha
-// and of plan once normalized.
+// requireApproval checks that decision carries the caller's approval of sha,
+// of plan once normalized and of the decision's key.
 func requireApproval(
 	t testing.TB,
 	app core.App,
@@ -151,6 +151,7 @@ func requireApproval(
 	require.Equal(t, approverID, approval.ApproverID)
 	require.NoError(t, plan.Normalize())
 	require.Equal(t, actionauthor.PlanSHA256(plan), approval.PlanSHA256)
+	require.Equal(t, decision["key"], approval.Key)
 }
 
 func TestActionAuthorReviewDecisions(t *testing.T) {

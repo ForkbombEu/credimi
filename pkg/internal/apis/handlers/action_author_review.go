@@ -278,6 +278,7 @@ func signReviewApproval(
 		ApproverID:       actor.ActorID,
 		ApprovedAt:       time.Now().Unix(),
 		PlanSHA256:       actionauthor.PlanSHA256(plan),
+		Key:              decision.Key,
 	})
 }
 

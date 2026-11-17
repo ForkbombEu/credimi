@@ -39,6 +39,8 @@ type Approval struct {
 	ApprovedAt       int64  `json:"approved_at"`
 	// PlanSHA256 binds the approval to the plan the session saves with.
 	PlanSHA256 string `json:"plan_sha256"`
+	// Key binds the approval to the candidate key the session saves it as.
+	Key string `json:"key"`
 }
 
 // signingKey derives a signing key for one token kind from the users

@@ -210,6 +210,7 @@ func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 			ApproverID:       session.ActorID,
 			ApprovedAt:       time.Now().Unix(),
 			PlanSHA256:       planSHA256,
+			Key:              "a1",
 		})
 		require.NoError(t, err)
 		return token
@@ -283,6 +284,7 @@ func TestSaveAuthoredWalletActionReplacesInPlace(t *testing.T) {
 		ApproverID:       session.ActorID,
 		ApprovedAt:       time.Now().Unix(),
 		PlanSHA256:       actionauthor.PlanSHA256(normalized),
+		Key:              "a1",
 	})
 	require.NoError(t, err)
 	request := func(plan actionauthor.Spec) actionauthor.SaveRequest {
@@ -347,6 +349,7 @@ func TestSaveAuthoredWalletActionResolvesCandidatePrerequisites(t *testing.T) {
 			ApproverID:       session.ActorID,
 			ApprovedAt:       time.Now().Unix(),
 			PlanSHA256:       actionauthor.PlanSHA256(normalized),
+			Key:              key,
 		})
 		require.NoError(t, err)
 		return buildSessionLookup(t, app, session).activity(t, app).

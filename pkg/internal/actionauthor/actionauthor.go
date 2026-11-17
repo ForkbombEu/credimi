@@ -597,24 +597,28 @@ func resolveCandidates(
 
 // sessionCandidate returns the wallet_actions record id, which this
 // session's workflow saved as the candidate key for the selected wallet.
+// Another organization's record is answered as a missing one.
 func sessionCandidate(
 	app core.App,
 	selection Selection,
 	workflowID, key, id string,
 ) (*core.Record, error) {
+	notSaved := invalidf("prerequisite %s is not saved yet: save it first", key)
 	if id == "" {
-		return nil, invalidf("prerequisite %s is not saved yet: save it first", key)
+		return nil, notSaved
 	}
 	record, err := app.FindRecordById("wallet_actions", id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, invalidf("prerequisite %s is not saved yet: save it first", key)
+		return nil, notSaved
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find prerequisite %s: %w", key, err)
 	}
+	if record.GetString("owner") != selection.Organization.Id {
+		return nil, notSaved
+	}
 	var provenance Provenance
-	if record.GetString("owner") != selection.Organization.Id ||
-		record.GetString("wallet") != selection.Wallet.Id ||
+	if record.GetString("wallet") != selection.Wallet.Id ||
 		json.Unmarshal([]byte(record.GetString("authoring_provenance")), &provenance) != nil ||
 		provenance.WorkflowID != workflowID || provenance.BatchKey != key {
 		return nil, fmt.Errorf(
@@ -624,12 +628,32 @@ func sessionCandidate(
 	return record, nil
 }
 
+// checkSessionKeyFree refuses a save under a candidate key that the workflow
+// already saved as another record than except.
+func checkSessionKeyFree(tx core.App, organizationID, workflowID, key, except string) error {
+	record, err := tx.FindFirstRecordByFilter(
+		"wallet_actions",
+		"owner = {:owner} && id != {:id} && "+
+			"authoring_provenance.workflow_id = {:workflow} && "+
+			"authoring_provenance.batch_key = {:key}",
+		dbx.Params{"owner": organizationID, "id": except, "workflow": workflowID, "key": key},
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("find wallet action of %s: %w", key, err)
+	}
+	if record != nil {
+		return fmt.Errorf("%w: action %s of this session is already saved", ErrConflict, key)
+	}
+	return nil
+}
+
 // Save stores the accepted action and its provenance in one transaction.
 // Without Replaces it creates the action: a name already in use by the
 // wallet is a conflict, except for a retry of the same workflow run that
 // wrote it. With Replaces it rewrites the target's name, code, category and
 // provenance in place, keeping its id and published flag, when the target
-// still has the code the plan was checked against.
+// still has the code the plan was checked against. Either way a workflow
+// saves each candidate key as one record only.
 // The caller is the trusted workflow's explicit human-confirmation handler,
 // after verifying the approval; organization is the session's organization,
 // as for Select.
@@ -733,6 +757,10 @@ func Save(
 			}
 			return fmt.Errorf("%w: an action with this name already exists", ErrConflict)
 		}
+		err = checkSessionKeyFree(tx, current.Organization.Id, workflowID, in.BatchKey, "")
+		if err != nil {
+			return err
+		}
 		collection, err := tx.FindCollectionByNameOrId("wallet_actions")
 		if err != nil {
 			return fmt.Errorf("find wallet actions collection: %w", err)
@@ -818,6 +846,10 @@ func replaceAction(
 	}
 	if other != nil {
 		return Receipt{}, fmt.Errorf("%w: an action with this name already exists", ErrConflict)
+	}
+	err = checkSessionKeyFree(tx, current.Organization.Id, workflowID, in.BatchKey, record.Id)
+	if err != nil {
+		return Receipt{}, err
 	}
 	provenance.ReplacedCodeSHA256 = replaced
 	record.Set("name", in.Name)
