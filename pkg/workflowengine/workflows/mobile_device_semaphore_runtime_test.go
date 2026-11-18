@@ -808,6 +808,57 @@ func TestHandleListRunTicketsQuery(t *testing.T) {
 				require.Equal(t, 1, views[0].Position)
 			},
 		},
+		{
+			name: "running ordered by start time then ticket id, unstarted last",
+			states: map[string]MobileDeviceSemaphoreRunTicketState{
+				"later": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "later",
+						OwnerNamespace: "org-a",
+					},
+					Status:    mobileDeviceSemaphoreRunRunning,
+					StartedAt: new(startedAt.Add(time.Minute)),
+				},
+				"unstarted": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "unstarted",
+						OwnerNamespace: "org-a",
+					},
+					Status: mobileDeviceSemaphoreRunStarting,
+				},
+				"b": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "b",
+						OwnerNamespace: "org-a",
+					},
+					Status:    mobileDeviceSemaphoreRunRunning,
+					StartedAt: new(startedAt),
+				},
+				"earlier": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "earlier",
+						OwnerNamespace: "org-a",
+					},
+					Status:    mobileDeviceSemaphoreRunStarting,
+					StartedAt: new(startedAt.Add(-time.Minute)),
+				},
+				"a": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "a",
+						OwnerNamespace: "org-a",
+					},
+					Status:    mobileDeviceSemaphoreRunRunning,
+					StartedAt: new(startedAt),
+				},
+			},
+			check: func(t *testing.T, views []MobileDeviceSemaphoreRunTicketView) {
+				ids := make([]string, 0, len(views))
+				for _, view := range views {
+					ids = append(ids, view.TicketID)
+				}
+				require.Equal(t, []string{"earlier", "a", "b", "later", "unstarted"}, ids)
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -819,7 +870,13 @@ func TestHandleListRunTicketsQuery(t *testing.T) {
 			for id, state := range tc.states {
 				rt.runTickets[id] = state
 			}
-			tc.check(t, rt.handleListRunTicketsQuery())
+			views := rt.handleListRunTicketsQuery()
+			tc.check(t, views)
+			for _, view := range views {
+				if view.StartedAt != nil {
+					require.NotSame(t, rt.runTickets[view.TicketID].StartedAt, view.StartedAt)
+				}
+			}
 		})
 	}
 }

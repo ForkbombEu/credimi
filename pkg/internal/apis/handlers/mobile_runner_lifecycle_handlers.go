@@ -6,13 +6,16 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -41,6 +44,15 @@ var mobileRunnerLifecycleTemporalClient = temporalclient.GetTemporalClientWithNa
 // mobileRunnerWorkQueryTimeout bounds each device semaphore query of the
 // runner work snapshot.
 const mobileRunnerWorkQueryTimeout = 2 * time.Second
+
+// mobileRunnerWorkTotalTimeout bounds all device queries of one runner work
+// snapshot, below the runner's own 5s budget for the call. A var so tests
+// can shorten it.
+var mobileRunnerWorkTotalTimeout = 4 * time.Second
+
+// mobileRunnerWorkMaxConcurrentQueries caps the device semaphore queries of
+// one runner work snapshot that run at the same time.
+const mobileRunnerWorkMaxConcurrentQueries = 8
 
 var queryMobileDeviceSemaphoreRunTickets = queryMobileDeviceSemaphoreRunTicketsTemporal
 
@@ -118,15 +130,6 @@ var MobileRunnerLifecycleRoutes = routing.RouteGroup{
 			Path:           "/work",
 			Handler:        HandleMobileRunnerLifecycleWork,
 			ResponseSchema: MobileRunnerWorkResponse{},
-			Summary:        "List the running and queued work of a mobile runner",
-			Description:    "Lists, for every device of the runner, the semaphore tickets that are running (first) or queued (with their 1-based position). Tickets of other organizations keep owner_namespace, run_kind, run_type, status, times and position; their pipeline_identifier, workflow_id, run_id and workflow_namespace are empty. query_failed marks a device whose semaphore could not be queried.",
-			QuerySearchAttributes: []routing.QuerySearchAttribute{
-				{
-					Name:        "runner_id",
-					Required:    true,
-					Description: "Runner path: organization/runner (canonified names).",
-				},
-			},
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
@@ -685,6 +688,8 @@ func lifecycleUpdateID(action, runnerID, requestID string) string {
 
 // HandleMobileRunnerLifecycleWork returns the running and queued semaphore
 // tickets of every device of a runner, redacting other organizations' runs.
+// Like the runner credential, the work of an admin-managed runner, which
+// serves every namespace, goes only to superusers and the internal admin key.
 func HandleMobileRunnerLifecycleWork() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		runner, runnerID, apiErr := resolveLifecycleRunner(
@@ -694,6 +699,14 @@ func HandleMobileRunnerLifecycleWork() func(*core.RequestEvent) error {
 		)
 		if apiErr != nil {
 			return apiErr
+		}
+		if runner.GetBool("admin_managed") && !isSuperuserAuth(e.Auth) {
+			return apierror.New(
+				http.StatusForbidden,
+				"mobile_runner",
+				"admin_managed_runner_work_forbidden",
+				"only superusers can list the work of an admin-managed runner",
+			)
 		}
 
 		ownerNamespace, err := pbutils.GetOrganizationCanonifiedName(
@@ -726,13 +739,13 @@ func HandleMobileRunnerLifecycleWork() func(*core.RequestEvent) error {
 			return temporalUnavailableError()
 		}
 
-		devices := make([]MobileRunnerDeviceWork, 0, len(deviceIDs))
-		for _, deviceID := range deviceIDs {
-			devices = append(
-				devices,
-				mobileRunnerDeviceWork(e.Request.Context(), client, deviceID, ownerNamespace),
-			)
-		}
+		devices := mobileRunnerDevicesWork(
+			e.Request.Context(),
+			client,
+			runnerID,
+			deviceIDs,
+			ownerNamespace,
+		)
 
 		return e.JSON(http.StatusOK, MobileRunnerWorkResponse{
 			RunnerID:    runnerID,
@@ -775,9 +788,49 @@ func runnerDeviceIdentifiers(app core.App, runner *core.Record) ([]string, error
 	return deviceIDs, nil
 }
 
+// mobileRunnerDevicesWork queries the devices concurrently, at most
+// mobileRunnerWorkMaxConcurrentQueries at a time, within
+// mobileRunnerWorkTotalTimeout overall. The result keeps the order of
+// deviceIDs; a device whose query did not answer in time is QueryFailed.
+func mobileRunnerDevicesWork(
+	ctx context.Context,
+	client tclient.Client,
+	runnerID string,
+	deviceIDs []string,
+	ownerNamespace string,
+) []MobileRunnerDeviceWork {
+	ctx, cancel := context.WithTimeout(ctx, mobileRunnerWorkTotalTimeout)
+	defer cancel()
+
+	devices := make([]MobileRunnerDeviceWork, len(deviceIDs))
+	slots := make(chan struct{}, mobileRunnerWorkMaxConcurrentQueries)
+	var wg sync.WaitGroup
+	for i, deviceID := range deviceIDs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case slots <- struct{}{}:
+				defer func() { <-slots }()
+			case <-ctx.Done():
+				devices[i] = MobileRunnerDeviceWork{
+					DeviceID:    deviceID,
+					QueryFailed: true,
+					Tickets:     []workflows.MobileDeviceSemaphoreRunTicketView{},
+				}
+				return
+			}
+			devices[i] = mobileRunnerDeviceWork(ctx, client, runnerID, deviceID, ownerNamespace)
+		}()
+	}
+	wg.Wait()
+	return devices
+}
+
 func mobileRunnerDeviceWork(
 	ctx context.Context,
 	client tclient.Client,
+	runnerID string,
 	deviceID string,
 	ownerNamespace string,
 ) MobileRunnerDeviceWork {
@@ -795,6 +848,7 @@ func mobileRunnerDeviceWork(
 	}
 	for _, ticket := range tickets {
 		if ticket.OwnerNamespace != ownerNamespace {
+			ticket.TicketID = redactedMobileRunnerTicketID(runnerID, ticket.TicketID)
 			ticket.PipelineIdentifier = ""
 			ticket.WorkflowID = ""
 			ticket.RunID = ""
@@ -803,6 +857,14 @@ func mobileRunnerDeviceWork(
 		work.Tickets = append(work.Tickets, ticket)
 	}
 	return work
+}
+
+// redactedMobileRunnerTicketID hides the ticket ID of another organization's
+// run, which names its pipeline, behind an opaque ID that stays the same
+// across the runner's devices and calls, so the runner can still dedupe it.
+func redactedMobileRunnerTicketID(runnerID string, ticketID string) string {
+	sum := sha256.Sum256([]byte(runnerID + "\x00" + ticketID))
+	return "redacted-" + hex.EncodeToString(sum[:])[:16]
 }
 
 func queryMobileDeviceSemaphoreRunTicketsTemporal(

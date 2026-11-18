@@ -12,10 +12,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -1097,32 +1099,28 @@ func decodeMobileRunnerWork(t *testing.T, event *core.RequestEvent) MobileRunner
 }
 
 func TestHandleMobileRunnerLifecycleWorkRedactsOtherOrganizations(t *testing.T) {
-	app := setupMobileRunnerApp(t)
-	defer app.Cleanup()
-	user, deviceIDs := setupMobileRunnerWorkTest(t, app)
+	const foreignTicketID = "sched/Scheduled-secret-pipeline-uuid/run-1"
 
-	startedAt := time.Date(2026, 6, 24, 9, 0, 0, 0, time.UTC)
-	stubMobileRunnerWorkTemporal(t, nil, func(
-		_ context.Context,
-		_ client.Client,
-		deviceID string,
-	) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
-		if deviceID != deviceIDs[0] {
-			return nil, nil
-		}
-		return []workflows.MobileDeviceSemaphoreRunTicketView{
-			{
-				TicketID:           "own",
-				OwnerNamespace:     "usera-s-organization",
-				PipelineIdentifier: "usera-s-organization/pipeline",
-				Status:             workflowengine.MobileDeviceSemaphoreRunRunning,
-				WorkflowID:         "wf-own",
-				RunID:              "run-own",
-				WorkflowNamespace:  "usera-s-organization",
-				StartedAt:          &startedAt,
-			},
-			{
-				TicketID:           "foreign",
+	cases := []struct {
+		name  string
+		email string
+		coll  string
+	}{
+		{name: "organization member", email: "userA@example.org", coll: "users"},
+		{name: "superuser", email: "admin@example.org", coll: "_superusers"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
+			_, deviceIDs := setupMobileRunnerWorkTest(t, app)
+			caller, err := app.FindAuthRecordByEmail(tc.coll, tc.email)
+			require.NoError(t, err)
+
+			startedAt := time.Date(2026, 6, 24, 9, 0, 0, 0, time.UTC)
+			foreignTicket := workflows.MobileDeviceSemaphoreRunTicketView{
+				TicketID:           foreignTicketID,
 				OwnerNamespace:     "other-org",
 				PipelineIdentifier: "other-org/secret-pipeline",
 				RunType:            "scheduled",
@@ -1132,41 +1130,200 @@ func TestHandleMobileRunnerLifecycleWorkRedactsOtherOrganizations(t *testing.T) 
 				WorkflowNamespace:  "other-org",
 				Position:           1,
 				LineLen:            1,
+			}
+			stubMobileRunnerWorkTemporal(t, nil, func(
+				_ context.Context,
+				_ client.Client,
+				deviceID string,
+			) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
+				if deviceID != deviceIDs[0] {
+					return []workflows.MobileDeviceSemaphoreRunTicketView{foreignTicket}, nil
+				}
+				return []workflows.MobileDeviceSemaphoreRunTicketView{
+					{
+						TicketID:           "own",
+						OwnerNamespace:     "usera-s-organization",
+						PipelineIdentifier: "usera-s-organization/pipeline",
+						Status:             workflowengine.MobileDeviceSemaphoreRunRunning,
+						WorkflowID:         "wf-own",
+						RunID:              "run-own",
+						WorkflowNamespace:  "usera-s-organization",
+						StartedAt:          &startedAt,
+					},
+					foreignTicket,
+				}, nil
+			})
+
+			event := performMobileRunnerWorkRequest(
+				t,
+				app,
+				caller,
+				"/usera-s-organization/work-runner",
+			)
+			require.NoError(t, HandleMobileRunnerLifecycleWork()(event))
+
+			response := decodeMobileRunnerWork(t, event)
+			require.Equal(t, "usera-s-organization/work-runner", response.RunnerID)
+			require.Equal(t, time.Date(2026, 6, 24, 10, 0, 0, 0, time.UTC), response.GeneratedAt)
+			require.Len(t, response.Devices, 2)
+			require.Equal(t, deviceIDs[0], response.Devices[0].DeviceID)
+			require.Equal(t, deviceIDs[1], response.Devices[1].DeviceID)
+
+			tickets := response.Devices[0].Tickets
+			require.Len(t, tickets, 2)
+			require.Equal(t, "own", tickets[0].TicketID)
+			require.Equal(t, "usera-s-organization/pipeline", tickets[0].PipelineIdentifier)
+			require.Equal(t, "wf-own", tickets[0].WorkflowID)
+			require.Equal(t, "run-own", tickets[0].RunID)
+
+			foreign := tickets[1]
+			require.True(t, strings.HasPrefix(foreign.TicketID, "redacted-"))
+			require.Len(t, foreign.TicketID, len("redacted-")+16)
+			require.Equal(t, "other-org", foreign.OwnerNamespace)
+			require.Equal(t, "scheduled", foreign.RunType)
+			require.Equal(t, workflowengine.MobileDeviceSemaphoreRunQueued, foreign.Status)
+			require.Equal(t, 1, foreign.Position)
+			require.Empty(t, foreign.PipelineIdentifier)
+			require.Empty(t, foreign.WorkflowID)
+			require.Empty(t, foreign.RunID)
+			require.Empty(t, foreign.WorkflowNamespace)
+
+			require.Len(t, response.Devices[1].Tickets, 1)
+			require.Equal(t, foreign.TicketID, response.Devices[1].Tickets[0].TicketID)
+
+			body := responseRecorder(t, event).Body.String()
+			require.NotContains(t, body, "secret-pipeline")
+			require.NotContains(t, body, "Scheduled-")
+			require.NotContains(t, body, "wf-foreign")
+		})
+	}
+}
+
+func TestRedactedMobileRunnerTicketIDIsStablePerRunner(t *testing.T) {
+	id := redactedMobileRunnerTicketID("org/runner", "ticket")
+	require.Equal(t, id, redactedMobileRunnerTicketID("org/runner", "ticket"))
+	require.NotEqual(t, id, redactedMobileRunnerTicketID("org/other-runner", "ticket"))
+	require.NotEqual(t, id, redactedMobileRunnerTicketID("org/runner", "other-ticket"))
+}
+
+func TestHandleMobileRunnerLifecycleWorkAdminManagedRunner(t *testing.T) {
+	cases := []struct {
+		name       string
+		auth       func(t *testing.T, app *tests.TestApp, event *core.RequestEvent)
+		wantStatus int
+		wantReason string
+	}{
+		{
+			name: "organization member",
+			auth: func(t *testing.T, app *tests.TestApp, event *core.RequestEvent) {
+				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+				require.NoError(t, err)
+				event.Auth = user
+			},
+			wantStatus: http.StatusForbidden,
+			wantReason: "admin_managed_runner_work_forbidden",
+		},
+		{
+			name: "superuser",
+			auth: func(t *testing.T, app *tests.TestApp, event *core.RequestEvent) {
+				superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+				require.NoError(t, err)
+				event.Auth = superuser
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "internal admin key",
+			auth: func(t *testing.T, _ *tests.TestApp, event *core.RequestEvent) {
+				event.Request.Header.Set(APIKeyHeaderName, "internal-test-api-key")
+				require.NoError(t, middlewares.RequireInternalAdminOrAuth().Func(event))
+				require.NotNil(t, event.Auth)
+			},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
+			setupMobileRunnerWorkTest(t, app)
+			setMobileRunnerAdminManaged(t, app, "usera-s-organization/work-runner", true)
+			stubMobileRunnerWorkTemporal(t, nil, func(
+				context.Context,
+				client.Client,
+				string,
+			) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
+				return nil, nil
+			})
+
+			event := performMobileRunnerWorkRequest(
+				t,
+				app,
+				nil,
+				"/usera-s-organization/work-runner",
+			)
+			tc.auth(t, app, event)
+			err := HandleMobileRunnerLifecycleWork()(event)
+			recorder := responseRecorder(t, event)
+			requireHandlerErrorHandled(t, recorder, err)
+			require.Equal(t, tc.wantStatus, recorder.Code)
+			if tc.wantReason != "" {
+				require.Equal(
+					t,
+					tc.wantReason,
+					decodeHandlerErrorResponse(t, recorder).Error.Reason,
+				)
+				return
+			}
+			require.Len(t, decodeMobileRunnerWork(t, event).Devices, 2)
+		})
+	}
+}
+
+func TestHandleMobileRunnerLifecycleWorkQueriesDevicesWithinTotalTimeout(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, deviceIDs := setupMobileRunnerWorkTest(t, app)
+
+	origTotal := mobileRunnerWorkTotalTimeout
+	t.Cleanup(func() { mobileRunnerWorkTotalTimeout = origTotal })
+	mobileRunnerWorkTotalTimeout = 100 * time.Millisecond
+
+	stubMobileRunnerWorkTemporal(t, nil, func(
+		ctx context.Context,
+		_ client.Client,
+		deviceID string,
+	) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
+		if deviceID == deviceIDs[0] {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		return []workflows.MobileDeviceSemaphoreRunTicketView{
+			{
+				TicketID:       "own",
+				OwnerNamespace: "usera-s-organization",
+				Status:         workflowengine.MobileDeviceSemaphoreRunQueued,
+				Position:       1,
+				LineLen:        1,
 			},
 		}, nil
 	})
 
 	event := performMobileRunnerWorkRequest(t, app, user, "/usera-s-organization/work-runner")
+	start := time.Now()
 	require.NoError(t, HandleMobileRunnerLifecycleWork()(event))
+	require.Less(t, time.Since(start), mobileRunnerWorkQueryTimeout)
 
 	response := decodeMobileRunnerWork(t, event)
-	require.Equal(t, "usera-s-organization/work-runner", response.RunnerID)
-	require.Equal(t, time.Date(2026, 6, 24, 10, 0, 0, 0, time.UTC), response.GeneratedAt)
 	require.Len(t, response.Devices, 2)
 	require.Equal(t, deviceIDs[0], response.Devices[0].DeviceID)
+	require.True(t, response.Devices[0].QueryFailed)
+	require.Empty(t, response.Devices[0].Tickets)
 	require.Equal(t, deviceIDs[1], response.Devices[1].DeviceID)
-	require.NotNil(t, response.Devices[1].Tickets)
-	require.Empty(t, response.Devices[1].Tickets)
-
-	tickets := response.Devices[0].Tickets
-	require.Len(t, tickets, 2)
-	require.Equal(t, "usera-s-organization/pipeline", tickets[0].PipelineIdentifier)
-	require.Equal(t, "wf-own", tickets[0].WorkflowID)
-	require.Equal(t, "run-own", tickets[0].RunID)
-
-	foreign := tickets[1]
-	require.Equal(t, "other-org", foreign.OwnerNamespace)
-	require.Equal(t, "scheduled", foreign.RunType)
-	require.Equal(t, workflowengine.MobileDeviceSemaphoreRunQueued, foreign.Status)
-	require.Equal(t, 1, foreign.Position)
-	require.Empty(t, foreign.PipelineIdentifier)
-	require.Empty(t, foreign.WorkflowID)
-	require.Empty(t, foreign.RunID)
-	require.Empty(t, foreign.WorkflowNamespace)
-
-	body := responseRecorder(t, event).Body.String()
-	require.NotContains(t, body, "secret-pipeline")
-	require.NotContains(t, body, "wf-foreign")
+	require.False(t, response.Devices[1].QueryFailed)
+	require.Len(t, response.Devices[1].Tickets, 1)
+	require.Equal(t, "own", response.Devices[1].Tickets[0].TicketID)
 }
 
 func TestHandleMobileRunnerLifecycleWorkSemaphoreNotFound(t *testing.T) {
