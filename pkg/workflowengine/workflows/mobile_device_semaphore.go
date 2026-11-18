@@ -147,6 +147,10 @@ func (w *MobileDeviceSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	if err := runtime.registerListRunTicketsHandler(); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
 	if err := runtime.registerEnqueueRunHandler(); err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
@@ -317,6 +321,16 @@ func (r *mobileDeviceSemaphoreRuntime) registerListQueuedRunsHandler() error {
 		MobileDeviceSemaphoreListQueuedRunsQuery,
 		func(ownerNamespace string) ([]MobileDeviceSemaphoreQueuedRunView, error) {
 			return r.handleListQueuedRunsQuery(ownerNamespace), nil
+		},
+	)
+}
+
+func (r *mobileDeviceSemaphoreRuntime) registerListRunTicketsHandler() error {
+	return workflow.SetQueryHandler(
+		r.ctx,
+		MobileDeviceSemaphoreListRunTicketsQuery,
+		func() ([]MobileDeviceSemaphoreRunTicketView, error) {
+			return r.handleListRunTicketsQuery(), nil
 		},
 	)
 }
@@ -943,6 +957,67 @@ func (r *mobileDeviceSemaphoreRuntime) handleListQueuedRunsQuery(
 	}
 
 	return views
+}
+
+// handleListRunTicketsQuery lists the active tickets: running ones first
+// (by start time), then queued ones in queue order with 1-based positions.
+func (r *mobileDeviceSemaphoreRuntime) handleListRunTicketsQuery() []MobileDeviceSemaphoreRunTicketView {
+	running := make([]MobileDeviceSemaphoreRunTicketView, 0)
+	for _, state := range r.runTickets {
+		if state.Status != mobileDeviceSemaphoreRunStarting &&
+			state.Status != mobileDeviceSemaphoreRunRunning {
+			continue
+		}
+		running = append(running, runTicketView(state))
+	}
+	sort.Slice(running, func(i, j int) bool {
+		left, right := running[i].StartedAt, running[j].StartedAt
+		switch {
+		case left == nil && right != nil:
+			return false
+		case left != nil && right == nil:
+			return true
+		case left != nil && right != nil && !left.Equal(*right):
+			return left.Before(*right)
+		}
+		return running[i].TicketID < running[j].TicketID
+	})
+
+	views := running
+	for _, ticketID := range r.runQueue {
+		state, ok := r.runTickets[ticketID]
+		if !ok || state.Status != mobileDeviceSemaphoreRunQueued {
+			continue
+		}
+		view := runTicketView(state)
+		position, lineLen := r.runQueuePosition(ticketID)
+		view.Position = position + 1
+		view.LineLen = lineLen
+		views = append(views, view)
+	}
+	return views
+}
+
+func runTicketView(state MobileDeviceSemaphoreRunTicketState) MobileDeviceSemaphoreRunTicketView {
+	view := MobileDeviceSemaphoreRunTicketView{
+		TicketID:           state.Request.TicketID,
+		OwnerNamespace:     state.Request.OwnerNamespace,
+		PipelineIdentifier: state.Request.PipelineIdentifier,
+		RunKind:            state.Request.RunKind,
+		Status:             state.Status,
+		WorkflowID:         state.WorkflowID,
+		RunID:              state.RunID,
+		WorkflowNamespace:  state.WorkflowNamespace,
+		EnqueuedAt:         state.Request.EnqueuedAt,
+	}
+	if runType, ok := state.Request.Memo[pipelineinternal.RunTypeMemoKey]; ok && runType != nil {
+		view.RunType = workflowengine.AsString(runType)
+	}
+	if state.StartedAt != nil {
+		startedAt := *state.StartedAt
+		view.StartedAt = &startedAt
+	}
+	return view
 }
 
 func (r *mobileDeviceSemaphoreRuntime) maybeScheduleContinue() {

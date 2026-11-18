@@ -12,6 +12,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -684,6 +685,143 @@ func TestHandleListQueuedRunsQuery(t *testing.T) {
 	views := rt.handleListQueuedRunsQuery("ns-1")
 	require.Len(t, views, 1)
 	require.Equal(t, "ticket-1", views[0].TicketID)
+}
+
+func TestHandleListRunTicketsQuery(t *testing.T) {
+	startedAt := time.Date(2026, 2, 3, 10, 0, 0, 0, time.UTC)
+	enqueuedAt := startedAt.Add(-time.Minute)
+
+	tests := []struct {
+		name   string
+		queue  []string
+		states map[string]MobileDeviceSemaphoreRunTicketState
+		check  func(t *testing.T, views []MobileDeviceSemaphoreRunTicketView)
+	}{
+		{
+			name:  "running first then queued with positions",
+			queue: []string{"queued-a", "queued-b"},
+			states: map[string]MobileDeviceSemaphoreRunTicketState{
+				"queued-b": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:           "queued-b",
+						OwnerNamespace:     "org-a",
+						PipelineIdentifier: "org-a/p2",
+						EnqueuedAt:         enqueuedAt.Add(time.Second),
+					},
+					Status: mobileDeviceSemaphoreRunQueued,
+				},
+				"running": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:           "running",
+						OwnerNamespace:     "org-a",
+						PipelineIdentifier: "org-a/p1",
+						EnqueuedAt:         enqueuedAt,
+					},
+					Status:            mobileDeviceSemaphoreRunRunning,
+					WorkflowID:        "wf-1",
+					RunID:             "run-1",
+					WorkflowNamespace: "org-a",
+					StartedAt:         &startedAt,
+				},
+				"queued-a": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "queued-a",
+						OwnerNamespace: "org-b",
+						EnqueuedAt:     enqueuedAt,
+					},
+					Status: mobileDeviceSemaphoreRunQueued,
+				},
+			},
+			check: func(t *testing.T, views []MobileDeviceSemaphoreRunTicketView) {
+				require.Len(t, views, 3)
+				require.Equal(t, "running", views[0].TicketID)
+				require.Equal(t, mobileDeviceSemaphoreRunRunning, views[0].Status)
+				require.Equal(t, "org-a", views[0].OwnerNamespace)
+				require.Equal(t, "wf-1", views[0].WorkflowID)
+				require.Zero(t, views[0].Position)
+				require.Zero(t, views[0].LineLen)
+				require.NotNil(t, views[0].StartedAt)
+				require.Equal(t, startedAt, *views[0].StartedAt)
+				require.Equal(t, "queued-a", views[1].TicketID)
+				require.Equal(t, "org-b", views[1].OwnerNamespace)
+				require.Equal(t, 1, views[1].Position)
+				require.Equal(t, 2, views[1].LineLen)
+				require.Equal(t, "queued-b", views[2].TicketID)
+				require.Equal(t, "org-a", views[2].OwnerNamespace)
+				require.Equal(t, 2, views[2].Position)
+				require.Equal(t, 2, views[2].LineLen)
+			},
+		},
+		{
+			name: "terminal ticket excluded",
+			states: map[string]MobileDeviceSemaphoreRunTicketState{
+				"failed": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "failed",
+						OwnerNamespace: "org-a",
+					},
+					Status: mobileDeviceSemaphoreRunFailed,
+				},
+			},
+			check: func(t *testing.T, views []MobileDeviceSemaphoreRunTicketView) {
+				require.NotNil(t, views)
+				require.Empty(t, views)
+			},
+		},
+		{
+			name: "action author keeps run kind",
+			states: map[string]MobileDeviceSemaphoreRunTicketState{
+				"author": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "author",
+						OwnerNamespace: "org-a",
+						RunKind:        mobiledevicesemaphore.RunKindActionAuthor,
+					},
+					Status: mobileDeviceSemaphoreRunStarting,
+				},
+			},
+			check: func(t *testing.T, views []MobileDeviceSemaphoreRunTicketView) {
+				require.Len(t, views, 1)
+				require.Equal(t, mobiledevicesemaphore.RunKindActionAuthor, views[0].RunKind)
+				require.Nil(t, views[0].StartedAt)
+				require.Empty(t, views[0].RunType)
+			},
+		},
+		{
+			name:  "memo run type mapped",
+			queue: []string{"scheduled"},
+			states: map[string]MobileDeviceSemaphoreRunTicketState{
+				"scheduled": {
+					Request: MobileDeviceSemaphoreEnqueueRunRequest{
+						TicketID:       "scheduled",
+						OwnerNamespace: "org-a",
+						Memo: map[string]any{
+							pipelineinternal.RunTypeMemoKey: "scheduled",
+						},
+					},
+					Status: mobileDeviceSemaphoreRunQueued,
+				},
+			},
+			check: func(t *testing.T, views []MobileDeviceSemaphoreRunTicketView) {
+				require.Len(t, views, 1)
+				require.Equal(t, "scheduled", views[0].RunType)
+				require.Equal(t, 1, views[0].Position)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rt := newRuntimeForTests()
+			if tc.queue != nil {
+				rt.runQueue = tc.queue
+			}
+			for id, state := range tc.states {
+				rt.runTickets[id] = state
+			}
+			tc.check(t, rt.handleListRunTicketsQuery())
+		})
+	}
 }
 
 func TestApplyPayloadStateDefaults(t *testing.T) {

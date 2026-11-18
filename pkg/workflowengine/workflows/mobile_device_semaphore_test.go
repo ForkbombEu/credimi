@@ -6,6 +6,7 @@ package workflows
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -388,6 +389,100 @@ func TestMobileDeviceSemaphoreWorkflowListQueuedRuns(t *testing.T) {
 	require.Equal(t, 3, queued[1].LineLen)
 
 	require.Empty(t, drainErrors(errCh))
+}
+
+func TestMobileDeviceSemaphoreWorkflowListRunTickets(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileDeviceSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	errCh := make(chan error, 4)
+	ticketsCh := make(chan []MobileDeviceSemaphoreRunTicketView, 1)
+
+	enqueuedAt := time.Date(2026, 2, 3, 10, 0, 0, 0, time.UTC)
+	runningAt := enqueuedAt.Add(-time.Second)
+
+	for i, owner := range []string{"tenant-a", "tenant-b"} {
+		ticketID := fmt.Sprintf("ticket-%d", i+1)
+		env.RegisterDelayedCallback(func() {
+			enqueueRunUpdate(
+				env,
+				"enqueue-"+ticketID,
+				MobileDeviceSemaphoreEnqueueRunRequest{
+					TicketID:           ticketID,
+					OwnerNamespace:     owner,
+					EnqueuedAt:         enqueuedAt.Add(time.Duration(i) * time.Minute),
+					DeviceID:           "runner-1",
+					RequiredDeviceIDs:  []string{"runner-1"},
+					LeaderDeviceID:     "runner-1",
+					PipelineIdentifier: owner + "/pipeline",
+				},
+				errCh,
+			)
+		}, time.Second*time.Duration(i+1))
+	}
+
+	env.RegisterDelayedCallback(func() {
+		encoded, err := env.QueryWorkflow(MobileDeviceSemaphoreListRunTicketsQuery)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		var tickets []MobileDeviceSemaphoreRunTicketView
+		if err := encoded.Get(&tickets); err != nil {
+			errCh <- err
+			return
+		}
+		ticketsCh <- tickets
+	}, time.Second*3)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*4)
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: MobileDeviceSemaphoreWorkflowInput{
+			DeviceID: "runner-1",
+			Capacity: 1,
+			State: &MobileDeviceSemaphoreWorkflowState{
+				Capacity: 1,
+				RunTickets: map[string]MobileDeviceSemaphoreRunTicketState{
+					"ticket-running": {
+						Request: MobileDeviceSemaphoreEnqueueRunRequest{
+							TicketID:          "ticket-running",
+							OwnerNamespace:    "tenant-a",
+							EnqueuedAt:        runningAt,
+							DeviceID:          "runner-1",
+							RequiredDeviceIDs: []string{"runner-1"},
+							LeaderDeviceID:    "runner-1",
+						},
+						Status:    mobileDeviceSemaphoreRunRunning,
+						StartedAt: &runningAt,
+					},
+				},
+			},
+		},
+	})
+
+	var tickets []MobileDeviceSemaphoreRunTicketView
+	select {
+	case tickets = <-ticketsCh:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for run tickets")
+	}
+	require.Empty(t, drainErrors(errCh))
+
+	require.Len(t, tickets, 3)
+	require.Equal(t, "ticket-running", tickets[0].TicketID)
+	require.Equal(t, mobileDeviceSemaphoreRunRunning, tickets[0].Status)
+	require.Equal(t, "ticket-1", tickets[1].TicketID)
+	require.Equal(t, mobileDeviceSemaphoreRunQueued, tickets[1].Status)
+	require.Equal(t, "tenant-a", tickets[1].OwnerNamespace)
+	require.Equal(t, 1, tickets[1].Position)
+	require.Equal(t, "ticket-2", tickets[2].TicketID)
+	require.Equal(t, "tenant-b", tickets[2].OwnerNamespace)
+	require.Equal(t, 2, tickets[2].Position)
+	require.Equal(t, 2, tickets[2].LineLen)
 }
 
 func TestMobileDeviceSemaphoreWorkflowQueueLimitEnforced(t *testing.T) {

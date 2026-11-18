@@ -28,6 +28,7 @@ const (
 	EnqueueRunUpdate     = "EnqueueRun"
 	RunStatusQuery       = "GetRunStatus"
 	ListQueuedRunsQuery  = "ListQueuedRuns"
+	ListRunTicketsQuery  = "ListRunTickets"
 	RunDoneUpdate        = "RunDone"
 	CancelRunUpdate      = "CancelRun"
 	PauseDeviceUpdate    = "PauseDevice"
@@ -168,6 +169,24 @@ type MobileDeviceSemaphoreQueuedRunView struct {
 	Position           int                                   `json:"position"`
 	LineLen            int                                   `json:"line_len"`
 	Cleanup            *MobileDeviceSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
+}
+
+// MobileDeviceSemaphoreRunTicketView describes one active ticket on a device
+// semaphore. It carries no user identity.
+type MobileDeviceSemaphoreRunTicketView struct {
+	TicketID           string                         `json:"ticket_id"`
+	OwnerNamespace     string                         `json:"owner_namespace"`
+	PipelineIdentifier string                         `json:"pipeline_identifier,omitempty"`
+	RunKind            string                         `json:"run_kind,omitempty"`
+	RunType            string                         `json:"run_type,omitempty"`
+	Status             MobileDeviceSemaphoreRunStatus `json:"status"`
+	WorkflowID         string                         `json:"workflow_id,omitempty"`
+	RunID              string                         `json:"run_id,omitempty"`
+	WorkflowNamespace  string                         `json:"workflow_namespace,omitempty"`
+	EnqueuedAt         time.Time                      `json:"enqueued_at"`
+	StartedAt          *time.Time                     `json:"started_at,omitempty"`
+	Position           int                            `json:"position"`
+	LineLen            int                            `json:"line_len"`
 }
 
 type MobileDeviceSemaphoreRunDoneRequest struct {
