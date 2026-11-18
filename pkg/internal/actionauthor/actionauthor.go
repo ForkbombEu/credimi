@@ -463,10 +463,13 @@ type SaveRequest struct {
 	Candidates       map[string]string `json:"candidates,omitempty"`
 }
 
-// ProvenanceParameter records a parameter's name and source kind, never its values.
+// ProvenanceParameter records a parameter's name and source kind, never its
+// values. Source is the record path of a credential_offer or
+// use_case_verification source, already public in the hub; other kinds have none.
 type ProvenanceParameter struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
+	Name   string `json:"name"`
+	Kind   string `json:"kind"`
+	Source string `json:"source,omitempty"`
 }
 
 // Provenance identifies the exact build, spec, workflow and human approval
@@ -549,10 +552,11 @@ func provenanceSpec(provenance *Provenance, spec Spec) {
 	}
 	provenance.Parameters = make([]ProvenanceParameter, 0, len(spec.Parameters))
 	for _, parameter := range spec.Parameters {
-		provenance.Parameters = append(provenance.Parameters, ProvenanceParameter{
-			Name: parameter.Name,
-			Kind: parameter.Source.Kind,
-		})
+		recorded := ProvenanceParameter{Name: parameter.Name, Kind: parameter.Source.Kind}
+		if _, ok := sourceCollections[parameter.Source.Kind]; ok {
+			recorded.Source = canonify.NormalizePath(parameter.Source.Identifier)
+		}
+		provenance.Parameters = append(provenance.Parameters, recorded)
 	}
 }
 
