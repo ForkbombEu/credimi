@@ -102,11 +102,14 @@ const (
 		"credentials must not be stored in Temporal history"
 	parameterNameRule  = "^[A-Za-z][A-Za-z0-9_]{0,63}$"
 	actionParameterRef = `\$\{([A-Za-z][A-Za-z0-9_]{0,63})\}`
+	candidateKeyRule   = "^a[1-9][0-9]{0,2}$"
 )
 
 var (
 	parameterName   = regexp.MustCompile(parameterNameRule)
 	actionParameter = regexp.MustCompile(actionParameterRef)
+	// candidateKey is the key the runner gives each action a session writes.
+	candidateKey    = regexp.MustCompile(candidateKeyRule)
 	statusReference = regexp.MustCompile(`\$\{([^}]*)\}`)
 	// allowedHeaders are the http source request headers, lower case: the
 	// session input is stored in Temporal history, so no header may carry a
@@ -148,9 +151,12 @@ type ReplaceTarget struct {
 }
 
 // PrerequisiteSpec is a stored action that builds the starting state, with
-// values for its own parameters.
+// values for its own parameters, or an unsaved action of the same session,
+// by candidate key: its values come from that candidate's own plan. Save
+// resolves a candidate to its saved record's path and keeps the key.
 type PrerequisiteSpec struct {
-	Action     string          `json:"action"` // canonified wallet action path org/wallet/action
+	Action     string          `json:"action,omitempty"`    // canonified wallet action path org/wallet/action
+	Candidate  string          `json:"candidate,omitempty"` // candidate key a<number> of the session
 	Parameters []ParameterSpec `json:"parameters,omitempty"`
 }
 
@@ -242,19 +248,22 @@ func ParameterInfos(s Spec) []ParameterInfo {
 }
 
 // ResolvedPrerequisite is a prerequisite action the agent runs before
-// exploring and before every replay.
+// exploring and before every replay. An unsaved candidate of the session has
+// only its Candidate key: the agent runs that candidate's own code.
 type ResolvedPrerequisite struct {
 	Action     string   `json:"action"`
+	Candidate  string   `json:"candidate,omitempty"`
 	Name       string   `json:"name"`
 	Code       string   `json:"code"`
 	Parameters []string `json:"parameters"`
 }
 
 // ResolvePrerequisites checks the spec's records like CheckSpecRecords,
-// requires each prerequisite's own starting actions (its recorded
+// requires each saved prerequisite's own starting actions (its recorded
 // starts_from) before it, in the same order, and returns its prerequisite
-// actions in order, with their code. Only direct chains are checked: each
-// prerequisite's own chain was checked when it was saved.
+// actions in order, with their code; an unsaved candidate has no code yet.
+// Only direct chains are checked: each prerequisite's own chain was checked
+// when it was saved.
 func ResolvePrerequisites(
 	app core.App,
 	selection Selection,
@@ -265,6 +274,9 @@ func ResolvePrerequisites(
 		return nil, err
 	}
 	for i, record := range records {
+		if record == nil {
+			continue
+		}
 		if missing := missingStart(startsFrom(record), spec.Prerequisites[:i]); missing != "" {
 			action := spec.Prerequisites[i].Action
 			return nil, invalidf("prerequisite %s starts from %s: list it before %s",
@@ -273,8 +285,17 @@ func ResolvePrerequisites(
 	}
 	resolved := make([]ResolvedPrerequisite, 0, len(records))
 	for i, record := range records {
+		prerequisite := spec.Prerequisites[i]
+		if record == nil {
+			resolved = append(resolved, ResolvedPrerequisite{
+				Candidate:  prerequisite.Candidate,
+				Parameters: []string{},
+			})
+			continue
+		}
 		resolved = append(resolved, ResolvedPrerequisite{
-			Action:     spec.Prerequisites[i].Action,
+			Action:     prerequisite.Action,
+			Candidate:  prerequisite.Candidate,
 			Name:       record.GetString("name"),
 			Code:       record.GetString("code"),
 			Parameters: ActionParameters(record.GetString("code")),
@@ -357,9 +378,16 @@ func (s *Spec) Normalize() error {
 	case len(s.Prerequisites) > maxPrerequisites:
 		return invalidf("prerequisites: at most %d", maxPrerequisites)
 	}
+	candidates := make(map[string]bool, len(s.Prerequisites))
 	for i := range s.Prerequisites {
 		field := fmt.Sprintf("prerequisites[%d]", i)
 		prerequisite := &s.Prerequisites[i]
+		if prerequisite.Candidate != "" {
+			if err := checkCandidatePrerequisite(field, *prerequisite, candidates); err != nil {
+				return err
+			}
+			continue
+		}
 		prerequisite.Action = canonify.NormalizePath(prerequisite.Action)
 		if prerequisite.Action == "" {
 			return invalidf("%s.action: required", field)
@@ -375,6 +403,33 @@ func (s *Spec) Normalize() error {
 		}
 	}
 	return validateParameters("parameters", s.Parameters, s.Outcome)
+}
+
+// checkCandidatePrerequisite validates a prerequisite naming an unsaved
+// action of the session; seen collects the keys of the earlier ones.
+func checkCandidatePrerequisite(
+	field string,
+	prerequisite PrerequisiteSpec,
+	seen map[string]bool,
+) error {
+	key := prerequisite.Candidate
+	switch {
+	case !candidateKey.MatchString(key):
+		return invalidf("%s.candidate: must match a<number>", field)
+	case prerequisite.Action != "":
+		return invalidf("%s: give action or candidate, not both", field)
+	case len(prerequisite.Parameters) > 0:
+		return invalidf("%s.parameters: a candidate's parameters come from its own plan", field)
+	case seen[key]:
+		return invalidf("%s.candidate: duplicate %s", field, key)
+	}
+	seen[key] = true
+	return nil
+}
+
+// IsCandidateKey reports whether key is a candidate key (a<number>).
+func IsCandidateKey(key string) bool {
+	return candidateKey.MatchString(key)
 }
 
 // validateParameters checks one parameter list; outcome is empty for
@@ -640,9 +695,11 @@ func checkStoreSlot(slot string, selection Selection) error {
 }
 
 // CheckSpecRecords checks that every record the spec names is accessible to
-// the selected organization, and returns the prerequisite actions in order.
-// Prerequisites must be actions of the selected wallet and receive exactly
-// the parameters their code references.
+// the selected organization, and returns the prerequisite actions in order,
+// nil for an unsaved candidate. Prerequisites must be actions of the
+// selected wallet and receive exactly the parameters their code references;
+// a resolved candidate's parameters were checked against its own plan when
+// it was saved.
 func CheckSpecRecords(app core.App, selection Selection, spec *Spec) ([]*core.Record, error) {
 	if err := checkStoreSlot(spec.Slot, selection); err != nil {
 		return nil, err
@@ -650,6 +707,10 @@ func CheckSpecRecords(app core.App, selection Selection, spec *Spec) ([]*core.Re
 	orgID := selection.Organization.Id
 	prerequisites := make([]*core.Record, 0, len(spec.Prerequisites))
 	for _, prerequisite := range spec.Prerequisites {
+		if prerequisite.Candidate != "" && prerequisite.Action == "" {
+			prerequisites = append(prerequisites, nil)
+			continue
+		}
 		record, err := CheckRecordAccess(app, "wallet_actions", prerequisite.Action, orgID)
 		if err != nil {
 			return nil, err
@@ -657,16 +718,10 @@ func CheckSpecRecords(app core.App, selection Selection, spec *Spec) ([]*core.Re
 		if record.GetString("wallet") != selection.Wallet.Id {
 			return nil, invalidf("prerequisite %s belongs to another wallet", prerequisite.Action)
 		}
-		needed := ActionParameters(record.GetString("code"))
-		given := ParameterNames(prerequisite.Parameters)
-		sort.Strings(given)
-		if strings.Join(needed, "\x00") != strings.Join(given, "\x00") {
-			return nil, invalidf(
-				"prerequisite %s needs parameters %v, got %v",
-				prerequisite.Action,
-				needed,
-				given,
-			)
+		if prerequisite.Candidate == "" {
+			if err := checkPrerequisiteParameters(record, prerequisite); err != nil {
+				return nil, err
+			}
 		}
 		if err := checkSourceRecords(app, prerequisite.Parameters, orgID); err != nil {
 			return nil, err
@@ -677,6 +732,23 @@ func CheckSpecRecords(app core.App, selection Selection, spec *Spec) ([]*core.Re
 		return nil, err
 	}
 	return prerequisites, nil
+}
+
+// checkPrerequisiteParameters requires a saved prerequisite to receive
+// exactly the parameters its code references.
+func checkPrerequisiteParameters(record *core.Record, prerequisite PrerequisiteSpec) error {
+	needed := ActionParameters(record.GetString("code"))
+	given := ParameterNames(prerequisite.Parameters)
+	sort.Strings(given)
+	if strings.Join(needed, "\x00") != strings.Join(given, "\x00") {
+		return invalidf(
+			"prerequisite %s needs parameters %v, got %v",
+			prerequisite.Action,
+			needed,
+			given,
+		)
+	}
+	return nil
 }
 
 // CheckReplaceTarget checks the action the spec replaces, if any, and returns

@@ -12,7 +12,7 @@ starts each session from a wallet card on `/my/wallets`, on a device of a runner
 organization or of another organization's published runner that offers the agent; the agent
 itself runs on that runner (`credimi-runner/agent`). This service shows only the harness chat,
 the session flow, the timeline and the other harness panes. The session page itself shows the
-save review, the idle warning and the Android live view.
+review of the written actions, the idle warning and the Android live view.
 
 ## Run
 
@@ -56,8 +56,8 @@ The harness routes run unchanged, on the request's namespace, except:
 - `GET /` serves the packaged chat page in its light theme (`data-theme="light"`; the harness
   ships it dark) with `./action-embed.css` (relative, since the page sits
   under Credimi's sub-path), which hides the harness **New session** and **Start a new session**
-  buttons, its sessions drawer and its `confirm_wallet_action_save` callback card: Credimi starts
-  and lists sessions and shows the save review on its session page. The page also loads
+  buttons, its sessions drawer and its `review_wallet_actions` callback card: Credimi starts
+  and lists sessions and shows the review of the actions on its session page. The page also loads
   `./action-embed.js`, which lets the harness replay a closed chat: the harness never attaches
   to a chat that `/api/sessions` or `/api/workflow-status/{id}` report closed, so until the
   page's first `/api/attach` stream ends the script reports a closed chat open, hides the
@@ -66,13 +66,15 @@ The harness routes run unchanged, on the request's namespace, except:
 - `GET /api/agents` lists the agent on the chat's own task queue (`<runner_id>-ActionAuthor`)
   with whether a worker polls it.
 - `GET /api/sessions` lists only the scoped chat: running, closed, or none before it starts.
-- `GET /api/attach` and `POST /api/chat` are the harness's own: once the chat has ended, the
+- `GET /api/attach` is the harness's own: once the chat has ended, the
   workflow stream client reads its events through the workflow stream poll query
   (`__temporal_workflow_stream_poll`, temporalio 1.35+), which the runner agent answers on the
   closed run. Credimi embeds the UI for a closed chat only when that query answers
   (`GET /api/action-author/sessions/{id}/replay`), and shows the chat's transcript from its
   Temporal history otherwise.
-- `POST /api/chat` and `POST /api/messages` answer `409 session_closed` once the chat has ended.
+- `POST /api/messages` answers `409 session_closed` once the chat has ended.
+- `POST /api/chat` answers `403 chat_stream_disabled`: the harness cuts its stream after 300 s,
+  so the UI sends with `POST /api/messages` and follows `GET /api/attach`.
 - `POST /api/sessions` answers `403 authenticated_start_required` and every
   `/api/callback-result` request `403 review_through_credimi`: Credimi signs save approvals
   through `POST /api/action-author/reviews`, so the harness route cannot settle a review.

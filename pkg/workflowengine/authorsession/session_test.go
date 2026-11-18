@@ -362,10 +362,35 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 		Platform:                actionauthor.PlatformAndroid,
 	}, request)
 
-	h.requireReleasedAfter("", "success")
-	require.NotContains(t, h.names(), ReleaseDeviceActivityName)
+	release, ok := h.call(ReleaseDeviceActivityName)
+	require.True(t, ok, "%v", h.names())
+	require.Equal(t, testRunnerID+"-ActionAuthor", release.taskQueue)
+	require.Equal(t, map[string]any{"platform": "android", "template": "emulator-5554"},
+		release.payload)
+	h.requireReleasedAfter(ReleaseDeviceActivityName, "success")
 	cleanupCall, _ := h.call(activities.NewCleanupDeviceActivity().Name())
 	require.Equal(t, testRunnerID+"-TaskQueue", cleanupCall.taskQueue)
+}
+
+func TestSessionReleaseFailureOnAndroidStillCleansAndReleases(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.releaseErr = temporal.NewTimeoutError(enumspb.TIMEOUT_TYPE_SCHEDULE_TO_START, nil)
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
+
+	require.Contains(t, h.names(), ReleaseDeviceActivityName)
+	h.requireReleasedAfter(ReleaseDeviceActivityName, "success")
+}
+
+func TestSessionBeforeAndroidReleaseChangeSkipsAndroidRelease(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.env.OnGetVersion(androidReleaseChange, workflow.DefaultVersion, 1).
+		Return(workflow.DefaultVersion)
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
+
+	require.NotContains(t, h.names(), ReleaseDeviceActivityName)
+	h.requireReleasedAfter("", "success")
 }
 
 const (

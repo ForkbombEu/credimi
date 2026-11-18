@@ -56,6 +56,12 @@ func TestPlanSHA256(t *testing.T) {
 	longer := wait
 	longer.WaitSeconds = 240
 	assert.NotEqual(t, PlanSHA256(wait), PlanSHA256(longer))
+
+	candidate := Spec{Slot: "other", Prerequisites: []PrerequisiteSpec{{Candidate: "a1"}}}
+	resolved := Spec{Slot: "other", Prerequisites: []PrerequisiteSpec{
+		{Action: "tenant/wallet/onboarding", Candidate: "a1"},
+	}}
+	assert.NotEqual(t, PlanSHA256(candidate), PlanSHA256(resolved))
 }
 
 func TestParameterInfosAndPlanSummary(t *testing.T) {
@@ -118,6 +124,16 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 		"Outcome: success",
 		"Starts from: the wallet is not installed",
 	}, PlanSummary(Spec{Slot: "install-app", Outcome: OutcomeSuccess}, nil, nil))
+
+	assert.Equal(t, []string{
+		"Category: other",
+		"Outcome: success",
+		"Starts from: Onboarding (tenant/wallet/onboarding)",
+		"Starts from: candidate a2",
+	}, PlanSummary(Spec{Slot: "other", Outcome: OutcomeSuccess}, []ResolvedPrerequisite{
+		{Action: "tenant/wallet/onboarding", Name: "Onboarding"},
+		{Candidate: "a2"},
+	}, nil))
 }
 
 func TestPlanSummaryDescribesSourcesInFull(t *testing.T) {

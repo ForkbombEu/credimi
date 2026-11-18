@@ -94,7 +94,6 @@ var chatRoutes = map[string]bool{
 // harness's /api/approve is not among them: no agent tool needs approval.
 var bodyRoutes = map[string]bool{
 	"messages": true,
-	"chat":     true,
 }
 
 // classify decides how a request for the path segments below the session is
@@ -332,13 +331,13 @@ func trustedSession(
 	return ref, nil
 }
 
-// streams reports the routes that stream a turn for as long as it runs.
+// streams reports whether the route streams a turn for as long as it runs:
+// only GET /api/attach does.
 func streams(method string, segments []string) bool {
 	if len(segments) != 2 || segments[0] != "api" {
 		return false
 	}
-	return method == http.MethodGet && segments[1] == "attach" ||
-		method == http.MethodPost && segments[1] == "chat"
+	return method == http.MethodGet && segments[1] == "attach"
 }
 
 // requireBodySession buffers the JSON body and refuses it unless its
@@ -418,7 +417,7 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 			pr.Out.Header.Set(ChatHeader, scope.chat)
 			pr.Out.Header.Set(TokenHeader, scope.token)
 		},
-		// Stream server-sent events (/api/attach, /api/chat) as they arrive.
+		// Stream server-sent events (/api/attach) as they arrive.
 		FlushInterval: -1,
 	}
 }

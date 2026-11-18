@@ -77,7 +77,7 @@ func TestClassify(t *testing.T) {
 		{http.MethodPost, "api/sessions/" + chat + "/close", nil, routeProxy},
 		{http.MethodPost, "api/sessions/" + otherChat + "/close", nil, routeForbidden},
 		{http.MethodPost, "api/messages", nil, routeBody},
-		{http.MethodPost, "api/chat", nil, routeBody},
+		{http.MethodPost, "api/chat", nil, routeForbidden},
 		{http.MethodPost, "api/approve", nil, routeForbidden},
 		{http.MethodGet, "api/messages", nil, routeForbidden},
 		{http.MethodPost, "api/callback-result", nil, routeForbidden},

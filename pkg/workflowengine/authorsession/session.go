@@ -32,8 +32,9 @@ const (
 	AuthorWorkflowType = activities.ActionAuthorWorkflowType
 	// AuthorTaskQueueSuffix follows the runner ID in the Python agent's task queue.
 	AuthorTaskQueueSuffix = "-ActionAuthor"
-	// ReleaseDeviceActivityName is the Python agent's activity that deletes
-	// the session's iOS simulator clones.
+	// ReleaseDeviceActivityName is the Python agent's activity that frees the
+	// session's device: it deletes the iOS simulator clones, or stops the
+	// Android device's Maestro process.
 	ReleaseDeviceActivityName = "action_author.release_device"
 	// StepID labels the prepared device in errors and run data.
 	StepID = "action-author"
@@ -57,6 +58,9 @@ const (
 	authorReadySignal = "action_author_ready"
 	// agentReadyTimeout bounds the wait for authorReadySignal.
 	agentReadyTimeout = 3 * time.Minute
+	// androidReleaseChange gates the release_device activity for Android
+	// sessions, which earlier histories do not schedule.
+	androidReleaseChange = "credimi-2026-11-action-author-android-release"
 )
 
 // SessionInput selects the device and build of a session.
@@ -392,26 +396,45 @@ type releaseSessionDeviceInput struct {
 	result    string
 }
 
-// releaseSessionDevice deletes the agent's iOS clones, runs the pipeline
-// cleanup and releases the semaphore ticket, in that order, even when the
-// session was canceled. Failures are logged and never fail the session.
+// releaseSessionDevice has the agent free the device (on iOS it deletes the
+// session's clones, on Android it stops the device's Maestro process), runs
+// the pipeline cleanup and releases the semaphore ticket, in that order, even
+// when the session was canceled. Failures are logged and never fail the session.
 func releaseSessionDevice(input releaseSessionDeviceInput) {
 	dctx, _ := workflow.NewDisconnectedContext(input.ctx)
 
 	// The agent's own teardown does not run when it is terminated, so the
-	// session deletes its clones. A device that was never prepared has none.
-	// A missing agent worker times out instead of blocking cleanup and RunDone.
-	if input.prepared.Type == deviceTypeIOSSimulator && input.prepared.RunnerID != "" {
-		releaseCtx := workflow.WithActivityOptions(
+	// session asks it to free the device. A device that was never prepared
+	// holds nothing. A missing agent worker times out instead of blocking
+	// cleanup and RunDone.
+	if input.prepared.RunnerID != "" {
+		var release map[string]any
+		if input.prepared.Type == deviceTypeIOSSimulator {
+			release = map[string]any{
+				"platform": actionauthor.PlatformIOS,
+				"template": input.prepared.Serial,
+			}
+		} else if workflow.GetVersion(
 			dctx,
-			releaseDeviceOptions(input.prepared.RunnerID),
-		)
-		if err := workflow.ExecuteActivity(
-			releaseCtx,
-			ReleaseDeviceActivityName,
-			map[string]any{"platform": actionauthor.PlatformIOS, "template": input.prepared.Serial},
-		).Get(releaseCtx, nil); err != nil {
-			input.logger.Error("failed to release action author simulator clones", "error", err)
+			androidReleaseChange,
+			workflow.DefaultVersion,
+			1,
+		) == 1 {
+			release = map[string]any{
+				"platform": actionauthor.PlatformAndroid,
+				"template": input.prepared.Serial,
+			}
+		}
+		if release != nil {
+			releaseCtx := workflow.WithActivityOptions(
+				dctx,
+				releaseDeviceOptions(input.prepared.RunnerID),
+			)
+			err := workflow.ExecuteActivity(releaseCtx, ReleaseDeviceActivityName, release).
+				Get(releaseCtx, nil)
+			if err != nil {
+				input.logger.Error("failed to release action author device", "error", err)
+			}
 		}
 	}
 

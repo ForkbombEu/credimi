@@ -176,6 +176,19 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "the session has no prerequisite 1")
 
+	withCandidate := spec
+	withCandidate.Prerequisites = append(
+		append([]actionauthor.PrerequisiteSpec{}, spec.Prerequisites...),
+		actionauthor.PrerequisiteSpec{Candidate: "a1"},
+	)
+	_, err = generate(withCandidate, ParameterScopePrerequisite, 1)
+	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
+	require.ErrorContains(
+		t,
+		err,
+		"prerequisite 1 is a session candidate: generate its values with its own plan",
+	)
+
 	broken := spec
 	broken.Parameters = []actionauthor.ParameterSpec{{Name: "deeplink", Source: httpSource}}
 	broken.Parameters[0].Source.Request = &actionauthor.HTTPSourceRequest{

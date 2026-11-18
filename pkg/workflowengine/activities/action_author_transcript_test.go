@@ -142,8 +142,17 @@ func TestParseActionAuthorTranscript(t *testing.T) {
 	}))
 	h.update(actionAuthorCallbackUpdate, h.payloads(map[string]any{
 		"tool_id": "save-review-1",
-		"result":  map[string]any{"accepted": true, "approval": "signed"},
-		"error":   nil,
+		"result": map[string]any{"decisions": []any{
+			map[string]any{
+				"key":      "a1",
+				"name":     "Onboarding",
+				"decision": "accept",
+				"approval": "signed",
+			},
+			map[string]any{"key": "a2", "decision": "change", "comment": "name it E2E"},
+			map[string]any{"key": "a3", "name": "Get PID", "decision": "refuse"},
+		}},
+		"error": nil,
 	}))
 	h.activity(
 		SaveAuthoredWalletActionActivityName,
@@ -168,7 +177,6 @@ func TestParseActionAuthorTranscript(t *testing.T) {
 
 	entries, err := ParseActionAuthorTranscript(h.iterator())
 	require.NoError(t, err)
-	accepted := true
 	require.Equal(t, []TranscriptEntry{
 		{Kind: TranscriptUser, Time: transcriptTime(1), Text: "Write the onboarding"},
 		{Kind: TranscriptAssistant, Time: transcriptTime(4), Text: "Let me look at the screen."},
@@ -180,7 +188,15 @@ func TestParseActionAuthorTranscript(t *testing.T) {
 		},
 		{Kind: TranscriptUnavailable, Time: transcriptTime(6)},
 		{Kind: TranscriptUnavailable, Time: transcriptTime(7)},
-		{Kind: TranscriptReview, Time: transcriptTime(9), Accepted: &accepted},
+		{Kind: TranscriptReview, Time: transcriptTime(9), Name: "Onboarding", Decision: "accept"},
+		{
+			Kind:     TranscriptReview,
+			Time:     transcriptTime(9),
+			Name:     "a2",
+			Decision: "change",
+			Comment:  "name it E2E",
+		},
+		{Kind: TranscriptReview, Time: transcriptTime(9), Name: "Get PID", Decision: "refuse"},
 		{
 			Kind:     TranscriptSaved,
 			Time:     transcriptTime(11),
@@ -203,6 +219,30 @@ func TestParseActionAuthorTranscriptCapsEntries(t *testing.T) {
 	require.Len(t, entries, TranscriptMaxEntries+1)
 	require.Equal(t, TranscriptUser, entries[TranscriptMaxEntries-1].Kind)
 	require.Equal(t, TranscriptUnavailable, entries[TranscriptMaxEntries].Kind)
+}
+
+func TestParseActionAuthorTranscriptReadsTheOldSaveReview(t *testing.T) {
+	setFCAFTestEnv(t)
+	h := &chatHistory{t: t}
+	for _, result := range []map[string]any{
+		{"accepted": true, "approval": "signed"},
+		{"accepted": false},
+		{},
+	} {
+		h.update(actionAuthorCallbackUpdate, h.payloads(map[string]any{
+			"tool_id": "save-review-1",
+			"result":  result,
+			"error":   nil,
+		}))
+	}
+	entries, err := ParseActionAuthorTranscript(h.iterator())
+	require.NoError(t, err)
+	require.Len(t, entries, 3)
+	require.Equal(t, TranscriptEntry{Kind: TranscriptReview, Time: entries[0].Time,
+		Decision: "accept"}, entries[0])
+	require.Equal(t, TranscriptEntry{Kind: TranscriptReview, Time: entries[1].Time,
+		Decision: "refuse"}, entries[1])
+	require.Equal(t, TranscriptUnavailable, entries[2].Kind)
 }
 
 func TestTranscriptArguments(t *testing.T) {

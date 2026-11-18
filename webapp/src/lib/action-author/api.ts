@@ -36,20 +36,31 @@ export type BuildOption = {
 	source: string;
 };
 
-/** The save candidate waiting for the user's decision. */
-export type PendingReview = {
-	tool_id: string;
+/** An action of the pending review, ordered by its candidate key. */
+export type ReviewAction = {
+	/** Candidate key of the action in its session: a1, a2, … */
+	key: string;
 	name: string;
 	build: string;
 	code: string;
 	candidate_sha256: string;
 	plan: Record<string, unknown> | null;
-	/** Path of the action the candidate replaces in place, empty when none. */
+	/** Path of the action this one replaces in place, empty when none. */
 	replaces: string;
-	/** Why the previous save of this candidate failed, empty when none. */
+	/** Why the previous Accept of this action did not save, empty when none. */
 	error: string;
+	/** Candidate keys among the prerequisites of the action's plan. */
+	starts_from: string[];
+	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
+	starts_from_names: Record<string, string>;
 	/** Pipelines of the caller's organization or published that use the replaced action. */
 	used_by: number;
+};
+
+/** The review waiting for the user's decisions, one action per tab. */
+export type PendingReview = {
+	tool_id: string;
+	actions: ReviewAction[];
 };
 
 /** An authoring session and its state (GET /api/action-author/sessions/{id}). */
@@ -94,7 +105,10 @@ export type TranscriptEntry = {
 	tool?: string;
 	/** Pretty JSON arguments of a tool call, cut at 4000 characters. */
 	arguments?: string;
-	accepted?: boolean;
+	/** The user's decision on an action, for a review entry. */
+	decision?: Decision;
+	/** What the user asked to change, for a change decision. */
+	comment?: string;
 	name?: string;
 	code?: string;
 	replaced?: boolean;
@@ -104,12 +118,29 @@ export type StartedSession = { session_id: string; ticket_id: string; device_id:
 
 export type ApiFailure = { status: number; reason: string; message: string };
 
-export type ReviewDecision = {
+export type Decision = 'accept' | 'refuse' | 'change';
+
+/** The user's decision on one action of a review. */
+export type ReviewDecisionItem = {
+	key: string;
+	name: string;
+	candidate_sha256: string;
+	decision: Decision;
+	/** What to change, only for a change decision. */
+	comment: string;
+	plan: Record<string, unknown> | null;
+};
+
+/** POST /api/action-author/reviews: the decisions on every action of a review. */
+export type ReviewRequest = {
 	author_workflow_id: string;
 	tool_id: string;
-	candidate_sha256: string;
-	plan: Record<string, unknown> | null;
-	accepted: boolean;
+	decisions: ReviewDecisionItem[];
+};
+
+export type ReviewResponse = {
+	tool_id: string;
+	decisions: { key: string; decision: Decision }[];
 };
 
 //
@@ -232,11 +263,6 @@ export function endOnExit(sessionId: string, deviceId: string, queued: boolean):
 	).catch(() => {});
 }
 
-export function reviewCandidate(
-	decision: ReviewDecision
-): Promise<Result<{ accepted: boolean; tool_id: string }, ApiFailure>> {
-	return call<{ accepted: boolean; tool_id: string }>('/reviews', {
-		method: 'POST',
-		body: decision
-	});
+export function sendReview(request: ReviewRequest): Promise<Result<ReviewResponse, ApiFailure>> {
+	return call<ReviewResponse>('/reviews', { method: 'POST', body: request });
 }

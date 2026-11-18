@@ -296,6 +296,7 @@ func acceptedRequest(request BuildRequest, digest string) SaveRequest {
 		PackageID:       "eu.europa.ec.euidi",
 		ReplayCount:     1,
 		Spec:            Spec{Slot: "onboarding", Outcome: OutcomeSuccess},
+		BatchKey:        "a1",
 	}
 }
 
@@ -346,6 +347,123 @@ func TestAuthoringSaveWithoutReplacesIsUnpublishedIdempotentAndCreates(t *testin
 	assert.ErrorContains(t, err, "selected installer changed")
 }
 
+func TestAuthoringSaveResolvesCandidatePrerequisites(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	first := acceptedRequest(request, build.InstallerSHA256)
+	first.Name = "Batch onboarding"
+	saved, err := Save(app, namespace, "workflow", "run", first, testApproval)
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", saved.RecordID)
+	require.NoError(t, err)
+	path, err := canonify.BuildPath(app, record, canonify.CanonifyPaths["wallet_actions"],
+		record.GetString("canonified_name"))
+	require.NoError(t, err)
+	assert.Equal(t, "a1", saved.Provenance.BatchKey)
+
+	dependent := func(key string, candidates map[string]string) SaveRequest {
+		in := acceptedRequest(request, build.InstallerSHA256)
+		in.Name = "Batch other"
+		in.BatchKey = "a2"
+		in.Spec = Spec{
+			Slot:          "other",
+			Outcome:       OutcomeSuccess,
+			Prerequisites: []PrerequisiteSpec{{Candidate: key}},
+		}
+		in.Candidates = candidates
+		return in
+	}
+	in := dependent("a1", map[string]string{"a1": saved.RecordID})
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	assert.True(t, receipt.Created)
+	assert.Equal(t, []string{path}, receipt.Provenance.Prerequisites)
+	assert.Equal(t, "a2", receipt.Provenance.BatchKey)
+	retried, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	assert.False(t, retried.Created)
+	assert.Equal(t, receipt.RecordID, retried.RecordID)
+
+	// The session saves each key as one record only.
+	duplicate := in
+	duplicate.Name = "Batch duplicate"
+	_, err = Save(app, namespace, "workflow", "run", duplicate, testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "action a2 of this session is already saved")
+
+	// Another wallet's action with the same session provenance.
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", selection.Organization.Id)
+	wallet.Set("name", "Another authoring wallet")
+	require.NoError(t, app.Save(wallet))
+	foreign, _ := seedWalletAction(t, app, selection.Organization.Id, wallet,
+		"Foreign onboarding", "onboarding", first.Code, false)
+	foreign.Set("authoring_provenance", Provenance{WorkflowID: "workflow", BatchKey: "a1"})
+	require.NoError(t, app.Save(foreign))
+	// Another organization's action with the same session provenance.
+	otherOrg, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
+	require.NoError(t, err)
+	stranger, _ := seedWalletAction(t, app, otherOrg.Id, selection.Wallet,
+		"Stranger onboarding", "onboarding", first.Code, false)
+	stranger.Set("authoring_provenance", Provenance{WorkflowID: "workflow", BatchKey: "a1"})
+	require.NoError(t, app.Save(stranger))
+
+	for name, tc := range map[string]struct {
+		in         SaveRequest
+		workflowID string
+		err        error
+		message    string
+	}{
+		"missing record id": {
+			in: dependent("a1", nil), workflowID: "workflow", err: ErrInvalid,
+			message: "prerequisite a1 is not saved yet: save it first",
+		},
+		"unknown record": {
+			in:         dependent("a1", map[string]string{"a1": "missing0000000"}),
+			workflowID: "workflow", err: ErrInvalid,
+			message: "prerequisite a1 is not saved yet: save it first",
+		},
+		"another session": {
+			in:         dependent("a1", map[string]string{"a1": saved.RecordID}),
+			workflowID: "another-workflow", err: ErrForbidden,
+			message: "prerequisite a1 was not saved by this session",
+		},
+		"another batch key": {
+			in:         dependent("a3", map[string]string{"a3": saved.RecordID}),
+			workflowID: "workflow", err: ErrForbidden,
+			message: "prerequisite a3 was not saved by this session",
+		},
+		"another wallet": {
+			in:         dependent("a1", map[string]string{"a1": foreign.Id}),
+			workflowID: "workflow", err: ErrForbidden,
+			message: "prerequisite a1 was not saved by this session",
+		},
+		"another organization": {
+			in:         dependent("a1", map[string]string{"a1": stranger.Id}),
+			workflowID: "workflow", err: ErrInvalid,
+			message: "prerequisite a1 is not saved yet: save it first",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			tc.in.Name = "Batch " + name
+			_, err := Save(app, namespace, tc.workflowID, "run", tc.in, testApproval)
+			require.ErrorIs(t, err, tc.err)
+			assert.ErrorContains(t, err, tc.message)
+		})
+	}
+
+	missingKey := acceptedRequest(request, build.InstallerSHA256)
+	missingKey.BatchKey = ""
+	_, err = Save(app, namespace, "workflow", "run", missingKey, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "batch_key must match a<number>")
+}
+
 func TestAuthoringSaveReplacesInPlace(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
 	build, err := Resolve(app, namespace, request)
@@ -356,7 +474,7 @@ func TestAuthoringSaveReplacesInPlace(t *testing.T) {
 	target, path := seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
 		"Existing onboarding", "onboarding", oldCode, true)
 	canonified := target.GetString("canonified_name")
-	seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
+	_, otherPath := seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
 		"Other onboarding", "onboarding", oldCode, false)
 	in := acceptedRequest(request, build.InstallerSHA256)
 	in.Name = "Existing onboarding"
@@ -418,6 +536,19 @@ func TestAuthoringSaveReplacesInPlace(t *testing.T) {
 		replacing(CodeSHA256(oldCode)), testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 	assert.ErrorContains(t, err, "changed since the plan was checked")
+
+	// A key the session already saved as a new action cannot replace another
+	// action.
+	created := in
+	created.Name = "Keyed onboarding"
+	_, err = Save(app, namespace, "keyed-workflow", "keyed-run", created, testApproval)
+	require.NoError(t, err)
+	keyed := in
+	keyed.Name = "Other onboarding"
+	keyed.Spec.Replaces = &ReplaceSpec{Action: otherPath, CodeSHA256: CodeSHA256(oldCode)}
+	_, err = Save(app, namespace, "keyed-workflow", "keyed-run", keyed, testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "action a1 of this session is already saved")
 }
 
 func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {

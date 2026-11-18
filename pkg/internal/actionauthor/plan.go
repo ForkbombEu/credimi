@@ -43,6 +43,10 @@ func PlanSummary(
 		lines = append(lines, "Starts from: a freshly installed app")
 	}
 	for i, prerequisite := range prerequisites {
+		if prerequisite.Action == "" {
+			lines = append(lines, "Starts from: candidate "+prerequisite.Candidate)
+			continue
+		}
 		lines = append(
 			lines,
 			"Starts from: "+prerequisite.Name+" ("+prerequisite.Action+")",

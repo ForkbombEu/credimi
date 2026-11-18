@@ -6,11 +6,13 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
@@ -295,19 +298,48 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			{"tool_id": "other", "tool_name": "ask_user", "tool_input": map[string]any{}},
 			{
 				"tool_id":   "tool-1",
-				"tool_name": "confirm_wallet_action_save",
+				"tool_name": "review_wallet_actions",
 				"tool_input": map[string]any{
-					"name":             "install",
-					"build":            authoringAndroidVersion,
-					"code":             "appId: eu.wallet",
-					"candidate_sha256": "abc",
-					"plan":             map[string]any{"slot": "install-app"},
-					"replaces":         "usera-s-organization/authoring-handler-wallet/install",
-					"error":            "save failed: try again",
+					"author_workflow_id": authoringSessionChat,
+					"actions": []any{
+						map[string]any{
+							"key":              "a1",
+							"name":             "install",
+							"build":            authoringAndroidVersion,
+							"code":             "appId: eu.wallet",
+							"candidate_sha256": "abc",
+							"plan":             map[string]any{"slot": "install-app"},
+							"replaces":         "usera-s-organization/authoring-handler-wallet/install",
+							"error":            "save failed: try again",
+							// The agent's starts_from is ignored: the plan says it.
+							"starts_from": []any{"a7"},
+						},
+						map[string]any{"key": "a9", "name": "no code"},
+						map[string]any{
+							"key":              "a2",
+							"name":             "onboarding",
+							"build":            authoringAndroidVersion,
+							"code":             "appId: eu.wallet\n---\n- launchApp\n",
+							"candidate_sha256": "def",
+							"plan": map[string]any{
+								"slot": "onboarding",
+								"prerequisites": []any{
+									map[string]any{"candidate": "a1"},
+									map[string]any{"candidate": "a3"},
+									map[string]any{"candidate": "a4"},
+									map[string]any{"candidate": "a5"},
+								},
+							},
+							"replaces":    "",
+							"error":       "",
+							"starts_from": []any{},
+						},
+					},
 				},
 			},
 		}}}, nil)
 	var response ActionAuthorSessionResponse
+	var orgLookups atomic.Int32
 	(&tests.ApiScenario{
 		Name:           "running session",
 		Method:         http.MethodGet,
@@ -337,12 +369,29 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			seedUsedByPipeline(t, app, "userA's organization", "Own other", "acme/x/y", false)
 			seedUsedByPipeline(t, app, "userB's organization", "Published user", replaced, true)
 			seedUsedByPipeline(t, app, "userB's organization", "Private user", replaced, false)
+			// a3 was saved by this chat; a4 only by another chat, a5 by another organization.
+			seedSessionAction(t, app, "userA's organization", "Saved start", authoringSessionChat, "a3")
+			seedSessionAction(t, app, "userA's organization", "Other chat", "another-chat", "a4")
+			seedSessionAction(t, app, "userB's organization", "Foreign", authoringSessionChat, "a5")
 			return app
+		},
+		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+			db, ok := app.ConcurrentDB().(*dbx.DB)
+			require.True(t, ok)
+			db.QueryLogFunc = func(_ context.Context, _ time.Duration, query string, _ *sql.Rows, _ error) {
+				if strings.Contains(query, "FROM `orgAuthorizations`") {
+					orgLookups.Add(1)
+				}
+			}
 		},
 		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
 			decodeBody(t, res, &response)
 		},
 	}).Test(t)
+
+	// The access check and the pending review each resolve the caller's
+	// organization once, however many actions the review has.
+	require.Equal(t, int32(2), orgLookups.Load())
 
 	// The session and its chat are read in the runner namespace it runs in.
 	require.Equal(
@@ -368,15 +417,45 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		ChatRunning:             true,
 		ClosesAt:                "2026-01-02T04:00:00Z",
 		PendingReview: &ActionAuthorPendingReview{
-			ToolID:          "tool-1",
-			Name:            "install",
-			Build:           authoringAndroidVersion,
-			Code:            "appId: eu.wallet",
-			CandidateSHA256: "abc",
-			Plan:            map[string]any{"slot": "install-app"},
-			Replaces:        "usera-s-organization/authoring-handler-wallet/install",
-			Error:           "save failed: try again",
-			UsedBy:          2,
+			ToolID: "tool-1",
+			Actions: []ActionAuthorReviewAction{
+				{
+					Key:             "a1",
+					Name:            "install",
+					Build:           authoringAndroidVersion,
+					Code:            "appId: eu.wallet",
+					CandidateSHA256: "abc",
+					Plan:            map[string]any{"slot": "install-app"},
+					Replaces:        "usera-s-organization/authoring-handler-wallet/install",
+					Error:           "save failed: try again",
+					StartsFrom:      []string{},
+					StartsFromNames: map[string]string{},
+					UsedBy:          2,
+				},
+				{
+					Key:             "a2",
+					Name:            "onboarding",
+					Build:           authoringAndroidVersion,
+					Code:            "appId: eu.wallet\n---\n- launchApp\n",
+					CandidateSHA256: "def",
+					Plan: map[string]any{
+						"slot": "onboarding",
+						"prerequisites": []any{
+							map[string]any{"candidate": "a1"},
+							map[string]any{"candidate": "a3"},
+							map[string]any{"candidate": "a4"},
+							map[string]any{"candidate": "a5"},
+						},
+					},
+					StartsFrom: []string{"a1", "a3", "a4", "a5"},
+					StartsFromNames: map[string]string{
+						"a1": "install",
+						"a3": "Saved start",
+						"a4": "a4",
+						"a5": "a5",
+					},
+				},
+			},
 		},
 	}, response)
 }
@@ -401,6 +480,37 @@ func seedUsedByPipeline(
 		"    with:\n      action_id: "+action+"\n")
 	record.Set("published", published)
 	require.NoError(t, app.Save(record))
+}
+
+// seedSessionAction adds an action of the organization that the chat
+// workflowID saved as key.
+func seedSessionAction(
+	t testing.TB,
+	app *tests.TestApp,
+	organization, name, workflowID, key string,
+) {
+	t.Helper()
+	org, err := app.FindFirstRecordByData("organizations", "name", organization)
+	require.NoError(t, err)
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", org.Id)
+	wallet.Set("name", name+" wallet")
+	require.NoError(t, app.Save(wallet))
+	actions, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	action := core.NewRecord(actions)
+	action.Set("owner", org.Id)
+	action.Set("wallet", wallet.Id)
+	action.Set("name", name)
+	action.Set("code", "appId: eu.wallet\n---\n- launchApp\n")
+	action.Set("category", "onboarding")
+	action.Set("authoring_provenance", actionauthor.Provenance{
+		WorkflowID: workflowID,
+		BatchKey:   key,
+	})
+	require.NoError(t, app.Save(action))
 }
 
 // A completed chat is still shown, of a running session that releases its

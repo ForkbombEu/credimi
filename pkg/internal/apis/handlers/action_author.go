@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -99,7 +100,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSession,
 			OperationID:    "actionAuthor.getSession",
 			Summary:        "Read an authoring session",
-			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the candidate action waiting for the caller's review (POST /api/action-author/reviews), null otherwise. A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
@@ -134,9 +135,9 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Method:         http.MethodPost,
 			Path:           "/reviews",
 			Handler:        HandleActionAuthorReview,
-			OperationID:    "actionAuthor.reviewCandidate",
-			Summary:        "Accept or refuse a candidate action of an authoring session",
-			Description:    "Deliver the human decision on the pending save review tool_id of the agent workflow author_workflow_id in the organization namespace. Only the user who started the session can review it (403 forbidden otherwise); a namespace of an organization the caller is not a member of, or a workflow that is not the agent of a running session, answers 404 session_not_found. plan is the plan the save card shows; Credimi checks it again and binds the approval to it: for an acceptance, a missing or invalid plan answers 400 invalid_request; a refusal never reads the plan. An acceptance carries a Credimi-signed approval of candidate_sha256 and of the plan's hash (plan_sha256) that the save activity verifies (valid for 30 minutes); the agent cannot save without it, nor with another plan. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
+			OperationID:    "actionAuthor.reviewActions",
+			Summary:        "Decide on the actions of an authoring session's review",
+			Description:    "Deliver the human decisions on the pending review tool_id of the agent workflow author_workflow_id, one per action key: accept, refuse, or change with a comment saying what to change. Only the user who started the session can review it; a namespace of an organization the caller is not a member of, or a workflow that is not the agent of a running session, answers 404 session_not_found. A key that does not match a<number> or is given twice, a change without a comment, or an accept of an action whose plan starts from a candidate of the same review that is not accepted answers 400 invalid_request, and nothing is sent. Each decision's plan is the action's plan as the review shows it, its candidate prerequisites unresolved; Credimi checks it again and binds the approval to it: for an accept, a missing or invalid plan answers 400 invalid_request; a refusal or change never reads the plan. Each accept carries a Credimi-signed approval of its candidate_sha256, of its plan's hash (plan_sha256) and of its key that the save activity verifies (valid for 30 minutes); the agent cannot save without it, nor with another plan or key, nor save a key twice. The save resolves candidate prerequisites to the actions this session saved for them. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
 			RequestSchema:  ActionAuthorReviewRequest{},
 			ResponseSchema: ActionAuthorReviewResponse{},
 		},
@@ -624,7 +625,7 @@ const (
 	// chat through it.
 	actionAuthorStreamPollQuery = "__temporal_workflow_stream_poll"
 	actionAuthorCloseSignal     = "close"
-	actionAuthorSaveReviewTool  = "confirm_wallet_action_save"
+	actionAuthorReviewTool      = "review_wallet_actions"
 	actionAuthorRecentSessions  = 10
 )
 
@@ -667,19 +668,31 @@ type ActionAuthorSessionResponse struct {
 	PendingReview *ActionAuthorPendingReview `json:"pending_review"`
 }
 
-// ActionAuthorPendingReview is the candidate action waiting for the caller's review.
+// ActionAuthorPendingReview is the review waiting for the caller's
+// decisions: one action per candidate key, in key order.
 type ActionAuthorPendingReview struct {
-	ToolID          string `json:"tool_id"`
+	ToolID  string                     `json:"tool_id"`
+	Actions []ActionAuthorReviewAction `json:"actions"`
+}
+
+// ActionAuthorReviewAction is one action of a pending review.
+type ActionAuthorReviewAction struct {
+	Key             string `json:"key"`
 	Name            string `json:"name"`
 	Build           string `json:"build"`
 	Code            string `json:"code"`
 	CandidateSHA256 string `json:"candidate_sha256"`
-	// Plan is nil when the candidate has no object plan.
-	Plan map[string]any `json:"plan"`
 	// Replaces is the path of the action the candidate replaces, empty when none.
 	Replaces string `json:"replaces"`
-	// Error is why the previous save of this candidate failed, empty when none.
+	// Error is why the previous accept of this action did not save, empty when none.
 	Error string `json:"error"`
+	// Plan is nil when the action has no object plan.
+	Plan map[string]any `json:"plan"`
+	// StartsFrom lists the candidate keys among the plan's prerequisites.
+	StartsFrom []string `json:"starts_from"`
+	// StartsFromNames names each key of StartsFrom: the review's action of
+	// that key, else the action this session saved for it, else the key.
+	StartsFromNames map[string]string `json:"starts_from_names"`
 	// UsedBy counts the pipelines of the caller's organization or published
 	// that use the replaced action, 0 without a replacement.
 	UsedBy int `json:"used_by"`
@@ -957,37 +970,121 @@ func readActionAuthorChat(
 		return
 	}
 	for _, callback := range status.PendingCallbacks {
-		if callback.ToolName != actionAuthorSaveReviewTool {
+		if callback.ToolName != actionAuthorReviewTool {
 			continue
 		}
-		text := func(key string) string {
-			value, _ := callback.ToolInput[key].(string)
-			return value
-		}
-		plan, _ := callback.ToolInput["plan"].(map[string]any)
-		response.PendingReview = &ActionAuthorPendingReview{
-			ToolID:          callback.ToolID,
-			Name:            text("name"),
-			Build:           text("build"),
-			Code:            text("code"),
-			CandidateSHA256: text("candidate_sha256"),
-			Plan:            plan,
-			Replaces:        text("replaces"),
-			Error:           text("error"),
-		}
-		if response.PendingReview.Replaces != "" {
-			response.PendingReview.UsedBy = actionAuthorUsedBy(e, response.PendingReview.Replaces)
-		}
+		response.PendingReview = actionAuthorPendingReview(
+			e,
+			chatID,
+			callback.ToolID,
+			callback.ToolInput,
+		)
 		return
 	}
 }
 
-// actionAuthorUsedBy counts the pipelines owned by the caller's organization
-// or published whose YAML names action; 0, with a warning, on error.
-func actionAuthorUsedBy(e *core.RequestEvent, action string) int {
+// actionAuthorPendingReview decodes the actions of a review callback's
+// input of the chat chatID; an action without a string key or code is
+// skipped. Each action starts from the candidate prerequisites of its plan.
+// The caller's organization is resolved once for the whole review.
+func actionAuthorPendingReview(
+	e *core.RequestEvent,
+	chatID, toolID string,
+	input map[string]any,
+) *ActionAuthorPendingReview {
 	orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 	if err != nil {
-		e.App.Logger().Warn("action author used by", "action", action, "error", err)
+		e.App.Logger().Warn("action author pending review organization", "error", err)
+	}
+	review := &ActionAuthorPendingReview{ToolID: toolID, Actions: []ActionAuthorReviewAction{}}
+	names := map[string]string{}
+	items, _ := input["actions"].([]any)
+	for _, item := range items {
+		fields, _ := item.(map[string]any)
+		key, keyOK := fields["key"].(string)
+		code, codeOK := fields["code"].(string)
+		if !keyOK || !codeOK {
+			continue
+		}
+		text := func(name string) string {
+			value, _ := fields[name].(string)
+			return value
+		}
+		plan, _ := fields["plan"].(map[string]any)
+		action := ActionAuthorReviewAction{
+			Key:             key,
+			Name:            text("name"),
+			Build:           text("build"),
+			Code:            code,
+			CandidateSHA256: text("candidate_sha256"),
+			Replaces:        text("replaces"),
+			Error:           text("error"),
+			Plan:            plan,
+			StartsFrom:      planCandidates(plan),
+			StartsFromNames: map[string]string{},
+		}
+		if action.Replaces != "" {
+			action.UsedBy = actionAuthorUsedBy(e, orgID, action.Replaces)
+		}
+		names[key] = action.Name
+		review.Actions = append(review.Actions, action)
+	}
+	for _, action := range review.Actions {
+		for _, start := range action.StartsFrom {
+			name, ok := names[start]
+			if !ok {
+				name = actionAuthorSavedName(e, orgID, chatID, start)
+				names[start] = name
+			}
+			if name == "" {
+				name = start
+			}
+			action.StartsFromNames[start] = name
+		}
+	}
+	return review
+}
+
+// planCandidates lists the candidate keys among plan's prerequisites, in
+// order.
+func planCandidates(plan map[string]any) []string {
+	keys := []string{}
+	prerequisites, _ := plan["prerequisites"].([]any)
+	for _, prerequisite := range prerequisites {
+		fields, _ := prerequisite.(map[string]any)
+		if key, _ := fields["candidate"].(string); key != "" && !slices.Contains(keys, key) {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+// actionAuthorSavedName is the name of the action of the organization orgID
+// that the chat chatID saved as key, empty when none or orgID is empty.
+func actionAuthorSavedName(e *core.RequestEvent, orgID, chatID, key string) string {
+	if orgID == "" {
+		return ""
+	}
+	record, err := e.App.FindFirstRecordByFilter(
+		"wallet_actions",
+		"owner = {:owner} && authoring_provenance.workflow_id = {:workflow} && "+
+			"authoring_provenance.batch_key = {:key}",
+		dbx.Params{"owner": orgID, "workflow": chatID, "key": key},
+	)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			e.App.Logger().Warn("action author starting action", "key", key, "error", err)
+		}
+		return ""
+	}
+	return record.GetString("name")
+}
+
+// actionAuthorUsedBy counts the pipelines owned by the organization orgID or
+// published whose YAML names action; 0 when orgID is empty, with a warning
+// on error.
+func actionAuthorUsedBy(e *core.RequestEvent, orgID, action string) int {
+	if orgID == "" {
 		return 0
 	}
 	count, err := e.App.CountRecords(

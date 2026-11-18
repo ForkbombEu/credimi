@@ -446,17 +446,21 @@ func Resolve(app core.App, organization string, in BuildRequest) (Build, error) 
 // SaveRequest carries the trusted workflow's accepted candidate, the
 // Credimi-signed approval of its human review and the plan Check action
 // author plan returned, which the activity checks again for the session.
+// BatchKey is the candidate's key in the session; Candidates maps the key of
+// each candidate prerequisite of the plan to its saved record id.
 type SaveRequest struct {
 	BuildRequest
-	Name             string `json:"name"`
-	Code             string `json:"code"`
-	CandidateSHA256  string `json:"candidate_sha256"`
-	InstallerSHA256  string `json:"installer_sha256"`
-	PackageID        string `json:"package_id"`
-	InstalledVersion string `json:"installed_version,omitempty"`
-	ReplayCount      int    `json:"replay_count"`
-	Approval         string `json:"approval"`
-	Spec             Spec   `json:"plan"`
+	Name             string            `json:"name"`
+	Code             string            `json:"code"`
+	CandidateSHA256  string            `json:"candidate_sha256"`
+	InstallerSHA256  string            `json:"installer_sha256"`
+	PackageID        string            `json:"package_id"`
+	InstalledVersion string            `json:"installed_version,omitempty"`
+	ReplayCount      int               `json:"replay_count"`
+	Approval         string            `json:"approval"`
+	Spec             Spec              `json:"plan"`
+	BatchKey         string            `json:"batch_key"`
+	Candidates       map[string]string `json:"candidates,omitempty"`
 }
 
 // ProvenanceParameter records a parameter's name and source kind, never its values.
@@ -489,6 +493,8 @@ type Provenance struct {
 	ApprovedAt              string                `json:"approved_at"`
 	// ReplacedCodeSHA256 is the hash of the code a replacing save overwrote.
 	ReplacedCodeSHA256 string `json:"replaced_code_sha256,omitempty"`
+	// BatchKey is the candidate key the session gave the action.
+	BatchKey string `json:"batch_key,omitempty"`
 }
 
 // Receipt describes the saved record and its validation provenance.
@@ -511,6 +517,9 @@ func validateAcceptedAction(in *SaveRequest, selection Selection) error {
 	if _, ok := Slots[in.Spec.Slot]; !ok || strings.TrimSpace(in.Name) == "" ||
 		in.ReplayCount != 1 || in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
 		return fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
+	}
+	if !candidateKey.MatchString(in.BatchKey) {
+		return fmt.Errorf("%w: batch_key must match a<number>", ErrInvalid)
 	}
 	problems := ValidateCode(in.Code, CodeScope{
 		AppIDs:     AllowedAppIDs(in.PackageID, in.Spec.Slot, selection.Platform),
@@ -547,12 +556,104 @@ func provenanceSpec(provenance *Provenance, spec Spec) {
 	}
 }
 
+// resolveCandidates sets each candidate prerequisite's Action to the path of
+// the record this session saved for it, keeping its key, then checks the
+// resolved prerequisites, including their starting actions.
+func resolveCandidates(
+	app core.App,
+	selection Selection,
+	workflowID string,
+	in *SaveRequest,
+) error {
+	resolved := false
+	for i := range in.Spec.Prerequisites {
+		prerequisite := &in.Spec.Prerequisites[i]
+		key := prerequisite.Candidate
+		if key == "" {
+			continue
+		}
+		record, err := sessionCandidate(app, selection, workflowID, key, in.Candidates[key])
+		if err != nil {
+			return err
+		}
+		path, err := canonify.BuildPath(
+			app,
+			record,
+			canonify.CanonifyPaths["wallet_actions"],
+			record.GetString("canonified_name"),
+		)
+		if err != nil {
+			return fmt.Errorf("build wallet action path: %w", err)
+		}
+		prerequisite.Action = path
+		resolved = true
+	}
+	if !resolved {
+		return nil
+	}
+	_, err := ResolvePrerequisites(app, selection, &in.Spec)
+	return err
+}
+
+// sessionCandidate returns the wallet_actions record id, which this
+// session's workflow saved as the candidate key for the selected wallet.
+// Another organization's record is answered as a missing one.
+func sessionCandidate(
+	app core.App,
+	selection Selection,
+	workflowID, key, id string,
+) (*core.Record, error) {
+	notSaved := invalidf("prerequisite %s is not saved yet: save it first", key)
+	if id == "" {
+		return nil, notSaved
+	}
+	record, err := app.FindRecordById("wallet_actions", id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, notSaved
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find prerequisite %s: %w", key, err)
+	}
+	if record.GetString("owner") != selection.Organization.Id {
+		return nil, notSaved
+	}
+	var provenance Provenance
+	if record.GetString("wallet") != selection.Wallet.Id ||
+		json.Unmarshal([]byte(record.GetString("authoring_provenance")), &provenance) != nil ||
+		provenance.WorkflowID != workflowID || provenance.BatchKey != key {
+		return nil, fmt.Errorf(
+			"%w: prerequisite %s was not saved by this session", ErrForbidden, key,
+		)
+	}
+	return record, nil
+}
+
+// checkSessionKeyFree refuses a save under a candidate key that the workflow
+// already saved as another record than except.
+func checkSessionKeyFree(tx core.App, organizationID, workflowID, key, except string) error {
+	record, err := tx.FindFirstRecordByFilter(
+		"wallet_actions",
+		"owner = {:owner} && id != {:id} && "+
+			"authoring_provenance.workflow_id = {:workflow} && "+
+			"authoring_provenance.batch_key = {:key}",
+		dbx.Params{"owner": organizationID, "id": except, "workflow": workflowID, "key": key},
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("find wallet action of %s: %w", key, err)
+	}
+	if record != nil {
+		return fmt.Errorf("%w: action %s of this session is already saved", ErrConflict, key)
+	}
+	return nil
+}
+
 // Save stores the accepted action and its provenance in one transaction.
 // Without Replaces it creates the action: a name already in use by the
 // wallet is a conflict, except for a retry of the same workflow run that
 // wrote it. With Replaces it rewrites the target's name, code, category and
 // provenance in place, keeping its id and published flag, when the target
-// still has the code the plan was checked against.
+// still has the code the plan was checked against. Either way a workflow
+// saves each candidate key as one record only.
 // The caller is the trusted workflow's explicit human-confirmation handler,
 // after verifying the approval; organization is the session's organization,
 // as for Select.
@@ -587,6 +688,7 @@ func Save(
 		ReplayCount:             in.ReplayCount,
 		ApproverID:              approval.ApproverID,
 		ApprovedAt:              time.Unix(approval.ApprovedAt, 0).UTC().Format(time.RFC3339),
+		BatchKey:                in.BatchKey,
 	}
 	if selection.Source == SourceStore {
 		if in.InstallerSHA256 != "" {
@@ -606,6 +708,9 @@ func Save(
 		}
 		provenance.WalletVersionID = selection.Version.Id
 		provenance.InstallerSHA256 = digest
+	}
+	if err := resolveCandidates(app, selection, workflowID, &in); err != nil {
+		return receipt, err
 	}
 	provenanceSpec(&provenance, in.Spec)
 	err = app.RunInTransaction(func(tx core.App) error {
@@ -652,6 +757,10 @@ func Save(
 			}
 			return fmt.Errorf("%w: an action with this name already exists", ErrConflict)
 		}
+		err = checkSessionKeyFree(tx, current.Organization.Id, workflowID, in.BatchKey, "")
+		if err != nil {
+			return err
+		}
 		collection, err := tx.FindCollectionByNameOrId("wallet_actions")
 		if err != nil {
 			return fmt.Errorf("find wallet actions collection: %w", err)
@@ -687,7 +796,7 @@ func savedBy(record *core.Record, workflowID, runID string, in *SaveRequest) (Pr
 		previous.WorkflowID == workflowID && previous.RunID == runID &&
 		previous.YAMLSHA256 == in.CandidateSHA256 && previous.Platform == in.Platform &&
 		previous.InstallerSHA256 == in.InstallerSHA256 &&
-		record.GetString("code") == in.Code
+		record.GetString("code") == in.Code && previous.BatchKey == in.BatchKey
 	return previous, ok
 }
 
@@ -737,6 +846,10 @@ func replaceAction(
 	}
 	if other != nil {
 		return Receipt{}, fmt.Errorf("%w: an action with this name already exists", ErrConflict)
+	}
+	err = checkSessionKeyFree(tx, current.Organization.Id, workflowID, in.BatchKey, record.Id)
+	if err != nil {
+		return Receipt{}, err
 	}
 	provenance.ReplacedCodeSHA256 = replaced
 	record.Set("name", in.Name)

@@ -4,8 +4,37 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-/* Credimi starts and lists sessions and shows the save review on its session page. */
-button.session-new, button.start-new, section.session-manager, [aria-label="Response: confirm_wallet_action_save"] { display: none !important; }
+/* Credimi starts and lists sessions and shows the review of the actions on its session page. */
+button.session-new, button.start-new, section.session-manager { display: none !important; }
+
+/* Credimi answers the review_wallet_actions callback on its session page, so the harness's own
+   pending-response indicators are hidden: the queue holding the callback's card (the card and its
+   "1 needs you · 1 response" chip), the "N response(s) needed" state of the session header, and the
+   chat feed's "review_wallet_actions — waiting on client" step. Only the queue can be told apart
+   per tool: the header and the feed step hide every pending response and every tool awaiting
+   approval. The agent asks for no other client callback and no approval (harness 0.11.0). */
+.pending-banners .queue:has([aria-label="Response: review_wallet_actions"]),
+.session-anchor:is([aria-label$=" response needed"], [aria-label$=" responses needed"]) > :is(.session-glyph, .session-state),
+.activity-list .trace-row.glyph-approval { display: none !important; }
+
+/* The chat pane's minimap tick is painted with --live while the callback is pending (its label says
+   "needs you", the only status that colour stands for): the mark takes back the colour it would
+   have without it, per the harness's tick states (default, folded or behind, current, hovered). */
+button[data-pane-tick][aria-label*=" · needs you"] > .mark { --live: var(--text-3); }
+button[data-pane-tick][aria-label*=" · needs you"]:is(.folded, .behind) > .mark { --live: var(--text-4); }
+button[data-pane-tick][aria-label*=" · needs you"][aria-current] > .mark { --live: var(--text-1); }
+@media (hover: hover) and (pointer: fine) {
+  button[data-pane-tick][aria-label*=" · needs you"]:hover > .mark { --live: var(--text-1); }
+}
+
+/* The Session flow's review_wallet_actions node stays, as a running tool: without its "waiting on
+   client" subtitle and with the tool colour in place of --live, on the node and on the edge flowing
+   into it. Hiding the node would leave that edge pointing at nothing: edges name nodes by tool call
+   id ("Edge from model:… to tool:<call id>"), never by tool name, so CSS can't pick them per tool.
+   No other node waits while the review does: the agent asks for no approval (harness 0.11.0). */
+.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"] { --live: var(--tool); }
+.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"] .kind { display: none !important; }
+.svelte-flow:has(.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"]) .svelte-flow__edges { --live: var(--edge-main); }
 
 /* Sessions run in runner namespaces, which the Temporal UI does not open for users. */
 a.session-temporal { display: none !important; }

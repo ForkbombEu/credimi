@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { MonitorPlayIcon, SquareIcon, XIcon } from '@lucide/svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { Pipeline } from '$lib';
+	import ActionsReviewCard from '$lib/action-author/actions-review-card.svelte';
 	import {
 		closeSession,
 		endOnExit,
@@ -16,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ticketOf,
 		type Session
 	} from '$lib/action-author/api';
-	import SaveReviewCard from '$lib/action-author/save-review-card.svelte';
 	import Transcript from '$lib/action-author/transcript.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
@@ -310,7 +310,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	const pendingReview = $derived(
-		session?.pending_review && !settledReviews.has(session.pending_review.tool_id)
+		session?.pending_review?.actions?.length &&
+			!settledReviews.has(session.pending_review.tool_id)
 			? session.pending_review
 			: undefined
 	);
@@ -479,7 +480,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<aside class="flex w-full shrink-0 flex-col gap-4 overflow-y-auto lg:w-[22rem]">
 				{#if pendingReview && showReview}
 					{#key pendingReview.tool_id}
-						<SaveReviewCard
+						<ActionsReviewCard
 							{session}
 							review={pendingReview}
 							onSettled={() => {

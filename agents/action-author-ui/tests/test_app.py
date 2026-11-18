@@ -376,9 +376,6 @@ OTHER = CHAT.replace("abcd-author", "dcba-author")
         ("GET", f"/api/workflow-status/{OTHER}", {}, "other_chat"),
         ("GET", "/api/attach", {"params": {"session_id": OTHER}}, "other_chat"),
         ("POST", "/api/messages", {"json": {"session_id": OTHER, "text": "hi"}}, "other_chat"),
-        ("POST", "/api/chat", {"json": {"session_id": OTHER, "message": "hi"}}, "other_chat"),
-        ("POST", "/api/chat", {"json": [CHAT]}, "other_chat"),
-        ("POST", "/api/chat", {"content": b"{"}, "other_chat"),
         ("POST", f"/api/sessions/{OTHER}/close", {}, "other_chat"),
         ("POST", "/api/approve", {"json": {"session_id": CHAT}}, "approvals_disabled"),
         ("POST", "/api/files/view", {"json": {"path": "/etc/passwd"}}, "files_disabled"),
@@ -389,6 +386,13 @@ async def test_requests_for_another_chat_are_refused(method, path, kwargs, error
     async with ui_client() as client:
         response = await client.request(method, path, **kwargs)
     assert (response.status_code, response.json()) == (403, {"error": error})
+
+
+async def test_the_chat_stream_route_is_refused():
+    async with ui_client() as client:
+        response = await client.post("/api/chat", json={"session_id": CHAT, "message": "hi"})
+    assert response.status_code == 403
+    assert response.json()["error"] == "chat_stream_disabled"
 
 
 @pytest.mark.parametrize("method", ["GET", "POST", "PUT"])
@@ -454,6 +458,21 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"
     assert "button.session-new, button.start-new, section.session-manager" in css.text
+    # The harness's own pending-response indicators for the review callback (its queue with the
+    # card and chip, the header state, the feed step); Credimi shows the review.
+    assert '.pending-banners .queue:has([aria-label="Response: review_wallet_actions"])' in css.text
+    assert (
+        '.session-anchor:is([aria-label$=" response needed"], [aria-label$=" responses needed"])'
+        " > :is(.session-glyph, .session-state)"
+    ) in css.text
+    assert ".activity-list .trace-row.glyph-approval" in css.text
+    # ...and its "needs you" tick colour and the flow graph's "waiting on client" review node.
+    needs_you_tick = 'button[data-pane-tick][aria-label*=" · needs you"] > .mark'
+    assert f"{needs_you_tick} {{ --live: var(--text-3); }}" in css.text
+    review_node = '.svelte-flow__node-agentState[aria-label^="review_wallet_actions, awaiting"]'
+    assert f"{review_node} {{ --live: var(--tool); }}" in css.text
+    assert f"{review_node} .kind {{ display: none !important; }}" in css.text
+    assert f".svelte-flow:has({review_node}) .svelte-flow__edges" in css.text
     # Runner namespaces are not open to users in the Temporal UI.
     assert "a.session-temporal { display: none !important; }" in css.text
     assert "color-scheme: light" in css.text
@@ -641,9 +660,10 @@ async def test_closed_chat_replays_through_the_harness_attach():
                 assert resumed.status_code == 200
                 assert _sse_events(resumed.text) == []
 
-                for path in ("/api/chat", "/api/messages"):
-                    sent = await client.post(path, json={"session_id": chat, "message": "Hi"})
-                    assert (sent.status_code, sent.json()) == (
-                        409,
-                        {"error": "session_closed", "message": "This chat has ended."},
-                    )
+                sent = await client.post(
+                    "/api/messages", json={"session_id": chat, "message": "Hi"}
+                )
+                assert (sent.status_code, sent.json()) == (
+                    409,
+                    {"error": "session_closed", "message": "This chat has ended."},
+                )

@@ -44,6 +44,20 @@ func TestActionAuthorSessionTranscriptReadsTheChatHistory(t *testing.T) {
 		"payload": map[string]any{"text": "Write the onboarding"},
 	})
 	require.NoError(t, err)
+	review, err := temporalcrypto.DataConverter().ToPayloads(map[string]any{
+		"tool_id": "save-review-1",
+		"result": map[string]any{"decisions": []any{
+			map[string]any{"key": "a1", "name": "Onboarding", "decision": "accept"},
+			map[string]any{
+				"key":      "a2",
+				"name":     "Get PID",
+				"decision": "change",
+				"comment":  "rename",
+			},
+		}},
+		"error": nil,
+	})
+	require.NoError(t, err)
 	stubAuthoringChatHistory(c, &fakeHistoryIterator{events: []*historypb.HistoryEvent{{
 		EventId:   1,
 		EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
@@ -71,6 +85,18 @@ func TestActionAuthorSessionTranscriptReadsTheChatHistory(t *testing.T) {
 					Args: &commonpb.Payloads{Payloads: []*commonpb.Payload{{
 						Metadata: map[string][]byte{"encoding": []byte("binary/unknown")},
 					}}},
+				}},
+			},
+		},
+	}, {
+		EventId:   4,
+		EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_UPDATE_ACCEPTED,
+		EventTime: timestamppb.New(authoringSessionStart.Add(3 * time.Minute)),
+		Attributes: &historypb.HistoryEvent_WorkflowExecutionUpdateAcceptedEventAttributes{
+			WorkflowExecutionUpdateAcceptedEventAttributes: &historypb.WorkflowExecutionUpdateAcceptedEventAttributes{
+				AcceptedRequest: &updatepb.Request{Input: &updatepb.Input{
+					Name: "provide_callback_result",
+					Args: review,
 				}},
 			},
 		},
@@ -104,6 +130,19 @@ func TestActionAuthorSessionTranscriptReadsTheChatHistory(t *testing.T) {
 			Text: "Write the onboarding",
 		},
 		{Kind: activities.TranscriptUnavailable, Time: "2026-01-02T03:06:05Z"},
+		{
+			Kind:     activities.TranscriptReview,
+			Time:     "2026-01-02T03:07:05Z",
+			Name:     "Onboarding",
+			Decision: "accept",
+		},
+		{
+			Kind:     activities.TranscriptReview,
+			Time:     "2026-01-02T03:07:05Z",
+			Name:     "Get PID",
+			Decision: "change",
+			Comment:  "rename",
+		},
 	}, response.Entries)
 }
 

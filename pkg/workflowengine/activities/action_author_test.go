@@ -587,6 +587,7 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 				Slot:    "other",
 				Outcome: actionauthor.OutcomeSuccess,
 			}),
+			Key: "a1",
 		}
 		if edit != nil {
 			edit(&approval)
@@ -605,6 +606,7 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		ReplayCount:     1,
 		Approval:        approval(nil),
 		Spec:            actionauthor.Spec{Slot: "other"},
+		BatchKey:        "a1",
 	}
 
 	for name, token := range map[string]string{
@@ -624,6 +626,20 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 		require.ErrorContains(t, err, actionauthor.ErrForbidden.Error(), name)
 	}
+
+	// An approval of a1 does not save a2.
+	another := payload
+	another.BatchKey = "a2"
+	_, err = a().save(t.Context(), caller, another)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "approval is for another action")
+
+	// An approval signed before approvals named their action asks for a new one.
+	keyless := payload
+	keyless.Approval = approval(func(a *actionauthor.Approval) { a.Key = "" })
+	_, err = a().save(t.Context(), caller, keyless)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "the approval predates this release; accept the action again")
 
 	disallowed := payload
 	disallowed.Code = "appId: eu.wallet\n---\n- runScript: x.js\n- assertVisible: Home\n- takeScreenshot: home\n"
