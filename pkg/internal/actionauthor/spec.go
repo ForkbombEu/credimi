@@ -277,7 +277,8 @@ func ResolvePrerequisites(
 		if record == nil {
 			continue
 		}
-		if missing := missingStart(startsFrom(record), spec.Prerequisites[:i]); missing != "" {
+		starts := startsFrom(savedProvenance(record))
+		if missing := missingStart(starts, spec.Prerequisites[:i]); missing != "" {
 			action := spec.Prerequisites[i].Action
 			return nil, invalidf("prerequisite %s starts from %s: list it before %s",
 				action, missing, action)

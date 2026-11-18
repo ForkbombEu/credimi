@@ -594,6 +594,61 @@ func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
 	assert.ErrorContains(t, err, "header appId")
 }
 
+func TestAuthoringSaveRecordsRecordSourcesOnly(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = "Sourced action"
+	in.Code = "appId: eu.europa.ec.euidi\n---\n- launchApp\n- openLink: ${offer}\n" +
+		"- openLink: ${request}\n- openLink: ${session}\n- inputText: ${pin}\n" +
+		"- assertVisible: Done\n- takeScreenshot: done\n"
+	in.CandidateSHA256 = CodeSHA256(in.Code)
+	in.Spec = Spec{
+		Slot:    "other",
+		Outcome: OutcomeSuccess,
+		Parameters: []ParameterSpec{{
+			Name:   "offer",
+			Source: SourceSpec{Kind: SourceCredentialOffer, Identifier: "/org/issuer/pid"},
+		}, {
+			Name:   "request",
+			Source: SourceSpec{Kind: SourceUseCaseVerification, Identifier: "org/verifier/age"},
+		}, {
+			Name: "session",
+			Source: SourceSpec{
+				Kind: SourceHTTP,
+				Request: &HTTPSourceRequest{
+					Method:  "POST",
+					URL:     "https://issuer.example/sessions",
+					Headers: map[string]string{"Accept-Language": "nl-header"},
+					Body:    map[string]any{"token": "body-secret"},
+				},
+				ValuePath: "deeplink",
+			},
+		}, {
+			Name:   "pin",
+			Source: SourceSpec{Kind: SourceLiteral, Value: "448291"},
+		}},
+	}
+
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+
+	require.NoError(t, err)
+	assert.Equal(t, []ProvenanceParameter{
+		{Name: "offer", Kind: SourceCredentialOffer, Source: "org/issuer/pid"},
+		{Name: "request", Kind: SourceUseCaseVerification, Source: "org/verifier/age"},
+		{Name: "session", Kind: SourceHTTP},
+		{Name: "pin", Kind: SourceLiteral},
+	}, receipt.Provenance.Parameters)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	stored := record.GetString("authoring_provenance")
+	assert.Contains(t, stored, `"source":"org/issuer/pid"`)
+	for _, secret := range []string{"issuer.example", "nl-header", "body-secret", "448291"} {
+		assert.NotContains(t, stored, secret)
+	}
+}
+
 func TestAuthoringSaveWaitAction(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
 	build, err := Resolve(app, namespace, request)

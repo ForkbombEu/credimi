@@ -48,15 +48,25 @@ func seedAuthorAction(
 // action was saved to start from prerequisites, in order.
 func recordStartsFrom(t *testing.T, app core.App, action string, prerequisites ...string) {
 	t.Helper()
+	recordProvenance(t, app, action, actionauthor.Provenance{Prerequisites: prerequisites})
+}
+
+// recordProvenance stores provenance as the authoring provenance of the
+// action at path action, as saved by an authoring workflow.
+func recordProvenance(
+	t *testing.T,
+	app core.App,
+	action string,
+	provenance actionauthor.Provenance,
+) {
+	t.Helper()
 	record, err := app.FindFirstRecordByData("wallet_actions", "canonified_name", path.Base(action))
 	require.NoError(t, err)
-	provenance, err := json.Marshal(actionauthor.Provenance{
-		WorkflowID:    "authored",
-		YAMLSHA256:    actionauthor.CodeSHA256(record.GetString("code")),
-		Prerequisites: prerequisites,
-	})
+	provenance.WorkflowID = "authored"
+	provenance.YAMLSHA256 = actionauthor.CodeSHA256(record.GetString("code"))
+	encoded, err := json.Marshal(provenance)
 	require.NoError(t, err)
-	record.Set("authoring_provenance", string(provenance))
+	record.Set("authoring_provenance", string(encoded))
 	require.NoError(t, app.Save(record))
 }
 
@@ -398,7 +408,14 @@ func TestListActionAuthorWalletActions(t *testing.T) {
 		"appId: eu.wallet\n---\n- launchApp\n",
 	)
 	getPID := seedAuthorAction(t, app, session, "Get PID", "appId: eu.wallet\n---\n- back\n")
-	recordStartsFrom(t, app, getPID, onboarding)
+	recordProvenance(t, app, getPID, actionauthor.Provenance{
+		Prerequisites: []string{onboarding},
+		Parameters: []actionauthor.ProvenanceParameter{
+			{Name: "deeplink", Kind: actionauthor.SourceCredentialOffer, Source: "org/creds/x"},
+			{Name: "pin", Kind: actionauthor.SourceLiteral},
+			{Name: "request", Kind: actionauthor.SourceUseCaseVerification, Source: "org/v/age"},
+		},
+	})
 	selection, err := actionauthor.Select(app, "", session)
 	require.NoError(t, err)
 	other, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
@@ -428,24 +445,38 @@ func TestListActionAuthorWalletActions(t *testing.T) {
 		Owned:      true,
 		Parameters: []string{},
 		StartsFrom: []string{onboarding},
+		ParameterSources: []actionauthor.ParameterSource{
+			{Name: "deeplink", Kind: actionauthor.SourceCredentialOffer, Source: "org/creds/x"},
+			{Name: "request", Kind: actionauthor.SourceUseCaseVerification, Source: "org/v/age"},
+		},
 	}, {
-		Path:       onboarding,
-		Name:       "Onboarding",
-		Category:   "onboarding",
-		Owned:      true,
-		Parameters: []string{},
-		StartsFrom: []string{},
+		Path:             onboarding,
+		Name:             "Onboarding",
+		Category:         "onboarding",
+		Owned:            true,
+		Parameters:       []string{},
+		StartsFrom:       []string{},
+		ParameterSources: []actionauthor.ParameterSource{},
 	}, {
-		Path:       path.Dir(onboarding) + "/" + published.GetString("canonified_name"),
-		Name:       "Published PID",
-		Category:   "onboarding",
-		Published:  true,
-		Parameters: []string{},
-		StartsFrom: []string{},
+		Path:             path.Dir(onboarding) + "/" + published.GetString("canonified_name"),
+		Name:             "Published PID",
+		Category:         "onboarding",
+		Published:        true,
+		Parameters:       []string{},
+		StartsFrom:       []string{},
+		ParameterSources: []actionauthor.ParameterSource{},
 	}}, output.Actions)
-	encoded, err := json.Marshal(output.Actions[1])
+	encoded, err := json.Marshal(output.Actions[0])
+	require.NoError(t, err)
+	require.Contains(
+		t,
+		string(encoded),
+		`"parameter_sources":[{"name":"deeplink","kind":"credential_offer","source":"org/creds/x"},`,
+	)
+	encoded, err = json.Marshal(output.Actions[1])
 	require.NoError(t, err)
 	require.Contains(t, string(encoded), `"starts_from":[]`)
+	require.Contains(t, string(encoded), `"parameter_sources":[]`)
 	require.Contains(t, string(encoded), `"owned":true`)
 
 	output, err = list("onboarding")

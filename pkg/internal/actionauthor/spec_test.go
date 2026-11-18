@@ -731,13 +731,16 @@ func TestResolvePrerequisitesRequiresStartingActions(t *testing.T) {
 	assert.Contains(t, err.Error(), "prerequisite "+getPID+" starts from "+onboarding)
 }
 
-func TestStartsFromIgnoresUndecodableProvenance(t *testing.T) {
+func TestSavedProvenanceIgnoresUndecodableProvenance(t *testing.T) {
 	actions := core.NewBaseCollection("wallet_actions")
 	actions.Fields.Add(&core.JSONField{Name: "authoring_provenance"})
 	record := core.NewRecord(actions)
-	assert.Equal(t, []string{}, startsFrom(record))
-	record.Set("authoring_provenance", `{"prerequisites": "not a list"}`)
-	assert.Equal(t, []string{}, startsFrom(record))
+	assert.Equal(t, []string{}, startsFrom(savedProvenance(record)))
+	assert.Equal(t, []ParameterSource{}, parameterSources(savedProvenance(record)))
+	record.Set("authoring_provenance", `{"prerequisites": "not a list", "parameters": `+
+		`[{"name": "deeplink", "kind": "credential_offer", "source": "org/creds/x"}]}`)
+	assert.Equal(t, []string{}, startsFrom(savedProvenance(record)))
+	assert.Equal(t, []ParameterSource{}, parameterSources(savedProvenance(record)))
 	record.Set("authoring_provenance", `{"prerequisites": ["/org/wallet/onboarding"]}`)
-	assert.Equal(t, []string{"org/wallet/onboarding"}, startsFrom(record))
+	assert.Equal(t, []string{"org/wallet/onboarding"}, startsFrom(savedProvenance(record)))
 }
