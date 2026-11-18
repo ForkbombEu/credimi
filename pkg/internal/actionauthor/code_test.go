@@ -73,6 +73,11 @@ func TestValidateCode(t *testing.T) {
 		return "the final assertion checks \"" + value + "\", which matches any screen; " +
 			"assert text the outcome shows"
 	}
+	gboard := "com.google.android.inputmethod.latin:id/key_pos_number_line2_1"
+	foreignIDMessage := func(value, pkg string) string {
+		return "selector id \"" + value + "\" belongs to another app (" + pkg + "); target the " +
+			"wallet's own elements, or tap the on-screen keyboard's keys by their text (e.g. tapOn: \"4\")"
+	}
 	shareInformation := "- launchApp\n- extendedWaitUntil:\n    visible: \"Share information\"\n" +
 		"    timeout: 30000\n- tapOn: \"CONFIRM\"\n"
 
@@ -231,6 +236,43 @@ tags:
 				"commands[0]: launchApp targets 'com.other', not the app under test",
 				"commands[1]: launchApp targets 'com.evil', not the app under test",
 				"commands[2]: setPermissions targets 'com.other', not the app under test",
+			},
+		},
+		{
+			name: "keyboard id of another app in a runFlow when",
+			code: header + "- launchApp\n- runFlow:\n    when:\n      visible: \"PIN\"\n    commands:\n" +
+				"      - tapOn:\n          id: \"" + gboard + "\"\n" + codeTestTail,
+			appIDs: wallet,
+			want:   []string{foreignIDMessage(gboard, "com.google.android.inputmethod.latin")},
+		},
+		{
+			name: "ids of one other app give one problem",
+			code: header + "- launchApp\n- tapOn:\n    id: \"" + gboard + "\"\n- retry:\n" +
+				"    maxRetries: 2\n    commands:\n      - tapOn:\n          text: \"OK\"\n" +
+				"          below:\n            id: \"com.google.android.inputmethod.latin:id/key_pos_0\"\n" +
+				codeTestTail,
+			appIDs: wallet,
+			want:   []string{foreignIDMessage(gboard, "com.google.android.inputmethod.latin")},
+		},
+		{
+			name: "android, unprefixed and wallet ids",
+			code: header + "- launchApp\n- tapOn:\n    id: \"android:id/button1\"\n- tapOn:\n    id: \"pin\"\n" +
+				"- tapOn:\n    id: \"com.example.wallet:id/x\"\n" + codeTestTail,
+			appIDs: wallet,
+		},
+		{
+			name: "Play Store id on install-app",
+			code: header + "- launchApp\n- tapOn:\n    id: \"com.android.vending:id/install\"\n" +
+				codeTestTail,
+			appIDs: installApp,
+		},
+		{
+			name: "Play Store id outside install-app",
+			code: header + "- launchApp\n- tapOn:\n    id: \"com.android.vending:id/install\"\n" +
+				codeTestTail,
+			appIDs: wallet,
+			want: []string{
+				foreignIDMessage("com.android.vending:id/install", "com.android.vending"),
 			},
 		},
 		{

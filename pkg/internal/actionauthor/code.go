@@ -174,6 +174,9 @@ func ValidateCode(code string, scope CodeScope) []string {
 	v.header(header)
 
 	v.walk(commands, "commands", v.command)
+	for _, problem := range codeForeignIDs(commands, scope.AppIDs) {
+		v.add(problem)
+	}
 
 	var lastName string
 	var lastArg *yaml.Node
@@ -640,6 +643,50 @@ func codeStrings(node *yaml.Node, visit func(string)) {
 	for _, child := range node.Content {
 		codeStrings(child, visit)
 	}
+}
+
+// codeIDPackage captures the package of an Android resource id such as
+// `com.example:id/name`; `android:id/...` has no dot, so it never matches.
+var codeIDPackage = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+):id/`)
+
+// codeForeignIDs refuses every string `id` of a mapping, at any depth of the
+// commands (`when:` conditions, nested bodies and relative selectors
+// included), whose package is not one of appIDs: such ids, like a keyboard's
+// keys, break on another device. One problem per package, in discovery order,
+// naming its first id.
+func codeForeignIDs(commands *yaml.Node, appIDs []string) []string {
+	var packages, problems []string
+	var visit func(*yaml.Node)
+	visit = func(node *yaml.Node) {
+		node = codeResolve(node)
+		if node == nil {
+			return
+		}
+		if node.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(node.Content); i += 2 {
+				key, value := codeResolve(node.Content[i]), codeResolve(node.Content[i+1])
+				if !codeIsString(key) || key.Value != "id" || !codeIsString(value) {
+					continue
+				}
+				m := codeIDPackage.FindStringSubmatch(value.Value)
+				if m == nil || slices.Contains(appIDs, m[1]) || slices.Contains(packages, m[1]) {
+					continue
+				}
+				packages = append(packages, m[1])
+				problems = append(
+					problems,
+					"selector id \""+value.Value+"\" belongs to another app ("+
+						m[1]+"); target the wallet's own elements, or tap the on-screen keyboard's "+
+						"keys by their text (e.g. tapOn: \"4\")",
+				)
+			}
+		}
+		for _, child := range node.Content {
+			visit(child)
+		}
+	}
+	visit(commands)
+	return problems
 }
 
 // codeLookup returns the value of key in a mapping node, or nil.
