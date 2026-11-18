@@ -5,6 +5,7 @@
 package actionauthor
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -67,6 +68,10 @@ func TestValidateCode(t *testing.T) {
 	staleMessage := func(selector string) string {
 		return "the final assertion checks \"" + selector + "\", which the action already " +
 			"reached before its last interaction; assert the screen the outcome shows"
+	}
+	matchAllMessage := func(value string) string {
+		return "the final assertion checks \"" + value + "\", which matches any screen; " +
+			"assert text the outcome shows"
 	}
 	shareInformation := "- launchApp\n- extendedWaitUntil:\n    visible: \"Share information\"\n" +
 		"    timeout: 30000\n- tapOn: \"CONFIRM\"\n"
@@ -491,6 +496,32 @@ tags:
 				"already reached before its last interaction; assert the screen the outcome shows"},
 		},
 		{
+			name: "final assertion that matches any screen",
+			code: header + "- launchApp\n- tapOn: \"CONFIRM\"\n- extendedWaitUntil:\n" +
+				"    visible: \".*\"\n    timeout: 5000\n" + waitTail,
+			appIDs: wallet,
+			want:   []string{matchAllMessage(".*")},
+		},
+		{
+			name: "match-all assertion already reached reports only match-all",
+			code: header + "- launchApp\n- assertVisible: \".*\"\n- tapOn: \"CONFIRM\"\n" +
+				"- assertVisible: \".*\"\n",
+			appIDs: wallet,
+			want:   []string{matchAllMessage(".*")},
+		},
+		{
+			name:   "id selector matching any value is not a text match-all",
+			code:   header + "- launchApp\n- tapOn: \"CONFIRM\"\n- assertVisible:\n    id: \".*\"\n",
+			appIDs: wallet,
+		},
+		{
+			name: "wait action ending on a match-all wait",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \".*\"\n" +
+				"    optional: true\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+		},
+		{
 			name: "outcome waited by id after reaching it in a runFlow",
 			code: header + "- launchApp\n- runFlow:\n    commands:\n" +
 				"      - assertVisible:\n          id: \"share\"\n      - tapOn: \"CONFIRM\"\n" +
@@ -531,6 +562,28 @@ tags:
 				StoreLinks:  tc.storeLinks,
 				WaitSeconds: tc.waitSeconds,
 			}))
+		})
+	}
+}
+
+func TestValidateCodeMatchAll(t *testing.T) {
+	wallet := AllowedAppIDs(codeTestWallet, "onboarding", PlatformAndroid)
+	matchAll := []string{"", ".*", ".+", "(.*)", "^.*$", ".*|.*", " .* "}
+	for _, value := range matchAll {
+		t.Run("match-all "+strconv.Quote(value), func(t *testing.T) {
+			code := "appId: com.example.wallet\n---\n- launchApp\n- tapOn: \"CONFIRM\"\n" +
+				"- assertVisible: " + strconv.Quote(value) + "\n"
+			assert.Equal(t, []string{"the final assertion checks \"" + value +
+				"\", which matches any screen; assert text the outcome shows"},
+				ValidateCode(code, CodeScope{AppIDs: wallet}))
+		})
+	}
+	notMatchAll := []string{"Credentials|Wallet|Home|Add.*", "Credimi Demo PID.*", ".*Welcome.*"}
+	for _, value := range notMatchAll {
+		t.Run("not match-all "+strconv.Quote(value), func(t *testing.T) {
+			code := "appId: com.example.wallet\n---\n- launchApp\n- tapOn: \"CONFIRM\"\n" +
+				"- assertVisible: " + strconv.Quote(value) + "\n"
+			assert.Empty(t, ValidateCode(code, CodeScope{AppIDs: wallet}))
 		})
 	}
 }

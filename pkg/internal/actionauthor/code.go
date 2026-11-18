@@ -195,8 +195,13 @@ func ValidateCode(code string, scope CodeScope) []string {
 		v.add("the last command other than takeScreenshot must assert the outcome: " +
 			"`assertVisible`, or `extendedWaitUntil` with `visible`")
 	default:
-		if selector, ok := codeAssertedSelector(lastName, lastArg); ok &&
-			codeReachedBeforeLastInteraction(commands, selector) {
+		selector, ok := codeAssertedSelector(lastName, lastArg)
+		switch {
+		case !ok:
+		case !selector.id && codeMatchesAny(selector.value):
+			v.add("the final assertion checks \"" + selector.value + "\", which matches any " +
+				"screen; assert text the outcome shows")
+		case codeReachedBeforeLastInteraction(commands, selector):
 			v.add("the final assertion checks \"" + selector.String() + "\", which the action " +
 				"already reached before its last interaction; assert the screen the outcome shows")
 		}
@@ -532,6 +537,17 @@ func codeAssertedSelector(name string, arg *yaml.Node) (codeSelector, bool) {
 		return codeSelector{}, false
 	}
 	return selector, true
+}
+
+// codeMatchAll matches a text selector made only of regex punctuation; with a
+// `.` it matches any text.
+var codeMatchAll = regexp.MustCompile(`^[\s.*+?^$()|]*$`)
+
+// codeMatchesAny reports whether a text selector matches any screen: empty
+// once trimmed, or only regex punctuation with at least one `.`.
+func codeMatchesAny(value string) bool {
+	value = strings.TrimSpace(value)
+	return value == "" || (codeMatchAll.MatchString(value) && strings.Contains(value, "."))
 }
 
 // codeReachedBeforeLastInteraction reports whether selector was asserted or
