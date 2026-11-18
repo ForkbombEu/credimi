@@ -6,17 +6,25 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/serviceerror"
@@ -1012,6 +1020,445 @@ func TestMobileRunnerLifecycleSemaphoreFailures(t *testing.T) {
 					decodeHandlerErrorResponse(t, recorder).Error.Reason,
 				)
 			}
+		})
+	}
+}
+
+func performMobileRunnerWorkRequest(
+	t *testing.T,
+	app core.App,
+	auth *core.Record,
+	runnerID string,
+) *core.RequestEvent {
+	t.Helper()
+	target := "/api/mobile-runner/lifecycle/work"
+	if runnerID != "" {
+		target += "?runner_id=" + url.QueryEscape(runnerID)
+	}
+	return &core.RequestEvent{
+		App:  app,
+		Auth: auth,
+		Event: router.Event{
+			Request:  httptest.NewRequest(http.MethodGet, target, nil),
+			Response: httptest.NewRecorder(),
+		},
+	}
+}
+
+// setupMobileRunnerWorkTest creates userA's runner "work-runner" with devices
+// device-b and device-a and returns the user and the sorted device ids.
+func setupMobileRunnerWorkTest(t *testing.T, app *tests.TestApp) (*core.Record, []string) {
+	t.Helper()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, orgID, "work-runner", "https://runner.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/work-runner")
+	require.NoError(t, err)
+	deviceB := createMobileDeviceForLifecycleTest(t, app, runner, "device-b")
+	deviceA := createMobileDeviceForLifecycleTest(t, app, runner, "device-a")
+	return user, []string{deviceA, deviceB}
+}
+
+func stubMobileRunnerWorkTemporal(
+	t *testing.T,
+	clientErr error,
+	query func(context.Context, client.Client, string) ([]workflows.MobileDeviceSemaphoreRunTicketView, error),
+) {
+	t.Helper()
+	origClient := mobileRunnerLifecycleTemporalClient
+	origQuery := queryMobileDeviceSemaphoreRunTickets
+	origNow := mobileRunnerLifecycleNow
+	t.Cleanup(func() {
+		mobileRunnerLifecycleTemporalClient = origClient
+		queryMobileDeviceSemaphoreRunTickets = origQuery
+		mobileRunnerLifecycleNow = origNow
+	})
+	mobileRunnerLifecycleNow = func() time.Time {
+		return time.Date(2026, 6, 24, 10, 0, 0, 0, time.UTC)
+	}
+	mobileRunnerLifecycleTemporalClient = func(string) (client.Client, error) {
+		if clientErr != nil {
+			return nil, clientErr
+		}
+		return temporalmocks.NewClient(t), nil
+	}
+	if query != nil {
+		queryMobileDeviceSemaphoreRunTickets = query
+	}
+}
+
+func decodeMobileRunnerWork(t *testing.T, event *core.RequestEvent) MobileRunnerWorkResponse {
+	t.Helper()
+	recorder := responseRecorder(t, event)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response MobileRunnerWorkResponse
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	return response
+}
+
+func TestHandleMobileRunnerLifecycleWorkRedactsOtherOrganizations(t *testing.T) {
+	const foreignTicketID = "sched/Scheduled-secret-pipeline-uuid/run-1"
+
+	cases := []struct {
+		name  string
+		email string
+		coll  string
+	}{
+		{name: "organization member", email: "userA@example.org", coll: "users"},
+		{name: "superuser", email: "admin@example.org", coll: "_superusers"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
+			_, deviceIDs := setupMobileRunnerWorkTest(t, app)
+			caller, err := app.FindAuthRecordByEmail(tc.coll, tc.email)
+			require.NoError(t, err)
+
+			startedAt := time.Date(2026, 6, 24, 9, 0, 0, 0, time.UTC)
+			foreignTicket := workflows.MobileDeviceSemaphoreRunTicketView{
+				TicketID:           foreignTicketID,
+				OwnerNamespace:     "other-org",
+				PipelineIdentifier: "other-org/secret-pipeline",
+				RunType:            "scheduled",
+				Status:             workflowengine.MobileDeviceSemaphoreRunQueued,
+				WorkflowID:         "wf-foreign",
+				RunID:              "run-foreign",
+				WorkflowNamespace:  "other-org",
+				Position:           1,
+				LineLen:            1,
+			}
+			stubMobileRunnerWorkTemporal(t, nil, func(
+				_ context.Context,
+				_ client.Client,
+				deviceID string,
+			) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
+				if deviceID != deviceIDs[0] {
+					return []workflows.MobileDeviceSemaphoreRunTicketView{foreignTicket}, nil
+				}
+				return []workflows.MobileDeviceSemaphoreRunTicketView{
+					{
+						TicketID:           "own",
+						OwnerNamespace:     "usera-s-organization",
+						PipelineIdentifier: "usera-s-organization/pipeline",
+						Status:             workflowengine.MobileDeviceSemaphoreRunRunning,
+						WorkflowID:         "wf-own",
+						RunID:              "run-own",
+						WorkflowNamespace:  "usera-s-organization",
+						StartedAt:          &startedAt,
+					},
+					foreignTicket,
+				}, nil
+			})
+
+			event := performMobileRunnerWorkRequest(
+				t,
+				app,
+				caller,
+				"/usera-s-organization/work-runner",
+			)
+			require.NoError(t, HandleMobileRunnerLifecycleWork()(event))
+
+			response := decodeMobileRunnerWork(t, event)
+			require.Equal(t, "usera-s-organization/work-runner", response.RunnerID)
+			require.Equal(t, time.Date(2026, 6, 24, 10, 0, 0, 0, time.UTC), response.GeneratedAt)
+			require.Len(t, response.Devices, 2)
+			require.Equal(t, deviceIDs[0], response.Devices[0].DeviceID)
+			require.Equal(t, deviceIDs[1], response.Devices[1].DeviceID)
+
+			tickets := response.Devices[0].Tickets
+			require.Len(t, tickets, 2)
+			require.Equal(t, "own", tickets[0].TicketID)
+			require.Equal(t, "usera-s-organization/pipeline", tickets[0].PipelineIdentifier)
+			require.Equal(t, "wf-own", tickets[0].WorkflowID)
+			require.Equal(t, "run-own", tickets[0].RunID)
+
+			foreign := tickets[1]
+			require.True(t, strings.HasPrefix(foreign.TicketID, "redacted-"))
+			require.Len(t, foreign.TicketID, len("redacted-")+16)
+			require.Equal(t, "other-org", foreign.OwnerNamespace)
+			require.Equal(t, "scheduled", foreign.RunType)
+			require.Equal(t, workflowengine.MobileDeviceSemaphoreRunQueued, foreign.Status)
+			require.Equal(t, 1, foreign.Position)
+			require.Empty(t, foreign.PipelineIdentifier)
+			require.Empty(t, foreign.WorkflowID)
+			require.Empty(t, foreign.RunID)
+			require.Empty(t, foreign.WorkflowNamespace)
+
+			require.Len(t, response.Devices[1].Tickets, 1)
+			require.Equal(t, foreign.TicketID, response.Devices[1].Tickets[0].TicketID)
+
+			body := responseRecorder(t, event).Body.String()
+			require.NotContains(t, body, "secret-pipeline")
+			require.NotContains(t, body, "Scheduled-")
+			require.NotContains(t, body, "wf-foreign")
+		})
+	}
+}
+
+func TestRedactedMobileRunnerTicketIDIsStablePerRunner(t *testing.T) {
+	id := redactedMobileRunnerTicketID("org/runner", "ticket")
+	require.Equal(t, id, redactedMobileRunnerTicketID("org/runner", "ticket"))
+	require.NotEqual(t, id, redactedMobileRunnerTicketID("org/other-runner", "ticket"))
+	require.NotEqual(t, id, redactedMobileRunnerTicketID("org/runner", "other-ticket"))
+}
+
+func TestHandleMobileRunnerLifecycleWorkAdminManagedRunner(t *testing.T) {
+	cases := []struct {
+		name       string
+		auth       func(t *testing.T, app *tests.TestApp, event *core.RequestEvent)
+		wantStatus int
+		wantReason string
+	}{
+		{
+			name: "organization member",
+			auth: func(t *testing.T, app *tests.TestApp, event *core.RequestEvent) {
+				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+				require.NoError(t, err)
+				event.Auth = user
+			},
+			wantStatus: http.StatusForbidden,
+			wantReason: "admin_managed_runner_work_forbidden",
+		},
+		{
+			name: "superuser",
+			auth: func(t *testing.T, app *tests.TestApp, event *core.RequestEvent) {
+				superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+				require.NoError(t, err)
+				event.Auth = superuser
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "internal admin key",
+			auth: func(t *testing.T, _ *tests.TestApp, event *core.RequestEvent) {
+				event.Request.Header.Set(APIKeyHeaderName, "internal-test-api-key")
+				require.NoError(t, middlewares.RequireInternalAdminOrAuth().Func(event))
+				require.NotNil(t, event.Auth)
+			},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
+			setupMobileRunnerWorkTest(t, app)
+			setMobileRunnerAdminManaged(t, app, "usera-s-organization/work-runner", true)
+			stubMobileRunnerWorkTemporal(t, nil, func(
+				context.Context,
+				client.Client,
+				string,
+			) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
+				return nil, nil
+			})
+
+			event := performMobileRunnerWorkRequest(
+				t,
+				app,
+				nil,
+				"/usera-s-organization/work-runner",
+			)
+			tc.auth(t, app, event)
+			err := HandleMobileRunnerLifecycleWork()(event)
+			recorder := responseRecorder(t, event)
+			requireHandlerErrorHandled(t, recorder, err)
+			require.Equal(t, tc.wantStatus, recorder.Code)
+			if tc.wantReason != "" {
+				require.Equal(
+					t,
+					tc.wantReason,
+					decodeHandlerErrorResponse(t, recorder).Error.Reason,
+				)
+				return
+			}
+			require.Len(t, decodeMobileRunnerWork(t, event).Devices, 2)
+		})
+	}
+}
+
+func TestHandleMobileRunnerLifecycleWorkQueriesDevicesWithinTotalTimeout(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, deviceIDs := setupMobileRunnerWorkTest(t, app)
+
+	origTotal := mobileRunnerWorkTotalTimeout
+	t.Cleanup(func() { mobileRunnerWorkTotalTimeout = origTotal })
+	mobileRunnerWorkTotalTimeout = 100 * time.Millisecond
+
+	stubMobileRunnerWorkTemporal(t, nil, func(
+		ctx context.Context,
+		_ client.Client,
+		deviceID string,
+	) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
+		if deviceID == deviceIDs[0] {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		return []workflows.MobileDeviceSemaphoreRunTicketView{
+			{
+				TicketID:       "own",
+				OwnerNamespace: "usera-s-organization",
+				Status:         workflowengine.MobileDeviceSemaphoreRunQueued,
+				Position:       1,
+				LineLen:        1,
+			},
+		}, nil
+	})
+
+	event := performMobileRunnerWorkRequest(t, app, user, "/usera-s-organization/work-runner")
+	start := time.Now()
+	require.NoError(t, HandleMobileRunnerLifecycleWork()(event))
+	require.Less(t, time.Since(start), mobileRunnerWorkQueryTimeout)
+
+	response := decodeMobileRunnerWork(t, event)
+	require.Len(t, response.Devices, 2)
+	require.Equal(t, deviceIDs[0], response.Devices[0].DeviceID)
+	require.True(t, response.Devices[0].QueryFailed)
+	require.Empty(t, response.Devices[0].Tickets)
+	require.Equal(t, deviceIDs[1], response.Devices[1].DeviceID)
+	require.False(t, response.Devices[1].QueryFailed)
+	require.Len(t, response.Devices[1].Tickets, 1)
+	require.Equal(t, "own", response.Devices[1].Tickets[0].TicketID)
+}
+
+func TestHandleMobileRunnerLifecycleWorkSemaphoreNotFound(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, deviceIDs := setupMobileRunnerWorkTest(t, app)
+
+	origClient := mobileRunnerLifecycleTemporalClient
+	t.Cleanup(func() { mobileRunnerLifecycleTemporalClient = origClient })
+	mockClient := temporalmocks.NewClient(t)
+	for _, deviceID := range deviceIDs {
+		mockClient.
+			On(
+				"QueryWorkflow",
+				mock.Anything,
+				workflows.MobileDeviceSemaphoreWorkflowID(deviceID),
+				"",
+				workflows.MobileDeviceSemaphoreListRunTicketsQuery,
+			).
+			Return(nil, &serviceerror.NotFound{Message: "missing"}).
+			Once()
+	}
+	mobileRunnerLifecycleTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	event := performMobileRunnerWorkRequest(t, app, user, "/usera-s-organization/work-runner")
+	require.NoError(t, HandleMobileRunnerLifecycleWork()(event))
+
+	response := decodeMobileRunnerWork(t, event)
+	require.Len(t, response.Devices, 2)
+	for _, device := range response.Devices {
+		require.False(t, device.QueryFailed)
+		require.NotNil(t, device.Tickets)
+		require.Empty(t, device.Tickets)
+	}
+	require.Contains(t, responseRecorder(t, event).Body.String(), `"tickets":[]`)
+}
+
+func TestHandleMobileRunnerLifecycleWorkQueryFailure(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, deviceIDs := setupMobileRunnerWorkTest(t, app)
+
+	stubMobileRunnerWorkTemporal(t, nil, func(
+		_ context.Context,
+		_ client.Client,
+		deviceID string,
+	) ([]workflows.MobileDeviceSemaphoreRunTicketView, error) {
+		if deviceID == deviceIDs[1] {
+			return nil, errors.New("query timed out")
+		}
+		return nil, nil
+	})
+
+	event := performMobileRunnerWorkRequest(t, app, user, "/usera-s-organization/work-runner")
+	require.NoError(t, HandleMobileRunnerLifecycleWork()(event))
+
+	response := decodeMobileRunnerWork(t, event)
+	require.Len(t, response.Devices, 2)
+	require.False(t, response.Devices[0].QueryFailed)
+	require.True(t, response.Devices[1].QueryFailed)
+	require.NotNil(t, response.Devices[1].Tickets)
+	require.Empty(t, response.Devices[1].Tickets)
+}
+
+func TestHandleMobileRunnerLifecycleWorkTemporalUnavailable(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, _ := setupMobileRunnerWorkTest(t, app)
+
+	stubMobileRunnerWorkTemporal(t, errors.New("dial failed"), nil)
+
+	event := performMobileRunnerWorkRequest(t, app, user, "/usera-s-organization/work-runner")
+	err := HandleMobileRunnerLifecycleWork()(event)
+	recorder := responseRecorder(t, event)
+	requireHandlerErrorHandled(t, recorder, err)
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+}
+
+func TestMobileRunnerLifecycleWorkRejectsInvalidRunners(t *testing.T) {
+	cases := []struct {
+		name       string
+		runnerID   string
+		wantStatus int
+		wantReason string
+	}{
+		{
+			name:       "missing runner id",
+			wantStatus: http.StatusBadRequest,
+			wantReason: "runner_id_required",
+		},
+		{
+			name:       "unknown runner",
+			runnerID:   "/usera-s-organization/missing-runner",
+			wantStatus: http.StatusNotFound,
+			wantReason: "mobile_runner_not_found",
+		},
+		{
+			name:       "runner of another organization",
+			runnerID:   "/other-org/foreign-runner",
+			wantStatus: http.StatusForbidden,
+			wantReason: "runner_owner_mismatch",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
+
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			otherOrg := createOtherWalletAPKOrganization(t, app)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"foreign-runner",
+				"https://runner.example",
+				false,
+			)
+			// Rejected requests must never reach Temporal.
+			stubLifecycleTemporal(t, lifecycleStubs{})
+
+			event := performMobileRunnerWorkRequest(t, app, user, tc.runnerID)
+			err = HandleMobileRunnerLifecycleWork()(event)
+			recorder := responseRecorder(t, event)
+			requireHandlerErrorHandled(t, recorder, err)
+			require.Equal(t, tc.wantStatus, recorder.Code)
+			require.Equal(
+				t,
+				tc.wantReason,
+				decodeHandlerErrorResponse(t, recorder).Error.Reason,
+			)
 		})
 	}
 }

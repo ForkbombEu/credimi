@@ -12,6 +12,7 @@ const (
 	MobileDeviceSemaphoreEnqueueRunUpdate     = mobiledevicesemaphore.EnqueueRunUpdate
 	MobileDeviceSemaphoreRunStatusQuery       = mobiledevicesemaphore.RunStatusQuery
 	MobileDeviceSemaphoreListQueuedRunsQuery  = mobiledevicesemaphore.ListQueuedRunsQuery
+	MobileDeviceSemaphoreListRunTicketsQuery  = mobiledevicesemaphore.ListRunTicketsQuery
 	MobileDeviceSemaphoreRunDoneUpdate        = mobiledevicesemaphore.RunDoneUpdate
 	MobileDeviceSemaphoreCancelRunUpdate      = mobiledevicesemaphore.CancelRunUpdate
 	MobileDeviceSemaphorePauseDeviceUpdate    = mobiledevicesemaphore.PauseDeviceUpdate
@@ -48,6 +49,8 @@ type MobileDeviceSemaphoreEnqueueRunResponse = mobiledevicesemaphore.MobileDevic
 type MobileDeviceSemaphoreRunStatusView = mobiledevicesemaphore.MobileDeviceSemaphoreRunStatusView
 
 type MobileDeviceSemaphoreQueuedRunView = mobiledevicesemaphore.MobileDeviceSemaphoreQueuedRunView
+
+type MobileDeviceSemaphoreRunTicketView = mobiledevicesemaphore.MobileDeviceSemaphoreRunTicketView
 
 type MobileDeviceSemaphoreRunDoneRequest = mobiledevicesemaphore.MobileDeviceSemaphoreRunDoneRequest
 
