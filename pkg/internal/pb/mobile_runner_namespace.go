@@ -5,6 +5,8 @@
 package pb
 
 import (
+	"log"
+
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase/core"
@@ -13,12 +15,14 @@ import (
 var (
 	ensureRunnerNamespaceFn      = hooks.EnsureRunnerNamespace
 	stopRunnerNamespaceWorkersFn = hooks.StopRunnerNamespaceWorkers
+	deleteRunnerNexusEndpointFn  = hooks.DeleteRunnerNexusEndpoint
 )
 
 // RegisterMobileRunnerNamespaceHooks prepares a runner's namespace while the
 // runner is not disabled, and stops the namespace's workers otherwise. Every
-// save of a disabled runner clears its namespace readiness. Namespaces are
-// never deleted from Temporal; their histories expire by retention.
+// save of a disabled runner clears its namespace readiness. Deleting a runner
+// also deletes its Nexus endpoint; disabling it keeps the endpoint. Namespaces
+// are never deleted from Temporal; their histories expire by retention.
 func RegisterMobileRunnerNamespaceHooks(app core.App) {
 	app.OnRecordUpdate("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
 		if !mobilerunner.NamespaceEnabled(e.Record) {
@@ -45,7 +49,12 @@ func RegisterMobileRunnerNamespaceHooks(app core.App) {
 	})
 
 	app.OnRecordAfterDeleteSuccess("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
-		go stopRunnerNamespaceWorkersFn(e.App, e.Record.Id)
+		go func(app core.App, runnerID string) {
+			stopRunnerNamespaceWorkersFn(app, runnerID)
+			if err := deleteRunnerNexusEndpointFn(runnerID); err != nil {
+				log.Printf("[mobile_runners] runner %s: %v", runnerID, err)
+			}
+		}(e.App, e.Record.Id)
 		return e.Next()
 	})
 }

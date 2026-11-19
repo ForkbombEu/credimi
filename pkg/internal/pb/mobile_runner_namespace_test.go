@@ -17,9 +17,11 @@ func TestRegisterMobileRunnerNamespaceHooks(t *testing.T) {
 	app := newRulesTestApp(t)
 	origEnsure := ensureRunnerNamespaceFn
 	origStop := stopRunnerNamespaceWorkersFn
+	origDelete := deleteRunnerNexusEndpointFn
 	t.Cleanup(func() {
 		ensureRunnerNamespaceFn = origEnsure
 		stopRunnerNamespaceWorkersFn = origStop
+		deleteRunnerNexusEndpointFn = origDelete
 	})
 	calls := make(chan string, 4)
 	ensureRunnerNamespaceFn = func(_ core.App, runnerID string) {
@@ -27,6 +29,10 @@ func TestRegisterMobileRunnerNamespaceHooks(t *testing.T) {
 	}
 	stopRunnerNamespaceWorkersFn = func(_ core.App, runnerID string) {
 		calls <- "stop " + runnerID
+	}
+	deleteRunnerNexusEndpointFn = func(runnerID string) error {
+		calls <- "delete endpoint " + runnerID
+		return nil
 	}
 	RegisterMobileRunnerNamespaceHooks(app)
 
@@ -108,6 +114,7 @@ func TestRegisterMobileRunnerNamespaceHooks(t *testing.T) {
 
 	require.NoError(t, app.Delete(runner))
 	require.Equal(t, "stop "+id, next())
+	require.Equal(t, "delete endpoint "+id, next())
 
 	// A runner created disabled is left alone.
 	off := core.NewRecord(collection)

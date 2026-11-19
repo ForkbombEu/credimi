@@ -100,6 +100,7 @@ func (f fakeActivity) Execute(
 type fakeWorker struct {
 	registeredWorkflows  []string
 	registeredActivities []string
+	registeredServices   []string
 	runCalled            atomic.Bool
 }
 
@@ -123,7 +124,9 @@ func (f *fakeWorker) RegisterActivityWithOptions(_ interface{}, options activity
 
 func (f *fakeWorker) RegisterDynamicActivity(interface{}, activity.DynamicRegisterOptions) {}
 
-func (f *fakeWorker) RegisterNexusService(*nexus.Service) {}
+func (f *fakeWorker) RegisterNexusService(service *nexus.Service) {
+	f.registeredServices = append(f.registeredServices, service.Name)
+}
 
 func (f *fakeWorker) Start() error { return nil }
 
@@ -635,24 +638,27 @@ func stubRunnerNamespaceWorkers(t *testing.T, ensure func(string) error) (*tests
 	require.NoError(t, err)
 	runnerID := createAgentRunner(t, app, "namespace-runner", false, false).Id
 	origEnsure := ensureNamespaceReadyFn
+	origEnsureEndpoint := ensureRunnerNexusEndpointFn
 	origGetTemporalClient := getTemporalClient
 	origStartWorker := startWorkerFn
-	origStartPipelineWorker := startPipelineWorkerFn
+	origStartRunnerWorker := startRunnerNamespaceWorkerFn
 	t.Cleanup(func() {
 		mobilerunner.SetRunnerNamespaceServed(runnerID, false)
 		StopAllWorkersByNamespace(mobilerunner.RunnerNamespace(runnerID))
 		ensureNamespaceReadyFn = origEnsure
+		ensureRunnerNexusEndpointFn = origEnsureEndpoint
 		getTemporalClient = origGetTemporalClient
 		startWorkerFn = origStartWorker
-		startPipelineWorkerFn = origStartPipelineWorker
+		startRunnerNamespaceWorkerFn = origStartRunnerWorker
 		app.Cleanup()
 	})
 	ensureNamespaceReadyFn = ensure
+	ensureRunnerNexusEndpointFn = func(string) error { return nil }
 	getTemporalClient = func(string) (client.Client, error) { return nil, nil }
 	startWorkerFn = func(context.Context, client.Client, workerConfig, *sync.WaitGroup) {
-		t.Error("runner namespaces run the pipeline worker only")
+		t.Error("runner namespaces run the runner namespace worker only")
 	}
-	startPipelineWorkerFn = func(ctx context.Context, _ core.App, _ client.Client, wg *sync.WaitGroup) {
+	startRunnerNamespaceWorkerFn = func(ctx context.Context, _ core.App, _ client.Client, wg *sync.WaitGroup) {
 		defer wg.Done()
 		<-ctx.Done()
 	}
@@ -1128,6 +1134,19 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	require.Contains(t, fw.registeredActivities, githubPRCommentAct)
 	require.Contains(t, fw.registeredActivities, "activity-act")
 	require.Contains(t, fw.registeredActivities, "extra-act")
+}
+
+func TestRunnerNamespaceWorkerRegistersOnlyDeviceWork(t *testing.T) {
+	fw := &fakeWorker{}
+	registerRunnerNamespaceWorker(fw, nil)
+
+	require.ElementsMatch(t, []string{
+		pipeline.NewDeviceSessionWorkflow().Name(),
+		workflows.NewMobileAutomationWorkflow().Name(),
+		authorsession.WorkflowName,
+	}, fw.registeredWorkflows)
+	require.ElementsMatch(t, runnerNamespaceActivityNames, fw.registeredActivities)
+	require.Empty(t, fw.registeredServices)
 }
 
 func TestRunWorkerWithRetryRetriesOnTransientError(t *testing.T) {

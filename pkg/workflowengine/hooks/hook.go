@@ -29,6 +29,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
+	nexuspb "go.temporal.io/api/nexus/v1"
 	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
@@ -293,21 +294,23 @@ func defaultWorkers(app core.App) []workerConfig {
 }
 
 var (
-	getTemporalClient          = temporalclient.GetTemporalClientWithNamespace
-	newNamespaceClientFn       = temporalclient.NewNamespaceClient
-	newWorkerFn                = worker.New
-	sleepFn                    = time.Sleep
-	sleepWithContextFn         = sleepWithContext
-	nowFn                      = time.Now
-	startWorkerFn              = startWorker
-	startPipelineWorkerFn      = startPipelineWorker
-	fetchNamespacesFn          = FetchNamespaces
-	runnerNamespaceIDsFn       = RunnerNamespaceIDs
-	ensureRunnerNamespace      = EnsureRunnerNamespace
-	ensureNamespaceReadyFn     = EnsureNamespaceReady
-	addSearchAttributesFn      = addSearchAttributes
-	startAllWorkersByNamespace = StartAllWorkersByNamespace
-	shutdownTemporalClientsFn  = temporalclient.ShutdownClients
+	getTemporalClient                        = temporalclient.GetTemporalClientWithNamespace
+	newNamespaceClientFn                     = temporalclient.NewNamespaceClient
+	newWorkerFn                              = worker.New
+	sleepFn                                  = time.Sleep
+	sleepWithContextFn                       = sleepWithContext
+	nowFn                                    = time.Now
+	startWorkerFn                            = startWorker
+	startPipelineWorkerFn                    = startPipelineWorker
+	startRunnerNamespaceWorkerFn appWorkerFn = startRunnerNamespaceWorker
+	ensureRunnerNexusEndpointFn              = ensureRunnerNexusEndpoint
+	fetchNamespacesFn                        = FetchNamespaces
+	runnerNamespaceIDsFn                     = RunnerNamespaceIDs
+	ensureRunnerNamespace                    = EnsureRunnerNamespace
+	ensureNamespaceReadyFn                   = EnsureNamespaceReady
+	addSearchAttributesFn                    = addSearchAttributes
+	startAllWorkersByNamespace               = StartAllWorkersByNamespace
+	shutdownTemporalClientsFn                = temporalclient.ShutdownClients
 )
 
 // runnerNamespacePrepareTimeout bounds how long startup waits for one runner
@@ -339,6 +342,85 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
 		}
 
+		return w
+	})
+}
+
+// appWorkerFn starts one worker of a namespace's worker set with the
+// namespace's client; it calls wg.Done when the worker stops.
+type appWorkerFn func(ctx context.Context, app core.App, c client.Client, wg *sync.WaitGroup)
+
+// runnerNamespaceActivityNames are the only activities registered in a runner
+// namespace: the ones the device workflows and the action author session
+// schedule on PipelineTaskQueue. Each of them either checks that its device
+// or runner belongs to the namespace, or accepts only the action author
+// session's own workflows as callers.
+var runnerNamespaceActivityNames = []string{
+	activities.GetMobileDeviceActivityName,
+	activities.MobileRunnerHTTPActivityName,
+	activities.ReportMobileDeviceSemaphoreDoneActivityName,
+	activities.ResolveActionAuthorBuildActivityName,
+	activities.SaveAuthoredWalletActionActivityName,
+	activities.GenerateActionAuthorParametersActivityName,
+	activities.CheckActionAuthorProtocolOutcomeActivityName,
+	activities.ListActionAuthorWalletActionsActivityName,
+	activities.CheckActionAuthorPlanActivityName,
+	activities.ReadActionAuthorPipelineRunActivityName,
+	activities.ResolveActionAuthorReferenceActivityName,
+}
+
+// runnerNamespaceActivities returns the activities named in
+// runnerNamespaceActivityNames.
+func runnerNamespaceActivities(app core.App) []workflowengine.ExecutableActivity {
+	return []workflowengine.ExecutableActivity{
+		activities.NewGetMobileDeviceActivity(app),
+		activities.NewMobileRunnerHTTPActivity(app),
+		activities.NewReportMobileDeviceSemaphoreDoneActivity(),
+		activities.NewResolveActionAuthorBuildActivity(app),
+		activities.NewSaveAuthoredWalletActionActivity(app),
+		activities.NewGenerateActionAuthorParametersActivity(app),
+		activities.NewCheckActionAuthorProtocolOutcomeActivity(app),
+		activities.NewListActionAuthorWalletActionsActivity(app),
+		activities.NewCheckActionAuthorPlanActivity(app),
+		activities.NewReadActionAuthorPipelineRunActivity(app),
+		activities.NewResolveActionAuthorReferenceActivity(app),
+	}
+}
+
+// registerRunnerNamespaceWorker registers on w everything a runner namespace
+// serves, and nothing else.
+func registerRunnerNamespaceWorker(w worker.Registry, app core.App) {
+	deviceSessionWf := pipeline.NewDeviceSessionWorkflow()
+	w.RegisterWorkflowWithOptions(
+		deviceSessionWf.Workflow,
+		workflow.RegisterOptions{Name: deviceSessionWf.Name()},
+	)
+	for _, wf := range []workflowengine.Workflow{
+		workflows.NewMobileAutomationWorkflow(),
+		authorsession.New(),
+	} {
+		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+	}
+	for _, act := range runnerNamespaceActivities(app) {
+		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+	}
+}
+
+// startRunnerNamespaceWorker runs the only worker of a runner namespace.
+func startRunnerNamespaceWorker(
+	ctx context.Context,
+	app core.App,
+	c client.Client,
+	wg *sync.WaitGroup,
+) {
+	defer wg.Done()
+	runWorkerWithRetry(ctx, pipeline.PipelineTaskQueue, func() worker.Worker {
+		w := newWorkerFn(
+			c,
+			pipeline.PipelineTaskQueue,
+			worker.Options{WorkerStopTimeout: workerStopTimeout},
+		)
+		registerRunnerNamespaceWorker(w, app)
 		return w
 	})
 }
@@ -535,14 +617,19 @@ func StartAllWorkersByNamespace(app core.App, namespace string) {
 	if namespace == "default" {
 		workers = defaultWorkers(app)
 	}
-	if err := startNamespaceWorkerSet(app, namespace, workers); err != nil {
+	if err := startNamespaceWorkerSet(app, namespace, workers, startPipelineWorkerFn); err != nil {
 		log.Print(err)
 	}
 }
 
 // startNamespaceWorkerSet replaces the namespace's worker set with workers
-// plus the pipeline worker.
-func startNamespaceWorkerSet(app core.App, namespace string, workers []workerConfig) error {
+// plus appWorkers, each started with the namespace's client.
+func startNamespaceWorkerSet(
+	app core.App,
+	namespace string,
+	workers []workerConfig,
+	appWorkers ...appWorkerFn,
+) error {
 	if _, ok := workerSets.Load(namespace); ok {
 		StopAllWorkersByNamespace(namespace)
 	}
@@ -565,8 +652,10 @@ func startNamespaceWorkerSet(app core.App, namespace string, workers []workerCon
 		go startWorkerFn(ctx, c, config, &wg)
 	}
 
-	wg.Add(1)
-	go startPipelineWorkerFn(ctx, app, c, &wg)
+	for _, start := range appWorkers {
+		wg.Add(1)
+		go start(ctx, app, c, &wg)
+	}
 
 	go func() {
 		wg.Wait()
@@ -675,10 +764,13 @@ func namespaceEnabledRunner(app core.App, runnerID string, mu *sync.Mutex) (*cor
 }
 
 // StartRunnerNamespaceWorkers starts the worker set of a runner namespace:
-// the pipeline worker alone, which registers the action author session
-// workflow and every activity the session schedules on its task queue.
+// one worker on PipelineTaskQueue that hosts the workflows of the runner's
+// devices (Prepare a mobile device, Clean up a mobile device, the mobile
+// automation step workflow and the action author session), the
+// mobiledevice Nexus service the pipeline calls them through, and the
+// activities those workflows schedule on PipelineTaskQueue.
 func StartRunnerNamespaceWorkers(app core.App, namespace string) error {
-	return startNamespaceWorkerSet(app, namespace, nil)
+	return startNamespaceWorkerSet(app, namespace, nil, startRunnerNamespaceWorkerFn)
 }
 
 // EnsureRunnerNamespace prepares the namespace of the runner with record ID
@@ -717,6 +809,10 @@ func EnsureRunnerNamespace(app core.App, runnerID string) {
 
 	namespace := mobilerunner.RunnerNamespace(runnerID)
 	if err := ensureNamespaceReadyFn(namespace); err != nil {
+		log.Printf("[WorkersHook] runner namespace %s not ready: %v", namespace, err)
+		return
+	}
+	if err := ensureRunnerNexusEndpointFn(namespace); err != nil {
 		log.Printf("[WorkersHook] runner namespace %s not ready: %v", namespace, err)
 		return
 	}
@@ -901,4 +997,103 @@ func addSearchAttributes(ctx context.Context, namespace string) error {
 			SearchAttributes: workflowengine.CustomSearchAttributeTypes(),
 		})
 	return err
+}
+
+// findNexusEndpoint returns the Nexus endpoint named name, or nil.
+func findNexusEndpoint(
+	ctx context.Context,
+	operator operatorservice.OperatorServiceClient,
+	name string,
+) (*nexuspb.Endpoint, error) {
+	resp, err := operator.ListNexusEndpoints(ctx, &operatorservice.ListNexusEndpointsRequest{
+		Name: name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list Nexus endpoint %s: %w", name, err)
+	}
+	for _, endpoint := range resp.GetEndpoints() {
+		if endpoint.GetSpec().GetName() == name {
+			return endpoint, nil
+		}
+	}
+	return nil, nil
+}
+
+// runnerNexusEndpointSpec is the Nexus endpoint of a runner namespace: named
+// after the namespace, it targets the namespace's PipelineTaskQueue.
+func runnerNexusEndpointSpec(namespace string) *nexuspb.EndpointSpec {
+	return &nexuspb.EndpointSpec{
+		Name: namespace,
+		Target: &nexuspb.EndpointTarget{
+			Variant: &nexuspb.EndpointTarget_Worker_{
+				Worker: &nexuspb.EndpointTarget_Worker{
+					Namespace: namespace,
+					TaskQueue: pipeline.PipelineTaskQueue,
+				},
+			},
+		},
+	}
+}
+
+// ensureRunnerNexusEndpoint creates the Nexus endpoint of the runner
+// namespace, or points an existing one with another target back at it.
+func ensureRunnerNexusEndpoint(namespace string) error {
+	c, err := getTemporalClient(namespace)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	operator := c.OperatorService()
+	spec := runnerNexusEndpointSpec(namespace)
+	existing, err := findNexusEndpoint(ctx, operator, namespace)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		if _, err := operator.CreateNexusEndpoint(ctx, &operatorservice.CreateNexusEndpointRequest{
+			Spec: spec,
+		}); err != nil {
+			return fmt.Errorf("create Nexus endpoint %s: %w", namespace, err)
+		}
+		return nil
+	}
+	worker := existing.GetSpec().GetTarget().GetWorker()
+	if worker.GetNamespace() == namespace && worker.GetTaskQueue() == pipeline.PipelineTaskQueue {
+		return nil
+	}
+	if _, err := operator.UpdateNexusEndpoint(ctx, &operatorservice.UpdateNexusEndpointRequest{
+		Id:      existing.GetId(),
+		Version: existing.GetVersion(),
+		Spec:    spec,
+	}); err != nil {
+		return fmt.Errorf("update Nexus endpoint %s: %w", namespace, err)
+	}
+	return nil
+}
+
+// DeleteRunnerNexusEndpoint deletes the Nexus endpoint of the runner with
+// record ID runnerID. An endpoint that does not exist is not an error.
+func DeleteRunnerNexusEndpoint(runnerID string) error {
+	namespace := mobilerunner.RunnerNamespace(runnerID)
+	c, err := getTemporalClient(namespace)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	operator := c.OperatorService()
+	existing, err := findNexusEndpoint(ctx, operator, namespace)
+	if err != nil || existing == nil {
+		return err
+	}
+	_, err = operator.DeleteNexusEndpoint(ctx, &operatorservice.DeleteNexusEndpointRequest{
+		Id:      existing.GetId(),
+		Version: existing.GetVersion(),
+	})
+	var notFound *serviceerror.NotFound
+	if err != nil && !errors.As(err, &notFound) {
+		return fmt.Errorf("delete Nexus endpoint %s: %w", namespace, err)
+	}
+	return nil
 }

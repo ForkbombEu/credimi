@@ -31,10 +31,14 @@ type ReportMobileDeviceSemaphoreDoneActivity struct {
 	workflowengine.BaseActivity
 }
 
+// ReportMobileDeviceSemaphoreDoneActivityName reports a finished run to the
+// leader device's semaphore.
+const ReportMobileDeviceSemaphoreDoneActivityName = "Report mobile device semaphore done"
+
 func NewReportMobileDeviceSemaphoreDoneActivity() *ReportMobileDeviceSemaphoreDoneActivity {
 	return &ReportMobileDeviceSemaphoreDoneActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Report mobile device semaphore done",
+			Name: ReportMobileDeviceSemaphoreDoneActivityName,
 		},
 	}
 }
