@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { organization, workflow } = $derived(data);
+	let { organization, workflow, namespace } = $derived(data);
 	let { info, status, failure_reason: failureMessage, memo, devices } = $derived(workflow);
 	let workflowId = $derived(info.execution.workflowId);
 	let runId = $derived(info.execution.runId);
@@ -68,7 +68,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	// Upstream Temporal UI behind Credimi's read-only proxy scoped to the user's organization
 	// namespace (pkg/internal/temporalui). The proxy authenticates the `pb_auth` cookie that
-	// hooks.client.ts keeps in sync with the auth store.
+	// hooks.client.ts keeps in sync with the auth store. A pipeline's device work runs in its
+	// runner's namespace (`?namespace=runner-...`), which the proxy serves for owned runs only.
 	// Use /history (not /timeline): older Temporal UI builds have no /timeline route and
 	// their SvelteKit router logs `Not found: /temporal-ui/.../timeline` in the iframe.
 	// Temporal UI >= 2.52 redirects /history → /timeline, so this stays compatible both ways.
@@ -77,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const temporalUiUrl = $derived(
 		[
 			'/temporal-ui/namespaces',
-			encodeURIComponent(organization.canonified_name),
+			encodeURIComponent(namespace ?? organization.canonified_name),
 			'workflows',
 			encodeURIComponent(workflowId),
 			encodeURIComponent(runId),
@@ -154,7 +155,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 
 		async function poll() {
-			const w = await _getWorkflow(polledWorkflowId, polledRunId);
+			const w = await _getWorkflow(polledWorkflowId, polledRunId, { namespace });
 			if (!active) return;
 			if (w instanceof Error) console.error(w);
 			else workflow = w;

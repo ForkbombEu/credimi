@@ -58,4 +58,29 @@ describe('stepDetailsHref', () => {
 		});
 		expect(stepDetailsHref(workflowStep)).toBe('/my/tests/runs/wf-check/check-run');
 	});
+
+	it('opens a runner-namespace step in its namespace', () => {
+		const workflowStep = step(9, {
+			kind: 'workflow',
+			execution: { workflowId: 'wf-step', runId: 'step-run' },
+			execution_namespace: 'runner-abc'
+		});
+		expect(stepDetailsHref(workflowStep)).toBe(
+			'/my/tests/runs/wf-step/step-run?namespace=runner-abc'
+		);
+	});
+
+	it('opens a device session in its namespace', () => {
+		const deviceStep = step(10, {
+			step_id: 'acme/runner/pixel',
+			kind: 'device',
+			type: 'Run a mobile device session',
+			display_name: 'acme/runner/pixel',
+			execution: { workflowId: 'wf-device-pixel', runId: 'session-run' },
+			execution_namespace: 'runner-abc'
+		});
+		expect(stepDetailsHref(deviceStep)).toBe(
+			'/my/tests/runs/wf-device-pixel/session-run?namespace=runner-abc'
+		);
+	});
 });

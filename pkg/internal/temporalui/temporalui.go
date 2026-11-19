@@ -12,7 +12,10 @@
 //   - only GET and HEAD reach the UI, so no workflow can be started, signaled,
 //     cancelled, terminated or reset from it;
 //   - API calls must target the caller's organization namespace; the namespace
-//     list is replaced by the caller's namespace alone.
+//     list is replaced by the caller's namespace alone;
+//   - in a runner namespace (runner-<runner record id>) only the pages and API
+//     calls of a workflow run the caller's organization owns
+//     (runnerworkflows.OwnedBy) and the namespace description are served.
 //
 // HTML pages get embedHead, which fits the UI into a Credimi run page: no shell,
 // light theme only, navigation kept on the embedded run.
@@ -30,7 +33,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/runnerworkflows"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 )
@@ -61,14 +67,23 @@ var unscopedAPIEndpoints = map[string]bool{
 	"system-info":  true,
 }
 
-// classify decides how a request for escapedPath (below PathPrefix) is served for
-// a caller whose organization namespace is namespace.
+// ownedFunc reports whether the caller's organization owns the run runID of
+// workflowID (its latest run when runID is empty) in the runner namespace
+// namespace (runnerworkflows.OwnedBy).
+type ownedFunc func(namespace, workflowID, runID string) bool
+
+// classify decides how a request for escapedPath (below PathPrefix) with query
+// is served for a caller whose organization namespace is namespace.
 //
 // escapedPath must begin with the literal PathPrefix. A request whose raw bytes
 // encode the prefix (for example /%74emporal-ui/...) never matches here and is
 // rejected: the upstream Temporal UI decodes its own path, so forwarding the
 // encoded form would let a caller reach another organization's namespace.
-func classify(escapedPath, namespace string) routeKind {
+//
+// A runner namespace is reachable only for the pages and API calls of a
+// workflow run the caller owns, plus the namespace description those pages
+// load.
+func classify(escapedPath string, query url.Values, namespace string, owned ownedFunc) routeKind {
 	if !strings.HasPrefix(escapedPath, PathPrefix) {
 		return routeForbidden
 	}
@@ -92,10 +107,18 @@ func classify(escapedPath, namespace string) routeKind {
 
 	switch segments[0] {
 	case "api":
-		return classifyAPI(segments, namespace)
+		return classifyAPI(segments, query, namespace, owned)
 	case "auth":
 		return routeForbidden
 	case "namespaces":
+		if len(segments) > 1 && isRunnerNamespace(segments[1]) {
+			// namespaces/<ns>/workflows/<workflow id>/<run id>[/...]
+			if len(segments) >= 5 && segments[2] == "workflows" && segments[4] != "" &&
+				owned(segments[1], segments[3], segments[4]) {
+				return routePage
+			}
+			return routeHome
+		}
 		if len(segments) > 1 && segments[1] != namespace {
 			return routeHome
 		}
@@ -108,7 +131,7 @@ func classify(escapedPath, namespace string) routeKind {
 	}
 }
 
-func classifyAPI(segments []string, namespace string) routeKind {
+func classifyAPI(segments []string, query url.Values, namespace string, owned ownedFunc) routeKind {
 	if len(segments) < 3 || segments[1] != "v1" {
 		return routeForbidden
 	}
@@ -121,10 +144,61 @@ func classifyAPI(segments []string, namespace string) routeKind {
 	if len(segments) == 3 {
 		return routeNamespaceList
 	}
+	if isRunnerNamespace(segments[3]) {
+		return classifyRunnerAPI(segments, query, owned)
+	}
 	if segments[3] == namespace {
 		return routeProxy
 	}
 	return routeForbidden
+}
+
+// runnerPipelineTaskQueue is the task queue of every workflow Credimi runs in a
+// runner namespace; its workers are Credimi's own.
+const runnerPipelineTaskQueue = "PipelineTaskQueue"
+
+// classifyRunnerAPI allows, in a runner namespace, its description, its search
+// attribute schema, the description and worker count of the task queue the
+// workflow pages show (Credimi's PipelineTaskQueue), and the calls about one
+// owned workflow run: api/v1/namespaces/<ns>/workflows/<workflow id>[/...].
+func classifyRunnerAPI(segments []string, query url.Values, owned ownedFunc) routeKind {
+	switch {
+	case len(segments) == 4,
+		len(segments) == 5 && segments[4] == "search-attributes",
+		len(segments) == 6 && segments[4] == "task-queues" &&
+			segments[5] == runnerPipelineTaskQueue,
+		len(segments) == 5 && segments[4] == "worker-count" &&
+			len(query["query"]) == 1 &&
+			query.Get("query") == `TaskQueue="`+runnerPipelineTaskQueue+`"`:
+		return routeProxy
+	}
+	if len(segments) < 6 || segments[4] != "workflows" || segments[5] == "" {
+		return routeForbidden
+	}
+	runID, ok := queryRunID(query)
+	if !ok || !owned(segments[3], segments[5], runID) {
+		return routeForbidden
+	}
+	return routeProxy
+}
+
+// queryRunID returns the run a workflow API call names. The API reads it from
+// either spelling of the field; a call naming two runs is refused.
+func queryRunID(query url.Values) (string, bool) {
+	var runID string
+	for _, key := range []string{"execution.run_id", "execution.runId"} {
+		for _, value := range query[key] {
+			if runID != "" && value != runID {
+				return "", false
+			}
+			runID = value
+		}
+	}
+	return runID, true
+}
+
+func isRunnerNamespace(namespace string) bool {
+	return strings.HasPrefix(namespace, canonify.RunnerNamespacePrefix)
 }
 
 func homePath(namespace string) string {
@@ -196,11 +270,15 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 				nil,
 			)
 		}
-		_, namespace, err := Caller(e)
+		user, namespace, err := Caller(e)
 		if err != nil {
 			return err
 		}
-		kind := classify(e.Request.URL.EscapedPath(), namespace)
+		query, err := url.ParseQuery(e.Request.URL.RawQuery)
+		if err != nil {
+			return e.ForbiddenError("This Temporal UI resource is not available.", nil)
+		}
+		kind := classify(e.Request.URL.EscapedPath(), query, namespace, callerOwns(e, user))
 		switch kind {
 		case routeForbidden:
 			return e.ForbiddenError("This Temporal UI resource is not available.", nil)
@@ -215,6 +293,49 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 		)
 		proxy.ServeHTTP(e.Response, e.Request.WithContext(ctx))
 		return nil
+	}
+}
+
+// clientFor connects to a runner namespace; tests stub it.
+var clientFor = temporalclient.GetTemporalClientWithNamespace
+
+// callerOwns checks runner-namespace runs against the organization of user.
+// A failed lookup is logged and counts as not owned.
+func callerOwns(e *core.RequestEvent, user *core.Record) ownedFunc {
+	return func(namespace, workflowID, runID string) bool {
+		organizationID, err := pbutils.GetUserOrganizationID(e.App, user.Id)
+		if err != nil {
+			e.App.Logger().Warn("temporal ui: organization lookup failed", "error", err)
+			return false
+		}
+		c, err := clientFor(namespace)
+		if err != nil {
+			e.App.Logger().Warn(
+				"temporal ui: runner namespace client unavailable",
+				"namespace", namespace,
+				"error", err,
+			)
+			return false
+		}
+		owned, err := runnerworkflows.OwnedBy(
+			e.Request.Context(),
+			e.App,
+			c,
+			organizationID,
+			namespace,
+			workflowID,
+			runID,
+		)
+		if err != nil {
+			e.App.Logger().Warn(
+				"temporal ui: runner workflow ownership lookup failed",
+				"namespace", namespace,
+				"workflow_id", workflowID,
+				"error", err,
+			)
+			return false
+		}
+		return owned
 	}
 }
 
@@ -280,8 +401,8 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
-//     run open that run's Credimi page in the top window, any other in-app link
-//     is blocked.
+//     run open that run's Credimi page in the top window (with ?namespace= for a
+//     run in a runner namespace), any other in-app link is blocked.
 const embedHead = `<style id="credimi-embed">` +
 	`:root{color-scheme:light}` +
 	`html,body{background-color:#f8fafc !important;color:#141414 !important;` +
@@ -320,15 +441,16 @@ const embedHead = `<style id="credimi-embed">` +
 	`</style>` +
 	`<script id="credimi-embed-script">(function(){` +
 	`try{localStorage.setItem("dark mode","false")}catch(e){}` +
-	`var run=/^\/temporal-ui\/namespaces\/[^\/]+\/workflows\/([^\/]+)\/([^\/?#]+)/;` +
+	`var run=/^\/temporal-ui\/namespaces\/([^\/]+)\/workflows\/([^\/]+)\/([^\/?#]+)/;` +
 	`document.addEventListener("click",function(e){` +
 	`var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a)return;` +
 	`var u=new URL(a.href,location.href);if(u.origin!==location.origin)return;` +
 	`var here=location.pathname.match(run),there=u.pathname.match(run);` +
-	`if(here&&there&&here[1]===there[1]&&here[2]===there[2])return;` +
+	`if(here&&there&&here[1]===there[1]&&here[2]===there[2]&&here[3]===there[3])return;` +
 	`e.preventDefault();e.stopImmediatePropagation();` +
 	`if(there&&window.top!==window){` +
-	`window.top.location.href="/my/tests/runs/"+there[1]+"/"+there[2]}` +
+	`window.top.location.href="/my/tests/runs/"+there[2]+"/"+there[3]+` +
+	`(there[1].indexOf("` + canonify.RunnerNamespacePrefix + `")===0?"?namespace="+there[1]:"")}` +
 	`},true);` +
 	`function reportHeight(){` +
 	// Prefer body/#content over documentElement.scrollHeight: after a taller tab

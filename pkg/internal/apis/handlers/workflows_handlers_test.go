@@ -16,10 +16,12 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -388,6 +390,145 @@ func TestHandleGetMyWorkflowRunIncludesPipelineDevices(t *testing.T) {
 	require.Equal(t, []PipelineExecutionDevice{
 		{DeviceID: "tenant/runner-1/pixel", Name: "pixel", LiveView: false},
 	}, body.Devices)
+}
+
+// A pipeline's device work runs in its runner's namespace: the run page names
+// it, and only runs the caller's organization owns are described there.
+func TestHandleGetMyWorkflowRunInRunnerNamespace(t *testing.T) {
+	cases := []struct {
+		name       string
+		namespace  string
+		otherOrg   bool
+		wantStatus int
+		wantReason string
+	}{
+		{name: "owned run", wantStatus: http.StatusOK},
+		{
+			name:       "organization namespace",
+			namespace:  "acme",
+			wantStatus: http.StatusBadRequest,
+			wantReason: "invalid namespace",
+		},
+		{
+			name:       "run of another organization",
+			otherOrg:   true,
+			wantStatus: http.StatusNotFound,
+			wantReason: "workflow not found",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			email := "userA@example.org"
+			if tc.otherOrg {
+				email = "userB@example.org"
+			}
+			authRecord, err := app.FindAuthRecordByEmail("users", email)
+			require.NoError(t, err)
+			owner, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			ownerOrgID, err := pbutils.GetUserOrganizationID(app, owner.Id)
+			require.NoError(t, err)
+
+			runner := createRunnerRecord(t, app, ownerOrgID, "run-page-runner")
+			devicesColl, err := app.FindCollectionByNameOrId("mobile_devices")
+			require.NoError(t, err)
+			device := core.NewRecord(devicesColl)
+			device.Set("name", "pixel")
+			device.Set("canonified_name", "pixel")
+			device.Set("owner", ownerOrgID)
+			device.Set("runner", runner.Id)
+			device.Set("type", "android_emulator")
+			device.Set("serial", "pixel-serial")
+			require.NoError(t, app.Save(device))
+			pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+			require.NoError(t, err)
+			pipelineRecord := core.NewRecord(pipelineColl)
+			pipelineRecord.Set("owner", ownerOrgID)
+			pipelineRecord.Set("canonified_name", "pipeline123")
+			pipelineRecord.Set("name", "pipeline123")
+			pipelineRecord.Set("description", "demo pipeline")
+			pipelineRecord.Set("yaml", "name: demo")
+			require.NoError(t, app.Save(pipelineRecord))
+			resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+			require.NoError(t, err)
+			resultRecord := core.NewRecord(resultsColl)
+			resultRecord.Set("owner", ownerOrgID)
+			resultRecord.Set("pipeline", pipelineRecord.Id)
+			resultRecord.Set("workflow_id", "pipeline-1")
+			resultRecord.Set("run_id", "run-1")
+			resultRecord.Set("devices", []string{device.Id})
+			require.NoError(t, app.Save(resultRecord))
+
+			runnerNamespace := mobilerunner.RunnerNamespace(runner.Id)
+			namespace := tc.namespace
+			if namespace == "" {
+				namespace = runnerNamespace
+			}
+			memo, err := temporalcrypto.DataConverter().
+				ToPayload(mobiledevicesession.PipelineRunRef{
+					Namespace:  "acme",
+					WorkflowID: "pipeline-1",
+					RunID:      "run-1",
+				})
+			require.NoError(t, err)
+
+			var namespaces []string
+			origClient := workflowTemporalClient
+			t.Cleanup(func() { workflowTemporalClient = origClient })
+			mockClient := &temporalmocks.Client{}
+			workflowTemporalClient = func(ns string) (client.Client, error) {
+				namespaces = append(namespaces, ns)
+				return mockClient, nil
+			}
+			mockClient.
+				On("DescribeWorkflow", mock.Anything, "pipeline-1-step", "step-run").
+				Return(temporalclient.Description(&workflowservice.DescribeWorkflowExecutionResponse{
+					WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+						Execution: &common.WorkflowExecution{
+							WorkflowId: "pipeline-1-step",
+							RunId:      "step-run",
+						},
+						Type: &common.WorkflowType{
+							Name: mobiledevicesession.MobileAutomationWorkflowName,
+						},
+						Memo: &common.Memo{Fields: map[string]*common.Payload{
+							mobiledevicesession.PipelineRunMemoKey: memo,
+						}},
+					},
+				}), nil)
+
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/api/my/workflows/pipeline-1-step/runs/step-run?namespace="+namespace,
+				nil,
+			)
+			req.SetPathValue("workflowId", "pipeline-1-step")
+			req.SetPathValue("runId", "step-run")
+			rec := httptest.NewRecorder()
+
+			err = HandleGetMyWorkflowRun()(&core.RequestEvent{
+				App:  app,
+				Auth: authRecord,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			requireHandlerErrorHandled(t, rec, err)
+			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
+			if tc.wantReason != "" {
+				require.Equal(t, tc.wantReason, decodeAPIError(t, rec).Reason)
+				return
+			}
+			require.Equal(t, []string{runnerNamespace}, namespaces)
+			require.Contains(t, rec.Body.String(), "pipeline-1-step")
+			require.NotContains(t, rec.Body.String(), `"devices"`)
+		})
+	}
 }
 
 func TestHandleGetMyCheckRunIncludesFailureReason(t *testing.T) {

@@ -23,6 +23,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/runnerworkflows"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -404,16 +405,44 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"missing organization",
 			)
 		}
+		// A pipeline's device work runs in its runner's namespace; the run page
+		// names that namespace, and the run must be owned by the caller.
+		runnerNamespace := e.Request.URL.Query().Get("namespace")
+		workflowNamespace := namespace
+		if runnerNamespace != "" {
+			if !strings.HasPrefix(runnerNamespace, canonify.RunnerNamespacePrefix) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"namespace",
+					"invalid namespace",
+					"namespace must be a runner namespace",
+				)
+			}
+			workflowNamespace = runnerNamespace
+		}
 
-		c, err := workflowTemporalClient(namespace)
+		c, err := workflowTemporalClient(workflowNamespace)
 		if err != nil {
 			return temporalUnavailableError()
+		}
+		if runnerNamespace != "" {
+			if apiErr := requireOwnedRunnerWorkflow(
+				e,
+				c,
+				authRecord.Id,
+				runnerNamespace,
+				workflowID,
+				runID,
+			); apiErr != nil {
+				return apiErr
+			}
 		}
 		workflowExecution, err := temporalclient.Describe(e.Request.Context(), c, workflowID, runID)
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
-				if pipelineRunOwnedByAnotherOrganization(e.App, authRecord.Id, workflowID, runID) {
+				if runnerNamespace == "" &&
+					pipelineRunOwnedByAnotherOrganization(e.App, authRecord.Id, workflowID, runID) {
 					return apierror.New(
 						http.StatusForbidden,
 						"workflow",
@@ -421,12 +450,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 						"the run belongs to another organization",
 					)
 				}
-				return apierror.New(
-					http.StatusNotFound,
-					"workflow",
-					"workflow not found",
-					err.Error(),
-				)
+				return workflowRunNotFound(err.Error())
 			}
 			invalidArgument := &serviceerror.InvalidArgument{}
 			if errors.As(err, &invalidArgument) {
@@ -474,16 +498,61 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				finalJSON["failure_reason"] = *failure
 			}
 		}
-		if devices := pipelineExecutionDevicesFromDescribe(
-			e.Request.Context(),
-			e.App,
-			namespace,
-			workflowExecution,
-		); len(devices) > 0 {
-			finalJSON["devices"] = devices
+		if runnerNamespace == "" {
+			if devices := pipelineExecutionDevicesFromDescribe(
+				e.Request.Context(),
+				e.App,
+				namespace,
+				workflowExecution,
+			); len(devices) > 0 {
+				finalJSON["devices"] = devices
+			}
 		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
+}
+
+func workflowRunNotFound(message string) *apierror.APIError {
+	return apierror.New(http.StatusNotFound, "workflow", "workflow not found", message)
+}
+
+// requireOwnedRunnerWorkflow answers a run of a runner namespace the caller's
+// organization does not own (runnerworkflows.OwnedBy) as a missing run.
+func requireOwnedRunnerWorkflow(
+	e *core.RequestEvent,
+	c client.Client,
+	userID, namespace, workflowID, runID string,
+) *apierror.APIError {
+	organizationID, err := pbutils.GetUserOrganizationID(e.App, userID)
+	if err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization",
+			err.Error(),
+		)
+	}
+	owned, err := runnerworkflows.OwnedBy(
+		e.Request.Context(),
+		e.App,
+		c,
+		organizationID,
+		namespace,
+		workflowID,
+		runID,
+	)
+	if err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to describe workflow execution",
+			err.Error(),
+		)
+	}
+	if !owned {
+		return workflowRunNotFound("workflow not found")
+	}
+	return nil
 }
 
 // pipelineRunOwnedByAnotherOrganization reports whether a run missing from the
