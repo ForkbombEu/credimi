@@ -764,7 +764,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-11-05 - Action author session grants until Temporal authenticates callers
 
-- status: open (item 1 superseded for the agent queue on 12/11/2026, see "Action author sessions in per-runner namespaces"; item 2 stays open)
+- status: open (item 1 superseded for the agent queue on 12/11/2026, see "Action author sessions in per-runner namespaces", and closed for `<runner_id>-TaskQueue` on 19/11/2026, see "Pipeline device work in per-runner namespaces"; item 2 stays open)
 - owner: human maintainer
 - context: Temporal is unauthenticated, so anyone who reaches it could start an `Action author session` workflow, or enqueue a semaphore ticket, and skip the start endpoint's membership, device and allowance checks. The start endpoint signs each ticket it enqueues (`actionauthor.SignTicket`, `SessionInput.TicketGrant`); the semaphore's start activity starts only a ticket signed for exactly its session, then signs the session itself (`actionauthor.SignSession`, `SessionInput.Grant`; the session grant is only in the session's own history, never in the semaphore's), records the run it started (`action_author_sessions`, `actionauthor.RecordSessionRun`), and every Credimi activity the session or its agent calls accepts only that run with a valid grant (`activities.lookupSessionStart`). A ticket enqueued without Credimi's signature, a closed session's grant replayed under the same workflow ID, a terminated session restarted with its copied input, and a workflow started under the ticket's ID before Credimi (adopted by `USE_EXISTING` but without a grant) are therefore refused. Temporal authentication is out of scope and needs its own plan.
 - questions and options considered:
@@ -776,7 +776,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-11-09 - Published mobile runners are superuser-only until a task-queue authorizer exists
 
-- status: resolved
+- status: resolved, superseded on 19/11/2026 by "Pipeline device work in per-runner namespaces": organization owners may publish their runners again
 - owner: human maintainer
 - context: Temporal namespace roles cannot scope a runner to its own task queue. A published tenant runner receives `<namespace>:write` on every published organization's namespace, so a tenant publishing its own runner could poll or answer other tenants' activity tasks.
 - question: Who may set `mobile_runners.published`?
@@ -787,7 +787,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-11-09 - Custom Temporal authorizer for runner task-queue isolation
 
-- status: open
+- status: resolved on 19/11/2026 with option (c), per-runner namespaces; see "Pipeline device work in per-runner namespaces"
 - owner: human maintainer
 - context: Runner tokens grant namespace-wide `write`. The token subject is `mobile-runner:<canonical runner path>`, so the runner's task queue is the subject without the prefix plus `-TaskQueue`.
 - question: How should Temporal limit a runner to its own task queue?
@@ -976,3 +976,18 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - (f) the global cap of 4096 pending codes (`503 too_many_codes`) can be filled by many owner accounts.
 - default risk: as listed in the decision.
 - follow-up: revisit (a) if dashboards are shared with people who should not reconfigure the runner; (e) if runners are deployed behind proxies.
+
+### 2026-11-19 - Pipeline device work in per-runner namespaces
+
+- status: resolved (plan approved by the user 19/11/2026)
+- owner: human maintainer
+- context: Temporal authorizes only per namespace, so a runner token for an organization namespace could poll, start and answer anything there, including another runner's `<runner_id>-TaskQueue`. Resolves "Custom Temporal authorizer for runner task-queue isolation" (2026-11-09) with option (c), supersedes "Published mobile runners are superuser-only until a task-queue authorizer exists" (2026-11-09), and closes item 1 of "Action author session grants until Temporal authenticates callers" (2026-11-05).
+- question: where does the device work of a pipeline run, and what may a runner token open?
+- options considered: a custom Temporal authorizer or an authorizing proxy (both keep organization namespaces shared by runners); Nexus endpoints per runner namespace; Credimi activities that start, wait for and cancel workflows in the runner namespace.
+- decisions:
+  - Every runner that is not disabled owns `runner-<mobile_runners record id>`. Each pipeline run starts one `Run a mobile device session` per device and one `Run a mobile automation workflow` per mobile step there, through Credimi activities run by Credimi's pipeline workers; the pipeline itself stays in the organization namespace.
+  - Runner tokens grant exactly `runner-<record id>:write`, for every runner kind and both scopes.
+  - Users see a runner-namespace workflow in the embedded Temporal UI and the run page only when it is a device session or mobile step workflow, its `credimi_pipeline_run` memo names a `pipeline_results` row of the user's organization, and one of that row's devices is hosted by the runner owning the namespace. The memo is a claim: only the runner that ran a pipeline's devices could forge one, and that runner already controls those results.
+  - Organization owners may publish their runners again: a published runner reaches other organizations' device work only in its own namespace.
+- default risk: the action author agent shares `runner-<id>` with pipeline device work, so a compromised agent can read the device-step histories of every organization that used that runner. Accepted.
+- follow-up: none.
