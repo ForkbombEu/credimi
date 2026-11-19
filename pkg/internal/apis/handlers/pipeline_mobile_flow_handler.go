@@ -12,10 +12,12 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
@@ -52,6 +54,16 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 		}
 
 		namespace := strings.TrimSpace(input.OrganizationID)
+		// Only organization namespaces get a client.
+		org, err := pbutils.FindOrganizationByNamespace(e.App, namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"organization_id",
+				"organization not found",
+				"no organization has this namespace",
+			)
+		}
 		temporalClient, err := pipelineMobileFlowTemporalClient(namespace)
 		if err != nil {
 			return temporalUnavailableError()
@@ -85,6 +97,24 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				"resolved record is not a wallet action",
 			)
 		}
+		// The pipeline's organization may run its own actions and published ones.
+		if action.GetString("owner") != org.Id && !action.GetBool("published") {
+			return apierror.New(
+				http.StatusNotFound,
+				"action_id",
+				"wallet action not found",
+				"wallet action not found",
+			)
+		}
+		runnerNamespace := workflowengine.AsString(device["runner_namespace"])
+		if runnerNamespace == "" {
+			return apierror.New(
+				http.StatusConflict,
+				"device_id",
+				"device is not prepared",
+				"the pipeline has not prepared its device in its runner namespace",
+			)
+		}
 		actionCode := strings.TrimSpace(action.GetString("code"))
 		if actionCode == "" {
 			return apierror.New(
@@ -95,25 +125,40 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			)
 		}
 
+		runnerClient, err := pipelineMobileFlowTemporalClient(runnerNamespace)
+		if err != nil {
+			return temporalUnavailableError()
+		}
+		workflowID := strings.TrimSpace(input.WorkflowID)
+		runID := strings.TrimSpace(input.RunID)
 		activityOptions := pipelineMobileFlowActivityOptions()
 		mobileWorkflow := workflows.NewMobileAutomationWorkflow()
 		testName := fmt.Sprintf("mobile-flow: %s", strings.TrimSpace(input.ActionID))
-		run, err := temporalClient.ExecuteWorkflow(
+		config := pipelineMobileFlowConfig(
+			namespace,
+			workflowID,
+			runID,
+			workflowengine.AsString(device["runner_id"]),
+		)
+		config["runner_namespace"] = runnerNamespace
+		run, err := runnerClient.ExecuteWorkflow(
 			e.Request.Context(),
 			client.StartWorkflowOptions{
-				ID:            pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
-				TaskQueue:     pipeline.PipelineTaskQueue,
-				Memo:          map[string]any{"test": testName},
+				ID:        pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
+				TaskQueue: pipeline.PipelineTaskQueue,
+				Memo: map[string]any{
+					"test": testName,
+					mobiledevice.PipelineRunMemoKey: mobiledevice.PipelineRun{
+						Namespace:  namespace,
+						WorkflowID: workflowID,
+						RunID:      runID,
+					},
+				},
 				StaticSummary: testName,
 			},
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{
-				Config: workflowengine.WithAppConfig(e.App, pipelineMobileFlowConfig(
-					namespace,
-					strings.TrimSpace(input.WorkflowID),
-					strings.TrimSpace(input.RunID),
-					workflowengine.AsString(device["runner_id"]),
-				)),
+				Config: workflowengine.WithAppConfig(e.App, config),
 				Payload: workflows.MobileAutomationWorkflowPayload{
 					ActionID:   strings.TrimSpace(input.ActionID),
 					ActionCode: actionCode,
