@@ -179,8 +179,9 @@ const runnerPipelineTaskQueue = "PipelineTaskQueue"
 // classifyRunnerAPI allows, in a runner namespace, the calls about one owned
 // workflow run (api/v1/namespaces/<ns>/workflows/<workflow id>[/...]) and,
 // when the caller's organization used the runner, the namespace description,
-// its search attribute schema and the description of the task queue the
-// workflow pages show (Credimi's PipelineTaskQueue).
+// its search attribute schema, and the description and worker count of the
+// task queue the workflow pages show (Credimi's PipelineTaskQueue), which the
+// workflow pages load.
 func classifyRunnerAPI(
 	segments []string,
 	query url.Values,
@@ -191,7 +192,10 @@ func classifyRunnerAPI(
 	case len(segments) == 4,
 		len(segments) == 5 && segments[4] == "search-attributes",
 		len(segments) == 6 && segments[4] == "task-queues" &&
-			segments[5] == runnerPipelineTaskQueue:
+			segments[5] == runnerPipelineTaskQueue,
+		len(segments) == 5 && segments[4] == "worker-count" &&
+			len(query["query"]) == 1 &&
+			query.Get("query") == `TaskQueue="`+runnerPipelineTaskQueue+`"`:
 		if uses(segments[3]) {
 			return routeProxy
 		}

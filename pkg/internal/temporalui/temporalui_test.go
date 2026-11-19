@@ -211,8 +211,20 @@ func TestClassifyRunnerNamespace(t *testing.T) {
 			want: routeForbidden,
 		},
 		{
-			name:  "runner worker count",
+			name:  "runner pipeline task queue worker count",
 			path:  "/temporal-ui/api/v1/namespaces/runner-abc/worker-count",
+			query: url.Values{"query": {`TaskQueue="PipelineTaskQueue"`}},
+			want:  routeProxy,
+		},
+		{
+			name:  "runner worker count of another task queue",
+			path:  "/temporal-ui/api/v1/namespaces/runner-abc/worker-count",
+			query: url.Values{"query": {`TaskQueue="q"`}},
+			want:  routeForbidden,
+		},
+		{
+			name:  "worker count of a runner the organization never used",
+			path:  "/temporal-ui/api/v1/namespaces/runner-xyz/worker-count",
 			query: url.Values{"query": {`TaskQueue="PipelineTaskQueue"`}},
 			want:  routeForbidden,
 		},
