@@ -6,7 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { QueryClientProvider } from '@tanstack/svelte-query';
-	import { page } from '$app/state';
+	import { beforeNavigate } from '$app/navigation';
+	import { page, updated } from '$app/state';
 	import GlobalConfirm from '$lib/layout/global-confirm.svelte';
 	import GlobalLoading from '$lib/layout/global-loading.svelte';
 	import { queryClient } from '$lib/query-client';
@@ -18,6 +19,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import './layout.css';
 
 	let { children } = $props();
+
+	// A tab opened before a deploy keeps running the old client, which can disagree with the
+	// new API. Once version polling sees a new build, leave the old app at the next navigation.
+	beforeNavigate(({ willUnload, to }) => {
+		if (updated.current && !willUnload && to?.url) location.href = to.url.href;
+	});
 </script>
 
 <SeoHead />

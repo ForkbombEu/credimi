@@ -34,7 +34,9 @@ const config = {
 			$root: '..',
 			$config: './config'
 		},
-		version: { name: version },
+		// The release VERSION names the build. Open tabs poll /_app/version.json so the root
+		// layout can turn the next navigation into a full page load after a deploy.
+		version: { name: version, pollInterval: 60_000 },
 		// instrumentation.server.ts registers the OpenTelemetry SDK; SvelteKit
 		// emits server spans through it.
 		experimental: {
