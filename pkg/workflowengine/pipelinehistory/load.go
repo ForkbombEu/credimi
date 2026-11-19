@@ -168,40 +168,13 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 		attrs := event.GetActivityTaskCanceledEventAttributes()
 		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID)
 
-	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED:
-		attrs := event.GetNexusOperationScheduledEventAttributes()
-		if attrs.GetOperation() != mobiledevice.RunStepOperationName {
-			return nil
-		}
-		var input mobiledevice.RunStepInput
-		// An input that does not decode as a step input belongs to no step.
-		if attrs.GetInput() != nil && l.dc.FromPayload(attrs.GetInput(), &input) == nil {
-			if id, ok := l.mainStepID(input.Input.Config); ok {
-				l.nexusSteps[eventID] = id
-			}
-		}
-	case enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED:
-		attrs := event.GetNexusOperationCompletedEventAttributes()
-		id, ok := l.nexusSteps[attrs.GetScheduledEventId()]
-		if !ok {
-			return nil
-		}
-		var result workflowengine.WorkflowResult
-		if attrs.GetResult() != nil {
-			if err := l.dc.FromPayload(attrs.GetResult(), &result); err != nil {
-				return fmt.Errorf("decode result of step %s: %w", id, err)
-			}
-		}
-		l.record(id, eventID, result.Output)
-	case enums.EVENT_TYPE_NEXUS_OPERATION_FAILED:
-		attrs := event.GetNexusOperationFailedEventAttributes()
-		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, attrs.GetFailure())
-	case enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED:
-		attrs := event.GetNexusOperationCanceledEventAttributes()
-		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, nil)
-	case enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
-		attrs := event.GetNexusOperationTimedOutEventAttributes()
-		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, nil)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_FAILED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
+		return l.applyNexus(event)
+
 	case enums.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED:
 		var input struct {
 			Config        map[string]any `json:"config"`
@@ -272,6 +245,48 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 	case enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_CANCELED:
 		attrs := event.GetChildWorkflowExecutionCanceledEventAttributes()
 		l.recordChildFailure(attrs.GetInitiatedEventId(), eventID, nil, true)
+	}
+	return nil
+}
+
+// applyNexus records the outputs of main mobile steps from their Run step operations.
+func (l *loader) applyNexus(event *historypb.HistoryEvent) error {
+	eventID := event.GetEventId()
+	switch event.GetEventType() {
+	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED:
+		attrs := event.GetNexusOperationScheduledEventAttributes()
+		if attrs.GetOperation() != mobiledevice.RunStepOperationName {
+			return nil
+		}
+		var input mobiledevice.RunStepInput
+		// An input that does not decode as a step input belongs to no step.
+		if attrs.GetInput() != nil && l.dc.FromPayload(attrs.GetInput(), &input) == nil {
+			if id, ok := l.mainStepID(input.Input.Config); ok {
+				l.nexusSteps[eventID] = id
+			}
+		}
+	case enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED:
+		attrs := event.GetNexusOperationCompletedEventAttributes()
+		id, ok := l.nexusSteps[attrs.GetScheduledEventId()]
+		if !ok {
+			return nil
+		}
+		var result workflowengine.WorkflowResult
+		if attrs.GetResult() != nil {
+			if err := l.dc.FromPayload(attrs.GetResult(), &result); err != nil {
+				return fmt.Errorf("decode result of step %s: %w", id, err)
+			}
+		}
+		l.record(id, eventID, result.Output)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_FAILED:
+		attrs := event.GetNexusOperationFailedEventAttributes()
+		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, attrs.GetFailure())
+	case enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED:
+		attrs := event.GetNexusOperationCanceledEventAttributes()
+		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, nil)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
+		attrs := event.GetNexusOperationTimedOutEventAttributes()
+		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, nil)
 	}
 	return nil
 }

@@ -166,7 +166,8 @@ func TestLoadStepsListsRunStepOperations(t *testing.T) {
 			{StepSpec: pipelineinternal.StepSpec{ID: "stopped", Use: "mobile-automation"}},
 		},
 	}
-	events := []*historypb.HistoryEvent{at(startedEvent(t, def), 0)}
+	events := make([]*historypb.HistoryEvent, 0, 32)
+	events = append(events, at(startedEvent(t, def), 0))
 	// Prepare and Clean up run the device, not a step.
 	for _, event := range deviceOperationEvents(t, 2, "login") {
 		events = append(events, at(event, 1))

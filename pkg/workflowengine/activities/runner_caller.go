@@ -15,13 +15,14 @@ import (
 	"go.temporal.io/sdk/activity"
 )
 
-// callerRunnerNamespace returns the namespace of the workflow that scheduled
-// the activity when it is a runner namespace, and "" otherwise.
+// callerRunnerNamespace returns the namespace of the activity, which is the
+// namespace of the workflow that scheduled it, when it is a runner namespace,
+// and "" otherwise.
 func callerRunnerNamespace(ctx context.Context) string {
 	if !activity.IsActivity(ctx) {
 		return ""
 	}
-	namespace := activity.GetInfo(ctx).WorkflowNamespace
+	namespace := activity.GetInfo(ctx).Namespace
 	if !strings.HasPrefix(namespace, canonify.RunnerNamespacePrefix) {
 		return ""
 	}

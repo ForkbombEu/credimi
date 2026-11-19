@@ -151,35 +151,13 @@ func (l *stepsLoader) apply(event *historypb.HistoryEvent) error {
 		attrs := event.GetActivityTaskCanceledEventAttributes()
 		l.close(attrs.GetScheduledEventId(), statusCanceled, eventTime, nil)
 
-	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED:
-		l.applyNexusScheduled(eventID, eventTime, event.GetNexusOperationScheduledEventAttributes())
-	case enums.EVENT_TYPE_NEXUS_OPERATION_STARTED:
-		attrs := event.GetNexusOperationStartedEventAttributes()
-		step, ok := l.byEvent[attrs.GetScheduledEventId()]
-		if !ok {
-			return nil
-		}
-		for _, link := range event.GetLinks() {
-			started, err := temporalnexus.ConvertNexusLinkToLinkWorkflowEvent(
-				temporalnexus.ConvertCommonLinkToNexusLink(link),
-			)
-			if err == nil && started.GetRunId() != "" {
-				step.ChildRunID = started.GetRunId()
-				break
-			}
-		}
-	case enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED:
-		attrs := event.GetNexusOperationCompletedEventAttributes()
-		l.close(attrs.GetScheduledEventId(), statusCompleted, eventTime, nil)
-	case enums.EVENT_TYPE_NEXUS_OPERATION_FAILED:
-		attrs := event.GetNexusOperationFailedEventAttributes()
-		l.close(attrs.GetScheduledEventId(), statusFailed, eventTime, attrs.GetFailure())
-	case enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED:
-		attrs := event.GetNexusOperationCanceledEventAttributes()
-		l.close(attrs.GetScheduledEventId(), statusCanceled, eventTime, nil)
-	case enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
-		attrs := event.GetNexusOperationTimedOutEventAttributes()
-		l.close(attrs.GetScheduledEventId(), statusTimedOut, eventTime, attrs.GetFailure())
+	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_STARTED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_FAILED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
+		l.applyNexus(eventID, eventTime, event)
 
 	case enums.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED:
 		l.applyChildInitiated(
@@ -323,6 +301,45 @@ func (l *stepsLoader) applyActivityScheduled(
 		StartTime: eventTime,
 		EventID:   eventID,
 	})
+}
+
+// applyNexus follows the Run step operations of main mobile steps.
+func (l *stepsLoader) applyNexus(
+	eventID int64,
+	eventTime time.Time,
+	event *historypb.HistoryEvent,
+) {
+	switch event.GetEventType() {
+	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED:
+		l.applyNexusScheduled(eventID, eventTime, event.GetNexusOperationScheduledEventAttributes())
+	case enums.EVENT_TYPE_NEXUS_OPERATION_STARTED:
+		attrs := event.GetNexusOperationStartedEventAttributes()
+		step, ok := l.byEvent[attrs.GetScheduledEventId()]
+		if !ok {
+			return
+		}
+		for _, link := range event.GetLinks() {
+			started, err := temporalnexus.ConvertNexusLinkToLinkWorkflowEvent(
+				temporalnexus.ConvertCommonLinkToNexusLink(link),
+			)
+			if err == nil && started.GetRunId() != "" {
+				step.ChildRunID = started.GetRunId()
+				return
+			}
+		}
+	case enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED:
+		attrs := event.GetNexusOperationCompletedEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusCompleted, eventTime, nil)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_FAILED:
+		attrs := event.GetNexusOperationFailedEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusFailed, eventTime, attrs.GetFailure())
+	case enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED:
+		attrs := event.GetNexusOperationCanceledEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusCanceled, eventTime, nil)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
+		attrs := event.GetNexusOperationTimedOutEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusTimedOut, eventTime, attrs.GetFailure())
+	}
 }
 
 // applyNexusScheduled adds the main mobile step whose workflow a Run step operation runs
