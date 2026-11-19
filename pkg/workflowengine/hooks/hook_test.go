@@ -1108,6 +1108,10 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 			Kind:    registry.TaskWorkflow,
 			NewFunc: func(core.App) any { return fakeWorkflow{name: "workflow-wf"} },
 		},
+		"mobile-automation": {
+			Kind:    registry.TaskWorkflow,
+			NewFunc: func(core.App) any { return fakeWorkflow{name: "mobile-automation-wf"} },
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1130,6 +1134,7 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	require.Contains(t, fw.registeredWorkflows, pipeline.NewLinkedStepsWorkflow().Name())
 	require.Contains(t, fw.registeredWorkflows, "workflow-wf")
 	require.Contains(t, fw.registeredWorkflows, authorsession.WorkflowName)
+	require.NotContains(t, fw.registeredWorkflows, "mobile-automation-wf")
 
 	require.Contains(t, fw.registeredActivities, debugAct)
 	require.Contains(t, fw.registeredActivities, githubPRCommentAct)

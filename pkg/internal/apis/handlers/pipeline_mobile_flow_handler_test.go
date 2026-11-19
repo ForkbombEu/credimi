@@ -354,3 +354,79 @@ func TestPipelineMobileFlowRefusesTokenOfAnotherRun(t *testing.T) {
 		})
 	}
 }
+
+// A setted_devices entry without runner_namespace was never prepared in its
+// runner namespace.
+func TestPipelineMobileFlowRefusesUnpreparedDevice(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	org, err := app.FindFirstRecordByData(
+		"organizations",
+		"canonified_name",
+		"usera-s-organization",
+	)
+	require.NoError(t, err)
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", org.Id)
+	wallet.Set("name", "own wallet")
+	require.NoError(t, app.Save(wallet))
+	actions, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	action := core.NewRecord(actions)
+	action.Set("owner", org.Id)
+	action.Set("wallet", wallet.Id)
+	action.Set("name", "own action")
+	action.Set("code", "appId: eu.wallet\n---\n- launchApp\n")
+	action.Set("category", "onboarding")
+	require.NoError(t, app.Save(action))
+	actionPath := strings.Join([]string{
+		org.GetString("canonified_name"),
+		wallet.GetString("canonified_name"),
+		action.GetString("canonified_name"),
+	}, "/")
+
+	mockClient := temporalmocks.NewClient(t)
+	mockClient.On("DescribeWorkflow", mock.Anything, "pipeline-1", "run-1").
+		Return(temporalclient.Description(pipelineMobileFlowDescription(
+			t,
+			enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			[]string{"tenant/runner-1"},
+		)), nil).Once()
+	mockClient.On("QueryWorkflow", mock.Anything, "pipeline-1", "run-1", pipeline.PipelineMobileDevicesQuery).
+		Return(converter.EncodedValue(pipelineMobileFlowEncodedValue{
+			devices: map[string]any{"tenant/runner-1": map[string]any{
+				"serial": "emulator-5554",
+				"type":   "android_emulator",
+			}},
+		}), nil).
+		Once()
+	original := pipelineMobileFlowTemporalClient
+	t.Cleanup(func() { pipelineMobileFlowTemporalClient = original })
+	pipelineMobileFlowTemporalClient = func(namespace string) (client.Client, error) {
+		require.Equal(t, "usera-s-organization", namespace, "no client for the runner namespace")
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/pipeline/mobile-flow", nil)
+	req = req.WithContext(context.WithValue(
+		req.Context(),
+		middlewares.ValidatedInputKey,
+		PipelineMobileFlowInput{
+			WorkflowID:      "pipeline-1",
+			RunID:           "run-1",
+			OrganizationID:  "usera-s-organization",
+			ActionID:        actionPath,
+			MobileFlowToken: mobileFlowToken(t, app, "usera-s-organization", "pipeline-1", "run-1"),
+		},
+	))
+	rec := httptest.NewRecorder()
+	err = HandlePipelineMobileFlow()(&core.RequestEvent{
+		App:   app,
+		Event: router.Event{Request: req, Response: rec},
+	})
+	requireHandlerErrorHandled(t, rec, err)
+	require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
+	require.Equal(t, "device is not prepared", decodeAPIError(t, rec).Reason)
+}

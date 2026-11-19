@@ -319,6 +319,9 @@ var (
 var runnerNamespacePrepareTimeout = 90 * time.Second
 
 const (
+	// mobileAutomationRegistryKey is the registry entry of mobile steps,
+	// which organization-namespace pipeline workers do not register.
+	mobileAutomationRegistryKey = "mobile-automation"
 	// runnerNamespacePrepareConcurrency bounds the runner namespaces
 	// prepared at once at startup.
 	runnerNamespacePrepareConcurrency = 8
@@ -470,7 +473,12 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 			activity.RegisterOptions{Name: githubPRCommentAct.Name()},
 		)
 
-		for _, step := range registry.Registry {
+		for key, step := range registry.Registry {
+			// Mobile steps run in runner namespaces only, whose worker
+			// registers their workflow (registerRunnerNamespaceWorker).
+			if key == mobileAutomationRegistryKey {
+				continue
+			}
 			switch step.Kind {
 			case registry.TaskActivity:
 				act := step.NewFunc(app).(workflowengine.ExecutableActivity)

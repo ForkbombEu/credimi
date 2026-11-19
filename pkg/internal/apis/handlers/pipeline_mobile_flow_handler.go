@@ -129,7 +129,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 				"wallet action not found",
 			)
 		}
-		runnerNamespace := workflowengine.AsString(device["runner_namespace"])
+		runnerNamespace, _ := device["runner_namespace"].(string)
 		if runnerNamespace == "" {
 			return apierror.New(
 				http.StatusConflict,

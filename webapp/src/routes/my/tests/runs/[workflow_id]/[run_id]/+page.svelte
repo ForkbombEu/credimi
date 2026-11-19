@@ -78,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const temporalUiUrl = $derived(
 		[
 			'/temporal-ui/namespaces',
-			encodeURIComponent(namespace ?? organization.canonified_name),
+			encodeURIComponent(namespace || organization.canonified_name),
 			'workflows',
 			encodeURIComponent(workflowId),
 			encodeURIComponent(runId),
