@@ -445,6 +445,14 @@ func TestLinkedBlockRetryable(t *testing.T) {
 	))
 }
 
+// TestLinkedBlockRetryableNexusOperation retries a block whose mobile step operation failed,
+// as it retried the step's child workflow before mobile steps ran through Nexus.
+func TestLinkedBlockRetryableNexusOperation(t *testing.T) {
+	require.True(t, linkedBlockRetryable(&temporal.NexusOperationError{
+		Cause: temporal.NewNonRetryableApplicationError("boom", "x", nil),
+	}))
+}
+
 // TestTaskWorkflowIDFitsTemporalLimit reproduces a step of a linked block in a long FCAF
 // pipeline, whose child workflow ID used to exceed Temporal's 255 byte limit.
 func TestTaskWorkflowIDFitsTemporalLimit(t *testing.T) {
