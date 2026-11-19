@@ -5,6 +5,9 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -25,6 +28,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/sdk/client"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
@@ -547,7 +551,7 @@ type PipelineStepHistoryEvent struct {
 // PipelineExecutionStep is one main step that started in a pipeline execution.
 type PipelineExecutionStep struct {
 	StepID string `json:"step_id"`
-	// Kind is activity, workflow or block.
+	// Kind is activity, workflow, block or device.
 	Kind string `json:"kind"`
 	Type string `json:"type"`
 	// DisplayName is the step ID, or every step ID of a block joined with " → ".
@@ -561,8 +565,11 @@ type PipelineExecutionStep struct {
 	FailureReason string                   `json:"failure_reason,omitempty"`
 	HistoryEvent  PipelineStepHistoryEvent `json:"history_event"`
 	Execution     *WorkflowIdentifier      `json:"execution,omitempty"`
-	HasLogs       bool                     `json:"has_logs,omitempty"`
-	HasQR         bool                     `json:"has_qr,omitempty"`
+	// ExecutionNamespace is the runner namespace Execution ran in; empty for the
+	// organization namespace.
+	ExecutionNamespace string `json:"execution_namespace,omitempty"`
+	HasLogs            bool   `json:"has_logs,omitempty"`
+	HasQR              bool   `json:"has_qr,omitempty"`
 	// StepCount is the number of started steps inside a block's latest run; unset for other
 	// steps and when the block's history could not be read.
 	StepCount *int `json:"step_count,omitempty"`
@@ -578,9 +585,10 @@ type linkedStepsRuns struct {
 	latest *WorkflowExecution
 }
 
-// HandleListPipelineExecutionSteps lists the started main steps of one pipeline run, read
-// from its Temporal history. With block_workflow_id and block_run_id it lists the steps of
-// one linked steps block run of that pipeline run.
+// HandleListPipelineExecutionSteps lists the started main steps and the device sessions of
+// one pipeline run, read from its Temporal history and, for the workflows it ran in runner
+// namespaces, their visibility. With block_workflow_id and block_run_id it lists the steps
+// of one linked steps block run of that pipeline run.
 func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		scope, apiErr := resolvePipelineExecutionScope(e, e.Request.PathValue("id"))
@@ -600,6 +608,7 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 			WorkflowID: execution.Execution.WorkflowID,
 			RunID:      execution.Execution.RunID,
 		}
+		pipelineWorkflowID := owner.WorkflowID
 
 		query := e.Request.URL.Query()
 		blockWorkflowID := strings.TrimSpace(query.Get("block_workflow_id"))
@@ -673,13 +682,17 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 				runs.latest = child
 			}
 		}
+		runnerRuns, err := listRunnerNamespaceRuns(ctx, pipelineWorkflowID, steps)
+		if err != nil {
+			e.App.Logger().Warn("failed to list pipeline runner namespace workflows", "error", err)
+		}
 
 		response := PipelineExecutionStepsResponse{
 			Steps: make([]PipelineExecutionStep, 0, len(steps)),
 		}
 		for _, step := range steps {
 			runs := blocks[step.ChildWorkflowID]
-			out := pipelineExecutionStep(step, owner, children, runs)
+			out := pipelineExecutionStep(step, owner, children, runs, runnerRuns)
 			if out.Kind == string(pipelinehistory.StepKindBlock) && out.Execution != nil {
 				// Cache the count only once visibility reports the counted block run as
 				// closed: a block's status in the parent can close before its run stops.
@@ -703,11 +716,65 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 	}
 }
 
+// runnerNamespaceRuns indexes, per runner namespace, the latest run of each workflow a
+// pipeline run started there.
+type runnerNamespaceRuns map[string]map[string]*WorkflowExecution
+
+// listRunnerNamespaceRuns lists, in every runner namespace the steps ran in, the device
+// sessions and step workflows of a pipeline run: their IDs, and those of its linked steps
+// blocks' steps, start with the pipeline workflow ID.
+func listRunnerNamespaceRuns(
+	ctx context.Context,
+	pipelineWorkflowID string,
+	steps []pipelinehistory.Step,
+) (runnerNamespaceRuns, error) {
+	runs := runnerNamespaceRuns{}
+	var errs []error
+	query := fmt.Sprintf("WorkflowId STARTS_WITH %q", pipelineWorkflowID+"-")
+	for _, step := range steps {
+		namespace := step.Namespace
+		if namespace == "" {
+			continue
+		}
+		if _, listed := runs[namespace]; listed {
+			continue
+		}
+		byID := map[string]*WorkflowExecution{}
+		runs[namespace] = byID
+		temporalClient, err := pipelineTemporalClient(namespace)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("temporal client for %s: %w", namespace, err))
+			continue
+		}
+		list, err := listWorkflowsTemporal(ctx, temporalClient, namespace, query)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("list workflows in %s: %w", namespace, err))
+			continue
+		}
+		for _, info := range list.GetExecutions() {
+			infoJSON, err := protojson.Marshal(info)
+			if err != nil {
+				continue
+			}
+			var run WorkflowExecution
+			if err := json.Unmarshal(infoJSON, &run); err != nil || run.Execution == nil {
+				continue
+			}
+			latest := byID[run.Execution.WorkflowID]
+			if latest == nil || utils.CompareTimeStrings(run.StartTime, latest.StartTime) > 0 {
+				byID[run.Execution.WorkflowID] = &run
+			}
+		}
+	}
+	return runs, errors.Join(errs...)
+}
+
 func pipelineExecutionStep(
 	step pipelinehistory.Step,
 	owner workflowExecutionRef,
 	children map[workflowExecutionRef]*WorkflowExecution,
 	blockRuns *linkedStepsRuns,
+	runnerRuns runnerNamespaceRuns,
 ) PipelineExecutionStep {
 	out := PipelineExecutionStep{
 		StepID:        step.ID,
@@ -745,7 +812,12 @@ func pipelineExecutionStep(
 			}
 			out.Execution = blockRuns.latest.Execution
 		}
-	case pipelinehistory.StepKindWorkflow:
+	case pipelinehistory.StepKindWorkflow, pipelinehistory.StepKindDevice:
+	}
+	if step.Namespace != "" {
+		out.ExecutionNamespace = step.Namespace
+		applyRunnerNamespaceRun(&out, step, runnerRuns[step.Namespace][step.ChildWorkflowID])
+		return out
 	}
 	if out.Execution != nil {
 		if child := children[workflowExecutionRef{
@@ -757,6 +829,33 @@ func pipelineExecutionStep(
 		}
 	}
 	return out
+}
+
+// applyRunnerNamespaceRun completes a step that ran in a runner namespace with what that
+// namespace's visibility knows of its latest run. A device session outlives the activity
+// that started it, so its status and times come from its run.
+func applyRunnerNamespaceRun(
+	out *PipelineExecutionStep,
+	step pipelinehistory.Step,
+	run *WorkflowExecution,
+) {
+	if run == nil || run.Execution == nil {
+		return
+	}
+	if out.Execution == nil {
+		out.Execution = run.Execution
+	}
+	if out.Execution.RunID != run.Execution.RunID {
+		return
+	}
+	out.HasLogs = workflowExecutionHasLogs(run)
+	out.HasQR = workflowExecutionHasQR(run)
+	if step.Kind == pipelinehistory.StepKindDevice {
+		out.Status = normalizeTemporalStatus(run.Status)
+		out.StartTime = run.StartTime
+		out.EndTime = run.CloseTime
+		out.Duration = calculateDuration(out.StartTime, out.EndTime)
+	}
 }
 
 func formatStepTime(t time.Time) string {

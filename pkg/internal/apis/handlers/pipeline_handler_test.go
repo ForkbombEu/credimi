@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -1532,6 +1533,150 @@ func TestHandleListPipelineExecutionStepsListsActivitiesAndWorkflows(t *testing.
 			},
 			Execution: &WorkflowIdentifier{WorkflowID: "wf-1-check", RunID: "check-run"},
 			HasLogs:   true,
+		},
+	}, response.Steps)
+}
+
+func stepsActivityScheduledEvent(
+	t *testing.T,
+	id int64,
+	typeName string,
+	input any,
+) *historypb.HistoryEvent {
+	t.Helper()
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED,
+		Attributes: &historypb.HistoryEvent_ActivityTaskScheduledEventAttributes{
+			ActivityTaskScheduledEventAttributes: &historypb.ActivityTaskScheduledEventAttributes{
+				ActivityType: &common.ActivityType{Name: typeName},
+				Input:        stepsPayloads(t, input),
+			},
+		},
+	}
+}
+
+func TestHandleListPipelineExecutionStepsMergesRunnerNamespaceRuns(t *testing.T) {
+	const runnerNamespace = "runner-r1"
+	f := newPipelineStepsFixture(t)
+	orgClient := f.mockClient
+	runnerClient := temporalmocks.NewClient(t)
+	pipelineTemporalClient = func(namespace string) (client.Client, error) {
+		if namespace == runnerNamespace {
+			return runnerClient, nil
+		}
+		return orgClient, nil
+	}
+	f.describePipelineRun(f.identifier)
+	f.history("wf-1", "run-1",
+		stepsStartedEvent(t,
+			pipelineinternal.StepDefinition{
+				StepSpec: pipelineinternal.StepSpec{ID: "login", Use: "mobile-automation"},
+			},
+		),
+		stepsActivityScheduledEvent(
+			t,
+			3,
+			mobiledevicesession.StartDeviceSessionActivityName,
+			map[string]any{"payload": mobiledevicesession.StartDeviceSessionPayload{
+				Namespace:  runnerNamespace,
+				WorkflowID: "wf-1-device-pixel",
+				DeviceID:   "pixel",
+			}},
+		),
+		stepsActivityScheduledEvent(
+			t,
+			5,
+			mobiledevicesession.RunRunnerWorkflowActivityName,
+			map[string]any{
+				"config": map[string]any{workflowengine.StepIDConfigKey: "login"},
+				"payload": mobiledevicesession.RunRunnerWorkflowPayload{
+					Namespace:    runnerNamespace,
+					WorkflowID:   "wf-1-login",
+					WorkflowName: mobiledevicesession.MobileAutomationWorkflowName,
+				},
+			},
+		),
+	)
+	f.children("wf-1")
+
+	deviceRun := stepsChildInfo(
+		"wf-1-device-pixel",
+		"device-run",
+		mobiledevicesession.WorkflowName,
+		nil,
+		f.historyStart,
+	)
+	deviceRun.ParentExecution = nil
+	deviceRun.CloseTime = timestamppb.New(f.historyStart.Add(time.Minute))
+	stepRun := stepsChildInfo(
+		"wf-1-login",
+		"login-run",
+		mobiledevicesession.MobileAutomationWorkflowName,
+		temporalMemoWithLogsCapability(t, true),
+		f.historyStart.Add(2*time.Second),
+	)
+	stepRun.ParentExecution = nil
+	stepRun.Status = enums.WORKFLOW_EXECUTION_STATUS_RUNNING
+	olderStepRun := stepsChildInfo(
+		"wf-1-login",
+		"login-run-old",
+		mobiledevicesession.MobileAutomationWorkflowName,
+		nil,
+		f.historyStart,
+	)
+	olderStepRun.ParentExecution = nil
+	runnerClient.On(
+		"ListWorkflow",
+		mock.Anything,
+		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return req.GetNamespace() == runnerNamespace &&
+				req.GetQuery() == `WorkflowId STARTS_WITH "wf-1-"`
+		}),
+	).Return(&workflowservice.ListWorkflowExecutionsResponse{
+		Executions: []*workflow.WorkflowExecutionInfo{deviceRun, stepRun, olderStepRun},
+	}, nil).Once()
+
+	rec := f.serve(t, "")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var response PipelineExecutionStepsResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, []PipelineExecutionStep{
+		{
+			StepID:      "pixel",
+			Kind:        "device",
+			Type:        mobiledevicesession.WorkflowName,
+			DisplayName: "pixel",
+			Status:      "Completed",
+			StartTime:   "2026-11-11T10:00:00Z",
+			EndTime:     "2026-11-11T10:01:00Z",
+			Duration:    calculateDuration("2026-11-11T10:00:00Z", "2026-11-11T10:01:00Z"),
+			HistoryEvent: PipelineStepHistoryEvent{
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				EventID:    3,
+			},
+			Execution: &WorkflowIdentifier{
+				WorkflowID: "wf-1-device-pixel",
+				RunID:      "device-run",
+			},
+			ExecutionNamespace: runnerNamespace,
+		},
+		{
+			StepID:      "login",
+			Kind:        "workflow",
+			Type:        mobiledevicesession.MobileAutomationWorkflowName,
+			DisplayName: "login",
+			Status:      "Running",
+			StartTime:   "2026-11-11T10:00:02Z",
+			HistoryEvent: PipelineStepHistoryEvent{
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				EventID:    5,
+			},
+			Execution:          &WorkflowIdentifier{WorkflowID: "wf-1-login", RunID: "login-run"},
+			ExecutionNamespace: runnerNamespace,
+			HasLogs:            true,
 		},
 	}, response.Steps)
 }

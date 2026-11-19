@@ -12,6 +12,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
@@ -113,6 +114,74 @@ func activityFailedEvent(id, scheduledID int64) *historypb.HistoryEvent {
 			},
 		},
 	}
+}
+
+func activityFailedWithEvent(id, scheduledID int64, err error) *historypb.HistoryEvent {
+	fc := temporal.NewDefaultFailureConverter(
+		temporal.DefaultFailureConverterOptions{DataConverter: temporalcrypto.DataConverter()},
+	)
+	event := activityFailedEvent(id, scheduledID)
+	event.GetActivityTaskFailedEventAttributes().Failure = fc.ErrorToFailure(err)
+	return event
+}
+
+func activityTimedOutEvent(id, scheduledID int64) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT,
+		Attributes: &historypb.HistoryEvent_ActivityTaskTimedOutEventAttributes{
+			ActivityTaskTimedOutEventAttributes: &historypb.ActivityTaskTimedOutEventAttributes{
+				ScheduledEventId: scheduledID,
+			},
+		},
+	}
+}
+
+func activityCanceledEvent(id, scheduledID int64) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_ACTIVITY_TASK_CANCELED,
+		Attributes: &historypb.HistoryEvent_ActivityTaskCanceledEventAttributes{
+			ActivityTaskCanceledEventAttributes: &historypb.ActivityTaskCanceledEventAttributes{
+				ScheduledEventId: scheduledID,
+			},
+		},
+	}
+}
+
+const testRunnerNamespace = "runner-r1"
+
+// runnerStepScheduledEvent schedules the activity that runs a mobile step's workflow in a
+// runner namespace.
+func runnerStepScheduledEvent(t *testing.T, id int64, stepID string) *historypb.HistoryEvent {
+	event := scheduledEvent(t, id, map[string]any{
+		"config": map[string]any{workflowengine.StepIDConfigKey: stepID},
+		"payload": mobiledevicesession.RunRunnerWorkflowPayload{
+			Namespace:    testRunnerNamespace,
+			WorkflowID:   "wf-1-" + stepID,
+			WorkflowName: mobiledevicesession.MobileAutomationWorkflowName,
+		},
+	})
+	event.GetActivityTaskScheduledEventAttributes().ActivityType = &commonpb.ActivityType{
+		Name: mobiledevicesession.RunRunnerWorkflowActivityName,
+	}
+	return event
+}
+
+func runnerStepCompletedEvent(
+	t *testing.T,
+	id, scheduledID int64,
+	stepID, runID string,
+	output any,
+) *historypb.HistoryEvent {
+	return activityCompletedEvent(t, id, scheduledID, workflowengine.ActivityResult{
+		Output: mobiledevicesession.RunRunnerWorkflowResult{
+			Namespace:  testRunnerNamespace,
+			WorkflowID: "wf-1-" + stepID,
+			RunID:      runID,
+			Result:     workflowengine.WorkflowResult{Output: output},
+		},
+	})
 }
 
 func childInitiatedEvent(t *testing.T, id int64, input any) *historypb.HistoryEvent {
@@ -220,9 +289,9 @@ func TestLoadRebuildsMainStepOutputs(t *testing.T) {
 			Output: "valid",
 			Log:    []string{"checked"},
 		}),
-		childInitiatedEvent(t, 17, stepConfig("phone")),
-		childCompletedEvent(t, 19, 17, workflowengine.WorkflowResult{
-			Output: map[string]any{"video": "v.mp4"},
+		runnerStepScheduledEvent(t, 17, "phone"),
+		runnerStepCompletedEvent(t, 19, 17, "phone", "phone-run", map[string]any{
+			"video": "v.mp4",
 		}),
 		childInitiatedEvent(t, 20, map[string]any{
 			"workflow_definition": map[string]any{"name": "inner"},
@@ -283,8 +352,8 @@ func TestLoadKeepsTheOutputAFailedTaskWorkflowReports(t *testing.T) {
 	def := &pipelineinternal.WorkflowDefinition{
 		Name: "history",
 		Steps: []pipelineinternal.StepDefinition{
-			{StepSpec: pipelineinternal.StepSpec{ID: "engage", Use: "mobile-automation"}},
-			{StepSpec: pipelineinternal.StepSpec{ID: "silent", Use: "mobile-automation"}},
+			{StepSpec: pipelineinternal.StepSpec{ID: "engage", Use: "conformance-check"}},
+			{StepSpec: pipelineinternal.StepSpec{ID: "silent", Use: "conformance-check"}},
 		},
 	}
 	events := []*historypb.HistoryEvent{
@@ -310,6 +379,57 @@ func TestLoadKeepsTheOutputAFailedTaskWorkflowReports(t *testing.T) {
 		},
 		"silent": workflowengine.WorkflowResult{},
 	}, run.Outputs)
+}
+
+func TestLoadReadsRunnerNamespaceStepFailures(t *testing.T) {
+	step := func(id string) pipelineinternal.StepDefinition {
+		return pipelineinternal.StepDefinition{
+			StepSpec: pipelineinternal.StepSpec{ID: id, Use: "mobile-automation"},
+		}
+	}
+	def := &pipelineinternal.WorkflowDefinition{
+		Name: "history",
+		Steps: []pipelineinternal.StepDefinition{
+			step("engage"), step("silent"), step("slow"), step("stopped"),
+		},
+	}
+	events := []*historypb.HistoryEvent{
+		startedEvent(t, def),
+		runnerStepScheduledEvent(t, 5, "engage"),
+		activityFailedWithEvent(7, 5, workflowengine.NewNonRetryableAppError(
+			workflowengine.WorkflowError{
+				Code: "CRE201",
+				Details: map[string]any{"output": map[string]any{
+					"flow_output": map[string]any{"maestro_screenshot_urls": []any{"fail.png"}},
+				}},
+			},
+		)),
+		runnerStepScheduledEvent(t, 8, "silent"),
+		activityFailedWithEvent(10, 8, workflowengine.NewNonRetryableAppError(
+			workflowengine.WorkflowError{Code: "CRE201"},
+		)),
+		runnerStepScheduledEvent(t, 11, "slow"),
+		activityTimedOutEvent(13, 11),
+		runnerStepScheduledEvent(t, 14, "stopped"),
+		activityCanceledEvent(16, 14),
+	}
+
+	run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"engage": map[string]any{
+			"flow_output": map[string]any{"maestro_screenshot_urls": []any{"fail.png"}},
+		},
+		"silent":  workflowengine.WorkflowResult{},
+		"slow":    workflowengine.WorkflowResult{},
+		"stopped": workflowengine.WorkflowResult{},
+	}, run.Outputs)
+	require.Equal(t, map[string]int64{
+		"engage":  7,
+		"silent":  10,
+		"slow":    13,
+		"stopped": 16,
+	}, run.EventIDs)
 }
 
 func blockInitiatedEvent(t *testing.T, id int64) *historypb.HistoryEvent {

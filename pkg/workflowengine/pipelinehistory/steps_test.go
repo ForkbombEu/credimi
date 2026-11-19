@@ -12,6 +12,7 @@ import (
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
@@ -151,6 +152,80 @@ func TestLoadStepsListsStartedMainSteps(t *testing.T) {
 			ChildWorkflowID: "wf-1-check",
 			ChildRunID:      "check-run",
 			FailureMessage:  "check failed",
+		},
+	}, steps)
+}
+
+func TestLoadStepsListsDeviceSessionsAndRunnerNamespaceSteps(t *testing.T) {
+	def := &pipelineinternal.WorkflowDefinition{
+		Name: "history",
+		Steps: []pipelineinternal.StepDefinition{
+			{StepSpec: pipelineinternal.StepSpec{ID: "login", Use: "mobile-automation"}},
+			{StepSpec: pipelineinternal.StepSpec{ID: "pay", Use: "mobile-automation"}},
+		},
+	}
+	deviceStart := named(scheduledEvent(t, 3, map[string]any{
+		"payload": mobiledevicesession.StartDeviceSessionPayload{
+			Namespace:  testRunnerNamespace,
+			WorkflowID: "wf-1-device-pixel",
+			DeviceID:   "pixel",
+		},
+	}), mobiledevicesession.StartDeviceSessionActivityName)
+	events := []*historypb.HistoryEvent{
+		at(startedEvent(t, def), 0),
+		at(deviceStart, 1),
+		at(activityCompletedEvent(t, 5, 3, workflowengine.ActivityResult{
+			Output: mobiledevicesession.RunnerWorkflowRef{
+				Namespace:  testRunnerNamespace,
+				WorkflowID: "wf-1-device-pixel",
+				RunID:      "device-run",
+			},
+		}), 2),
+		at(runnerStepScheduledEvent(t, 8, "login"), 3),
+		at(activityStartedEvent(9, 8, 1), 4),
+		at(runnerStepCompletedEvent(t, 10, 8, "login", "login-run", nil), 6),
+		at(runnerStepScheduledEvent(t, 11, "pay"), 7),
+		at(activityFailedWithEvent(13, 11, errors.New("pay failed")), 9),
+	}
+
+	steps, err := LoadSteps(context.Background(), mockHistory(events), "wf-1", "run-1")
+	require.NoError(t, err)
+	require.Equal(t, []Step{
+		{
+			ID:              "pixel",
+			Kind:            StepKindDevice,
+			TypeName:        mobiledevicesession.WorkflowName,
+			Status:          "Running",
+			StartTime:       secondsAfterBase(1),
+			EventID:         3,
+			ChildWorkflowID: "wf-1-device-pixel",
+			ChildRunID:      "device-run",
+			Namespace:       testRunnerNamespace,
+		},
+		{
+			ID:              "login",
+			Kind:            StepKindWorkflow,
+			TypeName:        mobiledevicesession.MobileAutomationWorkflowName,
+			Status:          "Completed",
+			StartTime:       secondsAfterBase(4),
+			EndTime:         secondsAfterBase(6),
+			Attempt:         1,
+			EventID:         8,
+			ChildWorkflowID: "wf-1-login",
+			ChildRunID:      "login-run",
+			Namespace:       testRunnerNamespace,
+		},
+		{
+			ID:              "pay",
+			Kind:            StepKindWorkflow,
+			TypeName:        mobiledevicesession.MobileAutomationWorkflowName,
+			Status:          "Failed",
+			StartTime:       secondsAfterBase(7),
+			EndTime:         secondsAfterBase(9),
+			EventID:         11,
+			ChildWorkflowID: "wf-1-pay",
+			Namespace:       testRunnerNamespace,
+			FailureMessage:  "pay failed",
 		},
 	}, steps)
 }

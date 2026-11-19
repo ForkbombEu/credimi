@@ -13,6 +13,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
 	failurepb "go.temporal.io/api/failure/v1"
@@ -28,6 +29,9 @@ const (
 	StepKindActivity StepKind = "activity"
 	StepKindWorkflow StepKind = "workflow"
 	StepKindBlock    StepKind = "block"
+	// StepKindDevice is the session holding one device of the run; its ID is the device
+	// ID. Its history status is the run's; the workflow's own status is in visibility.
+	StepKindDevice StepKind = "device"
 )
 
 // Step statuses, equal to the workflow status names the API reports.
@@ -53,10 +57,13 @@ type Step struct {
 	Attempt int32
 	// EventID is the ActivityTaskScheduled or StartChildWorkflowExecutionInitiated event.
 	EventID         int64
-	ChildWorkflowID string // workflow and block steps
+	ChildWorkflowID string // workflow, block and device steps
 	ChildRunID      string // last run known from this history
-	BlockStepIDs    []string
-	FailureMessage  string
+	// Namespace is the runner namespace a workflow or device step ran in; empty for
+	// children in the run's own namespace.
+	Namespace      string
+	BlockStepIDs   []string
+	FailureMessage string
 }
 
 type stepsLoader struct {
@@ -68,13 +75,16 @@ type stepsLoader struct {
 	steps  []*Step
 	// byEvent indexes steps by their scheduled or initiated event ID.
 	byEvent map[int64]*Step
+	// devices indexes device steps by their start activity's scheduled event ID.
+	devices map[int64]*Step
 	defined bool
 }
 
 // LoadSteps reads the history of one pipeline run, or of one linked steps block run, and
-// lists the main steps that started in it. Steps are identified by the step_id carried in
-// their activity or child workflow input config, and blocks by their child workflow ID;
-// hook, finally and internal events are ignored.
+// lists the main steps that started in it, and the device sessions it started. Steps are
+// identified by the step_id carried in their activity or child workflow input config,
+// blocks by their child workflow ID, and device sessions by their device ID; hook, finally
+// and internal events are ignored.
 func LoadSteps(ctx context.Context, c client.Client, workflowID, runID string) ([]Step, error) {
 	l := &stepsLoader{
 		dc:         temporalcrypto.DataConverter(),
@@ -82,6 +92,7 @@ func LoadSteps(ctx context.Context, c client.Client, workflowID, runID string) (
 		mainSteps:  map[string]struct{}{},
 		blocks:     map[string][]string{},
 		byEvent:    map[int64]*Step{},
+		devices:    map[int64]*Step{},
 	}
 	iter := c.GetWorkflowHistory(
 		ctx,
@@ -120,23 +131,11 @@ func (l *stepsLoader) apply(event *historypb.HistoryEvent) error {
 		return l.applyStarted(event.GetWorkflowExecutionStartedEventAttributes().GetInput())
 
 	case enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED:
-		attrs := event.GetActivityTaskScheduledEventAttributes()
-		var input struct {
-			Config map[string]any `json:"config"`
-		}
-		// An input that does not decode as an activity input belongs to no step.
-		if l.decodeFirst(attrs.GetInput(), &input) == nil {
-			if id, ok := l.mainStepID(input.Config); ok {
-				l.add(eventID, &Step{
-					ID:        id,
-					Kind:      StepKindActivity,
-					TypeName:  attrs.GetActivityType().GetName(),
-					Status:    statusRunning,
-					StartTime: eventTime,
-					EventID:   eventID,
-				})
-			}
-		}
+		l.applyActivityScheduled(
+			eventID,
+			eventTime,
+			event.GetActivityTaskScheduledEventAttributes(),
+		)
 
 	case enums.EVENT_TYPE_ACTIVITY_TASK_STARTED:
 		attrs := event.GetActivityTaskStartedEventAttributes()
@@ -146,7 +145,26 @@ func (l *stepsLoader) apply(event *historypb.HistoryEvent) error {
 		}
 	case enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED:
 		attrs := event.GetActivityTaskCompletedEventAttributes()
-		l.close(attrs.GetScheduledEventId(), statusCompleted, eventTime, nil)
+		if device, ok := l.devices[attrs.GetScheduledEventId()]; ok {
+			var result struct {
+				Output mobiledevicesession.RunnerWorkflowRef `json:"output"`
+			}
+			if err := l.decodeFirst(attrs.GetResult(), &result); err != nil {
+				return fmt.Errorf("decode device session of %s: %w", device.ID, err)
+			}
+			device.ChildRunID = result.Output.RunID
+			return nil
+		}
+		step := l.close(attrs.GetScheduledEventId(), statusCompleted, eventTime, nil)
+		if step != nil && step.Namespace != "" {
+			var result struct {
+				Output mobiledevicesession.RunRunnerWorkflowResult `json:"output"`
+			}
+			if err := l.decodeFirst(attrs.GetResult(), &result); err != nil {
+				return fmt.Errorf("decode result of step %s: %w", step.ID, err)
+			}
+			step.ChildRunID = result.Output.RunID
+		}
 	case enums.EVENT_TYPE_ACTIVITY_TASK_FAILED:
 		attrs := event.GetActivityTaskFailedEventAttributes()
 		l.close(attrs.GetScheduledEventId(), statusFailed, eventTime, attrs.GetFailure())
@@ -272,6 +290,71 @@ func (l *stepsLoader) applyStarted(input *commonpb.Payloads) error {
 		}
 	}
 	return nil
+}
+
+// applyActivityScheduled adds the main step an activity runs, the main step whose workflow
+// it runs in a runner namespace, or the device session it starts.
+func (l *stepsLoader) applyActivityScheduled(
+	eventID int64,
+	eventTime time.Time,
+	attrs *historypb.ActivityTaskScheduledEventAttributes,
+) {
+	var input struct {
+		Config  map[string]any `json:"config"`
+		Payload any            `json:"payload"`
+	}
+	// An input that does not decode as an activity input belongs to no step.
+	if l.decodeFirst(attrs.GetInput(), &input) != nil {
+		return
+	}
+	typeName := attrs.GetActivityType().GetName()
+	if typeName == mobiledevicesession.StartDeviceSessionActivityName {
+		payload, err := workflowengine.DecodePayload[mobiledevicesession.StartDeviceSessionPayload](
+			input.Payload,
+		)
+		if err != nil || payload.DeviceID == "" {
+			return
+		}
+		// Not in byEvent: the activity only starts the session, which outlives it.
+		device := &Step{
+			ID:              payload.DeviceID,
+			Kind:            StepKindDevice,
+			TypeName:        mobiledevicesession.WorkflowName,
+			Status:          statusRunning,
+			StartTime:       eventTime,
+			EventID:         eventID,
+			ChildWorkflowID: payload.WorkflowID,
+			Namespace:       payload.Namespace,
+		}
+		l.steps = append(l.steps, device)
+		l.devices[eventID] = device
+		return
+	}
+	id, ok := l.mainStepID(input.Config)
+	if !ok {
+		return
+	}
+	step := &Step{
+		ID:        id,
+		Kind:      StepKindActivity,
+		TypeName:  typeName,
+		Status:    statusRunning,
+		StartTime: eventTime,
+		EventID:   eventID,
+	}
+	if typeName == mobiledevicesession.RunRunnerWorkflowActivityName {
+		payload, err := workflowengine.DecodePayload[mobiledevicesession.RunRunnerWorkflowPayload](
+			input.Payload,
+		)
+		if err != nil {
+			return
+		}
+		step.Kind = StepKindWorkflow
+		step.TypeName = payload.WorkflowName
+		step.ChildWorkflowID = payload.WorkflowID
+		step.Namespace = payload.Namespace
+	}
+	l.add(eventID, step)
 }
 
 func (l *stepsLoader) applyChildInitiated(

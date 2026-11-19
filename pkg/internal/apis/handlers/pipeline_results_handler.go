@@ -689,8 +689,8 @@ func (b *pipelineExecutionSummaryBuilder) stepCount(
 }
 
 // countStartedSteps counts the started main steps in the history of a pipeline run or of a
-// linked steps block run. Closed runs are counted once per process. A failed read leaves
-// the count unset.
+// linked steps block run; device sessions are not steps. Closed runs are counted once per
+// process. A failed read leaves the count unset.
 func countStartedSteps(
 	ctx context.Context,
 	app core.App,
@@ -715,7 +715,12 @@ func countStartedSteps(
 		)
 		return nil
 	}
-	count := len(steps)
+	count := 0
+	for _, step := range steps {
+		if step.Kind != pipelinehistory.StepKindDevice {
+			count++
+		}
+	}
 	if closed {
 		pipelineStepCounts.put(key, count)
 	}
