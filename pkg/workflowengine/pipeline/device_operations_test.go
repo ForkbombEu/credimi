@@ -676,3 +676,154 @@ func TestMobileDevicesCleanupHookCleansEachPreparedDevice(t *testing.T) {
 	assert.Equal(t, "device a stop failed", errs[0])
 	assert.Contains(t, errs[1], "runner gone")
 }
+
+// TestPrepareDeviceWorkflowCaptureOptions: Prepare sets up a physical
+// Android phone for every step, always starts the device log, records the
+// screen unless no_video is set and disables the Play Store only when asked.
+func TestPrepareDeviceWorkflowCaptureOptions(t *testing.T) {
+	const deviceID = "tenant/runner-1/device-1"
+	tests := []struct {
+		name                 string
+		disablePlayStore     bool
+		noVideo              bool
+		wantRecordings       int
+		wantPlayStoreDisable int
+	}{
+		{name: "records the screen by default", wantRecordings: 1},
+		{name: "no_video skips the recording", noVideo: true},
+		{
+			name:                 "disables the Play Store when asked",
+			disablePlayStore:     true,
+			wantRecordings:       1,
+			wantPlayStoreDisable: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			suite := testsuite.WorkflowTestSuite{}
+			env := suite.NewTestWorkflowEnvironment()
+			env.RegisterWorkflowWithOptions(
+				PrepareDeviceWorkflow,
+				workflow.RegisterOptions{Name: mobiledevice.PrepareWorkflowName},
+			)
+			registerStubActivity(env, activities.GetMobileDeviceActivityName)
+			runnerHTTPActivity := registerMobileRunnerHTTPActivity(env)
+			setupActivity := activities.NewSetupMobileDeviceActivity()
+			installActivity := activities.NewApkInstallActivity()
+			postInstallActivity := activities.NewApkPostInstallChecksActivity()
+			listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
+			recordActivity := activities.NewStartRecordingActivity()
+			disablePlayStoreActivity := activities.NewDisableAndroidPlayStoreActivity()
+			startLogActivity := activities.NewStartAndroidDeviceLogActivity()
+			for _, a := range []workflowengine.ExecutableActivity{
+				setupActivity,
+				installActivity,
+				postInstallActivity,
+				listAppsActivity,
+				recordActivity,
+				disablePlayStoreActivity,
+				startLogActivity,
+			} {
+				env.RegisterActivityWithOptions(a.Execute, activity.RegisterOptions{Name: a.Name()})
+			}
+
+			onGetMobileDevice(env, deviceID, map[string]any{
+				"runner_id":  "tenant/runner-1",
+				"runner_url": "https://runner.example",
+				"type":       "physical",
+				"serial":     "serial-1",
+			})
+			env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: map[string]any{
+					"screen_prepared":     true,
+					"original_stay_awake": "0",
+				}}, nil)
+			env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
+			env.OnActivity(runnerHTTPActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: map[string]any{
+					"body": map[string]any{
+						"installer_path": "/tmp/app.apk",
+						"version_id":     "tenant/wallet/v1",
+					},
+				}}, nil)
+			installed := workflowengine.ActivityResult{
+				Output: map[string]any{"package_id": "pkg-1"},
+			}
+			env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+				Return(installed, nil)
+			env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
+				Return(installed, nil)
+			env.OnActivity(startLogActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: map[string]any{
+					"log_path":        "/tmp/log.txt",
+					"log_process_pid": float64(13),
+				}}, nil)
+			env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: map[string]any{
+					"recording_process_pid": float64(11),
+					"ffmpeg_process_pid":    float64(12),
+					"video_path":            "/tmp/video.mp4",
+				}}, nil)
+			env.OnActivity(disablePlayStoreActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: map[string]any{"message": "disabled"}}, nil)
+
+			request := func(stepID string) mobiledevice.MobileDeviceRequest {
+				return mobiledevice.MobileDeviceRequest{
+					DeviceID:          deviceID,
+					VersionIdentifier: "tenant/wallet/v1",
+					StepID:            stepID,
+					RunIdentifier:     "tenant/pipeline-run",
+				}
+			}
+			env.ExecuteWorkflow(mobiledevice.PrepareWorkflowName, mobiledevice.PrepareInput{
+				WorkflowID: mobiledevice.PrepareWorkflowID("pipeline-1", deviceID),
+				DeviceID:   deviceID,
+				Requests: []mobiledevice.MobileDeviceRequest{
+					request("step-1"),
+					request("step-2"),
+				},
+				RunIdentifier:    "tenant/pipeline-run",
+				DisablePlayStore: tt.disablePlayStore,
+				NoVideo:          tt.noVideo,
+				Pipeline:         testPipelineRun,
+				Workflow:         deviceWorkflowInput(),
+			})
+			require.NoError(t, env.GetWorkflowError())
+			var result mobiledevice.PrepareResult
+			require.NoError(t, env.GetWorkflowResult(&result))
+
+			env.AssertActivityNumberOfCalls(t, setupActivity.Name(), 1)
+			env.AssertActivityNumberOfCalls(t, startLogActivity.Name(), 1)
+			env.AssertActivityNumberOfCalls(t, recordActivity.Name(), tt.wantRecordings)
+			env.AssertActivityNumberOfCalls(
+				t,
+				disablePlayStoreActivity.Name(),
+				tt.wantPlayStoreDisable,
+			)
+
+			require.Len(t, result.Steps, 2)
+			for _, stepID := range []string{"step-1", "step-2"} {
+				prepared := result.Steps[stepID]
+				assert.Equal(t, "tenant/runner-1", prepared.RunnerID, stepID)
+				assert.Equal(t, "serial-1", prepared.Serial, stepID)
+				assert.Equal(t, "android_phone", prepared.Type, stepID)
+			}
+			device := result.Device
+			assert.Equal(t, "serial-1", device["serial"])
+			assert.Equal(t, true, device["device_log"])
+			assert.Equal(t, "/tmp/log.txt", device["log_path"])
+			assert.Equal(t, tt.wantRecordings == 1, device["recording"])
+			if tt.noVideo {
+				assert.NotContains(t, device, "video_path")
+			} else {
+				assert.Equal(t, "/tmp/video.mp4", device["video_path"])
+			}
+			if tt.disablePlayStore {
+				assert.Equal(t, true, device["play_store_disabled"])
+			} else {
+				assert.NotContains(t, device, "play_store_disabled")
+			}
+		})
+	}
+}
