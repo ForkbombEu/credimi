@@ -108,6 +108,12 @@ func setupActionAuthorApp(t testing.TB) *tests.TestApp {
 		createAuthoringRunner(t, app, foreignOrg.Id, "foreign-admin-runner", true),
 		"android_emulator",
 	)
+	// Credimi prepared the namespaces of the enabled fixture runners.
+	for _, name := range []string{"admin-runner", "tenant-runner", "foreign-admin-runner"} {
+		runner, err := app.FindFirstRecordByData("mobile_runners", "name", name)
+		require.NoError(t, err)
+		require.NoError(t, mobilerunner.MarkRunnerNamespaceReady(app, runner.Id))
+	}
 	return app
 }
 

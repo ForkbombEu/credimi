@@ -17,11 +17,12 @@ import (
 
 // MobileDeviceInfo describes a mobile device and the runner that hosts it.
 type MobileDeviceInfo struct {
-	DeviceID  string `json:"device_id"`
-	RunnerID  string `json:"runner_id"`
-	Type      string `json:"type"`
-	Serial    string `json:"serial"`
-	RunnerURL string `json:"runner_url"`
+	DeviceID        string `json:"device_id"`
+	RunnerID        string `json:"runner_id"`
+	Type            string `json:"type"`
+	Serial          string `json:"serial"`
+	RunnerURL       string `json:"runner_url"`
+	RunnerNamespace string `json:"runner_namespace"`
 }
 
 type GetMobileDeviceInput struct {
@@ -76,11 +77,12 @@ func mobileDevice(app core.App, identifier string) (MobileDeviceInfo, error) {
 		return MobileDeviceInfo{}, fmt.Errorf("build mobile runner identifier: %w", err)
 	}
 	return MobileDeviceInfo{
-		DeviceID:  deviceID,
-		RunnerID:  runnerIdentifier,
-		Type:      device.GetString("type"),
-		Serial:    device.GetString("serial"),
-		RunnerURL: mobilerunner.RunnerURL(runner),
+		DeviceID:        deviceID,
+		RunnerID:        runnerIdentifier,
+		Type:            device.GetString("type"),
+		Serial:          device.GetString("serial"),
+		RunnerURL:       mobilerunner.RunnerURL(runner),
+		RunnerNamespace: mobilerunner.RunnerNamespace(runner.Id),
 	}, nil
 }
 

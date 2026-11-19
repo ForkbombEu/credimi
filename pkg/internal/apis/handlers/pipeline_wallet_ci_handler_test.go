@@ -143,6 +143,7 @@ func createWalletAPKMobileRunner(
 	record.Set("ip", "https://"+strings.ReplaceAll(strings.ToLower(name), " ", "-")+".example.test")
 	record.Set("type", deviceType)
 	record.Set("published", published)
+	record.Set(mobilerunner.RunnerNamespaceReadyField, true)
 	require.NoError(t, app.Save(record))
 
 	deviceColl, err := app.FindCollectionByNameOrId("mobile_devices")

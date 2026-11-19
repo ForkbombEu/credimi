@@ -498,7 +498,9 @@ Catalog availability and run-path health:
   access check and before the semaphore), and the CI endpoints call it for an
   explicit `device_id` while `selectPipelineCIDeviceByType` probes each
   candidate for `device_type`. An unreachable runner fails the run with
-  `503 device runner is offline`. The helpers live in
+  `503 device runner is offline`; a reachable runner whose namespace is not
+  ready (`mobilerunner.RunnerNamespaceReady`) fails it with
+  `503 device runner is not ready`. The helpers live in
   `pkg/internal/apis/handlers/mobile_runner_availability.go`.
 - Every Credimi-to-runner HTTP call goes through the `mobile-runner-http-request`
   activity (`activities.NewMobileRunnerHTTPActivity`): `installer-action` and
