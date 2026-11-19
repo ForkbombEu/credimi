@@ -67,6 +67,20 @@ func BoundedScheduledWorkflow(id string) string {
 	return bounded(id, MaxLength-len(scheduledRunSuffix))
 }
 
+// Prefix returns the part of base that every ID Bounded builds from base plus a suffix
+// keeps: base itself when Bounded never cuts into it, otherwise the part before the cut.
+// It lets visibility queries find with STARTS_WITH the IDs Bounded shortened.
+func Prefix(base string) string {
+	cut := MaxLength - hashLength - 1
+	if len(base) <= cut {
+		return base
+	}
+	for cut > 0 && !utf8.RuneStart(base[cut]) {
+		cut--
+	}
+	return base[:cut]
+}
+
 func bounded(id string, limit int) string {
 	if len(id) <= limit {
 		return id

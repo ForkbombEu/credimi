@@ -55,3 +55,32 @@ func TestBoundedKeepsValidUTF8(t *testing.T) {
 		require.Greater(t, len(bounded), MaxLength-4)
 	}
 }
+
+func TestPrefix(t *testing.T) {
+	require.Equal(t, "Pipeline-org-ticket", Prefix("Pipeline-org-ticket"))
+	short := strings.Repeat("p", MaxLength-hashLength-1)
+	require.Equal(t, short, Prefix(short))
+
+	suffixes := []string{"", "-", "-step-1", "-device-org-runner-pixel-7a-prepare", "-è€😀"}
+	bases := map[string]string{
+		"short":                     "Pipeline-org-ticket",
+		"at the cut":                short,
+		"300 bytes":                 strings.Repeat("p", 300),
+		"multi-byte across the cut": strings.Repeat("a", 240) + strings.Repeat("è€😀", 10),
+	}
+	for name, base := range bases {
+		for offset := range 4 {
+			base := strings.Repeat("a", offset) + base
+			prefix := Prefix(base)
+			require.True(t, strings.HasPrefix(base, prefix), name)
+			require.True(t, utf8.ValidString(prefix), name)
+			for _, suffix := range suffixes {
+				require.True(
+					t,
+					strings.HasPrefix(Bounded(base+suffix), prefix),
+					"%s, offset %d, suffix %q", name, offset, suffix,
+				)
+			}
+		}
+	}
+}

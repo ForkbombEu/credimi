@@ -1693,7 +1693,7 @@ func TestHandleListPipelineExecutionStepsMergesRunnerNamespaceRuns(t *testing.T)
 		mock.Anything,
 		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
 			return req.GetNamespace() == runnerNamespace &&
-				req.GetQuery() == `WorkflowId STARTS_WITH "wf-1-"`
+				req.GetQuery() == `WorkflowId STARTS_WITH "wf-1"`
 		}),
 	).Return(&workflowservice.ListWorkflowExecutionsResponse{
 		Executions: []*workflow.WorkflowExecutionInfo{

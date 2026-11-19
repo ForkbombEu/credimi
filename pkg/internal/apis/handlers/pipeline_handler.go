@@ -20,6 +20,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
@@ -726,7 +727,9 @@ type runnerNamespaceRuns map[string]map[string]*WorkflowExecution
 
 // listRunnerNamespaceRuns lists, in every runner namespace of namespaces (empty entries are
 // skipped), the device and step workflows of a pipeline run: their IDs, and those of its
-// linked steps blocks' steps, start with the pipeline workflow ID.
+// linked steps blocks' steps, start with temporalid.Prefix of the pipeline workflow ID,
+// also once temporalid.Bounded shortened them. Callers index the runs by exact workflow ID,
+// so other workflows the prefix matches are ignored.
 func listRunnerNamespaceRuns(
 	ctx context.Context,
 	pipelineWorkflowID string,
@@ -734,7 +737,7 @@ func listRunnerNamespaceRuns(
 ) (runnerNamespaceRuns, error) {
 	runs := runnerNamespaceRuns{}
 	var errs []error
-	query := fmt.Sprintf("WorkflowId STARTS_WITH %q", pipelineWorkflowID+"-")
+	query := fmt.Sprintf("WorkflowId STARTS_WITH %q", temporalid.Prefix(pipelineWorkflowID))
 	for _, namespace := range namespaces {
 		if namespace == "" {
 			continue
