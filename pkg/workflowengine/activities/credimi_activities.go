@@ -56,6 +56,11 @@ func CredimiActivities(app core.App) []workflowengine.ExecutableActivity {
 		NewReadActionAuthorPipelineRunActivity(app),
 		NewResolveActionAuthorReferenceActivity(app),
 		NewDeletePipelineStepScreenshotsActivity(app),
+		NewRunRunnerWorkflowActivity(),
+		NewStartDeviceSessionActivity(),
+		NewAwaitDeviceSessionActivity(),
+		NewReleaseDeviceSessionActivity(),
+		NewCheckPipelineRunActivity(),
 	}
 }
 

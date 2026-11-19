@@ -7,6 +7,7 @@ package activities
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,5 +36,10 @@ func TestCredimiActivitiesRegistersEveryNameOnce(t *testing.T) {
 		ReadActionAuthorPipelineRunActivityName,
 		ResolveActionAuthorReferenceActivityName,
 		DeletePipelineStepScreenshotsActivityName,
+		mobiledevicesession.RunRunnerWorkflowActivityName,
+		mobiledevicesession.StartDeviceSessionActivityName,
+		AwaitDeviceSessionActivityName,
+		ReleaseDeviceSessionActivityName,
+		CheckPipelineRunActivityName,
 	}, names)
 }
