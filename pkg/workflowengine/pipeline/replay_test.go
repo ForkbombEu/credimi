@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	replayPipelineWorkflowID = "Pipeline-fast-only-onboarding-6fa7e966-fe70-4d88-8b45-d7b74c64be5f"
-	replayPipelineRunID      = "01a1f32a-1fd7-7da7-9f20-757de20a5f5e"
+	replayPipelineWorkflowID = "Pipeline-nexus-one-step-9ec80428-2eeb-4cec-a9b4-8bf6aba3add2"
+	replayPipelineRunID      = "01a1f41c-51c1-7dbf-8360-2a3fc34c0ede"
 )
 
 // replayHistory replays a recorded history (testdata/replay) of a one-step
@@ -52,7 +52,6 @@ func replayHistory(
 }
 
 func TestPipelineWorkflowReplaysMainHistory(t *testing.T) {
-	t.Skip("re-recorded with the Nexus device operations")
 	replayHistory(
 		t,
 		"testdata/replay/mobile_pipeline_main.json",
