@@ -23,10 +23,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/interceptor"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/temporalnexus"
 	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -45,6 +47,58 @@ func deviceWorkflowInput() workflowengine.WorkflowInput {
 			StartToCloseTimeout: time.Second,
 		},
 	}
+}
+
+// recordNexusOptions records the options of every Nexus operation the
+// workflows of env start.
+func recordNexusOptions(env *testsuite.TestWorkflowEnvironment) *[]workflow.NexusOperationOptions {
+	recorded := &[]workflow.NexusOperationOptions{}
+	env.SetWorkerOptions(worker.Options{
+		Interceptors: []interceptor.WorkerInterceptor{&nexusOptionsRecorder{recorded: recorded}},
+	})
+	return recorded
+}
+
+type nexusOptionsRecorder struct {
+	interceptor.WorkerInterceptorBase
+	recorded *[]workflow.NexusOperationOptions
+}
+
+func (r *nexusOptionsRecorder) InterceptWorkflow(
+	_ workflow.Context,
+	next interceptor.WorkflowInboundInterceptor,
+) interceptor.WorkflowInboundInterceptor {
+	return &nexusOptionsInbound{
+		WorkflowInboundInterceptorBase: interceptor.WorkflowInboundInterceptorBase{Next: next},
+		recorded:                       r.recorded,
+	}
+}
+
+type nexusOptionsInbound struct {
+	interceptor.WorkflowInboundInterceptorBase
+	recorded *[]workflow.NexusOperationOptions
+}
+
+func (i *nexusOptionsInbound) Init(outbound interceptor.WorkflowOutboundInterceptor) error {
+	return i.Next.Init(&nexusOptionsOutbound{
+		WorkflowOutboundInterceptorBase: interceptor.WorkflowOutboundInterceptorBase{
+			Next: outbound,
+		},
+		recorded: i.recorded,
+	})
+}
+
+type nexusOptionsOutbound struct {
+	interceptor.WorkflowOutboundInterceptorBase
+	recorded *[]workflow.NexusOperationOptions
+}
+
+func (o *nexusOptionsOutbound) ExecuteNexusOperation(
+	ctx workflow.Context,
+	input interceptor.ExecuteNexusOperationInput,
+) workflow.NexusOperationFuture {
+	*o.recorded = append(*o.recorded, input.Options)
+	return o.Next.ExecuteNexusOperation(ctx, input)
 }
 
 // TestPrepareDeviceWorkflowCleansDeviceWhoseSetupFails: an emulator whose
@@ -393,6 +447,7 @@ func TestMobileAutomationSetupHookPreparesEachDeviceOnce(t *testing.T) {
 	registerRunnerNamespaceLookup(env)
 	service := &fakeDeviceService{}
 	service.register(t, env)
+	nexusOptions := recordNexusOptions(env)
 
 	type hookResult struct {
 		Steps   []pipeline.StepSpec `json:"steps"`
@@ -446,6 +501,11 @@ func TestMobileAutomationSetupHookPreparesEachDeviceOnce(t *testing.T) {
 
 	executionTimeout := PrepareWorkflowOptions(pipeline.RuntimeConfig{}).
 		Options.WorkflowExecutionTimeout
+	require.Len(t, *nexusOptions, 2)
+	for _, options := range *nexusOptions {
+		assert.Equal(t, deviceOperationScheduleToStart, options.ScheduleToStartTimeout)
+		assert.Equal(t, executionTimeout, options.ScheduleToCloseTimeout)
+	}
 	// One Prepare per device, in order of first use.
 	require.Len(t, service.prepares, 2)
 	wantSteps := map[string][]string{deviceB: {"first", "third"}, deviceA: {"nested", "second"}}
@@ -594,6 +654,7 @@ func TestMobileDevicesCleanupHookCleansEachPreparedDevice(t *testing.T) {
 		},
 	}
 	service.register(t, env)
+	nexusOptions := recordNexusOptions(env)
 
 	type outcome struct {
 		Err     string         `json:"err"`
@@ -647,6 +708,11 @@ func TestMobileDevicesCleanupHookCleansEachPreparedDevice(t *testing.T) {
 
 	executionTimeout := PrepareWorkflowOptions(pipeline.RuntimeConfig{}).
 		Options.WorkflowExecutionTimeout
+	require.Len(t, *nexusOptions, 2)
+	for _, options := range *nexusOptions {
+		assert.Equal(t, deviceOperationScheduleToStart, options.ScheduleToStartTimeout)
+		assert.Equal(t, executionTimeout, options.ScheduleToCloseTimeout)
+	}
 	require.Len(t, service.cleanups, 2)
 	for i, deviceID := range []string{deviceA, deviceB} {
 		in := service.cleanups[i]

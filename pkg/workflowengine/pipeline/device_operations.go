@@ -23,6 +23,12 @@ const (
 	deviceCleanupHeartbeat       = 30 * time.Second
 	deviceCleanupMaximumAttempts = 3
 
+	// deviceOperationScheduleToStart bounds how long a mobile-device Nexus
+	// operation waits for the runner namespace's worker to start it, so a
+	// disabled or deleted runner fails the pipeline instead of stalling it.
+	// It covers a Credimi restart without failing running pipelines.
+	deviceOperationScheduleToStart = 5 * time.Minute
+
 	// runnerNamespaceConfigKey is the runner namespace a mobile step runs
 	// in, and the Nexus endpoint the pipeline reaches it through.
 	runnerNamespaceConfigKey = "runner_namespace"
@@ -102,6 +108,7 @@ func MobileDevicesCleanupHook(
 				},
 				workflow.NexusOperationOptions{
 					ScheduleToCloseTimeout: executionTimeout,
+					ScheduleToStartTimeout: deviceOperationScheduleToStart,
 					Summary:                "device " + deviceID,
 				},
 			).Get(ctx, &cleanup); err != nil {

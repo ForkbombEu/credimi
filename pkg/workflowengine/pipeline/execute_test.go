@@ -1075,6 +1075,7 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 			env := suite.NewTestWorkflowEnvironment()
 			env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: "pipeline-1"})
 
+			nexusOptions := recordNexusOptions(env)
 			inputs := registerRunStepOperation(
 				env,
 				func(workflow.Context, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
@@ -1123,6 +1124,13 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 			if tt.wantCalls == 0 {
 				return
 			}
+			require.Len(t, *nexusOptions, 1)
+			assert.Equal(
+				t,
+				deviceOperationScheduleToStart,
+				(*nexusOptions)[0].ScheduleToStartTimeout,
+			)
+			assert.Equal(t, time.Hour, (*nexusOptions)[0].ScheduleToCloseTimeout)
 			assert.Equal(t, tt.wantOutput, outcome.Output)
 
 			in := (*inputs)[0]

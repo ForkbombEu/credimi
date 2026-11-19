@@ -226,6 +226,7 @@ func runMobileStep(
 		},
 		workflow.NexusOperationOptions{
 			ScheduleToCloseTimeout: executionTimeout,
+			ScheduleToStartTimeout: deviceOperationScheduleToStart,
 			Summary:                summaryLine(s.ID),
 		},
 	).Get(ctx, &result)
