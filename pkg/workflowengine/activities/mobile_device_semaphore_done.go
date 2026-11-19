@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -89,8 +88,8 @@ func (a *ReportMobileDeviceSemaphoreDoneActivity) authorizeRunnerNamespaceReport
 		return actionAuthorError(&a.BaseActivity, sessionForbidden(notSession))
 	}
 	runnerID, _ := actionauthor.SessionRunnerID(caller.WorkflowID)
-	ticketKey := path.Base(strings.TrimSpace(payload.TicketID))
-	if caller.WorkflowID != actionauthor.SessionWorkflowID(runnerID, ticketKey) {
+	ticketID := strings.TrimSpace(payload.TicketID)
+	if caller.WorkflowID != actionauthor.SessionWorkflowID(runnerID, ticketID) {
 		return actionAuthorError(&a.BaseActivity, sessionForbidden(
 			fmt.Sprintf("ticket %s is not this session's ticket", payload.TicketID),
 		))

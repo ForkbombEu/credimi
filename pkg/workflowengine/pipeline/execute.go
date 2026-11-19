@@ -222,12 +222,11 @@ func runMobileStep(
 			WorkflowID:       taskWorkflowID(ctx, s.ID),
 			ExecutionTimeout: executionTimeout,
 			Pipeline:         pipelineRun,
+			// The runner owner reads this input, so only what the step workflow needs is sent.
 			Input: workflowengine.WorkflowInput{
 				Payload:         input.Payload,
 				Config:          selectConfigKeys(input.Config, runnerStepConfigKeys),
-				Secrets:         input.Secrets,
 				ActivityOptions: input.ActivityOptions,
-				RunMetadata:     input.RunMetadata,
 			},
 		},
 		workflow.NexusOperationOptions{

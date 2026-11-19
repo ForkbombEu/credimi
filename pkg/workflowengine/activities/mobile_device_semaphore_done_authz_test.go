@@ -57,6 +57,13 @@ func TestAuthorizeRunnerNamespaceReport(t *testing.T) {
 			wantErr: "is not this session's ticket",
 		},
 		{
+			name: "ticket with a path prefix",
+			payload: func(p *ReportMobileDeviceSemaphoreDoneInput) {
+				p.TicketID = "x/" + ticketID
+			},
+			wantErr: "is not this session's ticket",
+		},
+		{
 			name:    "other run",
 			payload: func(p *ReportMobileDeviceSemaphoreDoneInput) { p.RunID = "run-2" },
 			wantErr: "the report names another run",

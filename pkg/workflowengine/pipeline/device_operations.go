@@ -159,20 +159,16 @@ func deviceCleanupActivityOptions() workflow.ActivityOptions {
 }
 
 // deviceWorkflowContext applies the pipeline's activity options to ctx and
-// returns them with the pipeline's config.
+// returns them. Prepare and Clean up receive no pipeline config.
 func deviceWorkflowContext(
 	ctx workflow.Context,
 	in workflowengine.WorkflowInput,
-) (workflow.Context, workflow.ActivityOptions, map[string]any) {
+) (workflow.Context, workflow.ActivityOptions) {
 	var ao workflow.ActivityOptions
 	if in.ActivityOptions != nil {
 		ao = *in.ActivityOptions
 	}
-	config := in.Config
-	if config == nil {
-		config = map[string]any{}
-	}
-	return workflow.WithActivityOptions(ctx, ao), ao, config
+	return workflow.WithActivityOptions(ctx, ao), ao
 }
 
 // PrepareDeviceWorkflow prepares one device of a pipeline run in its runner's
@@ -183,7 +179,7 @@ func PrepareDeviceWorkflow(
 	ctx workflow.Context,
 	in mobiledevice.PrepareInput,
 ) (mobiledevice.PrepareResult, error) {
-	ctx, ao, config := deviceWorkflowContext(ctx, in.Workflow)
+	ctx, ao := deviceWorkflowContext(ctx, in.Workflow)
 	settedDevices := map[string]any{}
 	runData := map[string]any{
 		"run_identifier": in.RunIdentifier,
@@ -209,7 +205,7 @@ func PrepareDeviceWorkflow(
 			cleanupCtx,
 			nil,
 			&cleanupAO,
-			config,
+			nil,
 			runData,
 			&output,
 		)
@@ -279,14 +275,14 @@ func CleanUpDeviceWorkflow(
 	ctx workflow.Context,
 	in mobiledevice.CleanUpInput,
 ) (mobiledevice.CleanUpResult, error) {
-	ctx, _, config := deviceWorkflowContext(ctx, in.Workflow)
+	ctx, _ = deviceWorkflowContext(ctx, in.Workflow)
 	runData := map[string]any{
 		"run_identifier": in.RunIdentifier,
 		"setted_devices": map[string]any{in.DeviceID: deviceEntryFromJSON(in.Device)},
 	}
 	cleanupAO := deviceCleanupActivityOptions()
 	output := map[string]any{}
-	err := MobileAutomationCleanupHook(ctx, nil, &cleanupAO, config, runData, &output)
+	err := MobileAutomationCleanupHook(ctx, nil, &cleanupAO, nil, runData, &output)
 	result := mobiledevice.CleanUpResult{
 		ResultVideoURLs: workflowengine.AsSliceOfStrings(output["result_video_urls"]),
 		ScreenshotURLs:  workflowengine.AsSliceOfStrings(output["screenshot_urls"]),

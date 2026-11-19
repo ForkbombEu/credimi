@@ -210,7 +210,8 @@ func describeOrganizationWorkflow(
 // device is hosted by the runner of handlerNamespace, the namespace serving
 // the operation. Runner owners can write to their runner namespace, and only
 // Credimi writes to organization namespaces. The server refuses Nexus headers
-// that would replace the caller link (component.nexusoperations.disallowedHeaders).
+// that would replace the caller link (component.nexusoperations.disallowedHeaders
+// and nexusoperation.disallowedHeaders).
 func requireCredimiCaller(
 	ctx context.Context,
 	app core.App,
