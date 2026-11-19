@@ -7,13 +7,11 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"sort"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -30,34 +28,6 @@ var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/my",
 			Handler:     HandleGetMyOrganization,
 			Description: "Get the current user's organization info",
-		},
-		{
-			Method:      http.MethodGet,
-			Path:        "/visible-namespaces",
-			Handler:     HandleGetVisibleOrganizationNamespaces,
-			Description: "Get the caller organization namespace plus all published organization namespaces",
-		},
-	},
-}
-
-// OrganizationInternalRoutes are guarded by the internal admin key.
-// GET /api/organizations/namespaces is called by admin-managed runners
-// (credimi-runner) to list the namespaces they serve.
-var OrganizationInternalRoutes routing.RouteGroup = routing.RouteGroup{
-	BaseURL:                "/api/organizations",
-	AuthenticationRequired: false,
-	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		{Func: middlewares.ErrorHandlingMiddleware},
-	},
-	Routes: []routing.RouteDefinition{
-		{
-			Method:      http.MethodGet,
-			Path:        "/namespaces",
-			Handler:     HandleGetAllNamespaces,
-			Description: "Get all organization namespaces (internal use)",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
 		},
 	},
 }
@@ -87,24 +57,6 @@ func HandleGetMyOrganization() func(*core.RequestEvent) error {
 	}
 }
 
-func HandleGetAllNamespaces() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		namespaces, err := allOrganizationNamespaces(e.App)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organizations",
-				"failed to fetch organizations",
-				err.Error(),
-			)
-		}
-
-		return e.JSON(http.StatusOK, map[string]interface{}{
-			"namespaces": namespaces,
-		})
-	}
-}
-
 // allOrganizationNamespaces returns the canonified name of every organization
 // that has one.
 func allOrganizationNamespaces(app core.App) ([]string, error) {
@@ -119,66 +71,5 @@ func allOrganizationNamespaces(app core.App) ([]string, error) {
 			namespaces = append(namespaces, canonified)
 		}
 	}
-	return namespaces, nil
-}
-
-func HandleGetVisibleOrganizationNamespaces() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organizations",
-				"unable to get user organization",
-				err.Error(),
-			)
-		}
-
-		namespaces, err := visibleOrganizationNamespaces(e.App, orgRecord.Id)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organizations",
-				"failed to fetch visible organizations",
-				err.Error(),
-			)
-		}
-
-		return e.JSON(http.StatusOK, map[string]any{
-			"namespaces": namespaces,
-		})
-	}
-}
-
-// visibleOrganizationNamespaces returns the sorted, deduplicated namespaces of
-// organization orgID and every published organization.
-func visibleOrganizationNamespaces(app core.App, orgID string) ([]string, error) {
-	records, err := app.FindRecordsByFilter(
-		"organizations",
-		"published = true || id = {:id}",
-		"name",
-		-1,
-		0,
-		dbx.Params{"id": orgID},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	seen := make(map[string]struct{}, len(records))
-	namespaces := make([]string, 0, len(records))
-	for _, record := range records {
-		namespace := record.GetString("canonified_name")
-		if namespace == "" {
-			continue
-		}
-		if _, ok := seen[namespace]; ok {
-			continue
-		}
-
-		seen[namespace] = struct{}{}
-		namespaces = append(namespaces, namespace)
-	}
-	sort.Strings(namespaces)
 	return namespaces, nil
 }

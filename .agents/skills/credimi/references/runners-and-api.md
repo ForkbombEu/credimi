@@ -78,7 +78,7 @@ The worker manager receives runner identifiers (`runner_ids`) in its workflow pa
 
 **Canonify.** `POST /api/canonify/identifier/validate`, `GET /api/canonify/identifier/get` (P; return only records the caller's view rules allow, 404 otherwise, with enrich-based field hiding such as credential `secrets`). Temporal workers do not call Credimi over HTTP: they use typed activities with direct database access (`activities.CredimiActivities(app)` in `pkg/workflowengine/activities/credimi_activities.go`). `Resolve a Credimi record` (`credimi_records.go`; `{canonified_name, collection, owner_namespace}`, `collection` one of `pipelines`/`custom_checks`/`wallet_actions`) returns a published record of any org or an unpublished record of the owner org — scoped because outputs land in the org-readable run history.
 
-**Templates / organizations.** `POST /api/clone-record` (P), `POST /api/template/placeholders` (U), `GET /api/organizations/my`, `GET /api/organizations/visible-namespaces` (U), `GET /api/organizations/namespaces` (I).
+**Templates / organizations.** `POST /api/clone-record` (P), `POST /api/template/placeholders` (U), `GET /api/organizations/my`.
 
 **Catalog.** `POST /api/conformance-catalog/rebuild` (I); `GET /api/collections/conformance_checks/records[/{id}]` and `GET /api/collections/conformance_suites/records[/{id}]` (P, writes rejected).
 
