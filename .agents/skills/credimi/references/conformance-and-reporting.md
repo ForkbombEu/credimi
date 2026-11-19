@@ -21,7 +21,7 @@ Provider slugs are constants in `pkg/workflowengine/workflows/conformance_check.
 
 `visible_in` decides where a suite/check shows up (`manual`, `pipeline`; empty = both). eudiw is `manual`-only; FCAF and most OpenID suites are `pipeline`-only (`pkg/conformancecatalog/catalog.go:178-198`).
 
-Prerequisites: the `stepci-captured-runner` binary for every classic provider (env `BIN`, default `.bin/`), `OPENIDNET_TOKEN` for the OpenID certification API, and the PocketBase Settings **Application URL**: starters copy it into workflow config as `app_url` (`workflowengine.WithAppConfig`), and workflows use it only to build links (Temporal UI, emails, the EUDIW callback page). Live check logs reach the webapp through the `Send realtime logs` activity on the PocketBase realtime topic `<workflowID>{openidnet,eudiw,ewc}-logs`.
+Prerequisites: the `stepci-captured-runner` binary for every classic provider (env `BIN`, default `.bin/`), `OPENIDNET_TOKEN` for the OpenID certification API, and the PocketBase Settings **Application URL**: starters copy it into workflow config as `app_url` (`workflowengine.WithAppConfig`), and workflows use it to build links (Temporal UI, emails, the EUDIW callback page). The OpenID wallet conformance checks also put `app_url` into their StepCI data, so the v1_0 wallet templates call `<app_url>/api/pipeline/mobile-flow`. Live check logs reach the webapp through the `Send realtime logs` activity on the PocketBase realtime topic `<workflowID>{openidnet,eudiw,ewc}-logs`.
 
 ## How a check runs
 
