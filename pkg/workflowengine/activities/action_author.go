@@ -270,14 +270,19 @@ type authorCaller struct {
 }
 
 // activityCaller returns the workflow execution that scheduled the activity.
+// A standalone activity, which anyone with write access to the namespace can
+// start, has no workflow: its caller has an empty type and ID.
 func activityCaller(ctx context.Context) authorCaller {
 	info := activity.GetInfo(ctx)
-	return authorCaller{
-		Namespace:    info.Namespace,
-		WorkflowType: info.WorkflowType.Name,
-		WorkflowID:   info.WorkflowExecution.ID,
-		RunID:        info.WorkflowExecution.RunID,
+	caller := authorCaller{
+		Namespace:  info.Namespace,
+		WorkflowID: info.WorkflowExecution.ID,
+		RunID:      info.WorkflowExecution.RunID,
 	}
+	if info.WorkflowType != nil {
+		caller.WorkflowType = info.WorkflowType.Name
+	}
+	return caller
 }
 
 // authorSessionLookup finds the running session of an ActionAuthor caller.
