@@ -21,3 +21,25 @@ limit.blobSize.warn:
 frontend.searchAttributesSizeOfValueLimit:
   - value: 16384
     constraints: {}
+# Nexus headers a workflow may not set on an operation. This key replaces the
+# server defaults, so the first nine entries repeat the Temporal 1.32.2 list
+# (components/nexusoperations/config.go). The last four are headers the server
+# sets on a dispatch: the server copies user headers over its own, and a
+# nexus-link header would replace the caller link the mobile-device operations
+# check (requireCredimiCaller). Credimi's own operations set no Nexus header.
+component.nexusoperations.disallowedHeaders:
+  - value:
+      - request-timeout
+      - xdc-redirection
+      - xdc-redirection-api
+      - xdc-redirection-source-cell
+      - caller-name
+      - caller-type
+      - call-initiation
+      - temporal-principal-type
+      - temporal-principal-name
+      - nexus-link
+      - nexus-request-id
+      - nexus-operation-token
+      - temporal-callback-token
+    constraints: {}

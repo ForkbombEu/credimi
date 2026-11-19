@@ -6,16 +6,21 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporalnexus"
 )
@@ -38,8 +43,11 @@ func NewMobileDeviceService(app core.App) *nexus.Service {
 					options nexus.StartOperationOptions,
 				) (temporalnexus.WorkflowHandle[mobiledevice.PrepareResult], error) {
 					if err := requireCredimiCaller(
+						ctx,
 						app,
+						describeOrganizationWorkflow,
 						options,
+						mobiledevice.PrepareOperationName,
 						temporalnexus.GetOperationInfo(ctx).Namespace,
 						in.Pipeline,
 						in.WorkflowID,
@@ -76,8 +84,11 @@ func NewMobileDeviceService(app core.App) *nexus.Service {
 				) (temporalnexus.WorkflowHandle[workflowengine.WorkflowResult], error) {
 					deviceID, _ := workflowengine.AsMap(in.Input.Payload)["device_id"].(string)
 					if err := requireCredimiCaller(
+						ctx,
 						app,
+						describeOrganizationWorkflow,
 						options,
+						mobiledevice.RunStepOperationName,
 						temporalnexus.GetOperationInfo(ctx).Namespace,
 						in.Pipeline,
 						in.WorkflowID,
@@ -116,8 +127,11 @@ func NewMobileDeviceService(app core.App) *nexus.Service {
 					options nexus.StartOperationOptions,
 				) (temporalnexus.WorkflowHandle[mobiledevice.CleanUpResult], error) {
 					if err := requireCredimiCaller(
+						ctx,
 						app,
+						describeOrganizationWorkflow,
 						options,
+						mobiledevice.CleanUpOperationName,
 						temporalnexus.GetOperationInfo(ctx).Namespace,
 						in.Pipeline,
 						in.WorkflowID,
@@ -171,15 +185,38 @@ func deviceWorkflowOptions(
 	}
 }
 
+// organizationWorkflowDescriber describes a workflow run of an organization
+// namespace.
+type organizationWorkflowDescriber func(
+	ctx context.Context,
+	namespace, workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error)
+
+func describeOrganizationWorkflow(
+	ctx context.Context,
+	namespace, workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return temporalclient.Describe(ctx, c, workflowID, runID)
+}
+
 // requireCredimiCaller accepts an operation only from a Credimi pipeline: the
-// caller's link names an organization namespace, the pipeline run of the
-// input, the workflow ID belongs to that run, and the device is hosted by
-// the runner of handlerNamespace, the namespace serving the operation. Runner
-// owners can write to their runner namespace, and only Credimi writes to
-// organization namespaces.
+// caller's link names the pipeline run of the input in its organization
+// namespace (or, for a step, a linked-steps block of that run), the workflow
+// ID of a device operation is the one Credimi computes for the run, and the
+// device is hosted by the runner of handlerNamespace, the namespace serving
+// the operation. Runner owners can write to their runner namespace, and only
+// Credimi writes to organization namespaces. The server refuses Nexus headers
+// that would replace the caller link (component.nexusoperations.disallowedHeaders).
 func requireCredimiCaller(
+	ctx context.Context,
 	app core.App,
+	describe organizationWorkflowDescriber,
 	options nexus.StartOperationOptions,
+	operation string,
 	handlerNamespace string,
 	pipelineRun mobiledevice.PipelineRun,
 	workflowID string,
@@ -201,8 +238,22 @@ func requireCredimiCaller(
 	if _, err := pbutils.FindOrganizationByNamespace(app, namespace); err != nil {
 		return notOrganizationPipeline()
 	}
-	if pipelineRun.WorkflowID == "" ||
-		!strings.HasPrefix(workflowID, pipelineRun.WorkflowID+"-") {
+	if pipelineRun.WorkflowID == "" || pipelineRun.RunID == "" {
+		return notOrganizationPipeline()
+	}
+	if err := requirePipelineRunCaller(
+		ctx, describe, operation, pipelineRun, link.GetWorkflowId(), link.GetRunId(),
+	); err != nil {
+		return err
+	}
+	var expectedID string
+	switch operation {
+	case mobiledevice.PrepareOperationName:
+		expectedID = mobiledevice.PrepareWorkflowID(pipelineRun.WorkflowID, deviceID)
+	case mobiledevice.CleanUpOperationName:
+		expectedID = mobiledevice.CleanUpWorkflowID(pipelineRun.WorkflowID, deviceID)
+	}
+	if expectedID != "" && workflowID != expectedID {
 		return nexus.NewHandlerErrorf(
 			nexus.HandlerErrorTypeBadRequest,
 			"workflow id does not belong to the pipeline",
@@ -216,6 +267,46 @@ func requireCredimiCaller(
 			"device %s is not hosted by this runner",
 			deviceID,
 		)
+	}
+	return nil
+}
+
+// requirePipelineRunCaller accepts a caller link naming the pipeline run
+// itself, or, for a step, a linked-steps block the pipeline run started:
+// steps inside a block are scheduled by the block.
+func requirePipelineRunCaller(
+	ctx context.Context,
+	describe organizationWorkflowDescriber,
+	operation string,
+	pipelineRun mobiledevice.PipelineRun,
+	callerWorkflowID, callerRunID string,
+) error {
+	if callerWorkflowID == pipelineRun.WorkflowID && callerRunID == pipelineRun.RunID {
+		return nil
+	}
+	if operation != mobiledevice.RunStepOperationName ||
+		callerWorkflowID == "" || callerRunID == "" {
+		return notOrganizationPipeline()
+	}
+	described, err := describe(ctx, pipelineRun.Namespace, callerWorkflowID, callerRunID)
+	if err != nil {
+		var notFound *serviceerror.NotFound
+		if errors.As(err, &notFound) {
+			return notOrganizationPipeline()
+		}
+		return nexus.NewHandlerErrorf(
+			nexus.HandlerErrorTypeInternal,
+			"check operation caller: %v",
+			err,
+		)
+	}
+	info := described.GetWorkflowExecutionInfo()
+	parent := info.GetParentExecution()
+	if info.GetType().GetName() != pipelineinternal.LinkedStepsWorkflowName ||
+		info.GetExecution().GetRunId() != callerRunID ||
+		parent.GetWorkflowId() != pipelineRun.WorkflowID ||
+		parent.GetRunId() != pipelineRun.RunID {
+		return notOrganizationPipeline()
 	}
 	return nil
 }
