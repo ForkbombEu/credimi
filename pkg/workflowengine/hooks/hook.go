@@ -367,6 +367,11 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 			linkedStepsWf.Workflow,
 			workflow.RegisterOptions{Name: linkedStepsWf.Name()},
 		)
+		deviceSessionWf := pipeline.NewDeviceSessionWorkflow()
+		w.RegisterWorkflowWithOptions(
+			deviceSessionWf.Workflow,
+			workflow.RegisterOptions{Name: deviceSessionWf.Name()},
+		)
 		debugAct := pipeline.NewDebugActivity()
 		w.RegisterActivityWithOptions(
 			debugAct.Execute,

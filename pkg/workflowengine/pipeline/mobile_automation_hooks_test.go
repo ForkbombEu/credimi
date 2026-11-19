@@ -11,6 +11,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -837,7 +838,7 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 	require.Empty(t, result["installer_path"])
 }
 
-func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
+func TestPrepareAndApplyMobileDeviceSetsStepDeviceConfig(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -882,35 +883,52 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 					},
 				},
 			}
-			runData := map[string]any{"run_identifier": "tenant/workflow-run"}
 			settedDevices := map[string]any{}
 
-			err := processStep(processStepInput{
-				ctx:            ctx,
-				step:           &step.StepSpec,
-				config:         map[string]any{"app_url": "https://app.example"},
-				ao:             &ao,
-				settedDevices:  settedDevices,
-				runData:        &runData,
-				logger:         workflow.GetLogger(ctx),
-				globalDeviceID: "tenant/runner-1/device-1",
-			})
+			req, err := mobileDeviceRequestFor(
+				&step.StepSpec,
+				"tenant/runner-1/device-1",
+				map[string]any{"app_url": "https://app.example"},
+				"tenant/workflow-run",
+			)
 			if err != nil {
 				return nil, err
 			}
+			prepared, err := prepareMobileDevice(ctx, &ao, settedDevices, req)
+			if err != nil {
+				return nil, err
+			}
+			applyPreparedDevice(
+				&step.StepSpec,
+				prepared,
+				"tenant/workflow-run",
+				"runner-ns",
+				mobiledevicesession.PipelineRunRef{
+					Namespace:  "tenant",
+					WorkflowID: "pipeline-1",
+					RunID:      "run-1",
+				},
+			)
 
-			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any)
+			deviceMap := settedDevices["tenant/runner-1/device-1"].(map[string]any)
 			return map[string]any{
-				"device_id":    step.With.Payload["device_id"],
-				"serial":       step.With.Payload["serial"],
-				"type":         step.With.Payload["type"],
-				"taskqueue":    step.With.Config["taskqueue"],
-				"device_type":  deviceMap["type"],
-				"package_id":   deviceMap["installed"].(map[string]string)["ver-1"],
-				"runner_count": len(runData["setted_devices"].(map[string]any)),
-				"screen_ready": deviceMap["screen_prepared"],
-				"stay_awake":   deviceMap["original_stay_awake"],
-				"screen_off":   deviceMap["original_screen_off_timeout"],
+				"device_id":       step.With.Payload["device_id"],
+				"serial":          step.With.Payload["serial"],
+				"type":            step.With.Payload["type"],
+				"taskqueue":       step.With.Config["taskqueue"],
+				"app_url":         step.With.Config["app_url"],
+				"runner_id":       step.With.Config["runner_id"],
+				"step_id":         step.With.Config[workflowengine.StepIDConfigKey],
+				"run_identifier":  step.With.Config["run_identifier"],
+				"runner_ns":       step.With.Config[runnerNamespaceConfigKey],
+				"pipeline_run":    step.With.Config[pipelineRunConfigKey],
+				"device_type":     deviceMap["type"],
+				"package_id":      deviceMap["installed"].(map[string]string)["ver-1"],
+				"runner_count":    len(settedDevices),
+				"screen_ready":    deviceMap["screen_prepared"],
+				"stay_awake":      deviceMap["original_stay_awake"],
+				"screen_off":      deviceMap["original_screen_off_timeout"],
+				"request_step_id": req.StepID,
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-process-step"},
@@ -1000,6 +1018,17 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	require.Equal(t, "serial-1", result["serial"])
 	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "tenant/runner-1-TaskQueue", result["taskqueue"])
+	require.Equal(t, "https://app.example", result["app_url"])
+	require.Equal(t, "tenant/runner-1", result["runner_id"])
+	require.Equal(t, "step-1", result["step_id"])
+	require.Equal(t, "step-1", result["request_step_id"])
+	require.Equal(t, "tenant/workflow-run", result["run_identifier"])
+	require.Equal(t, "runner-ns", result["runner_ns"])
+	require.Equal(t, map[string]any{
+		"namespace":   "tenant",
+		"workflow_id": "pipeline-1",
+		"run_id":      "run-1",
+	}, result["pipeline_run"])
 	require.Equal(t, "android_phone", result["device_type"])
 	require.Equal(t, "pkg-1", result["package_id"])
 	require.Equal(t, float64(1), result["runner_count"])
@@ -1507,288 +1536,6 @@ func TestMobileAutomationCleanupHookSuccess(t *testing.T) {
 	require.True(t, cleaned)
 }
 
-func TestMobileAutomationSetupHookSuccess(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	registerStubActivity(env, activities.ResolveRecordActivityName)
-	registerStubActivity(env, activities.GetMobileDeviceActivityName)
-	runnerHTTPActivity := registerMobileRunnerHTTPActivity(env)
-	setupActivity := activities.NewSetupMobileDeviceActivity()
-	installActivity := activities.NewApkInstallActivity()
-	postInstallActivity := activities.NewApkPostInstallChecksActivity()
-	recordActivity := activities.NewStartRecordingActivity()
-	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
-	env.RegisterActivityWithOptions(
-		setupActivity.Execute,
-		activity.RegisterOptions{Name: setupActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		installActivity.Execute,
-		activity.RegisterOptions{Name: installActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		postInstallActivity.Execute,
-		activity.RegisterOptions{Name: postInstallActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		recordActivity.Execute,
-		activity.RegisterOptions{Name: recordActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		listAppsActivity.Execute,
-		activity.RegisterOptions{Name: listAppsActivity.Name()},
-	)
-	startLogActivity := onStartAndroidDeviceLog(env)
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (map[string]any, error) {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
-
-			steps := []pipeline.StepDefinition{
-				{
-					StepSpec: pipeline.StepSpec{
-						ID:  "step-1",
-						Use: mobileAutomationStepUse,
-						With: pipeline.StepInputs{
-							Payload: map[string]any{
-								"action_id":  "action-1",
-								"version_id": "tenant/wallet/v1",
-							},
-						},
-					},
-				},
-			}
-			runData := map[string]any{"run_identifier": "tenant/workflow-run"}
-			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
-
-			err := MobileAutomationSetupHook(
-				ctx,
-				wfDef,
-				map[string]any{
-					"app_url":                              "https://app.example",
-					"namespace":                            "tenant",
-					"global_device_id":                     "tenant/runner-1/device-1",
-					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
-				},
-				&runData,
-				&map[string]any{},
-				log.Logger(noopLogger{}),
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any)
-			return map[string]any{
-				"device_id":      steps[0].With.Payload["device_id"],
-				"serial":         steps[0].With.Payload["serial"],
-				"type":           steps[0].With.Payload["type"],
-				"action_code":    steps[0].With.Payload["action_code"],
-				"stored_code":    steps[0].With.Payload["stored_action_code"],
-				"taskqueue":      steps[0].With.Config["taskqueue"],
-				"runner_id":      steps[0].With.Config["runner_id"],
-				"step_id":        steps[0].With.Config["step_id"],
-				"run_identifier": steps[0].With.Config["run_identifier"],
-				"recording":      deviceMap["recording"],
-				"video_path":     deviceMap["video_path"],
-				"device_log":     deviceMap["device_log"],
-				"log_path":       deviceMap["log_path"],
-				"device_log_pid": deviceMap["device_log_pid"],
-				"recording_pid":  deviceMap["recording_process_pid"],
-			}, nil
-		},
-		workflow.RegisterOptions{Name: "test-mobile-automation-setup-success"},
-	)
-
-	onResolveMobileAction(env, "action-1", map[string]any{
-		"code":     "code-1",
-		"category": "test",
-	})
-	onGetMobileDevice(env, "tenant/runner-1/device-1", map[string]any{
-		"runner_id":  "tenant/runner-1",
-		"runner_url": "https://runner.example",
-		"type":       "physical",
-		"serial":     "serial-1",
-	})
-	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"screen_prepared":     true,
-			"original_stay_awake": "0",
-		}}, nil).Once()
-
-	env.OnActivity(
-		runnerHTTPActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			if !ok {
-				return false
-			}
-			body, ok := payload["body"].(map[string]any)
-			return ok &&
-				workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
-				workflowengine.AsString(payload["path"]) == "/credimi/installer-action" &&
-				workflowengine.AsString(body["platform"]) == "android"
-		}),
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"installer_path": "/tmp/app.apk",
-			"version_id":     "ver-1",
-		},
-	}}, nil)
-
-	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"package_id": "pkg-1",
-		}}, nil)
-	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"package_id": "pkg-1",
-		}}, nil)
-	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
-
-	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"recording_process_pid": float64(11),
-			"ffmpeg_process_pid":    float64(12),
-			"video_path":            "/tmp/video.mp4",
-		}}, nil)
-
-	env.ExecuteWorkflow("test-mobile-automation-setup-success")
-	require.NoError(t, env.GetWorkflowError())
-
-	var result map[string]any
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "tenant/runner-1/device-1", result["device_id"])
-	require.Equal(t, "serial-1", result["serial"])
-	require.Equal(t, "android_phone", result["type"])
-	require.Equal(t, "code-1", result["action_code"])
-	require.Equal(t, true, result["stored_code"])
-	require.Equal(t, "tenant/runner-1-TaskQueue", result["taskqueue"])
-	require.Equal(t, "tenant/runner-1", result["runner_id"])
-	require.Equal(t, "step-1", result["step_id"])
-	require.Equal(t, "tenant/workflow-run", result["run_identifier"])
-	require.Equal(t, true, result["recording"])
-	require.Equal(t, "/tmp/video.mp4", result["video_path"])
-	require.Equal(t, float64(11), result["recording_pid"])
-	require.Equal(t, true, result["device_log"])
-	require.Equal(t, "/tmp/log.txt", result["log_path"])
-	require.Equal(t, float64(13), result["device_log_pid"])
-	env.AssertActivityNumberOfCalls(t, startLogActivity, 1)
-	env.AssertActivityNumberOfCalls(t, recordActivity.Name(), 1)
-}
-
-func TestMobileAutomationSetupHookPreparesNestedSteps(t *testing.T) {
-	tests := []struct {
-		name           string
-		globalDeviceID string
-		stepDeviceID   string
-	}{
-		{
-			name:         "per-step device",
-			stepDeviceID: " /tenant/runner-1/device-1 ",
-		},
-		{
-			name:           "global device",
-			globalDeviceID: " /tenant/runner-1/device-1 ",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			suite := testsuite.WorkflowTestSuite{}
-			env := suite.NewTestWorkflowEnvironment()
-			registerStubActivity(env, activities.ResolveRecordActivityName)
-			_ = registerMobileRunnerHTTPActivity(env)
-			for _, suffix := range []string{"error", "success"} {
-				onResolveMobileAction(env, "tenant/action-"+suffix, map[string]any{
-					"code":     "code-" + suffix,
-					"category": "test",
-				})
-			}
-
-			env.RegisterWorkflowWithOptions(
-				func(ctx workflow.Context) (map[string]any, error) {
-					steps := []pipeline.StepDefinition{{
-						StepSpec: pipeline.StepSpec{ID: "parent", Use: "echo"},
-						OnError: []*pipeline.OnErrorStepDefinition{{StepSpec: pipeline.StepSpec{
-							ID:  "nested-error",
-							Use: mobileAutomationStepUse,
-							With: pipeline.StepInputs{
-								Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "error"),
-							},
-						}}},
-						OnSuccess: []*pipeline.OnSuccessStepDefinition{{StepSpec: pipeline.StepSpec{
-							ID:  "nested-success",
-							Use: mobileAutomationStepUse,
-							With: pipeline.StepInputs{
-								Payload: nestedMobilePreparationPayload(tc.stepDeviceID, "success"),
-							},
-						}}},
-					}}
-					deviceMap := map[string]any{
-						"runner_id":              "tenant/runner-1",
-						"type":                   "android_phone",
-						"serial":                 "serial-1",
-						"recording":              true,
-						"device_log":             true,
-						"screen_prepared":        true,
-						"initial_installed_apps": []string{},
-						"installed":              map[string]string{},
-					}
-					runData := map[string]any{
-						"run_identifier": "tenant/workflow-run",
-						"setted_devices": map[string]any{
-							"tenant/runner-1/device-1": deviceMap,
-						},
-					}
-					config := map[string]any{
-						"namespace":                            "tenant",
-						"global_device_id":                     tc.globalDeviceID,
-						mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
-					}
-					wfDef := &pipeline.WorkflowDefinition{Steps: steps}
-					if err := MobileAutomationSetupHook(
-						ctx,
-						wfDef,
-						config,
-						&runData,
-						&map[string]any{},
-						log.Logger(noopLogger{}),
-					); err != nil {
-						return nil, err
-					}
-
-					return map[string]any{
-						"error":   nestedStepPreparationResult(steps[0].OnError[0].StepSpec),
-						"success": nestedStepPreparationResult(steps[0].OnSuccess[0].StepSpec),
-						"devices": len(runData["setted_devices"].(map[string]any)),
-					}, nil
-				},
-				workflow.RegisterOptions{Name: "test-mobile-setup-nested-steps"},
-			)
-
-			env.ExecuteWorkflow("test-mobile-setup-nested-steps")
-			require.NoError(t, env.GetWorkflowError())
-
-			var result map[string]any
-			require.NoError(t, env.GetWorkflowResult(&result))
-			require.Equal(t, float64(1), result["devices"])
-			for _, key := range []string{"error", "success"} {
-				stepResult := result[key].(map[string]any)
-				require.Equal(t, "tenant/runner-1/device-1", stepResult["device_id"])
-				require.Equal(t, "tenant/runner-1-TaskQueue", stepResult["taskqueue"])
-				require.Equal(t, "tenant/runner-1", stepResult["runner_id"])
-				require.Equal(t, "tenant/workflow-run", stepResult["run_identifier"])
-				require.Equal(t, "android_phone", stepResult["type"])
-			}
-		})
-	}
-}
-
 func TestResolveStoredMobileActionsPreparesNestedSpecs(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -1858,289 +1605,11 @@ func TestResolveStoredMobileActionsPreparesNestedSpecs(t *testing.T) {
 	require.Equal(t, true, result["stored_marker"])
 }
 
-func nestedMobilePreparationPayload(deviceID, suffix string) map[string]any {
-	payload := map[string]any{
-		"action_id":  "tenant/action-" + suffix,
-		"version_id": MobileExternalSourceVersionID,
-	}
-	if deviceID != "" {
-		payload["device_id"] = deviceID
-	}
-	return payload
-}
-
 func nestedExternalInstallPayload(suffix string) map[string]any {
 	return map[string]any{
 		"action_id":  "tenant/action-" + suffix,
 		"version_id": MobileExternalSourceVersionID,
 	}
-}
-
-func nestedStepPreparationResult(step pipeline.StepSpec) map[string]any {
-	return map[string]any{
-		"device_id":      step.With.Payload["device_id"],
-		"taskqueue":      step.With.Config["taskqueue"],
-		"runner_id":      step.With.Config["runner_id"],
-		"run_identifier": step.With.Config["run_identifier"],
-		"type":           step.With.Payload["type"],
-	}
-}
-
-func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	registerStubActivity(env, activities.ResolveRecordActivityName)
-	registerStubActivity(env, activities.GetMobileDeviceActivityName)
-	runnerHTTPActivity := registerMobileRunnerHTTPActivity(env)
-	setupActivity := activities.NewSetupMobileDeviceActivity()
-	installActivity := activities.NewApkInstallActivity()
-	postInstallActivity := activities.NewApkPostInstallChecksActivity()
-	disablePlayStoreActivity := activities.NewDisableAndroidPlayStoreActivity()
-	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
-	recordActivity := activities.NewStartRecordingActivity()
-	env.RegisterActivityWithOptions(
-		setupActivity.Execute,
-		activity.RegisterOptions{Name: setupActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		installActivity.Execute,
-		activity.RegisterOptions{Name: installActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		postInstallActivity.Execute,
-		activity.RegisterOptions{Name: postInstallActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		disablePlayStoreActivity.Execute,
-		activity.RegisterOptions{Name: disablePlayStoreActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		listAppsActivity.Execute,
-		activity.RegisterOptions{Name: listAppsActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		recordActivity.Execute,
-		activity.RegisterOptions{Name: recordActivity.Name()},
-	)
-	onStartAndroidDeviceLog(env)
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (map[string]any, error) {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
-
-			steps := []pipeline.StepDefinition{
-				{
-					StepSpec: pipeline.StepSpec{
-						ID:  "step-1",
-						Use: mobileAutomationStepUse,
-						With: pipeline.StepInputs{
-							Payload: map[string]any{
-								"action_id":  "action-1",
-								"version_id": "tenant/wallet/v1",
-							},
-						},
-					},
-				},
-			}
-			runData := map[string]any{}
-			wfDef := &pipeline.WorkflowDefinition{Steps: steps}
-
-			err := MobileAutomationSetupHook(
-				ctx,
-				wfDef,
-				map[string]any{
-					"app_url":                              "https://app.example",
-					"namespace":                            "tenant",
-					"global_device_id":                     "tenant/runner-1/device-1",
-					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
-					mobileDisableAndroidPlayStoreConfigKey: true,
-				},
-				&runData,
-				&map[string]any{},
-				log.Logger(noopLogger{}),
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any)
-			return map[string]any{
-				"play_store_disabled": deviceMap["play_store_disabled"],
-				"recording":           deviceMap["recording"],
-			}, nil
-		},
-		workflow.RegisterOptions{Name: "test-mobile-automation-setup-disable-play-store"},
-	)
-
-	onResolveMobileAction(env, "action-1", map[string]any{
-		"code":     "code-1",
-		"category": "test",
-	})
-	onGetMobileDevice(env, "tenant/runner-1/device-1", map[string]any{
-		"runner_id":  "tenant/runner-1",
-		"runner_url": "https://runner.example",
-		"type":       "physical",
-		"serial":     "serial-1",
-	})
-	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"screen_prepared":     true,
-			"original_stay_awake": "0",
-		}}, nil).Once()
-	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: []string{"com.example.before"}}, nil).Once()
-
-	env.OnActivity(
-		runnerHTTPActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			if !ok {
-				return false
-			}
-			body, ok := payload["body"].(map[string]any)
-			return ok &&
-				workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
-				workflowengine.AsString(payload["path"]) == "/credimi/installer-action" &&
-				workflowengine.AsString(body["platform"]) == "android"
-		}),
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"installer_path": "/tmp/app.apk",
-			"version_id":     "ver-1",
-		},
-	}}, nil)
-
-	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"package_id": "pkg-1",
-		}}, nil)
-	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"package_id": "pkg-1",
-		}}, nil)
-	env.OnActivity(
-		disablePlayStoreActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			return ok && workflowengine.AsString(payload["serial"]) == "serial-1"
-		}),
-	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"message": "disabled",
-	}}, nil).Once()
-	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"recording_process_pid": float64(11),
-			"ffmpeg_process_pid":    float64(12),
-			"video_path":            "/tmp/video.mp4",
-		}}, nil)
-
-	env.ExecuteWorkflow("test-mobile-automation-setup-disable-play-store")
-	require.NoError(t, env.GetWorkflowError())
-
-	var result map[string]any
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, true, result["play_store_disabled"])
-	require.Equal(t, true, result["recording"])
-}
-
-func TestMobileAutomationSetupHookSkipsRecordingWhenNoVideo(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	registerStubActivity(env, activities.ResolveRecordActivityName)
-	registerStubActivity(env, activities.GetMobileDeviceActivityName)
-	runnerHTTPActivity := registerMobileRunnerHTTPActivity(env)
-	setupActivity := activities.NewSetupMobileDeviceActivity()
-	installActivity := activities.NewApkInstallActivity()
-	postInstallActivity := activities.NewApkPostInstallChecksActivity()
-	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
-	recordActivity := activities.NewStartRecordingActivity()
-	for _, a := range []workflowengine.ExecutableActivity{
-		setupActivity, installActivity, postInstallActivity, listAppsActivity, recordActivity,
-	} {
-		env.RegisterActivityWithOptions(a.Execute, activity.RegisterOptions{Name: a.Name()})
-	}
-	startLogActivity := onStartAndroidDeviceLog(env)
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (map[string]any, error) {
-			ctx = workflow.WithActivityOptions(
-				ctx,
-				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
-			)
-			runData := map[string]any{}
-			wfDef := &pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{{
-				StepSpec: pipeline.StepSpec{
-					ID:  "step-1",
-					Use: mobileAutomationStepUse,
-					With: pipeline.StepInputs{Payload: map[string]any{
-						"action_id":  "action-1",
-						"version_id": "tenant/wallet/v1",
-					}},
-				},
-			}}}
-
-			if err := MobileAutomationSetupHook(
-				ctx,
-				wfDef,
-				map[string]any{
-					"app_url":                              "https://app.example",
-					"namespace":                            "tenant",
-					"global_device_id":                     "tenant/runner-1/device-1",
-					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
-					mobileNoVideoConfigKey:                 true,
-				},
-				&runData,
-				&map[string]any{},
-				log.Logger(noopLogger{}),
-			); err != nil {
-				return nil, err
-			}
-
-			return runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any), nil
-		},
-		workflow.RegisterOptions{Name: "test-mobile-automation-setup-no-video"},
-	)
-
-	onResolveMobileAction(env, "action-1", map[string]any{"code": "code-1", "category": "test"})
-	onGetMobileDevice(env, "tenant/runner-1/device-1", map[string]any{
-		"runner_id":  "tenant/runner-1",
-		"runner_url": "https://runner.example",
-		"type":       "physical",
-		"serial":     "serial-1",
-	})
-	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"screen_prepared":     true,
-			"original_stay_awake": "0",
-		}}, nil).Once()
-	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: []string{"com.example.before"}}, nil).Once()
-	env.OnActivity(runnerHTTPActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"body": map[string]any{"installer_path": "/tmp/app.apk", "version_id": "ver-1"},
-		}}, nil)
-	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{"package_id": "pkg-1"}}, nil)
-	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{"package_id": "pkg-1"}}, nil)
-
-	env.ExecuteWorkflow("test-mobile-automation-setup-no-video")
-	require.NoError(t, env.GetWorkflowError())
-
-	var device map[string]any
-	require.NoError(t, env.GetWorkflowResult(&device))
-	require.Equal(t, false, device["recording"])
-	require.NotContains(t, device, "video_path")
-	require.Equal(t, true, device["device_log"])
-	require.Equal(t, "/tmp/log.txt", device["log_path"])
-	require.Equal(t, float64(13), device["device_log_pid"])
-	env.AssertActivityNumberOfCalls(t, startLogActivity, 1)
-	env.AssertActivityNumberOfCalls(t, recordActivity.Name(), 0)
 }
 
 func TestMobileAutomationCleanupHookReenablesDisabledPlayStore(t *testing.T) {
@@ -2556,7 +2025,7 @@ func TestMobileAutomationSetupHookCollectDeviceIDsError(t *testing.T) {
 	require.Contains(t, err.Error(), "missing or invalid version_id")
 }
 
-func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
+func TestMobileAutomationSetupHookRejectsStepWithoutAction(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -2589,10 +2058,10 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 				log.Logger(noopLogger{}),
 			)
 		},
-		workflow.RegisterOptions{Name: "test-mobile-setup-process-step-error"},
+		workflow.RegisterOptions{Name: "test-mobile-setup-step-without-action"},
 	)
 
-	env.ExecuteWorkflow("test-mobile-setup-process-step-error")
+	env.ExecuteWorkflow("test-mobile-setup-step-without-action")
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing or invalid action_id")
@@ -3010,22 +2479,6 @@ func testCleanupDeviceCapturesMissingRunnerWorkflow(ctx workflow.Context) (int, 
 		cleanupErrs: &errs,
 	})
 	return len(errs), nil
-}
-
-// onStartAndroidDeviceLog registers the Android start-device-log activity,
-// returning a running log capture, and returns its name.
-func onStartAndroidDeviceLog(env *testsuite.TestWorkflowEnvironment) string {
-	startLog := activities.NewStartAndroidDeviceLogActivity()
-	env.RegisterActivityWithOptions(
-		startLog.Execute,
-		activity.RegisterOptions{Name: startLog.Name()},
-	)
-	env.OnActivity(startLog.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"log_path":        "/tmp/log.txt",
-			"log_process_pid": float64(13),
-		}}, nil)
-	return startLog.Name()
 }
 
 // onStopAndroidDeviceLog registers the Android stop-device-log activity

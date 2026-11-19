@@ -31,7 +31,6 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 	require.Equal(t, TaskWorkflow, mobileTask.Kind)
 	require.NotNil(t, mobileTask.NewFunc(nil))
 	require.NotNil(t, mobileTask.PayloadType)
-	require.False(t, mobileTask.CustomTaskQueue)
 	require.NotNil(t, mobileTask.PipelinePayloadType)
 }
 func TestRegistryFactoriesCreateInstances(t *testing.T) {
@@ -73,14 +72,6 @@ func TestRegistryMetadataByTaskKind(t *testing.T) {
 		}
 
 		require.NotNilf(t, factory.PayloadType, "expected payload type for workflow %s", key)
-		if factory.CustomTaskQueue {
-			require.NotNilf(
-				t,
-				factory.PipelinePayloadType,
-				"expected pipeline payload type for custom queue task %s",
-				key,
-			)
-		}
 	}
 }
 

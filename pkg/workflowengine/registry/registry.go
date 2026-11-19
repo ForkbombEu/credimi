@@ -25,7 +25,6 @@ type TaskFactory struct {
 	PayloadType         reflect.Type
 	PipelinePayloadType reflect.Type
 	OutputKind          workflowengine.OutputKind
-	CustomTaskQueue     bool
 	// InheritedConfigKeys lists the workflow-level config keys copied into this
 	// activity's input config. Other workflow-level keys stay out of the input.
 	InheritedConfigKeys []string

@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
@@ -355,22 +356,32 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
+			failure := workflowengine.WorkflowError{
+				Code:    "CRE201",
+				Summary: "Maestro flow failed",
+				Details: map[string]any{"output": map[string]any{
+					"flow_output": map[string]any{
+						"maestro_screenshot_urls": []any{
+							"https://x/api/files/pipeline_results/r/s_abc.png",
+						},
+					},
+				}},
+			}
 			registerFailingWorkflow(
 				t,
 				env,
 				mobileAutomationStepUse,
 				"fake-mobile-automation",
-				workflowengine.WorkflowError{
-					Code:    "CRE201",
-					Summary: "Maestro flow failed",
-					Details: map[string]any{"output": map[string]any{
-						"flow_output": map[string]any{
-							"maestro_screenshot_urls": []any{
-								"https://x/api/files/pipeline_results/r/s_abc.png",
-							},
-						},
-					}},
+				failure,
+			)
+			// The step workflow runs in the runner namespace, behind this activity.
+			env.RegisterActivityWithOptions(
+				func(context.Context, workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+					return workflowengine.ActivityResult{}, workflowengine.NewNonRetryableAppError(
+						failure,
+					)
 				},
+				activity.RegisterOptions{Name: mobiledevicesession.RunRunnerWorkflowActivityName},
 			)
 			var deleted []activities.DeletePipelineStepScreenshotsInput
 			env.RegisterActivityWithOptions(
@@ -400,9 +411,17 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 
 			env.ExecuteWorkflow("linked-steps-run", LinkedStepsWorkflowInput{
 				Steps: []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{
-					ID:   "wallet",
-					Use:  mobileAutomationStepUse,
-					With: pipeline.StepInputs{Config: map[string]any{"run_identifier": "ns/run"}},
+					ID:  "wallet",
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Config: map[string]any{
+						"run_identifier":         "ns/run",
+						runnerNamespaceConfigKey: "runner-abc",
+						pipelineRunConfigKey: map[string]any{
+							"namespace":   "ns",
+							"workflow_id": "pipeline-wf",
+							"run_id":      "run",
+						},
+					}},
 				}}},
 				PipelineConfig: map[string]any{},
 				ActivityOptions: workflow.ActivityOptions{

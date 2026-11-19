@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
@@ -33,10 +34,6 @@ const (
 	mobilePlatformIOS                      = "ios"
 	mobileExternalInstallConfigKey         = "detect_external_install"
 	walletActionCategoryInstallApp         = "install-app"
-	// Runs started before this change published a device to the cleanup hook
-	// only after its setup succeeded; cleaning a device whose setup failed
-	// adds activities their history lacks.
-	mobileEarlyDeviceTrackingChange = "credimi-2026-10-pipeline-early-device-tracking"
 )
 
 // MobileExternalSourceVersionID is the version_id of a wallet installed outside
@@ -87,20 +84,6 @@ var (
 	}
 )
 
-type processStepInput struct {
-	ctx            workflow.Context
-	step           *pipeline.StepSpec
-	config         map[string]any
-	ao             *workflow.ActivityOptions
-	settedDevices  map[string]any
-	runData        *map[string]any
-	logger         log.Logger
-	globalDeviceID string
-	// trackDevicesEarly records a device's runner, type and serial before
-	// anything on the device can fail, so cleanup still reaches it.
-	trackDevicesEarly bool
-}
-
 type fetchAndInstallAPKInput struct {
 	ctx           workflow.Context
 	mobileCtx     workflow.Context
@@ -121,7 +104,6 @@ type getOrCreateDeviceMapInput struct {
 	payload       *workflows.MobileAutomationWorkflowPipelinePayload
 	settedDevices map[string]any
 	stepID        string
-	trackEarly    bool
 }
 
 type setupNewDeviceInput struct {
@@ -131,8 +113,6 @@ type setupNewDeviceInput struct {
 	payload   *workflows.MobileAutomationWorkflowPipelinePayload
 	deviceMap map[string]any
 	stepID    string
-	// trackEarly: see processStepInput.trackDevicesEarly.
-	trackEarly bool
 }
 
 type fetchRunnerInfoInput struct {
@@ -228,7 +208,6 @@ func MobileAutomationSetupHook(
 	_ *map[string]any,
 	_ log.Logger,
 ) error {
-	logger := workflow.GetLogger(ctx)
 	steps := &wfDef.Steps
 	ao := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
 	ctx = workflow.WithActivityOptions(ctx, ao)
@@ -267,67 +246,187 @@ func MobileAutomationSetupHook(
 	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
-	trackDevicesEarly := len(deviceIDs) > 0 && workflow.GetVersion(
-		ctx,
-		mobileEarlyDeviceTrackingChange,
-		workflow.DefaultVersion,
-		1,
-	) == 1
-	if trackDevicesEarly {
-		// Published before any setup, so a device whose setup fails is cleaned.
-		SetRunDataValue(runData, "setted_devices", settedDevices)
+	runIdentifier := workflowengine.AsString((*runData)["run_identifier"])
+	info := workflow.GetInfo(ctx)
+	pipelineRun := mobiledevicesession.PipelineRunRef{
+		Namespace:  info.Namespace,
+		WorkflowID: info.WorkflowExecution.ID,
+		RunID:      info.WorkflowExecution.RunID,
 	}
 
+	var deviceOrder []string
+	requests := map[string][]MobileDeviceRequest{}
+	deviceSteps := map[string][]*pipeline.StepSpec{}
 	if err := walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
 			return nil
 		}
-
-		return processStep(processStepInput{
-			ctx:               ctx,
-			step:              step,
-			config:            config,
-			ao:                &ao,
-			settedDevices:     settedDevices,
-			runData:           runData,
-			logger:            logger,
-			globalDeviceID:    globalDeviceID,
-			trackDevicesEarly: trackDevicesEarly,
-		})
+		req, err := mobileDeviceRequestFor(step, globalDeviceID, config, runIdentifier)
+		if err != nil {
+			return err
+		}
+		if _, ok := requests[req.DeviceID]; !ok {
+			deviceOrder = append(deviceOrder, req.DeviceID)
+		}
+		requests[req.DeviceID] = append(requests[req.DeviceID], req)
+		deviceSteps[req.DeviceID] = append(deviceSteps[req.DeviceID], step)
+		return nil
 	}); err != nil {
 		return err
 	}
 
-	if workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
-		if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
-			ctx:           ctx,
-			settedDevices: settedDevices,
-			ao:            &ao,
-		}); err != nil {
+	var sessions []map[string]any
+	for _, deviceID := range deviceOrder {
+		runnerNamespace, err := deviceRunnerNamespace(ctx, deviceID)
+		if err != nil {
 			return err
 		}
-	}
-
-	captureInput := deviceCaptureInput{
-		ctx:           ctx,
-		settedDevices: settedDevices,
-		ao:            &ao,
-		runIdentifier: workflowengine.AsString((*runData)["run_identifier"]),
-	}
-	// The device log is always captured; only the screen recording is optional.
-	if err := startDeviceLogForDevices(captureInput); err != nil {
-		return err
-	}
-	// no_video pipelines run for hours: a recording capped at 30 minutes is useless.
-	if !workflowengine.AsBool(config[mobileNoVideoConfigKey]) {
-		if err := startRecordingForDevices(captureInput); err != nil {
+		session, err := startDeviceSession(ctx, mobiledevicesession.StartDeviceSessionPayload{
+			Namespace: runnerNamespace,
+			WorkflowID: temporalid.Bounded(
+				info.WorkflowExecution.ID + "-device-" + canonify.CanonifyPlain(deviceID),
+			),
+			DeviceID: deviceID,
+			Input: workflowengine.WorkflowInput{
+				Payload: DeviceSessionPayload{
+					DeviceID:      deviceID,
+					Requests:      requests[deviceID],
+					RunIdentifier: runIdentifier,
+					DisablePlayStore: workflowengine.AsBool(
+						config[mobileDisableAndroidPlayStoreConfigKey],
+					),
+					NoVideo:  workflowengine.AsBool(config[mobileNoVideoConfigKey]),
+					Pipeline: pipelineRun,
+				},
+				Config:          config,
+				ActivityOptions: &ao,
+			},
+			Pipeline: pipelineRun,
+		})
+		if err != nil {
 			return err
+		}
+		// Recorded before the wait, so cleanup also releases a device whose
+		// setup fails.
+		sessions = append(sessions, map[string]any{
+			"device_id":   deviceID,
+			"namespace":   session.Namespace,
+			"workflow_id": session.WorkflowID,
+			"run_id":      session.RunID,
+		})
+		SetRunDataValue(runData, deviceSessionsRunDataKey, sessions)
+
+		ready, err := awaitDeviceSession(ctx, session)
+		if err != nil {
+			return err
+		}
+		device := ready.Device
+		if device == nil {
+			device = map[string]any{}
+		}
+		device["runner_namespace"] = runnerNamespace
+		device["device_session_workflow_id"] = session.WorkflowID
+		device["device_session_run_id"] = session.RunID
+		settedDevices[deviceID] = device
+		SetRunDataValue(runData, "setted_devices", settedDevices)
+
+		for _, step := range deviceSteps[deviceID] {
+			applyPreparedDevice(
+				step,
+				ready.Prepared[step.ID],
+				runIdentifier,
+				runnerNamespace,
+				pipelineRun,
+			)
 		}
 	}
 
 	SetRunDataValue(runData, "setted_devices", settedDevices)
 
 	return nil
+}
+
+// deviceRunnerNamespace returns the runner namespace of the device's runner.
+func deviceRunnerNamespace(ctx workflow.Context, deviceID string) (string, error) {
+	var res workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		ctx,
+		activities.GetMobileDeviceActivityName,
+		workflowengine.ActivityInput{
+			Payload: activities.GetMobileDeviceInput{DeviceIdentifier: deviceID},
+		},
+	).Get(ctx, &res); err != nil {
+		return "", err
+	}
+	device, err := workflowengine.DecodePayload[activities.MobileDeviceInfo](res.Output)
+	if err != nil || device.RunnerNamespace == "" {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return "", workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: fmt.Sprintf("missing runner namespace for device %s", deviceID),
+			Details: map[string]any{"payload": res.Output},
+		})
+	}
+	return device.RunnerNamespace, nil
+}
+
+// startDeviceSession starts the device session in the runner namespace.
+func startDeviceSession(
+	ctx workflow.Context,
+	payload mobiledevicesession.StartDeviceSessionPayload,
+) (mobiledevicesession.RunnerWorkflowRef, error) {
+	var res workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		workflow.WithActivityOptions(ctx, deviceSessionActivityOptions("device "+payload.DeviceID)),
+		mobiledevicesession.StartDeviceSessionActivityName,
+		workflowengine.ActivityInput{Payload: payload},
+	).Get(ctx, &res); err != nil {
+		return mobiledevicesession.RunnerWorkflowRef{}, err
+	}
+	return decodeDeviceSessionOutput[mobiledevicesession.RunnerWorkflowRef](res)
+}
+
+// awaitDeviceSession waits until the device session prepared its device.
+func awaitDeviceSession(
+	ctx workflow.Context,
+	session mobiledevicesession.RunnerWorkflowRef,
+) (DeviceSessionReady, error) {
+	var res workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		workflow.WithActivityOptions(ctx, deviceSessionActivityOptions(session.WorkflowID)),
+		activities.AwaitDeviceSessionActivityName,
+		workflowengine.ActivityInput{Payload: session},
+	).Get(ctx, &res); err != nil {
+		return DeviceSessionReady{}, err
+	}
+	return decodeDeviceSessionOutput[DeviceSessionReady](res)
+}
+
+// deviceSessionActivityOptions runs a device session activity on Credimi's
+// pipeline workers. Preparing a device can take long, so it heartbeats.
+func deviceSessionActivityOptions(summary string) workflow.ActivityOptions {
+	return workflow.ActivityOptions{
+		TaskQueue:           PipelineTaskQueue,
+		StartToCloseTimeout: deviceSessionActivityTimeout,
+		HeartbeatTimeout:    time.Minute,
+		RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 10},
+		Summary:             summaryLine(summary),
+	}
+}
+
+func decodeDeviceSessionOutput[T any](res workflowengine.ActivityResult) (T, error) {
+	out, err := workflowengine.DecodePayload[T](res.Output)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return out, workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: fmt.Sprintf("invalid device session output: %v", err),
+			Details: map[string]any{"payload": res.Output},
+		})
+	}
+	return out, nil
 }
 
 // resolveStoredMobileActions loads the code of every stored wallet action
@@ -482,71 +581,70 @@ func collectMobileDeviceIDs(steps []pipeline.StepDefinition, globalID string) ([
 	return deviceIDs, nil
 }
 
-func processStep(
-	input processStepInput,
-) error {
-	SetConfigValue(&input.step.With.Config, "app_url", input.config["app_url"])
-	input.logger.Info("MobileAutomationSetupHook: processing step", "id", input.step.ID)
-
-	payload, err := decodeAndValidatePayload(input.step)
+// mobileDeviceRequestFor resolves the device of a mobile-automation step and
+// the wallet version to install on it.
+func mobileDeviceRequestFor(
+	step *pipeline.StepSpec,
+	globalDeviceID string,
+	config map[string]any,
+	runIdentifier string,
+) (MobileDeviceRequest, error) {
+	SetConfigValue(&step.With.Config, "app_url", config["app_url"])
+	payload, err := decodeAndValidatePayload(step)
 	if err != nil {
-		return err
+		return MobileDeviceRequest{}, err
 	}
 
 	// Use global_device_id if step-level device_id is not set.
 	payload.DeviceID = canonify.NormalizePath(payload.DeviceID)
-	if payload.DeviceID == "" && input.globalDeviceID != "" {
-		payload.DeviceID = input.globalDeviceID
+	if payload.DeviceID == "" && globalDeviceID != "" {
+		payload.DeviceID = globalDeviceID
 	}
-	SetPayloadValue(&input.step.With.Payload, "device_id", payload.DeviceID)
+	SetPayloadValue(&step.With.Payload, "device_id", payload.DeviceID)
+	return MobileDeviceRequest{
+		DeviceID:          payload.DeviceID,
+		VersionIdentifier: payload.VersionID,
+		StepID:            step.ID,
+		RunIdentifier:     runIdentifier,
+	}, nil
+}
 
-	prepared, err := prepareMobileDevice(
-		input.ctx,
-		input.ao,
-		input.settedDevices,
-		MobileDeviceRequest{
-			DeviceID:          payload.DeviceID,
-			VersionIdentifier: payload.VersionID,
-			StepID:            input.step.ID,
-			RunIdentifier:     workflowengine.AsString((*input.runData)["run_identifier"]),
-		},
-		// Cleanup sees the device from here on, as before the extraction.
-		func() { SetRunDataValue(input.runData, "setted_devices", input.settedDevices) },
-		input.trackDevicesEarly,
-	)
-	if err != nil {
-		return err
-	}
-
-	SetConfigValue(&input.step.With.Config, "taskqueue", mobileRunnerTaskQueue(prepared.RunnerID))
-	SetPayloadValue(&input.step.With.Payload, "serial", prepared.Serial)
+// applyPreparedDevice points a mobile-automation step at its prepared device,
+// in the runner namespace its workflow runs in.
+func applyPreparedDevice(
+	step *pipeline.StepSpec,
+	prepared PreparedMobileDevice,
+	runIdentifier string,
+	runnerNamespace string,
+	pipelineRun mobiledevicesession.PipelineRunRef,
+) {
+	SetConfigValue(&step.With.Config, "taskqueue", mobileRunnerTaskQueue(prepared.RunnerID))
+	SetPayloadValue(&step.With.Payload, "serial", prepared.Serial)
 	if prepared.Type != "" {
-		SetPayloadValue(&input.step.With.Payload, "type", prepared.Type)
+		SetPayloadValue(&step.With.Payload, "type", prepared.Type)
 	}
-	SetConfigValue(&input.step.With.Config, "runner_id", prepared.RunnerID)
-	SetConfigValue(&input.step.With.Config, workflowengine.StepIDConfigKey, input.step.ID)
-	SetConfigValue(
-		&input.step.With.Config,
-		"run_identifier",
-		workflowengine.AsString((*input.runData)["run_identifier"]),
-	)
-
-	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
-
-	return nil
+	SetConfigValue(&step.With.Config, "runner_id", prepared.RunnerID)
+	SetConfigValue(&step.With.Config, workflowengine.StepIDConfigKey, step.ID)
+	SetConfigValue(&step.With.Config, "run_identifier", runIdentifier)
+	SetConfigValue(&step.With.Config, runnerNamespaceConfigKey, runnerNamespace)
+	SetConfigValue(&step.With.Config, pipelineRunConfigKey, map[string]any{
+		"namespace":   pipelineRun.Namespace,
+		"workflow_id": pipelineRun.WorkflowID,
+		"run_id":      pipelineRun.RunID,
+	})
 }
 
 // MobileDeviceRequest names one device to prepare for a run.
 type MobileDeviceRequest struct {
-	DeviceID          string // canonified device path
-	VersionIdentifier string // wallet version identifier to install
-	StepID            string // label used in errors and run identifiers
-	RunIdentifier     string
+	DeviceID          string `json:"device_id"`          // canonified device path
+	VersionIdentifier string `json:"version_identifier"` // wallet version identifier to install
+	StepID            string `json:"step_id"`            // label used in errors and run identifiers
+	RunIdentifier     string `json:"run_identifier"`
 	// PackageID is the package of an app installed outside Credimi, with
 	// VersionIdentifier MobileExternalSourceVersionID. Its `installed` entry
 	// only provides PreparedMobileDevice.PackageID: cleanup removes the app by
 	// the diff against the initial_installed_apps recorded at prepare.
-	PackageID string
+	PackageID string `json:"package_id,omitempty"`
 }
 
 // PreparedMobileDevice is what a run needs to drive the prepared device.
@@ -571,10 +669,9 @@ func PrepareMobileDevice(
 	settedDevices map[string]any,
 	req MobileDeviceRequest,
 ) (PreparedMobileDevice, error) {
-	// Device lookups run on ctx itself, as in the setup hook.
+	// Device lookups run on ctx itself, as in the device session.
 	ctx = workflow.WithActivityOptions(ctx, ao)
-	// Sessions have no old histories, and cleanup must reach a device whose setup failed.
-	prepared, err := prepareMobileDevice(ctx, &ao, settedDevices, req, nil, true)
+	prepared, err := prepareMobileDevice(ctx, &ao, settedDevices, req)
 	if err != nil {
 		return PreparedMobileDevice{}, err
 	}
@@ -603,17 +700,15 @@ func PrepareMobileDevice(
 	return prepared, nil
 }
 
-// prepareMobileDevice is the device sequence shared by processStep and
-// PrepareMobileDevice. tracked, when set, runs once the device and its
-// initial apps are known, before the device is touched. trackEarly: see
-// processStepInput.trackDevicesEarly.
+// prepareMobileDevice is the device sequence shared by the device session and
+// PrepareMobileDevice. The device's runner, type and serial are recorded in
+// settedDevices before anything on the device can fail, so cleanup still
+// reaches it.
 func prepareMobileDevice(
 	ctx workflow.Context,
 	ao *workflow.ActivityOptions,
 	settedDevices map[string]any,
 	req MobileDeviceRequest,
-	tracked func(),
-	trackEarly bool,
 ) (PreparedMobileDevice, error) {
 	payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 		DeviceID:  req.DeviceID,
@@ -629,7 +724,6 @@ func prepareMobileDevice(
 		payload:       payload,
 		settedDevices: settedDevices,
 		stepID:        req.StepID,
-		trackEarly:    trackEarly,
 	})
 	if err != nil {
 		return PreparedMobileDevice{}, err
@@ -667,9 +761,6 @@ func prepareMobileDevice(
 		deviceType,
 	); err != nil {
 		return PreparedMobileDevice{}, err
-	}
-	if tracked != nil {
-		tracked()
 	}
 
 	runnerID := canonify.NormalizePath(hostRunnerID)
@@ -871,13 +962,12 @@ func getOrCreateDeviceMap(
 	input.settedDevices[input.payload.DeviceID] = deviceMap
 
 	if err := setupNewDevice(setupNewDeviceInput{
-		ctx:        input.ctx,
-		mobileCtx:  input.mobileCtx,
-		ao:         input.ao,
-		payload:    input.payload,
-		deviceMap:  deviceMap,
-		stepID:     input.stepID,
-		trackEarly: input.trackEarly,
+		ctx:       input.ctx,
+		mobileCtx: input.mobileCtx,
+		ao:        input.ao,
+		payload:   input.payload,
+		deviceMap: deviceMap,
+		stepID:    input.stepID,
 	}); err != nil {
 		return nil, err
 	}
@@ -904,11 +994,9 @@ func setupNewDevice(
 		mobileRunnerActivityOptions(input.ao, runnerID),
 	)
 
-	if input.trackEarly {
-		input.deviceMap["type"] = deviceType.String()
-		input.deviceMap["runner_id"] = runnerID
-		input.deviceMap["serial"] = serial
-	}
+	input.deviceMap["type"] = deviceType.String()
+	input.deviceMap["runner_id"] = runnerID
+	input.deviceMap["serial"] = serial
 
 	deviceActivities := activitiesForDeviceType(deviceType)
 	if deviceType.IsManagedEmulator() {
