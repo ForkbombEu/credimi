@@ -5,8 +5,6 @@
 package handlers
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -16,7 +14,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalauth"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -71,25 +68,21 @@ func authorizeRunnerManager(
 		return nil, "", apiErr
 	}
 	if !isSuperuserAuth(auth) {
-		_, err := app.FindFirstRecordByFilter(
-			"orgAuthorizations",
-			"user = {:user} && organization = {:org} && role.name = {:role}",
-			dbx.Params{"user": auth.Id, "org": record.GetString("owner"), "role": "owner"},
-		)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, "", apierror.New(
-				http.StatusForbidden,
-				"runner_id",
-				"runner_owner_role_required",
-				ownerRequired,
-			)
-		}
+		owner, err := isOrganizationOwner(app, auth.Id, record.GetString("owner"))
 		if err != nil {
 			return nil, "", apierror.New(
 				http.StatusInternalServerError,
 				"organization",
 				"failed_to_check_role",
 				err.Error(),
+			)
+		}
+		if !owner {
+			return nil, "", apierror.New(
+				http.StatusForbidden,
+				"runner_id",
+				"runner_owner_role_required",
+				ownerRequired,
 			)
 		}
 	}
