@@ -65,25 +65,35 @@ func (a *SignMobileFlowTokenActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 	info := activity.GetInfo(ctx)
-	if strings.HasPrefix(info.Namespace, canonify.RunnerNamespacePrefix) {
-		return result, a.NewCodedError(
+	token, err := a.sign(info.Namespace, info.WorkflowExecution.ID, info.WorkflowExecution.RunID)
+	if err != nil {
+		return result, err
+	}
+	result.Output = token
+	return result, nil
+}
+
+// sign signs the MobileFlowGrant of the run runID of workflowID in namespace,
+// refusing runner namespaces.
+func (a *SignMobileFlowTokenActivity) sign(namespace, workflowID, runID string) (string, error) {
+	if strings.HasPrefix(namespace, canonify.RunnerNamespacePrefix) {
+		return "", a.NewCodedError(
 			errorcodes.MissingOrInvalidPayload,
 			false,
-			fmt.Errorf("no mobile flow token for runner namespace %s", info.Namespace),
+			fmt.Errorf("no mobile flow token for runner namespace %s", namespace),
 		)
 	}
 	token, err := signedtoken.Sign(a.app, MobileFlowTokenLabel, MobileFlowGrant{
-		Namespace:  info.Namespace,
-		WorkflowID: info.WorkflowExecution.ID,
-		RunID:      info.WorkflowExecution.RunID,
+		Namespace:  namespace,
+		WorkflowID: workflowID,
+		RunID:      runID,
 	})
 	if err != nil {
-		return result, a.NewCodedError(
+		return "", a.NewCodedError(
 			errorcodes.CommandExecutionFailed,
 			true,
 			fmt.Errorf("sign mobile flow token: %w", err),
 		)
 	}
-	result.Output = token
-	return result, nil
+	return token, nil
 }
