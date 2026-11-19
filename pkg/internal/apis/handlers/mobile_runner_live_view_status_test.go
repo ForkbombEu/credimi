@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -55,6 +56,9 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 		describe   func() (*workflowservice.DescribeWorkflowExecutionResponse, error)
 		want       bool
 		wantStatus int
+		wantReason string
+		// prepare changes the fixture before the request.
+		prepare func(t *testing.T, app *tests.TestApp, user *core.Record)
 	}{
 		{
 			name:       "running pipeline that used the runner",
@@ -116,6 +120,39 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 			},
 			wantStatus: http.StatusServiceUnavailable,
 		},
+		{
+			name:       "member of the runner's organization",
+			namespace:  orgNamespace,
+			workflowID: "pipeline-1",
+			prepare: func(t *testing.T, app *tests.TestApp, user *core.Record) {
+				demoteToMember(t, app, user.Email())
+			},
+			wantStatus: http.StatusForbidden,
+			wantReason: "runner_owner_role_required",
+		},
+		{
+			name:       "owner of an admin-managed runner's organization",
+			namespace:  orgNamespace,
+			workflowID: "pipeline-1",
+			prepare: func(t *testing.T, app *tests.TestApp, _ *core.Record) {
+				setMobileRunnerAdminManaged(t, app, "usera-s-organization/work-runner", true)
+			},
+			wantStatus: http.StatusForbidden,
+			wantReason: "admin_managed_runner",
+		},
+		{
+			name:       "disabled runner",
+			namespace:  orgNamespace,
+			workflowID: "pipeline-1",
+			prepare: func(t *testing.T, app *tests.TestApp, _ *core.Record) {
+				runner, err := canonify.Resolve(app, "/usera-s-organization/work-runner")
+				require.NoError(t, err)
+				runner.Set("disabled", true)
+				require.NoError(t, app.Save(runner))
+			},
+			wantStatus: http.StatusForbidden,
+			wantReason: "runner_disabled",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -133,6 +170,9 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 			)
 			require.NoError(t, err)
 			savePipelineResult(t, app, orgID, "pipeline-1", "run-1", device.Id)
+			if tc.prepare != nil {
+				tc.prepare(t, app, user)
+			}
 
 			namespace := tc.namespace
 			if namespace == "runner" {
@@ -171,6 +211,9 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 			requireHandlerErrorHandled(t, recorder, err)
 			if tc.wantStatus != 0 {
 				require.Equal(t, tc.wantStatus, recorder.Code, recorder.Body.String())
+				if tc.wantReason != "" {
+					require.Equal(t, tc.wantReason, decodeAPIError(t, recorder).Reason)
+				}
 				return
 			}
 			require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())

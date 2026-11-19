@@ -31,21 +31,21 @@ type MobileRunnerLiveViewStatusResponse struct {
 // serves still belongs to a running workflow that uses this runner: an action
 // author session in the runner's own namespace, or a pipeline run of an
 // organization whose pipeline_results row lists one of the runner's devices.
-// Anything else, a missing workflow included, is not running.
+// Anything else, a missing workflow included, is not running. Only the
+// runner's managers ask (authorizeRunnerManager): owners of its organization,
+// and superusers or the internal admin key for an admin-managed runner.
 func HandleMobileRunnerLifecycleLiveView() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		query := e.Request.URL.Query()
-		runner, _, apiErr := resolveLifecycleRunner(e.App, e.Auth, query.Get("runner_id"))
+		runner, _, apiErr := authorizeRunnerManager(
+			e.App,
+			e.Auth,
+			query.Get("runner_id"),
+			"only organization owners can check a runner's live view",
+			"only the internal admin key can check a live view of an admin-managed runner",
+		)
 		if apiErr != nil {
 			return apiErr
-		}
-		if runner.GetBool("admin_managed") && !isSuperuserAuth(e.Auth) {
-			return apierror.New(
-				http.StatusForbidden,
-				"mobile_runner",
-				"admin_managed_runner_work_forbidden",
-				"only superusers can check the work of an admin-managed runner",
-			)
 		}
 		namespace := query.Get("namespace")
 		workflowID := query.Get("workflow_id")
