@@ -502,8 +502,7 @@ Catalog availability and run-path health:
   `pkg/internal/apis/handlers/mobile_runner_availability.go`.
 - Every Credimi-to-runner HTTP call goes through the `mobile-runner-http-request`
   activity (`activities.NewMobileRunnerHTTPActivity`): `installer-action` and
-  `pipeline-result` in `mobile_automation_hooks.go`, and the worker-manager
-  `POST {runner_url}/worker/{namespace}` (its payload carries `runner_ids`).
+  `pipeline-result` in `mobile_automation_hooks.go`.
   The activity takes `runner_id` + `path`, never a URL: it builds the URL from
   the runner record's stored `ip`/`port`, injects the runner credential (never
   `CREDIMI_INTERNAL_ADMIN_KEY`), and keeps runner-directed calls identifiable
@@ -517,8 +516,8 @@ Catalog availability and run-path health:
   probes and live view use the same client.
 - Runner availability rules and the runner HTTP client live in
   `pkg/internal/mobilerunner` (heartbeat freshness, URL usability, quick-tunnel
-  transport). `pkg/internal/mobilerunnerlifecycle` keeps the worker-start
-  eligibility rule and the lifecycle monitor configuration.
+  transport). `pkg/internal/mobilerunnerlifecycle` keeps the lifecycle monitor
+  configuration.
 - A quick-tunnel hostname exists only once cloudflared connects, so a resolver
   queried inside the propagation window caches NXDOMAIN for the zone's 30
   minute negative TTL and every later call through it fails while the tunnel
@@ -530,34 +529,16 @@ Temporal runner worker contract:
   the host runner.
 - The dynamic task queue is set in `pkg/workflowengine/pipeline/mobile_automation_hooks.go`.
 - `workflows.MobileAutomationTaskQueue` exists in `pkg/workflowengine/workflows/mobile.go`, but pipeline execution uses the dynamic task queue.
-- Runner workers must poll `${runner_id}-TaskQueue` in the organization namespace,
-  and in the runner's agent namespace when its agent is enabled (action author
-  sessions prepare and clean their device there), and dispatch each activity by
-  its explicit `device_id`.
+- Runner workers poll `${runner_id}-TaskQueue` only in the runner's namespace
+  `runner-<record id>`, the one namespace their Temporal token grants, and
+  dispatch each activity by its explicit `device_id`. Credimi sends runners no
+  organization namespace and never starts runner workers.
 - Runner workers register activities only, those in `pkg/workflowengine/activities/mobileflow.go`.
 - The `mobile-automation` child workflow is registered on the pipeline worker like every `registry.Registry` workflow (`startPipelineWorker` in `pkg/workflowengine/hooks/hook.go`), runs on `PipelineTaskQueue`, and sends its activities to `${runner_id}-TaskQueue` through `config.taskqueue`.
-- Runner activities are scheduled only from workflows in the organization namespace and from action author sessions in the runner's agent namespace, where runner workers poll; the semaphore in `default` never schedules them.
+- Runner activities are scheduled only from workflows in the organization namespace and from action author sessions in the runner's namespace; the semaphore in `default` never schedules them.
 
-Worker-manager start eligibility:
+Runner kind:
 
-- A runner receives worker-manager starts only when it is not `disabled` and is
-  `online`. The rule lives in `mobilerunnerlifecycle.EligibleForWorkerStart`
-  (`pkg/internal/mobilerunnerlifecycle/worker_start.go`) and is applied by
-  `pkg/workflowengine/hooks/worker_manager_runners.go` (server startup and
-  organization create/update).
-- `RegisterMobileRunnerWorkerManagerHooks`
-  (`pkg/internal/pb/mobile_runner_worker_manager.go`) starts workers when a
-  runner update makes the runner startable, or switches a startable runner
-  between admin-managed and tenant, and only then; runners that were already
-  startable are not restarted on unrelated field writes. Workers in namespaces
-  the new kind no longer serves are stopped by the runner, which restarts its
-  workers when its key changes.
-    - Non-admin runners are startable when `published`, not `disabled` and
-      `online`, and are dispatched to published organization namespaces.
-    - `admin_managed` runners ignore runner publication; they are startable
-      when not `disabled` and `online`, and are dispatched to `default` plus
-      every organization namespace, mirroring the startup hook and the runner's
-      own `fetchAdminNamespaces` behavior.
 - The runner's key decides `admin_managed`: `POST /api/mobile-runner`
   authenticated by `Credimi-Api-Key` alone sets it to `true` for the internal
   admin key and `false` for a user key, on create and on every re-registration.
@@ -567,16 +548,6 @@ Worker-manager start eligibility:
   or receive its `runner_credential`; lifecycle responses to other callers
   carry an empty one. A user key alone may still re-register it, which turns it
   into a tenant runner.
-- Redundant starts are safe: `POST {runner_url}/worker/{namespace}` is keyed by
-  namespace in the runner process store and answers `202 "already running"`,
-  so a server-side start that races the runner's own boot cannot create a
-  second worker.
-- Skipping offline runners is safe because a runner starts its own workers for
-  every visible namespace when it boots (`StartExistingWorkers` in
-  `credimi-runner`), and the lifecycle heartbeat flips `online` back to true,
-  which re-triggers the hook. PocketBase defers `OnRecordAfterUpdateSuccess`
-  until the heartbeat transaction commits, so the transactional write still
-  fires the start.
 
 ## Routes, DTOs, Auth, Errors
 

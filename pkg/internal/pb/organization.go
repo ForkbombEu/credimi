@@ -26,8 +26,6 @@ var (
 	ensureNamespaceReadyFn      = hooks.EnsureNamespaceReady
 	startWorkersByNamespaceFn   = hooks.StartAllWorkersByNamespace
 	ensureNamespaceAndWorkersFn = ensureNamespaceAndWorkers
-	startWorkerManagerFn        = hooks.StartWorkerManagerWorkflow
-	adminRunnerIDsFn            = hooks.WorkerManagerAdminRunnerIDs
 )
 
 var organizationPublicationCollections = []organizationPublicationCollection{
@@ -43,7 +41,6 @@ const defaultMaxPipelinesInQueue = 1
 func HookOrganizations(app core.App) {
 	registerOrganizationNamespaceHooks(app)
 	registerOrganizationPublicationHooks(app)
-	registerOrganizationWorkerManagerPublicationHooks(app)
 	registerOrganizationProtectedFieldsHooks(app)
 }
 
@@ -64,11 +61,6 @@ func registerOrganizationNamespaceHooks(app core.App) {
 		orgName := e.Record.GetString("canonified_name")
 		if orgName != "" {
 			ensureNamespaceAndWorkersFn(e.App, orgName)
-			runnerIDs, err := adminRunnerIDsFn(e.App)
-			if err != nil {
-				return err
-			}
-			startWorkerManagerFn(orgName, "", runnerIDs)
 		}
 
 		return e.Next()
@@ -85,11 +77,6 @@ func registerOrganizationNamespaceHooks(app core.App) {
 		go hooks.StopAllWorkersByNamespace(oldName)
 
 		ensureNamespaceAndWorkersFn(e.App, newName)
-		runnerIDs, err := adminRunnerIDsFn(e.App)
-		if err != nil {
-			return err
-		}
-		startWorkerManagerFn(newName, oldName, runnerIDs)
 		log.Printf("Moved workers from namespace %s to %s", oldName, newName)
 		return e.Next()
 	})
@@ -174,27 +161,6 @@ func registerOrganizationProtectedFieldsHooks(app core.App) {
 			e.Record.Set("published", original.GetBool("published"))
 		}
 
-		return e.Next()
-	})
-}
-
-func registerOrganizationWorkerManagerPublicationHooks(app core.App) {
-	app.OnRecordAfterUpdateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Original().GetBool("published") || !e.Record.GetBool("published") {
-			return e.Next()
-		}
-
-		namespace := e.Record.GetString("canonified_name")
-		if namespace == "" {
-			return e.Next()
-		}
-
-		runnerIDs, err := hooks.WorkerManagerPublishedNonAdminRunnerIDs(e.App)
-		if err != nil {
-			return err
-		}
-
-		startWorkerManagerFn(namespace, "", runnerIDs)
 		return e.Next()
 	})
 }

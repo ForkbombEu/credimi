@@ -34,7 +34,6 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -62,22 +61,6 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		if err != nil {
 			log.Fatalf("Failed to fetch namespaces: %v", err)
 		}
-		orgRecords, err := workerManagerOrgRecordsFn(app)
-		if err != nil {
-			log.Fatalf("Failed to fetch organization records: %v", err)
-		}
-		adminRunnerIDs, err := adminRunnerIDsFn(app)
-		if err != nil {
-			log.Fatalf("Failed to fetch admin-managed runner IDs: %v", err)
-		}
-		publishedRunnerIDs, err := publishedRunnerIDsFn(app)
-		if err != nil {
-			log.Fatalf("Failed to fetch published runner IDs: %v", err)
-		}
-		publishedByNamespace := make(map[string]bool, len(orgRecords))
-		for _, org := range orgRecords {
-			publishedByNamespace[org.GetString("canonified_name")] = org.GetBool("published")
-		}
 
 		log.Printf("[WorkersHook] Ensuring %d namespace(s) are ready...", len(namespaces))
 
@@ -87,14 +70,6 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			}
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go startAllWorkersByNamespace(se.App, ns)
-
-			// Tenant runners never serve default: their Temporal tokens grant
-			// organization namespaces only.
-			runnerIDs := adminRunnerIDs
-			if publishedByNamespace[ns] {
-				runnerIDs = combineWorkerManagerRunnerIDs(adminRunnerIDs, publishedRunnerIDs)
-			}
-			startWorkerManagerWorkflow(ns, "", runnerIDs)
 		}
 
 		runnerIDs, err := runnerNamespaceIDsFn(app)
@@ -278,17 +253,6 @@ func defaultWorkers(app core.App) []workerConfig {
 			}, activities.CredimiActivities(app)...),
 		},
 		{
-			TaskQueue: workflows.WorkerManagerTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				workflows.NewWorkerManagerWorkflow(),
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewHTTPActivity(),
-				activities.NewOpenIDNetLogsActivity(),
-				activities.NewMobileRunnerHTTPActivity(app),
-			},
-		},
-		{
 			TaskQueue: workflows.MobileDeviceSemaphoreTaskQueue,
 			Workflows: []workflowengine.Workflow{
 				workflows.NewMobileDeviceSemaphoreWorkflow(),
@@ -338,23 +302,12 @@ var (
 	startWorkerFn              = startWorker
 	startPipelineWorkerFn      = startPipelineWorker
 	fetchNamespacesFn          = FetchNamespaces
-	workerManagerOrgRecordsFn  = workerManagerAllOrganizationRecords
-	adminRunnerIDsFn           = WorkerManagerAdminRunnerIDs
-	publishedRunnerIDsFn       = WorkerManagerPublishedNonAdminRunnerIDs
 	runnerNamespaceIDsFn       = RunnerNamespaceIDs
 	ensureRunnerNamespace      = EnsureRunnerNamespace
 	ensureNamespaceReadyFn     = EnsureNamespaceReady
 	addSearchAttributesFn      = addSearchAttributes
 	startAllWorkersByNamespace = StartAllWorkersByNamespace
-	startWorkerManagerWorkflow = StartWorkerManagerWorkflow
 	shutdownTemporalClientsFn  = temporalclient.ShutdownClients
-	workerManagerStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		w := workflows.NewWorkerManagerWorkflow()
-		return w.Start(namespace, input)
-	}
-	workerManagerTemporalClient        = temporalclient.GetTemporalClientWithNamespace
-	workerManagerWaitForWorkflowResult = workflowengine.WaitForWorkflowResult
-	executeWorkerManagerWorkflowFn     = executeWorkerManagerWorkflow
 )
 
 // runnerNamespacePrepareTimeout bounds how long startup waits for one runner
@@ -371,8 +324,6 @@ const (
 	workerStopTimeout = 20 * time.Second
 	// workerStopWait bounds how long a stop waits for a namespace's workers.
 	workerStopWait = 30 * time.Second
-	// workerManagerWaitTimeout bounds how long a worker-manager run is awaited.
-	workerManagerWaitTimeout = 5 * time.Minute
 )
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
@@ -945,77 +896,4 @@ func addSearchAttributes(ctx context.Context, namespace string) error {
 			SearchAttributes: workflowengine.CustomSearchAttributeTypes(),
 		})
 	return err
-}
-
-func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerIDs []string) {
-	if TemporalWorkersDisabled() {
-		log.Printf(
-			"[WorkerManagerWorkflow] Skipping for namespace %s (%s is set)",
-			namespace,
-			TemporalWorkersDisabledEnv,
-		)
-		return
-	}
-
-	go func() {
-		if err := executeWorkerManagerWorkflowFn(
-			namespace,
-			oldNamespace,
-			runnerIDs,
-		); err != nil {
-			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
-		} else {
-			log.Printf("[WorkerManagerWorkflow] Successfully started for namespace %s", namespace)
-		}
-	}()
-}
-
-func executeWorkerManagerWorkflow(
-	namespace,
-	oldNamespace string,
-	runnerIDs []string,
-) error {
-	ao := &workflow.ActivityOptions{
-		ScheduleToCloseTimeout: time.Minute,
-		StartToCloseTimeout:    30 * time.Second,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    time.Second,
-			BackoffCoefficient: 1.0,
-			MaximumInterval:    time.Minute,
-			MaximumAttempts:    5,
-		},
-	}
-
-	input := workflowengine.WorkflowInput{
-		Payload: workflows.WorkerManagerWorkflowPayload{
-			Namespace:    namespace,
-			OldNamespace: oldNamespace,
-			RunnerIDs:    uniqueWorkerManagerRunnerIDs(runnerIDs),
-		},
-		ActivityOptions: ao,
-	}
-
-	resStart, err := workerManagerStartWorkflow("default", input)
-	if err != nil {
-		return fmt.Errorf("failed to start workflow: %w", err)
-	}
-
-	c, err := workerManagerTemporalClient("default")
-	if err != nil {
-		return fmt.Errorf("unable to create client: %w", err)
-	}
-
-	waitCtx, cancel := context.WithTimeout(context.Background(), workerManagerWaitTimeout)
-	defer cancel()
-	_, err = workerManagerWaitForWorkflowResult(
-		waitCtx,
-		c,
-		resStart.WorkflowID,
-		resStart.WorkflowRunID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to start mobile automation worker for organization: %w", err)
-	}
-
-	return nil
 }

@@ -105,7 +105,6 @@ func Setup(app *pocketbase.PocketBase) {
 	conformancecatalog.Register(app)
 	hooks.TemporalClientSetupHook(app)
 	pb.HookOrganizations(app)
-	pb.RegisterMobileRunnerWorkerManagerHooks(app)
 	pb.RegisterMobileRunnerNamespaceHooks(app)
 	pb.RegisterMobileRunnerHooks(app)
 	pb.RegisterMobileDeviceHooks(app)

@@ -70,69 +70,6 @@ func TestSleepWithContext(t *testing.T) {
 	require.False(t, sleepWithContext(ctx, time.Hour))
 }
 
-func TestWorkerManagerRecordQueries(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	organizations, err := workerManagerAllOrganizationRecords(app)
-	require.NoError(t, err)
-	require.NotEmpty(t, organizations)
-
-	collection, err := app.FindCollectionByNameOrId("mobile_runners")
-	require.NoError(t, err)
-	if collection.Fields.GetByName("admin_managed") == nil {
-		collection.Fields.Add(&core.BoolField{Name: "admin_managed"})
-	}
-	if collection.Fields.GetByName("disabled") == nil {
-		collection.Fields.Add(&core.BoolField{Name: "disabled"})
-	}
-	require.NoError(t, app.Save(collection))
-	newRunner := func(name, ip, port string, published, adminManaged, disabled, online bool) {
-		record := core.NewRecord(collection)
-		record.Set("owner", organizations[0].Id)
-		record.Set("name", name)
-		record.Set("canonified_name", name)
-		record.Set("type", "android_emulator")
-		record.Set("ip", ip)
-		record.Set("port", port)
-		record.Set("published", published)
-		record.Set("admin_managed", adminManaged)
-		record.Set("disabled", disabled)
-		record.Set("online", online)
-		require.NoError(t, app.Save(record))
-	}
-
-	newRunner("admin-runner", "https://admin.test/", "8080", false, true, false, true)
-	newRunner("admin-disabled", "https://admin-disabled.test", "", false, true, true, true)
-	newRunner("admin-offline", "https://admin-offline.test", "", false, true, false, false)
-	newRunner("published-runner", "https://published.test", "", true, false, false, true)
-	newRunner("published-disabled", "https://published-disabled.test", "", true, false, true, true)
-	newRunner("published-offline", "https://published-offline.test", "", true, false, false, false)
-	newRunner("empty-runner", " ", "", true, false, false, true)
-	// A runner whose owner organization is gone has no identifier; it must be
-	// skipped instead of failing the startup and organization hooks.
-	orphan := core.NewRecord(collection)
-	orphan.Set("owner", "missingorg00000")
-	orphan.Set("name", "orphan-runner")
-	orphan.Set("canonified_name", "orphan-runner")
-	orphan.Set("type", "android_emulator")
-	orphan.Set("ip", "https://orphan.test")
-	orphan.Set("admin_managed", true)
-	orphan.Set("online", true)
-	require.NoError(t, app.SaveNoValidate(orphan))
-
-	orgName := organizations[0].GetString("canonified_name")
-
-	adminIDs, err := WorkerManagerAdminRunnerIDs(app)
-	require.NoError(t, err)
-	require.Equal(t, []string{orgName + "/admin-runner"}, adminIDs)
-
-	publishedIDs, err := WorkerManagerPublishedNonAdminRunnerIDs(app)
-	require.NoError(t, err)
-	require.Equal(t, []string{orgName + "/published-runner"}, publishedIDs)
-}
-
 type fakeActivity struct {
 	name string
 }
@@ -242,12 +179,8 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	})
 
 	origFetch := fetchNamespacesFn
-	origOrgRecords := workerManagerOrgRecordsFn
-	origAdminIDs := adminRunnerIDsFn
-	origPublishedIDs := publishedRunnerIDsFn
 	origEnsure := ensureNamespaceReadyFn
 	origStartAll := startAllWorkersByNamespace
-	origStartWorkerManager := startWorkerManagerWorkflow
 	origShutdown := shutdownTemporalClientsFn
 	origRunnerIDs := runnerNamespaceIDsFn
 	origEnsureRunner := ensureRunnerNamespace
@@ -256,32 +189,14 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 		runnerNamespaceIDsFn = origRunnerIDs
 		ensureRunnerNamespace = origEnsureRunner
 		fetchNamespacesFn = origFetch
-		workerManagerOrgRecordsFn = origOrgRecords
-		adminRunnerIDsFn = origAdminIDs
-		publishedRunnerIDsFn = origPublishedIDs
 		ensureNamespaceReadyFn = origEnsure
 		startAllWorkersByNamespace = origStartAll
-		startWorkerManagerWorkflow = origStartWorkerManager
 		shutdownTemporalClientsFn = origShutdown
 	})
 
 	fetchNamespacesFn = func(_ core.App) ([]string, error) {
 		return []string{"default", "org-1"}, nil
 	}
-	workerManagerOrgRecordsFn = func(_ core.App) ([]*core.Record, error) {
-		collection := core.NewBaseCollection("organizations")
-		record := core.NewRecord(collection)
-		record.Set("canonified_name", "org-1")
-		record.Set("published", false)
-		return []*core.Record{record}, nil
-	}
-	adminRunnerIDsFn = func(_ core.App) ([]string, error) {
-		return []string{"admin/runner"}, nil
-	}
-	publishedRunnerIDsFn = func(_ core.App) ([]string, error) {
-		return []string{"tenant/runner"}, nil
-	}
-
 	runnerNamespaceIDsFn = func(core.App) ([]string, error) {
 		return []string{"boot"}, nil
 	}
@@ -300,15 +215,6 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	startCalls := make(chan string, 2)
 	startAllWorkersByNamespace = func(_ core.App, ns string) {
 		startCalls <- ns
-	}
-
-	type workerManagerCall struct {
-		namespace string
-		runnerIDs []string
-	}
-	managerCalls := make(chan workerManagerCall, 2)
-	startWorkerManagerWorkflow = func(ns, _ string, runnerIDs []string) {
-		managerCalls <- workerManagerCall{namespace: ns, runnerIDs: runnerIDs}
 	}
 
 	shutdownCalled := make(chan struct{}, 1)
@@ -349,18 +255,6 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	}
 	require.Contains(t, gotWorkers, "default")
 	require.Contains(t, gotWorkers, "org-1")
-
-	gotManagers := map[string][]string{}
-	for i := 0; i < 2; i++ {
-		select {
-		case call := <-managerCalls:
-			gotManagers[call.namespace] = call.runnerIDs
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for start worker manager call")
-		}
-	}
-	require.Equal(t, []string{"admin/runner"}, gotManagers["default"])
-	require.Equal(t, []string{"admin/runner"}, gotManagers["org-1"])
 
 	terminateErr := app.OnTerminate().Trigger(
 		&core.TerminateEvent{App: app},
@@ -1124,123 +1018,6 @@ func TestEnsureNamespaceReadyTimeout(t *testing.T) {
 	require.Empty(t, *added)
 }
 
-func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
-	origStart := workerManagerStartWorkflow
-	origClient := workerManagerTemporalClient
-	origWait := workerManagerWaitForWorkflowResult
-
-	t.Cleanup(func() {
-		workerManagerStartWorkflow = origStart
-		workerManagerTemporalClient = origClient
-		workerManagerWaitForWorkflowResult = origWait
-	})
-
-	var gotNamespace string
-	var gotInput workflowengine.WorkflowInput
-
-	workerManagerStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		gotNamespace = namespace
-		gotInput = input
-		return workflowengine.WorkflowResult{
-			WorkflowID:    "wf-1",
-			WorkflowRunID: "run-1",
-		}, nil
-	}
-
-	workerManagerTemporalClient = func(namespace string) (client.Client, error) {
-		require.Equal(t, "default", namespace)
-		return &mocks.Client{}, nil
-	}
-
-	workerManagerWaitForWorkflowResult = func(ctx context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
-		_, hasDeadline := ctx.Deadline()
-		require.True(t, hasDeadline)
-		require.NotNil(t, c)
-		require.Equal(t, "wf-1", workflowID)
-		require.Equal(t, "run-1", runID)
-		return workflowengine.WorkflowResult{}, nil
-	}
-
-	err := executeWorkerManagerWorkflow(
-		"org-1",
-		"org-0",
-		[]string{" org/runner-1 ", "", "org/runner-1", "org/runner-2"},
-	)
-	require.NoError(t, err)
-	require.Equal(t, "default", gotNamespace)
-	require.NotNil(t, gotInput.ActivityOptions)
-
-	payload, ok := gotInput.Payload.(workflows.WorkerManagerWorkflowPayload)
-	require.True(t, ok)
-	require.Equal(t, "org-1", payload.Namespace)
-	require.Equal(t, "org-0", payload.OldNamespace)
-	require.Equal(t, []string{"org/runner-1", "org/runner-2"}, payload.RunnerIDs)
-	require.Nil(t, gotInput.Config)
-}
-
-func TestExecuteWorkerManagerWorkflowStartError(t *testing.T) {
-	origStart := workerManagerStartWorkflow
-
-	t.Cleanup(func() {
-		workerManagerStartWorkflow = origStart
-	})
-
-	workerManagerStartWorkflow = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		return workflowengine.WorkflowResult{}, errors.New("boom")
-	}
-
-	err := executeWorkerManagerWorkflow("org-1", "", nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to start workflow")
-}
-
-func TestExecuteWorkerManagerWorkflowTemporalClientError(t *testing.T) {
-	origStart := workerManagerStartWorkflow
-	origClient := workerManagerTemporalClient
-
-	t.Cleanup(func() {
-		workerManagerStartWorkflow = origStart
-		workerManagerTemporalClient = origClient
-	})
-
-	workerManagerStartWorkflow = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
-	}
-	workerManagerTemporalClient = func(_ string) (client.Client, error) {
-		return nil, errors.New("no client")
-	}
-
-	err := executeWorkerManagerWorkflow("org-1", "", nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unable to create client")
-}
-
-func TestExecuteWorkerManagerWorkflowWaitError(t *testing.T) {
-	origStart := workerManagerStartWorkflow
-	origClient := workerManagerTemporalClient
-	origWait := workerManagerWaitForWorkflowResult
-
-	t.Cleanup(func() {
-		workerManagerStartWorkflow = origStart
-		workerManagerTemporalClient = origClient
-		workerManagerWaitForWorkflowResult = origWait
-	})
-
-	workerManagerStartWorkflow = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
-	}
-	workerManagerTemporalClient = func(_ string) (client.Client, error) {
-		return &mocks.Client{}, nil
-	}
-	workerManagerWaitForWorkflowResult = func(_ context.Context, _ client.Client, _ string, _ string) (workflowengine.WorkflowResult, error) {
-		return workflowengine.WorkflowResult{}, errors.New("wait failed")
-	}
-
-	err := executeWorkerManagerWorkflow("org-1", "", nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to start mobile automation worker")
-}
-
 func TestStartWorkerRegistersEntries(t *testing.T) {
 	origNewWorker := newWorkerFn
 
@@ -1454,56 +1231,4 @@ func TestRunWorkerWithRetryRetriesUntilContextCancelled(t *testing.T) {
 	require.Equal(t, int32(failuresBeforeCancel), runCalls.Load())
 	require.Len(t, backoffs, failuresBeforeCancel-1)
 	require.Equal(t, workerStartMaxBackoff, backoffs[len(backoffs)-1])
-}
-
-func TestStartWorkerManagerWorkflowInvokesExecute(t *testing.T) {
-	origExec := executeWorkerManagerWorkflowFn
-
-	t.Cleanup(func() {
-		executeWorkerManagerWorkflowFn = origExec
-	})
-
-	called := make(chan struct{}, 1)
-	executeWorkerManagerWorkflowFn = func(
-		namespace,
-		oldNamespace string,
-		runnerIDs []string,
-	) error {
-		require.Equal(t, "org-1", namespace)
-		require.Equal(t, "org-0", oldNamespace)
-		require.Equal(t, []string{"org/runner-1"}, runnerIDs)
-		called <- struct{}{}
-		return nil
-	}
-
-	StartWorkerManagerWorkflow("org-1", "org-0", []string{"org/runner-1"})
-
-	select {
-	case <-called:
-	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for worker manager workflow")
-	}
-}
-
-func TestStartWorkerManagerWorkflowSkipsWhenTemporalWorkersDisabled(t *testing.T) {
-	t.Setenv(TemporalWorkersDisabledEnv, "1")
-
-	origExec := executeWorkerManagerWorkflowFn
-	t.Cleanup(func() {
-		executeWorkerManagerWorkflowFn = origExec
-	})
-
-	called := make(chan struct{}, 1)
-	executeWorkerManagerWorkflowFn = func(_, _ string, _ []string) error {
-		called <- struct{}{}
-		return nil
-	}
-
-	StartWorkerManagerWorkflow("org-1", "", []string{"org/runner-1"})
-
-	select {
-	case <-called:
-		t.Fatal("worker manager workflow should not be executed")
-	case <-time.After(100 * time.Millisecond):
-	}
 }
