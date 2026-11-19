@@ -19,7 +19,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
+	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -341,7 +343,10 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		attempt int32
-		deleted []activities.DeletePipelineStepScreenshotsInput
+		// operationFails makes the Run step operation handler fail before it
+		// starts the step workflow.
+		operationFails bool
+		deleted        []activities.DeletePipelineStepScreenshotsInput
 	}{
 		{
 			name:    "attempt before the last",
@@ -351,6 +356,14 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 			},
 		},
 		{name: "last attempt", attempt: 2},
+		{
+			name:           "operation handler fails",
+			attempt:        1,
+			operationFails: true,
+			deleted: []activities.DeletePipelineStepScreenshotsInput{
+				{RunIdentifier: "ns/run", FileNames: []string{"s_abc.png"}},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
@@ -373,16 +386,33 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 				"fake-mobile-automation",
 				failure,
 			)
-			// The step workflow runs in the runner namespace, behind the Run
-			// step operation.
-			registerRunStepOperation(
-				env,
-				func(workflow.Context, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-					return workflowengine.WorkflowResult{}, workflowengine.NewNonRetryableAppError(
-						failure,
-					)
-				},
-			)
+			if tc.operationFails {
+				service := nexus.NewService(mobiledevice.ServiceName)
+				require.NoError(t, service.Register(nexus.NewSyncOperation(
+					mobiledevice.RunStepOperationName,
+					func(
+						context.Context,
+						mobiledevice.RunStepInput,
+						nexus.StartOperationOptions,
+					) (workflowengine.WorkflowResult, error) {
+						return workflowengine.WorkflowResult{}, workflowengine.NewNonRetryableAppError(
+							failure,
+						)
+					},
+				)))
+				env.RegisterNexusService(service)
+			} else {
+				// The step workflow runs in the runner namespace, behind the Run
+				// step operation.
+				registerRunStepOperation(
+					env,
+					func(workflow.Context, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+						return workflowengine.WorkflowResult{}, workflowengine.NewNonRetryableAppError(
+							failure,
+						)
+					},
+				)
+			}
 			var deleted []activities.DeletePipelineStepScreenshotsInput
 			env.RegisterActivityWithOptions(
 				func(
@@ -431,7 +461,11 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 				MaximumAttempts: 2,
 			}, tc.attempt)
 
-			require.Error(t, env.GetWorkflowError())
+			err := env.GetWorkflowError()
+			require.Error(t, err)
+			var appErr *temporal.ApplicationError
+			require.ErrorAs(t, err, &appErr)
+			require.False(t, appErr.NonRetryable(), "the block must be retried")
 			require.Equal(t, tc.deleted, deleted)
 		})
 	}

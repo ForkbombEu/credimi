@@ -50,6 +50,18 @@ func TestAuthorizeRunnerNamespaceReport(t *testing.T) {
 			wantErr: "only an action author session may report a run from a runner namespace",
 		},
 		{
+			name:    "standalone activity",
+			caller:  func(c *authorCaller) { c.WorkflowType = "" },
+			wantErr: "only an action author session may report a run from a runner namespace",
+		},
+		{
+			name: "session of another runner",
+			caller: func(c *authorCaller) {
+				c.WorkflowID = actionauthor.SessionWorkflowID("zzzzzzzzzzzzzzz", ticketID)
+			},
+			wantErr: "only an action author session may report a run from a runner namespace",
+		},
+		{
 			name: "other ticket",
 			payload: func(p *ReportMobileDeviceSemaphoreDoneInput) {
 				p.TicketID = "99999999-2222-3333-4444-555555555555"
@@ -92,11 +104,21 @@ func TestAuthorizeRunnerNamespaceReport(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			caller, payload := session, report
+			if tc.caller != nil {
+				tc.caller(&caller)
+			}
+			if tc.payload != nil {
+				tc.payload(&payload)
+			}
 			act := NewReportMobileDeviceSemaphoreDoneActivity(nil)
 			act.sessionLookup = func(
-				context.Context,
-				string, string, string,
+				_ context.Context,
+				namespace, sessionID, sessionRunID string,
 			) (ActionAuthorSessionRef, error) {
+				assert.Equal(t, caller.Namespace, namespace)
+				assert.Equal(t, caller.WorkflowID, sessionID)
+				assert.Equal(t, caller.RunID, sessionRunID)
 				if tc.lookupErr != nil {
 					return ActionAuthorSessionRef{}, tc.lookupErr
 				}
@@ -104,13 +126,6 @@ func TestAuthorizeRunnerNamespaceReport(t *testing.T) {
 					DeviceID:     "org/runner/pixel",
 					Organization: "org",
 				}, nil
-			}
-			caller, payload := session, report
-			if tc.caller != nil {
-				tc.caller(&caller)
-			}
-			if tc.payload != nil {
-				tc.payload(&payload)
 			}
 
 			err := act.authorizeRunnerNamespaceReport(context.Background(), caller, payload)
