@@ -520,7 +520,7 @@ func TestMobileAutomationSetupHookPreparesEachDeviceOnce(t *testing.T) {
 		assert.True(t, in.NoVideo)
 		assert.Equal(t, executionTimeout, in.ExecutionTimeout)
 		assert.Equal(t, testPipelineRun, in.Pipeline)
-		assert.Equal(t, "tenant", in.Workflow.Config["namespace"])
+		assert.Empty(t, in.Workflow.Config)
 		require.NotNil(t, in.Workflow.ActivityOptions)
 		var stepIDs []string
 		for _, req := range in.Requests {
@@ -726,7 +726,7 @@ func TestMobileDevicesCleanupHookCleansEachPreparedDevice(t *testing.T) {
 		assert.Equal(t, "tenant/pipeline-run", in.RunIdentifier)
 		assert.Equal(t, executionTimeout, in.ExecutionTimeout)
 		assert.Equal(t, testPipelineRun, in.Pipeline)
-		assert.Equal(t, "tenant", in.Workflow.Config["namespace"])
+		assert.Empty(t, in.Workflow.Config)
 	}
 
 	assert.Equal(

@@ -222,7 +222,13 @@ func runMobileStep(
 			WorkflowID:       taskWorkflowID(ctx, s.ID),
 			ExecutionTimeout: executionTimeout,
 			Pipeline:         pipelineRun,
-			Input:            input,
+			Input: workflowengine.WorkflowInput{
+				Payload:         input.Payload,
+				Config:          selectConfigKeys(input.Config, runnerStepConfigKeys),
+				Secrets:         input.Secrets,
+				ActivityOptions: input.ActivityOptions,
+				RunMetadata:     input.RunMetadata,
+			},
 		},
 		workflow.NexusOperationOptions{
 			ScheduleToCloseTimeout: executionTimeout,
@@ -364,6 +370,25 @@ func selectConfigKeys(cfg map[string]any, keys []string) map[string]any {
 		}
 	}
 	return selected
+}
+
+// runnerStepConfigKeys are the config keys the mobile step workflow reads in
+// its runner namespace (workflows/mobile.go, BuildWorkflow, the step memo and
+// the telemetry the runner activity forwards). Nothing else of the pipeline
+// config, such as semaphore tickets, user_mail or github_pr_comment, may reach
+// that namespace's history: its runner owner can read it.
+var runnerStepConfigKeys = []string{
+	workflowengine.AppURLConfigKey,
+	"taskqueue",
+	mobileExternalInstallConfigKey,
+	"run_identifier",
+	"runner_id",
+	workflowengine.StepIDConfigKey,
+	"memo",
+	workflowengine.TelemetryRootWorkflowIDKey,
+	workflowengine.TelemetryRootRunIDKey,
+	workflowengine.TelemetryParentWorkflowIDKey,
+	workflowengine.TelemetryParentRunIDKey,
 }
 
 func ExecuteOnError(

@@ -295,7 +295,6 @@ func MobileAutomationSetupHook(
 					ExecutionTimeout: executionTimeout,
 					Pipeline:         pipelineRun,
 					Workflow: workflowengine.WorkflowInput{
-						Config:          config,
 						ActivityOptions: &ao,
 					},
 				},

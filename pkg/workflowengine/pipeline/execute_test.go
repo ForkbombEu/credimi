@@ -999,11 +999,13 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 	}
 	stepConfig := func(without string) map[string]any {
 		config := map[string]any{
-			"taskqueue":                       "tenant/runner-1-TaskQueue",
-			workflowengine.StepIDConfigKey:    "step-1",
-			runnerNamespaceConfigKey:          "runner-abc",
-			pipelineRunConfigKey:              pipelineRun,
-			pipelineExecutionTimeoutConfigKey: "1h0m0s",
+			"taskqueue":                            "tenant/runner-1-TaskQueue",
+			workflowengine.StepIDConfigKey:         "step-1",
+			runnerNamespaceConfigKey:               "runner-abc",
+			pipelineRunConfigKey:                   pipelineRun,
+			pipelineExecutionTimeoutConfigKey:      "1h0m0s",
+			mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+			"user_mail":                            "u@example.org",
 		}
 		delete(config, without)
 		return config
@@ -1144,6 +1146,15 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 			assert.Equal(t, "tenant/runner-1-TaskQueue", in.Input.Config["taskqueue"])
 			assert.Equal(t, "https://example.test", in.Input.Config["app_url"])
 			assert.Equal(t, "step-1", in.Input.Config[workflowengine.StepIDConfigKey])
+			for _, key := range []string{
+				mobileDeviceSemaphoreTicketIDConfigKey,
+				"user_mail",
+				runnerNamespaceConfigKey,
+				pipelineRunConfigKey,
+				pipelineExecutionTimeoutConfigKey,
+			} {
+				assert.NotContains(t, in.Input.Config, key)
+			}
 		})
 	}
 }

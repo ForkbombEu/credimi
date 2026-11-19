@@ -102,7 +102,6 @@ func MobileDevicesCleanupHook(
 					ExecutionTimeout: executionTimeout,
 					Pipeline:         pipelineRun,
 					Workflow: workflowengine.WorkflowInput{
-						Config:          config,
 						ActivityOptions: &activityOptions,
 					},
 				},
