@@ -38,7 +38,7 @@ func SessionRunnerID(sessionID string) (string, bool) {
 }
 
 // SessionNamespace returns the Temporal namespace sessionID runs in: its
-// runner's agent namespace.
+// runner's namespace.
 func SessionNamespace(sessionID string) (string, bool) {
 	runnerID, ok := SessionRunnerID(sessionID)
 	if !ok {

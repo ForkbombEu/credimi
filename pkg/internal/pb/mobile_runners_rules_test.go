@@ -86,12 +86,12 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
-			// agent_namespace_ready is hidden and guarded: only Credimi
-			// marks a runner's agent namespace ready.
-			name:     "org owner cannot mark the agent namespace ready",
-			body:     `{"agent_namespace_ready":true}`,
+			// runner_namespace_ready is hidden and guarded: only Credimi
+			// marks a runner's namespace ready.
+			name:     "org owner cannot mark the runner namespace ready",
+			body:     `{"runner_namespace_ready":true}`,
 			wantCode: http.StatusOK,
-			want:     map[string]any{"agent_namespace_ready": false},
+			want:     map[string]any{"runner_namespace_ready": false},
 		},
 		{
 			// The usage fields are hidden and guarded: only the runner's
@@ -187,7 +187,7 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 		},
 		{name: "org owner cannot create a published runner", extra: `"published":true`},
 		{
-			// The agent namespace is runner-<id>: a chosen id could claim a
+			// The runner namespace is runner-<id>: a chosen id could claim a
 			// deleted runner's namespace.
 			name:  "org owner cannot choose the runner record id",
 			extra: `"id":"chosenrunnerid1"`,
@@ -259,7 +259,7 @@ func TestMobileRunnersRulesGuardEveryAgentField(t *testing.T) {
 		"agent_model",
 		"agent_settings_from",
 		"agent_enabled",
-		"agent_namespace_ready",
+		"runner_namespace_ready",
 		"agent_usage_day",
 		"agent_own_tokens_used",
 		"agent_others_tokens_used",

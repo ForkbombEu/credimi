@@ -214,7 +214,7 @@ type ActionAuthorDevicesResponse struct {
 // other organizations that offer the agent to other organizations
 // (agent_others_daily_tokens above 0) and are shared with the caller's
 // organization as for pipelines (mobilerunner.SharedWith). Every session runs
-// in its runner's agent namespace (mobilerunner.AgentNamespace).
+// in its runner's namespace (mobilerunner.RunnerNamespace).
 func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {
@@ -386,7 +386,7 @@ func authoringAPIError(e *core.RequestEvent, err error) *apierror.APIError {
 	}
 }
 
-// HandleActionAuthorStart queues a session, in the runner's agent namespace
+// HandleActionAuthorStart queues a session, in the runner's namespace
 // for the caller's organization, on a device of a runner that offers the agent to the caller's
 // organization.
 func HandleActionAuthorStart() func(*core.RequestEvent) error {
@@ -447,7 +447,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			return mobileDeviceRunnerOfflineError(deviceID)
 		}
 		orgNamespace := org.GetString("canonified_name")
-		runnerNamespace := mobilerunner.AgentNamespace(runner.Id)
+		runnerNamespace := mobilerunner.RunnerNamespace(runner.Id)
 		selection, err := actionauthor.Select(e.App, orgNamespace, actionauthor.BuildRequest{
 			Actor:                   actor,
 			WalletVersionIdentifier: input.WalletVersionIdentifier,
@@ -1116,7 +1116,7 @@ func queryActionAuthorChat(
 
 // HandleActionAuthorSessions lists the latest sessions of a wallet that the
 // caller started for their organization: Temporal lists them by search
-// attributes in the ready agent namespaces of the runners that offer the
+// attributes in the ready runner namespaces of the runners that offer the
 // caller's organization the agent, and each listed session is kept only when
 // the listed ID has a trusted run of the caller's. Search attributes are
 // written by whoever starts a workflow, so the newest listed IDs are read
@@ -1155,10 +1155,11 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 		namespaces, failed := 0, 0
 		for _, runner := range enabledMobileRunnerRecords(listed) {
 			if !actionAuthorRunnerOffered(runner, org.Id) ||
-				!mobilerunner.AgentNamespaceReady(runner) {
+				!mobilerunner.AgentEnabled(runner) ||
+				!mobilerunner.RunnerNamespaceReady(runner) {
 				continue
 			}
-			namespace := mobilerunner.AgentNamespace(runner.Id)
+			namespace := mobilerunner.RunnerNamespace(runner.Id)
 			namespaces++
 			listed, err := listRunnerActionAuthorSessions(e, namespace, query)
 			if err != nil {
@@ -1234,7 +1235,7 @@ func newestSessionRuns(
 }
 
 // listRunnerActionAuthorSessions returns the first page of the sessions query
-// lists in a runner's agent namespace. A namespace without a client, not
+// lists in a runner's namespace. A namespace without a client, not
 // registered or without the search attributes yet is skipped; other list
 // failures are returned.
 func listRunnerActionAuthorSessions(

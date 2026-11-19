@@ -366,7 +366,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 const actionAuthorSessionExecutionTimeout = 3 * time.Hour
 
 // startActionAuthorSession starts the "Action author session" of a granted
-// action_author ticket in the runner's agent namespace the ticket names
+// action_author ticket in the runner's namespace the ticket names
 // (runner-<record id>), for the ticket owner's organization. It accepts only a ticket that
 // Credimi signed (ticket_grant), starts the session with Credimi's grant of
 // it instead, and then signals the run Credimi's run grant
@@ -392,7 +392,7 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	// A session runs in its runner's agent namespace, for the organization
+	// A session runs in its runner's namespace, for the organization
 	// that owns the ticket.
 	if !strings.HasPrefix(start.Namespace, canonify.RunnerNamespacePrefix) {
 		return result, a.NewCodedError(errorcodes.MissingOrInvalidPayload, false, fmt.Errorf(

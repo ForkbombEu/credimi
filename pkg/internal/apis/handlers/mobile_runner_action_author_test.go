@@ -228,17 +228,17 @@ func TestHeartbeatStoresActionAuthorEnabled(t *testing.T) {
 	require.Equal(t, 1, runner.GetInt("agent_own_daily_tokens"))
 }
 
-// markAgentNamespaceReady marks the agent runner's namespace ready on its
+// markRunnerNamespaceReady marks the test runner's namespace ready on its
 // record only, as a Credimi restarted before preparing it again finds it.
-func markAgentNamespaceReady(t *testing.T, app core.App) string {
+func markRunnerNamespaceReady(t *testing.T, app core.App) string {
 	t.Helper()
 	runner := agentRunnerRecord(t, app)
-	require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, runner.Id))
-	require.False(t, mobilerunner.AgentNamespaceServed(runner.Id))
-	return mobilerunner.AgentNamespace(runner.Id)
+	require.NoError(t, mobilerunner.MarkRunnerNamespaceReady(app, runner.Id))
+	require.False(t, mobilerunner.RunnerNamespaceServed(runner.Id))
+	return mobilerunner.RunnerNamespace(runner.Id)
 }
 
-func TestLifecycleResponseCarriesReadyAgentNamespace(t *testing.T) {
+func TestLifecycleResponseCarriesReadyRunnerNamespace(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
@@ -247,43 +247,42 @@ func TestLifecycleResponseCarriesReadyAgentNamespace(t *testing.T) {
 	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
 	enabled := &RunnerActionAuthorSettings{Enabled: true}
 
-	// Enabled but not prepared yet.
+	// Not prepared yet.
 	response := heartbeatAgentRunner(t, app, now, enabled)
-	require.NotContains(t, response, "agent_namespace")
+	require.NotContains(t, response, "runner_namespace")
 
 	// Marked ready on the record, while this process is still preparing it:
 	// a restarted Credimi keeps answering with the namespace.
-	namespace := markAgentNamespaceReady(t, app)
+	namespace := markRunnerNamespaceReady(t, app)
 	response = heartbeatAgentRunner(t, app, now, enabled)
-	require.Equal(t, namespace, response["agent_namespace"])
+	require.Equal(t, namespace, response["runner_namespace"])
 
-	// The heartbeat that turns the agent off gets no namespace.
+	// The namespace does not depend on the agent.
 	response = heartbeatAgentRunner(t, app, now, &RunnerActionAuthorSettings{})
-	require.NotContains(t, response, "agent_namespace")
+	require.Equal(t, namespace, response["runner_namespace"])
 
 	// A disabled runner gets no namespace.
-	heartbeatAgentRunner(t, app, now, enabled)
 	runner := agentRunnerRecord(t, app)
 	runner.Set("disabled", true)
 	require.NoError(t, app.Save(runner))
-	require.Empty(t, runnerAgentNamespace(runner))
+	require.Empty(t, runnerNamespace(runner))
 }
 
-func TestRunnerAgentNamespaceServedByThisProcess(t *testing.T) {
+func TestRunnerNamespaceServedByThisProcess(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 	registerAgentRunner(t, app, user, true, &RunnerActionAuthorSettings{Enabled: true})
 	runner := agentRunnerRecord(t, app)
-	require.Empty(t, runnerAgentNamespace(runner))
+	require.Empty(t, runnerNamespace(runner))
 
-	mobilerunner.SetAgentNamespaceServed(runner.Id, true)
-	t.Cleanup(func() { mobilerunner.SetAgentNamespaceServed(runner.Id, false) })
-	require.Equal(t, mobilerunner.AgentNamespace(runner.Id), runnerAgentNamespace(runner))
+	mobilerunner.SetRunnerNamespaceServed(runner.Id, true)
+	t.Cleanup(func() { mobilerunner.SetRunnerNamespaceServed(runner.Id, false) })
+	require.Equal(t, mobilerunner.RunnerNamespace(runner.Id), runnerNamespace(runner))
 }
 
-func TestUpsertResponseCarriesReadyAgentNamespace(t *testing.T) {
+func TestUpsertResponseCarriesReadyRunnerNamespace(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
@@ -311,14 +310,15 @@ func TestUpsertResponseCarriesReadyAgentNamespace(t *testing.T) {
 	}
 
 	response := upsert(&RunnerActionAuthorSettings{Enabled: true})
-	require.NotContains(t, response, "agent_namespace")
+	require.NotContains(t, response, "runner_namespace")
 
-	ready := markAgentNamespaceReady(t, app)
+	ready := markRunnerNamespaceReady(t, app)
 	response = upsert(&RunnerActionAuthorSettings{Enabled: true})
-	require.Equal(t, ready, response["agent_namespace"])
+	require.Equal(t, ready, response["runner_namespace"])
 
+	// The namespace does not depend on the agent.
 	response = upsert(&RunnerActionAuthorSettings{})
-	require.NotContains(t, response, "agent_namespace")
+	require.Equal(t, ready, response["runner_namespace"])
 }
 
 func TestLifecycleRejectsNegativeActionAuthorLimits(t *testing.T) {

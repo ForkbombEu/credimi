@@ -249,12 +249,12 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	origStartAll := startAllWorkersByNamespace
 	origStartWorkerManager := startWorkerManagerWorkflow
 	origShutdown := shutdownTemporalClientsFn
-	origAgentIDs := runnerAgentIDsFn
-	origEnsureAgent := ensureRunnerAgentNamespace
+	origRunnerIDs := runnerNamespaceIDsFn
+	origEnsureRunner := ensureRunnerNamespace
 
 	t.Cleanup(func() {
-		runnerAgentIDsFn = origAgentIDs
-		ensureRunnerAgentNamespace = origEnsureAgent
+		runnerNamespaceIDsFn = origRunnerIDs
+		ensureRunnerNamespace = origEnsureRunner
 		fetchNamespacesFn = origFetch
 		workerManagerOrgRecordsFn = origOrgRecords
 		adminRunnerIDsFn = origAdminIDs
@@ -282,13 +282,13 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 		return []string{"tenant/runner"}, nil
 	}
 
-	runnerAgentIDsFn = func(core.App) ([]string, error) {
+	runnerNamespaceIDsFn = func(core.App) ([]string, error) {
 		return []string{"boot"}, nil
 	}
-	var agentPrepared atomic.Bool
-	ensureRunnerAgentNamespace = func(_ core.App, runnerID string) {
+	var runnerPrepared atomic.Bool
+	ensureRunnerNamespace = func(_ core.App, runnerID string) {
 		require.Equal(t, "boot", runnerID)
-		agentPrepared.Store(true)
+		runnerPrepared.Store(true)
 	}
 
 	ensureCalls := make(chan string, 2)
@@ -320,8 +320,8 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 
 	serveEvent := &core.ServeEvent{App: app}
 	serveErr := app.OnServe().Trigger(serveEvent, func(_ *core.ServeEvent) error {
-		// Runner agent namespaces are prepared before Credimi serves.
-		require.True(t, agentPrepared.Load())
+		// Runner namespaces are prepared before Credimi serves.
+		require.True(t, runnerPrepared.Load())
 		return nil
 	})
 	require.NoError(t, serveErr)
@@ -646,37 +646,37 @@ func createAgentRunner(
 	return record
 }
 
-// agentNamespaceReadyOnRecord reads the runner's persisted readiness.
-func agentNamespaceReadyOnRecord(t *testing.T, app core.App, runnerID string) bool {
+// runnerNamespaceReadyOnRecord reads the runner's persisted readiness.
+func runnerNamespaceReadyOnRecord(t *testing.T, app core.App, runnerID string) bool {
 	t.Helper()
 	runner, err := app.FindRecordById("mobile_runners", runnerID)
 	require.NoError(t, err)
-	return runner.GetBool(mobilerunner.AgentNamespaceReadyField)
+	return runner.GetBool(mobilerunner.RunnerNamespaceReadyField)
 }
 
-func TestRunnerAgentIDs(t *testing.T) {
+func TestRunnerNamespaceIDs(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	before, err := RunnerAgentIDs(app)
+	before, err := RunnerNamespaceIDs(app)
 	require.NoError(t, err)
 
-	enabled := createAgentRunner(t, app, "agent-on", true, false)
-	createAgentRunner(t, app, "agent-off", false, false)
+	agentOn := createAgentRunner(t, app, "agent-on", true, false)
+	agentOff := createAgentRunner(t, app, "agent-off", false, false)
 	createAgentRunner(t, app, "agent-on-disabled", true, true)
 
-	got, err := RunnerAgentIDs(app)
+	got, err := RunnerNamespaceIDs(app)
 	require.NoError(t, err)
-	require.ElementsMatch(t, append(before, enabled.Id), got)
+	require.ElementsMatch(t, append(before, agentOn.Id, agentOff.Id), got)
 }
 
-func TestPrepareRunnerAgentNamespacesBoundsConcurrency(t *testing.T) {
-	orig := ensureRunnerAgentNamespace
-	t.Cleanup(func() { ensureRunnerAgentNamespace = orig })
+func TestPrepareRunnerNamespacesBoundsConcurrency(t *testing.T) {
+	orig := ensureRunnerNamespace
+	t.Cleanup(func() { ensureRunnerNamespace = orig })
 	var running, peak atomic.Int32
 	prepared := make(chan string, 20)
-	ensureRunnerAgentNamespace = func(_ core.App, runnerID string) {
+	ensureRunnerNamespace = func(_ core.App, runnerID string) {
 		n := running.Add(1)
 		for {
 			p := peak.Load()
@@ -693,24 +693,24 @@ func TestPrepareRunnerAgentNamespacesBoundsConcurrency(t *testing.T) {
 	for i := range ids {
 		ids[i] = string(rune('a' + i))
 	}
-	prepareRunnerAgentNamespaces(nil, ids)
+	prepareRunnerNamespaces(nil, ids)
 
 	require.Len(t, prepared, len(ids))
-	require.LessOrEqual(t, peak.Load(), int32(runnerAgentPrepareConcurrency))
+	require.LessOrEqual(t, peak.Load(), int32(runnerNamespacePrepareConcurrency))
 }
 
-func TestPrepareRunnerAgentNamespacesStopsWaitingAfterTimeout(t *testing.T) {
-	origEnsure := ensureRunnerAgentNamespace
-	origTimeout := runnerAgentPrepareTimeout
+func TestPrepareRunnerNamespacesStopsWaitingAfterTimeout(t *testing.T) {
+	origEnsure := ensureRunnerNamespace
+	origTimeout := runnerNamespacePrepareTimeout
 	release := make(chan struct{})
 	t.Cleanup(func() {
 		close(release)
-		ensureRunnerAgentNamespace = origEnsure
-		runnerAgentPrepareTimeout = origTimeout
+		ensureRunnerNamespace = origEnsure
+		runnerNamespacePrepareTimeout = origTimeout
 	})
-	runnerAgentPrepareTimeout = 10 * time.Millisecond
+	runnerNamespacePrepareTimeout = 10 * time.Millisecond
 	var fast atomic.Bool
-	ensureRunnerAgentNamespace = func(_ core.App, runnerID string) {
+	ensureRunnerNamespace = func(_ core.App, runnerID string) {
 		if runnerID == "slow" {
 			<-release
 			return
@@ -720,7 +720,7 @@ func TestPrepareRunnerAgentNamespacesStopsWaitingAfterTimeout(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		prepareRunnerAgentNamespaces(nil, []string{"slow", "fast"})
+		prepareRunnerNamespaces(nil, []string{"slow", "fast"})
 		close(done)
 	}()
 	select {
@@ -731,22 +731,22 @@ func TestPrepareRunnerAgentNamespacesStopsWaitingAfterTimeout(t *testing.T) {
 	require.True(t, fast.Load())
 }
 
-// stubRunnerAgentWorkers stubs the namespace preparation and the workers of
-// EnsureRunnerAgentNamespace and returns a test app with a runner whose agent
-// is enabled; its workers are stopped afterwards.
-func stubRunnerAgentWorkers(t *testing.T, ensure func(string) error) (*tests.TestApp, string) {
+// stubRunnerNamespaceWorkers stubs the namespace preparation and the workers of
+// EnsureRunnerNamespace and returns a test app with an enabled runner; its
+// workers are stopped afterwards.
+func stubRunnerNamespaceWorkers(t *testing.T, ensure func(string) error) (*tests.TestApp, string) {
 	t.Helper()
 	t.Setenv(TemporalWorkersDisabledEnv, "")
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
-	runnerID := createAgentRunner(t, app, "agent-runner", true, false).Id
+	runnerID := createAgentRunner(t, app, "namespace-runner", false, false).Id
 	origEnsure := ensureNamespaceReadyFn
 	origGetTemporalClient := getTemporalClient
 	origStartWorker := startWorkerFn
 	origStartPipelineWorker := startPipelineWorkerFn
 	t.Cleanup(func() {
-		mobilerunner.SetAgentNamespaceServed(runnerID, false)
-		StopAllWorkersByNamespace(mobilerunner.AgentNamespace(runnerID))
+		mobilerunner.SetRunnerNamespaceServed(runnerID, false)
+		StopAllWorkersByNamespace(mobilerunner.RunnerNamespace(runnerID))
 		ensureNamespaceReadyFn = origEnsure
 		getTemporalClient = origGetTemporalClient
 		startWorkerFn = origStartWorker
@@ -756,7 +756,7 @@ func stubRunnerAgentWorkers(t *testing.T, ensure func(string) error) (*tests.Tes
 	ensureNamespaceReadyFn = ensure
 	getTemporalClient = func(string) (client.Client, error) { return nil, nil }
 	startWorkerFn = func(context.Context, client.Client, workerConfig, *sync.WaitGroup) {
-		t.Error("runner agent namespaces run the pipeline worker only")
+		t.Error("runner namespaces run the pipeline worker only")
 	}
 	startPipelineWorkerFn = func(ctx context.Context, _ core.App, _ client.Client, wg *sync.WaitGroup) {
 		defer wg.Done()
@@ -765,25 +765,25 @@ func stubRunnerAgentWorkers(t *testing.T, ensure func(string) error) (*tests.Tes
 	return app, runnerID
 }
 
-func TestEnsureRunnerAgentNamespaceMarksReadyOnSuccess(t *testing.T) {
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error { return nil })
-	namespace := mobilerunner.AgentNamespace(runnerID)
+func TestEnsureRunnerNamespaceMarksReadyOnSuccess(t *testing.T) {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error { return nil })
+	namespace := mobilerunner.RunnerNamespace(runnerID)
 
-	EnsureRunnerAgentNamespace(app, runnerID)
-	require.True(t, mobilerunner.AgentNamespaceServed(runnerID))
-	require.True(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+	EnsureRunnerNamespace(app, runnerID)
+	require.True(t, mobilerunner.RunnerNamespaceServed(runnerID))
+	require.True(t, runnerNamespaceReadyOnRecord(t, app, runnerID))
 	_, ok := workerSets.Load(namespace)
 	require.True(t, ok)
 
-	// A stop while the stored runner still has its agent on keeps it.
-	StopRunnerAgentWorkers(app, runnerID)
-	require.True(t, mobilerunner.AgentNamespaceServed(runnerID))
+	// A stop while the stored runner is still enabled keeps it.
+	StopRunnerNamespaceWorkers(app, runnerID)
+	require.True(t, mobilerunner.RunnerNamespaceServed(runnerID))
 	_, ok = workerSets.Load(namespace)
 	require.True(t, ok)
 
 	setRunnerField(t, app, runnerID, "disabled", true)
-	StopRunnerAgentWorkers(app, runnerID)
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
+	StopRunnerNamespaceWorkers(app, runnerID)
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
 	_, ok = workerSets.Load(namespace)
 	require.False(t, ok)
 }
@@ -797,27 +797,27 @@ func setRunnerField(t *testing.T, app core.App, runnerID, field string, value an
 	require.NoError(t, app.Save(runner))
 }
 
-func TestEnsureRunnerAgentNamespaceStopsWorkersTurnedOffMeanwhile(t *testing.T) {
+func TestEnsureRunnerNamespaceStopsWorkersTurnedOffMeanwhile(t *testing.T) {
 	var app core.App
 	var runnerID string
 	// The runner is disabled between the namespace's registration and its
 	// marking as ready.
-	app, runnerID = stubRunnerAgentWorkers(t, func(string) error {
+	app, runnerID = stubRunnerNamespaceWorkers(t, func(string) error {
 		setRunnerField(t, app, runnerID, "disabled", true)
 		return nil
 	})
 
-	EnsureRunnerAgentNamespace(app, runnerID)
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
-	require.False(t, agentNamespaceReadyOnRecord(t, app, runnerID))
-	_, ok := workerSets.Load(mobilerunner.AgentNamespace(runnerID))
+	EnsureRunnerNamespace(app, runnerID)
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
+	require.False(t, runnerNamespaceReadyOnRecord(t, app, runnerID))
+	_, ok := workerSets.Load(mobilerunner.RunnerNamespace(runnerID))
 	require.False(t, ok)
 }
 
-func TestRunnerAgentEnableAndDisableDoNotInterleave(t *testing.T) {
+func TestRunnerNamespaceEnableAndDisableDoNotInterleave(t *testing.T) {
 	registering := make(chan struct{})
 	release := make(chan struct{})
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error {
 		close(registering)
 		<-release
 		return nil
@@ -825,7 +825,7 @@ func TestRunnerAgentEnableAndDisableDoNotInterleave(t *testing.T) {
 
 	ensured := make(chan struct{})
 	go func() {
-		EnsureRunnerAgentNamespace(app, runnerID)
+		EnsureRunnerNamespace(app, runnerID)
 		close(ensured)
 	}()
 	<-registering
@@ -835,11 +835,11 @@ func TestRunnerAgentEnableAndDisableDoNotInterleave(t *testing.T) {
 	setRunnerField(t, app, runnerID, "disabled", true)
 	stopped := make(chan struct{})
 	go func() {
-		StopRunnerAgentWorkers(app, runnerID)
+		StopRunnerNamespaceWorkers(app, runnerID)
 		close(stopped)
 	}()
 	// An ensure while the preparation is in flight returns at once.
-	EnsureRunnerAgentNamespace(app, runnerID)
+	EnsureRunnerNamespace(app, runnerID)
 	select {
 	case <-stopped:
 		t.Fatal("stop ran while the namespace was being prepared")
@@ -849,54 +849,57 @@ func TestRunnerAgentEnableAndDisableDoNotInterleave(t *testing.T) {
 	close(release)
 	<-ensured
 	<-stopped
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
-	require.False(t, agentNamespaceReadyOnRecord(t, app, runnerID))
-	_, ok := workerSets.Load(mobilerunner.AgentNamespace(runnerID))
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
+	require.False(t, runnerNamespaceReadyOnRecord(t, app, runnerID))
+	_, ok := workerSets.Load(mobilerunner.RunnerNamespace(runnerID))
 	require.False(t, ok)
 }
 
-func TestEnsureRunnerAgentNamespaceRestoresReadyFlag(t *testing.T) {
+func TestEnsureRunnerNamespaceRestoresReadyFlag(t *testing.T) {
 	var calls atomic.Int32
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error {
 		calls.Add(1)
 		return nil
 	})
-	EnsureRunnerAgentNamespace(app, runnerID)
-	require.True(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+	EnsureRunnerNamespace(app, runnerID)
+	require.True(t, runnerNamespaceReadyOnRecord(t, app, runnerID))
 
 	// A save of a runner read before the namespace was marked ready.
-	setRunnerField(t, app, runnerID, mobilerunner.AgentNamespaceReadyField, false)
+	setRunnerField(t, app, runnerID, mobilerunner.RunnerNamespaceReadyField, false)
 
-	EnsureRunnerAgentNamespace(app, runnerID)
-	require.True(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+	EnsureRunnerNamespace(app, runnerID)
+	require.True(t, runnerNamespaceReadyOnRecord(t, app, runnerID))
 	require.Equal(t, int32(1), calls.Load())
 }
 
-func TestEnsureRunnerAgentNamespaceSkipsRunnerWithAgentOff(t *testing.T) {
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
-		t.Error("a runner whose agent is off is not prepared")
+func TestEnsureRunnerNamespaceSkipsDisabledRunner(t *testing.T) {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error {
+		t.Error("a disabled runner is not prepared")
 		return nil
 	})
-	setRunnerField(t, app, runnerID, "agent_enabled", false)
+	setRunnerField(t, app, runnerID, "disabled", true)
 
-	EnsureRunnerAgentNamespace(app, runnerID)
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
+	EnsureRunnerNamespace(app, runnerID)
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
 }
 
-func TestEnsureRunnerAgentNamespaceNotReadyOnError(t *testing.T) {
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error { return errors.New("denied") })
+func TestEnsureRunnerNamespaceNotReadyOnError(t *testing.T) {
+	app, runnerID := stubRunnerNamespaceWorkers(
+		t,
+		func(string) error { return errors.New("denied") },
+	)
 
-	EnsureRunnerAgentNamespace(app, runnerID)
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
-	require.False(t, agentNamespaceReadyOnRecord(t, app, runnerID))
-	_, ok := workerSets.Load(mobilerunner.AgentNamespace(runnerID))
+	EnsureRunnerNamespace(app, runnerID)
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
+	require.False(t, runnerNamespaceReadyOnRecord(t, app, runnerID))
+	_, ok := workerSets.Load(mobilerunner.RunnerNamespace(runnerID))
 	require.False(t, ok)
 }
 
-func TestEnsureRunnerAgentNamespaceRunsOnce(t *testing.T) {
+func TestEnsureRunnerNamespaceRunsOnce(t *testing.T) {
 	var calls atomic.Int32
 	release := make(chan struct{})
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error {
 		calls.Add(1)
 		<-release
 		return nil
@@ -907,23 +910,23 @@ func TestEnsureRunnerAgentNamespaceRunsOnce(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			EnsureRunnerAgentNamespace(app, runnerID)
+			EnsureRunnerNamespace(app, runnerID)
 		}()
 	}
 	require.Eventually(t, func() bool { return calls.Load() == 1 }, time.Second, time.Millisecond)
 	close(release)
 	wg.Wait()
-	require.True(t, mobilerunner.AgentNamespaceServed(runnerID))
+	require.True(t, mobilerunner.RunnerNamespaceServed(runnerID))
 
 	// A served namespace is not prepared again.
-	EnsureRunnerAgentNamespace(app, runnerID)
+	EnsureRunnerNamespace(app, runnerID)
 	require.Equal(t, int32(1), calls.Load())
 }
 
-func TestEnsureRunnerAgentNamespaceDropsCallsWhileOneIsInFlight(t *testing.T) {
+func TestEnsureRunnerNamespaceDropsCallsWhileOneIsInFlight(t *testing.T) {
 	var calls atomic.Int32
 	release := make(chan struct{})
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error {
 		calls.Add(1)
 		<-release
 		return errors.New("denied")
@@ -935,7 +938,7 @@ func TestEnsureRunnerAgentNamespaceDropsCallsWhileOneIsInFlight(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			EnsureRunnerAgentNamespace(app, runnerID)
+			EnsureRunnerNamespace(app, runnerID)
 			returned.Add(1)
 		}()
 	}
@@ -946,59 +949,59 @@ func TestEnsureRunnerAgentNamespaceDropsCallsWhileOneIsInFlight(t *testing.T) {
 	close(release)
 	wg.Wait()
 	require.Equal(t, int32(1), calls.Load())
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
 
 	// Once it finished, the next call prepares the namespace again.
-	EnsureRunnerAgentNamespace(app, runnerID)
+	EnsureRunnerNamespace(app, runnerID)
 	require.Equal(t, int32(2), calls.Load())
 }
 
-func TestStopRunnerAgentWorkersForgetsDeletedRunnerLock(t *testing.T) {
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error { return nil })
-	EnsureRunnerAgentNamespace(app, runnerID)
-	_, ok := runnerAgentLocks.Load(runnerID)
+func TestStopRunnerNamespaceWorkersForgetsDeletedRunnerLock(t *testing.T) {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error { return nil })
+	EnsureRunnerNamespace(app, runnerID)
+	_, ok := runnerLocks.Load(runnerID)
 	require.True(t, ok)
 
 	runner, err := app.FindRecordById("mobile_runners", runnerID)
 	require.NoError(t, err)
 	require.NoError(t, app.Delete(runner))
-	StopRunnerAgentWorkers(app, runnerID)
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
-	_, ok = workerSets.Load(mobilerunner.AgentNamespace(runnerID))
+	StopRunnerNamespaceWorkers(app, runnerID)
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
+	_, ok = workerSets.Load(mobilerunner.RunnerNamespace(runnerID))
 	require.False(t, ok)
-	_, ok = runnerAgentLocks.Load(runnerID)
+	_, ok = runnerLocks.Load(runnerID)
 	require.False(t, ok)
 }
 
-func TestLockRunnerAgentWaiterTakesCurrentLock(t *testing.T) {
+func TestLockRunnerWaiterTakesCurrentLock(t *testing.T) {
 	const runnerID = "forgotten-runner"
-	t.Cleanup(func() { runnerAgentLocks.Delete(runnerID) })
-	held := lockRunnerAgent(runnerID)
+	t.Cleanup(func() { runnerLocks.Delete(runnerID) })
+	held := lockRunner(runnerID)
 
 	acquired := make(chan *sync.Mutex)
-	go func() { acquired <- lockRunnerAgent(runnerID) }()
+	go func() { acquired <- lockRunner(runnerID) }()
 	time.Sleep(10 * time.Millisecond)
 
 	// The runner is forgotten while the waiter is blocked on its old mutex.
-	runnerAgentLocks.CompareAndDelete(runnerID, held)
+	runnerLocks.CompareAndDelete(runnerID, held)
 	held.Unlock()
 	mu := <-acquired
 	defer mu.Unlock()
-	current, ok := runnerAgentLocks.Load(runnerID)
+	current, ok := runnerLocks.Load(runnerID)
 	require.True(t, ok)
 	require.Same(t, mu, current)
 }
 
-func TestEnsureRunnerAgentNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T) {
-	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+func TestEnsureRunnerNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T) {
+	app, runnerID := stubRunnerNamespaceWorkers(t, func(string) error {
 		t.Error("ensure must not run when workers are disabled")
 		return nil
 	})
 	t.Setenv(TemporalWorkersDisabledEnv, "1")
 
-	EnsureRunnerAgentNamespace(app, runnerID)
-	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
-	require.False(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+	EnsureRunnerNamespace(app, runnerID)
+	require.False(t, mobilerunner.RunnerNamespaceServed(runnerID))
+	require.False(t, runnerNamespaceReadyOnRecord(t, app, runnerID))
 }
 
 func TestEnsureNamespaceReadySuccess(t *testing.T) {

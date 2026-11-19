@@ -13,22 +13,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
+func TestRegisterMobileRunnerNamespaceHooks(t *testing.T) {
 	app := newRulesTestApp(t)
-	origEnsure := ensureRunnerAgentNamespaceFn
-	origStop := stopRunnerAgentWorkersFn
+	origEnsure := ensureRunnerNamespaceFn
+	origStop := stopRunnerNamespaceWorkersFn
 	t.Cleanup(func() {
-		ensureRunnerAgentNamespaceFn = origEnsure
-		stopRunnerAgentWorkersFn = origStop
+		ensureRunnerNamespaceFn = origEnsure
+		stopRunnerNamespaceWorkersFn = origStop
 	})
 	calls := make(chan string, 4)
-	ensureRunnerAgentNamespaceFn = func(_ core.App, runnerID string) {
+	ensureRunnerNamespaceFn = func(_ core.App, runnerID string) {
 		calls <- "ensure " + runnerID
 	}
-	stopRunnerAgentWorkersFn = func(_ core.App, runnerID string) {
+	stopRunnerNamespaceWorkersFn = func(_ core.App, runnerID string) {
 		calls <- "stop " + runnerID
 	}
-	RegisterMobileRunnerAgentNamespaceHooks(app)
+	RegisterMobileRunnerNamespaceHooks(app)
 
 	next := func() string {
 		t.Helper()
@@ -36,7 +36,7 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 		case call := <-calls:
 			return call
 		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for an agent namespace hook call")
+			t.Fatal("timeout waiting for a runner namespace hook call")
 			return ""
 		}
 	}
@@ -44,7 +44,7 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 		t.Helper()
 		select {
 		case call := <-calls:
-			t.Fatalf("unexpected agent namespace hook call %q", call)
+			t.Fatalf("unexpected runner namespace hook call %q", call)
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
@@ -53,9 +53,8 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 	require.NoError(t, err)
 	runner := core.NewRecord(collection)
 	runner.Set("owner", jsHooksUserAOrg)
-	runner.Set("name", "agent-hooks-runner")
+	runner.Set("name", "namespace-hooks-runner")
 	runner.Set("ip", "127.0.0.1")
-	runner.Set("agent_enabled", true)
 	require.NoError(t, app.Save(runner))
 	id := runner.Id
 	require.Equal(t, "ensure "+id, next())
@@ -69,19 +68,19 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 		runner.Set(field, value)
 		require.NoError(t, app.Save(runner))
 	}
-	// markReady marks the namespace ready as EnsureRunnerAgentNamespace does.
+	// markReady marks the namespace ready as EnsureRunnerNamespace does.
 	markReady := func() {
 		t.Helper()
-		require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, id))
+		require.NoError(t, mobilerunner.MarkRunnerNamespaceReady(app, id))
 		stored, err := app.FindRecordById("mobile_runners", id)
 		require.NoError(t, err)
-		require.True(t, stored.GetBool(mobilerunner.AgentNamespaceReadyField))
+		require.True(t, stored.GetBool(mobilerunner.RunnerNamespaceReadyField))
 	}
 	readyCleared := func() {
 		t.Helper()
 		stored, err := app.FindRecordById("mobile_runners", id)
 		require.NoError(t, err)
-		require.False(t, stored.GetBool(mobilerunner.AgentNamespaceReadyField))
+		require.False(t, stored.GetBool(mobilerunner.RunnerNamespaceReadyField))
 	}
 
 	// Disabling the runner clears its readiness and stops the namespace's
@@ -91,26 +90,31 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 	readyCleared()
 	require.Equal(t, "stop "+id, next())
 
-	// An update of a runner whose agent was already off does nothing.
+	// An update of a runner that was already disabled does nothing.
 	update("name", "renamed")
 	none()
 
 	update("disabled", false)
 	require.Equal(t, "ensure "+id, next())
 
+	// The agent does not own the namespace: turning it off keeps the
+	// namespace ready and prepared.
 	markReady()
 	update("agent_enabled", false)
-	readyCleared()
-	require.Equal(t, "stop "+id, next())
+	stored, err := app.FindRecordById("mobile_runners", id)
+	require.NoError(t, err)
+	require.True(t, stored.GetBool(mobilerunner.RunnerNamespaceReadyField))
+	require.Equal(t, "ensure "+id, next())
 
 	require.NoError(t, app.Delete(runner))
 	require.Equal(t, "stop "+id, next())
 
-	// A runner created with its agent off is left alone.
+	// A runner created disabled is left alone.
 	off := core.NewRecord(collection)
 	off.Set("owner", jsHooksUserAOrg)
-	off.Set("name", "agent-off-runner")
+	off.Set("name", "disabled-runner")
 	off.Set("ip", "127.0.0.1")
+	off.Set("disabled", true)
 	require.NoError(t, app.Save(off))
 	none()
 }

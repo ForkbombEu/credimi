@@ -162,7 +162,7 @@ func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 				return agentNotEnabledError()
 			}
 			subject = "mobile-runner-agent:" + canonify.NormalizePath(canonicalID)
-			permissions = []string{mobilerunner.AgentNamespace(record.Id) + ":write"}
+			permissions = []string{mobilerunner.RunnerNamespace(record.Id) + ":write"}
 		} else {
 			permissions, apiErr = mobileRunnerTemporalPermissions(e.App, record)
 			if apiErr != nil {
@@ -222,7 +222,7 @@ func mobileRunnerTemporalPermissions(
 	}
 	// An enabled agent polls the runner's own namespace, ready or not.
 	if record.GetBool("agent_enabled") {
-		namespaces = append(namespaces, mobilerunner.AgentNamespace(record.Id))
+		namespaces = append(namespaces, mobilerunner.RunnerNamespace(record.Id))
 		slices.Sort(namespaces)
 		namespaces = slices.Compact(namespaces)
 	}

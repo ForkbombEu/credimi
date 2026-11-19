@@ -346,7 +346,7 @@ type ActionAuthorSessionRef struct {
 	SessionWorkflowID string
 	SessionRunID      string
 	// Namespace is the Temporal namespace the session runs in (its runner's
-	// agent namespace).
+	// namespace).
 	Namespace string
 	// Organization is the canonified_name of the organization the session
 	// was started for, from its verified start input.

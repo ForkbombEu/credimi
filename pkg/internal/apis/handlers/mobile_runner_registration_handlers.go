@@ -648,9 +648,9 @@ type UpsertMobileRunnerResponse struct {
 	// RunnerCredential is the key Credimi presents to this runner from now
 	// on; every upsert rotates it.
 	RunnerCredential string `json:"runner_credential"`
-	// AgentNamespace is the Temporal namespace the runner's action author
-	// serves; absent until Credimi has prepared it for an enabled agent.
-	AgentNamespace string `json:"agent_namespace,omitempty"`
+	// RunnerNamespace is the runner's Temporal namespace; absent until
+	// Credimi has prepared it for a runner that is not disabled.
+	RunnerNamespace string `json:"runner_namespace,omitempty"`
 }
 
 func HandlePreviewMobileRunnerID() func(*core.RequestEvent) error {
@@ -828,7 +828,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			Published:        record.GetBool("published"),
 			AdminManaged:     record.GetBool("admin_managed"),
 			RunnerCredential: credential,
-			AgentNamespace:   runnerAgentNamespace(record),
+			RunnerNamespace:  runnerNamespace(record),
 		})
 	}
 }

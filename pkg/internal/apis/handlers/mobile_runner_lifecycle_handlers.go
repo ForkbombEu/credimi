@@ -80,9 +80,9 @@ type MobileRunnerLifecycleResponse struct {
 	ShutdownAfterSeconds    int    `json:"shutdown_after_seconds"`
 	// RunnerCredential is the key Credimi currently presents to this runner.
 	RunnerCredential string `json:"runner_credential"`
-	// AgentNamespace is the Temporal namespace the runner's action author
-	// serves; absent until Credimi has prepared it for an enabled agent.
-	AgentNamespace string `json:"agent_namespace,omitempty"`
+	// RunnerNamespace is the runner's Temporal namespace; absent until
+	// Credimi has prepared it for a runner that is not disabled.
+	RunnerNamespace string `json:"runner_namespace,omitempty"`
 }
 
 // MobileRunnerWorkResponse lists the active semaphore tickets of every device
@@ -170,8 +170,6 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		// The response's agent namespace follows the settings just stored.
-		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if !online {
 				continue
@@ -244,8 +242,6 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		// The response's agent namespace follows the settings just stored.
-		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if online {
 				if err := ensureRunQueueSemaphoreWorkflow(
@@ -645,7 +641,7 @@ func lifecycleResponse(
 		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),
 		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 		RunnerCredential:        credential,
-		AgentNamespace:          runnerAgentNamespace(runner),
+		RunnerNamespace:         runnerNamespace(runner),
 	})
 }
 

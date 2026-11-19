@@ -32,7 +32,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-// testRunnerNamespace is the agent namespace of the runner of the
+// testRunnerNamespace is the namespace of the runner of the
 // action author tickets' device.
 const testRunnerNamespace = "runner-" + testRunnerID
 
@@ -90,7 +90,7 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, ActionAuthorSessionWorkflowName, captured.lastWorkflow)
-	// The session runs in the runner's agent namespace.
+	// The session runs in the runner's namespace.
 	require.Equal(t, []string{testRunnerNamespace}, captured.namespaces)
 	require.Equal(t, queuedSessionID, captured.lastOptions.ID)
 	require.Equal(t, pipelineTaskQueue, captured.lastOptions.TaskQueue)
