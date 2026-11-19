@@ -382,17 +382,6 @@ func TestSessionReleaseFailureOnAndroidStillCleansAndReleases(t *testing.T) {
 	h.requireReleasedAfter(ReleaseDeviceActivityName, "success")
 }
 
-func TestSessionBeforeAndroidReleaseChangeSkipsAndroidRelease(t *testing.T) {
-	h := newSessionHarness(t, "android_emulator")
-	h.env.OnGetVersion(androidReleaseChange, workflow.DefaultVersion, 1).
-		Return(workflow.DefaultVersion)
-
-	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
-
-	require.NotContains(t, h.names(), ReleaseDeviceActivityName)
-	h.requireReleasedAfter("", "success")
-}
-
 const (
 	testStoreWallet  = "tenant/store-wallet"
 	testStorePackage = "com.credenco.wallet"

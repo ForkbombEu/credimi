@@ -128,20 +128,12 @@ func (w *PipelineWorkflow) Workflow(
 
 	defer func() {
 		finalResult := pipelineFinalResult(ctx, finalErr)
-		reportCtx := ctx
-		if workflow.GetVersion(
-			ctx,
-			"credimi-2026-10-pipeline-final-reports",
-			workflow.DefaultVersion,
-			1,
-		) == 1 {
-			reportAO := ao
-			if input.WorkflowInput.ActivityOptions == nil {
-				reportAO = PrepareWorkflowOptions(pipeline.RuntimeConfig{}).ActivityOptions
-			}
-			reportCtx, _ = workflow.NewDisconnectedContext(ctx)
-			reportCtx = workflow.WithActivityOptions(reportCtx, reportAO)
+		reportAO := ao
+		if input.WorkflowInput.ActivityOptions == nil {
+			reportAO = PrepareWorkflowOptions(pipeline.RuntimeConfig{}).ActivityOptions
 		}
+		reportCtx, _ := workflow.NewDisconnectedContext(ctx)
+		reportCtx = workflow.WithActivityOptions(reportCtx, reportAO)
 		reportGitHubPRCommentDone(
 			reportCtx,
 			logger,

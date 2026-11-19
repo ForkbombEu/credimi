@@ -58,9 +58,6 @@ const (
 	authorReadySignal = "action_author_ready"
 	// agentReadyTimeout bounds the wait for authorReadySignal.
 	agentReadyTimeout = 3 * time.Minute
-	// androidReleaseChange gates the release_device activity for Android
-	// sessions, which earlier histories do not schedule.
-	androidReleaseChange = "credimi-2026-11-action-author-android-release"
 )
 
 // SessionInput selects the device and build of a session.
@@ -408,33 +405,21 @@ func releaseSessionDevice(input releaseSessionDeviceInput) {
 	// holds nothing. A missing agent worker times out instead of blocking
 	// cleanup and RunDone.
 	if input.prepared.RunnerID != "" {
-		var release map[string]any
-		if input.prepared.Type == deviceTypeIOSSimulator {
-			release = map[string]any{
-				"platform": actionauthor.PlatformIOS,
-				"template": input.prepared.Serial,
-			}
-		} else if workflow.GetVersion(
-			dctx,
-			androidReleaseChange,
-			workflow.DefaultVersion,
-			1,
-		) == 1 {
-			release = map[string]any{
-				"platform": actionauthor.PlatformAndroid,
-				"template": input.prepared.Serial,
-			}
+		release := map[string]any{
+			"platform": actionauthor.PlatformAndroid,
+			"template": input.prepared.Serial,
 		}
-		if release != nil {
-			releaseCtx := workflow.WithActivityOptions(
-				dctx,
-				releaseDeviceOptions(input.prepared.RunnerID),
-			)
-			err := workflow.ExecuteActivity(releaseCtx, ReleaseDeviceActivityName, release).
-				Get(releaseCtx, nil)
-			if err != nil {
-				input.logger.Error("failed to release action author device", "error", err)
-			}
+		if input.prepared.Type == deviceTypeIOSSimulator {
+			release["platform"] = actionauthor.PlatformIOS
+		}
+		releaseCtx := workflow.WithActivityOptions(
+			dctx,
+			releaseDeviceOptions(input.prepared.RunnerID),
+		)
+		err := workflow.ExecuteActivity(releaseCtx, ReleaseDeviceActivityName, release).
+			Get(releaseCtx, nil)
+		if err != nil {
+			input.logger.Error("failed to release action author device", "error", err)
 		}
 	}
 
