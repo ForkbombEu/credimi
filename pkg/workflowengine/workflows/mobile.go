@@ -16,7 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -93,7 +93,7 @@ type MobileWorkflowOutput struct {
 }
 
 func (MobileAutomationWorkflow) Name() string {
-	return mobiledevicesession.MobileAutomationWorkflowName
+	return mobiledevice.StepWorkflowName
 }
 
 func (w *MobileAutomationWorkflow) Workflow(

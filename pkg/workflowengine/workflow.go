@@ -570,7 +570,8 @@ func WorkflowFailureMessageFromHistory(failure *failurepb.Failure) string {
 
 func isGenericTemporalFailureMessage(message string) bool {
 	switch strings.TrimSpace(strings.ToLower(message)) {
-	case "", "activity error", "child workflow execution error", "failure exceeds size limit.":
+	case "", "activity error", "child workflow execution error",
+		"nexus operation completed unsuccessfully", "failure exceeds size limit.":
 		return true
 	default:
 		return false

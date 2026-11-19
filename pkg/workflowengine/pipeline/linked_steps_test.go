@@ -19,7 +19,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
@@ -374,14 +373,15 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 				"fake-mobile-automation",
 				failure,
 			)
-			// The step workflow runs in the runner namespace, behind this activity.
-			env.RegisterActivityWithOptions(
-				func(context.Context, workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-					return workflowengine.ActivityResult{}, workflowengine.NewNonRetryableAppError(
+			// The step workflow runs in the runner namespace, behind the Run
+			// step operation.
+			registerRunStepOperation(
+				env,
+				func(workflow.Context, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+					return workflowengine.WorkflowResult{}, workflowengine.NewNonRetryableAppError(
 						failure,
 					)
 				},
-				activity.RegisterOptions{Name: mobiledevicesession.RunRunnerWorkflowActivityName},
 			)
 			var deleted []activities.DeletePipelineStepScreenshotsInput
 			env.RegisterActivityWithOptions(
@@ -414,8 +414,9 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 					ID:  "wallet",
 					Use: mobileAutomationStepUse,
 					With: pipeline.StepInputs{Config: map[string]any{
-						"run_identifier":         "ns/run",
-						runnerNamespaceConfigKey: "runner-abc",
+						"run_identifier":                  "ns/run",
+						runnerNamespaceConfigKey:          "runner-abc",
+						pipelineExecutionTimeoutConfigKey: "1h0m0s",
 						pipelineRunConfigKey: map[string]any{
 							"namespace":   "ns",
 							"workflow_id": "pipeline-wf",

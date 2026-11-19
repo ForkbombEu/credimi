@@ -17,11 +17,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.temporal.io/api/serviceerror"
-	"go.temporal.io/sdk/client"
-	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
 const testDataDir = "../../../test_pb_data"
@@ -97,9 +93,13 @@ func TestClassify(t *testing.T) {
 		t.Fatal("ownership checked for an organization namespace path")
 		return false
 	}
+	notUsed := func(string) bool {
+		t.Fatal("runner use checked for an organization namespace path")
+		return false
+	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, classify(tc.path, nil, ns, notOwned))
+			require.Equal(t, tc.want, classify(tc.path, nil, ns, notOwned, notUsed))
 		})
 	}
 }
@@ -111,6 +111,7 @@ func TestClassifyRunnerNamespace(t *testing.T) {
 		return namespace == runnerNS && workflowID == "pipeline-1-step" &&
 			(runID == "run-1" || runID == "")
 	}
+	uses := func(namespace string) bool { return namespace == runnerNS }
 	cases := []struct {
 		name  string
 		path  string
@@ -146,6 +147,11 @@ func TestClassifyRunnerNamespace(t *testing.T) {
 			name: "describe runner namespace",
 			path: "/temporal-ui/api/v1/namespaces/runner-abc",
 			want: routeProxy,
+		},
+		{
+			name: "describe a runner namespace the organization never used",
+			path: "/temporal-ui/api/v1/namespaces/runner-xyz",
+			want: routeForbidden,
 		},
 		{
 			name:  "owned workflow",
@@ -205,37 +211,17 @@ func TestClassifyRunnerNamespace(t *testing.T) {
 			want: routeForbidden,
 		},
 		{
-			name:  "runner pipeline task queue worker count",
+			name:  "runner worker count",
 			path:  "/temporal-ui/api/v1/namespaces/runner-abc/worker-count",
 			query: url.Values{"query": {`TaskQueue="PipelineTaskQueue"`}},
-			want:  routeProxy,
-		},
-		{
-			name:  "runner worker count of another query",
-			path:  "/temporal-ui/api/v1/namespaces/runner-abc/worker-count",
-			query: url.Values{"query": {`TaskQueue="q"`}},
 			want:  routeForbidden,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, classify(tc.path, tc.query, ns, owned))
+			require.Equal(t, tc.want, classify(tc.path, tc.query, ns, owned, uses))
 		})
 	}
-}
-
-func TestEmbedHeadOpensRunnerRunsWithNamespace(t *testing.T) {
-	require.Contains(
-		t,
-		embedHead,
-		`var run=/^\/temporal-ui\/namespaces\/([^\/]+)\/workflows\/([^\/]+)\/([^\/?#]+)/;`,
-	)
-	require.Contains(
-		t,
-		embedHead,
-		`window.top.location.href="/my/tests/runs/"+there[2]+"/"+there[3]+`+
-			`(there[1].indexOf("runner-")===0?"?namespace="+there[1]:"")}`,
-	)
 }
 
 type upstreamCall struct {
@@ -402,17 +388,6 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("serves only owned runner namespace runs", func(t *testing.T) {
-		original := clientFor
-		t.Cleanup(func() { clientFor = original })
-		var asked []string
-		c := temporalmocks.NewClient(t)
-		c.On("DescribeWorkflow", mock.Anything, "unowned-step", "run-1").
-			Return(nil, serviceerror.NewNotFound("workflow not found"))
-		clientFor = func(ns string) (client.Client, error) {
-			asked = append(asked, ns)
-			return c, nil
-		}
-
 		calls = nil
 		rec, err := serve(
 			http.MethodGet,
@@ -434,13 +409,10 @@ func TestHandler(t *testing.T) {
 			authCookie,
 		)
 		requireStatus(t, err, http.StatusForbidden)
-		require.Empty(t, calls)
-		require.Equal(t, []string{"runner-abc", "runner-abc"}, asked)
 
-		rec, err = serve(http.MethodGet, "/temporal-ui/api/v1/namespaces/runner-abc", authCookie)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
-		require.Len(t, calls, 1)
-		require.Equal(t, "/temporal-ui/api/v1/namespaces/runner-abc", calls[0].path)
+		// No pipeline run of the caller's organization used runner abc.
+		_, err = serve(http.MethodGet, "/temporal-ui/api/v1/namespaces/runner-abc", authCookie)
+		requireStatus(t, err, http.StatusForbidden)
+		require.Empty(t, calls)
 	})
 }

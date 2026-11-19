@@ -18,10 +18,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"go.temporal.io/api/enums/v1"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/proto"
 )
@@ -158,14 +157,15 @@ func ExecuteStep(
 			ActivityOptions: &ao,
 		}
 
-		var memo map[string]any
-		memo, _ = input.Config["memo"].(map[string]any)
 		if err := ensureStepInputSize(s.ID, input); err != nil {
 			return nil, err
 		}
 		if s.Use == mobileAutomationStepUse {
-			return runRunnerWorkflowStep(ctx, s, w.Name(), input, memo)
+			return runMobileStep(ctx, s, input)
 		}
+
+		var memo map[string]any
+		memo, _ = input.Config["memo"].(map[string]any)
 
 		var result workflowengine.WorkflowResult
 		opts := workflow.ChildWorkflowOptions{
@@ -190,78 +190,59 @@ func ExecuteStep(
 	return nil, nil
 }
 
-// runRunnerWorkflowStep runs a mobile-automation step's workflow in the
-// runner namespace of its device, through a Credimi activity: Temporal starts
-// child workflows only in the parent's namespace.
-func runRunnerWorkflowStep(
+// runMobileStep runs a mobile-automation step's workflow in the runner
+// namespace of its device, through the Run step operation of the runner's
+// Nexus endpoint.
+func runMobileStep(
 	ctx workflow.Context,
 	s *pipeline.StepDefinition,
-	workflowName string,
 	input workflowengine.WorkflowInput,
-	memo map[string]any,
 ) (any, error) {
 	namespace, _ := s.With.Config[runnerNamespaceConfigKey].(string)
-	pipelineRun, err := workflowengine.DecodePayload[mobiledevicesession.PipelineRunRef](
+	if strings.TrimSpace(namespace) == "" {
+		return nil, missingMobileStepConfig(s.ID, runnerNamespaceConfigKey)
+	}
+	pipelineRun, err := workflowengine.DecodePayload[mobiledevice.PipelineRun](
 		s.With.Config[pipelineRunConfigKey],
 	)
-	if strings.TrimSpace(namespace) == "" || err != nil || pipelineRun.WorkflowID == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return nil, workflowengine.NewNonRetryableAppError(workflowengine.WorkflowError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: fmt.Sprintf("missing runner_namespace for step %s", s.ID),
-		})
+	if err != nil || pipelineRun.WorkflowID == "" {
+		return nil, missingMobileStepConfig(s.ID, pipelineRunConfigKey)
 	}
-	actCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		TaskQueue:           PipelineTaskQueue,
-		StartToCloseTimeout: runnerWorkflowStepTimeout,
-		HeartbeatTimeout:    time.Minute,
-		WaitForCancellation: true,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval: 5 * time.Second,
-			MaximumAttempts: 10,
-		},
-		Summary: summaryLine(s.ID),
-	})
-	config := map[string]string{}
-	if stepID := workflowengine.AsString(
-		s.With.Config[workflowengine.StepIDConfigKey],
-	); stepID != "" {
-		config[workflowengine.StepIDConfigKey] = stepID
+	executionTimeout, err := time.ParseDuration(
+		workflowengine.AsString(s.With.Config[pipelineExecutionTimeoutConfigKey]),
+	)
+	if err != nil {
+		return nil, missingMobileStepConfig(s.ID, pipelineExecutionTimeoutConfigKey)
 	}
-	var result workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(
-		actCtx,
-		mobiledevicesession.RunRunnerWorkflowActivityName,
-		workflowengine.ActivityInput{
-			Payload: mobiledevicesession.RunRunnerWorkflowPayload{
-				Namespace:    namespace,
-				WorkflowID:   taskWorkflowID(ctx, s.ID),
-				WorkflowName: workflowName,
-				Input:        input,
-				Memo:         memo,
-				Summary:      summaryLine(s.ID),
-				Pipeline:     pipelineRun,
-			},
-			Config: config,
+	var result workflowengine.WorkflowResult
+	err = workflow.NewNexusClient(namespace, mobiledevice.ServiceName).ExecuteOperation(
+		ctx,
+		mobiledevice.RunStepOperationName,
+		mobiledevice.RunStepInput{
+			WorkflowID:       taskWorkflowID(ctx, s.ID),
+			ExecutionTimeout: executionTimeout,
+			Pipeline:         pipelineRun,
+			Input:            input,
 		},
-	).Get(actCtx, &result)
+		workflow.NexusOperationOptions{
+			ScheduleToCloseTimeout: executionTimeout,
+			Summary:                summaryLine(s.ID),
+		},
+	).Get(ctx, &result)
 	if err != nil {
 		return failedTaskWorkflowOutput(err), err
 	}
-	run, err := workflowengine.DecodePayload[mobiledevicesession.RunRunnerWorkflowResult](
-		result.Output,
-	)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		return nil, workflowengine.NewAppError(workflowengine.WorkflowError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: fmt.Sprintf("invalid output of step %s: %v", s.ID, err),
-			Details: map[string]any{"payload": result.Output},
-		})
-	}
-	return run.Result.Output, nil
+	return result.Output, nil
+}
+
+// missingMobileStepConfig fails a mobile step whose setup did not set key.
+func missingMobileStepConfig(stepID, key string) error {
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+	return workflowengine.NewNonRetryableAppError(workflowengine.WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: fmt.Sprintf("missing %s for step %s", key, stepID),
+	})
 }
 
 // taskWorkflowID is the workflow ID of a task workflow step: the running workflow's ID and
@@ -291,9 +272,6 @@ func Execute(
 	with.Config[workflowengine.StepIDConfigKey] = s.ID
 	return ExecuteStep(s.ID, s.Use, with, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
 }
-
-// runnerWorkflowStepTimeout bounds one attempt of a mobile step's workflow.
-const runnerWorkflowStepTimeout = 24 * time.Hour
 
 // failedTaskWorkflowOutput returns what a step keeps when its task workflow
 // failed: the output it reported in its failure Details.output, such as the

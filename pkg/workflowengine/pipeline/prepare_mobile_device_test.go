@@ -11,6 +11,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
@@ -23,13 +24,13 @@ const (
 )
 
 type prepareMobileDeviceTestResult struct {
-	Prepared PreparedMobileDevice `json:"prepared"`
-	Error    string               `json:"error"`
-	Tracked  map[string]any       `json:"tracked"`
+	Prepared mobiledevice.PreparedMobileDevice `json:"prepared"`
+	Error    string                            `json:"error"`
+	Tracked  map[string]any                    `json:"tracked"`
 }
 
 // prepareTestRequest is the request runPrepareMobileDevice prepares.
-var prepareTestRequest = MobileDeviceRequest{
+var prepareTestRequest = mobiledevice.MobileDeviceRequest{
 	DeviceID:          prepareTestDeviceID,
 	VersionIdentifier: prepareTestVersion,
 	StepID:            "action-author",
@@ -40,7 +41,7 @@ var prepareTestRequest = MobileDeviceRequest{
 // both its outcome and the tracked devices, so a failure can be inspected.
 func registerPrepareMobileDeviceWorkflow(env *testsuite.TestWorkflowEnvironment) {
 	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context, req MobileDeviceRequest) (prepareMobileDeviceTestResult, error) {
+		func(ctx workflow.Context, req mobiledevice.MobileDeviceRequest) (prepareMobileDeviceTestResult, error) {
 			settedDevices := map[string]any{}
 			prepared, err := PrepareMobileDevice(
 				ctx,
@@ -122,7 +123,7 @@ func runPrepareMobileDevice(
 func runPrepareMobileDeviceRequest(
 	t *testing.T,
 	env *testsuite.TestWorkflowEnvironment,
-	req MobileDeviceRequest,
+	req mobiledevice.MobileDeviceRequest,
 ) prepareMobileDeviceTestResult {
 	t.Helper()
 	env.ExecuteWorkflow("test-prepare-mobile-device", req)
@@ -133,7 +134,7 @@ func runPrepareMobileDeviceRequest(
 }
 
 // externalSourceRequest prepares a wallet the session installs from the store.
-var externalSourceRequest = MobileDeviceRequest{
+var externalSourceRequest = mobiledevice.MobileDeviceRequest{
 	DeviceID:          prepareTestDeviceID,
 	VersionIdentifier: MobileExternalSourceVersionID,
 	StepID:            "action-author",
@@ -162,7 +163,7 @@ func TestPrepareMobileDeviceExternalSourceReturnsKnownPackage(t *testing.T) {
 	result := runPrepareMobileDeviceRequest(t, env, externalSourceRequest)
 
 	require.Empty(t, result.Error)
-	require.Equal(t, PreparedMobileDevice{
+	require.Equal(t, mobiledevice.PreparedMobileDevice{
 		RunnerID: "tenant/runner-1",
 		Serial:   "emulator-5554",
 		Type:     "android_emulator",
@@ -193,7 +194,7 @@ func TestPrepareMobileDeviceExternalSourceOnIOSSimulator(t *testing.T) {
 	result := runPrepareMobileDeviceRequest(t, env, externalSourceRequest)
 
 	require.Empty(t, result.Error)
-	require.Equal(t, PreparedMobileDevice{
+	require.Equal(t, mobiledevice.PreparedMobileDevice{
 		RunnerID:  "tenant/runner-1",
 		Serial:    "UDID-CLONE-1",
 		Type:      "ios_simulator",
@@ -225,7 +226,7 @@ func TestPrepareMobileDeviceReturnsPreparedIOSSimulator(t *testing.T) {
 	result := runPrepareMobileDevice(t, env)
 
 	require.Empty(t, result.Error)
-	require.Equal(t, PreparedMobileDevice{
+	require.Equal(t, mobiledevice.PreparedMobileDevice{
 		RunnerID:      "tenant/runner-1",
 		Serial:        "UDID-CLONE-1",
 		Type:          "ios_simulator",

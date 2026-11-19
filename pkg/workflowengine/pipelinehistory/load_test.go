@@ -12,11 +12,12 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
+	failurepb "go.temporal.io/api/failure/v1"
 	historypb "go.temporal.io/api/history/v1"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
@@ -116,15 +117,6 @@ func activityFailedEvent(id, scheduledID int64) *historypb.HistoryEvent {
 	}
 }
 
-func activityFailedWithEvent(id, scheduledID int64, err error) *historypb.HistoryEvent {
-	fc := temporal.NewDefaultFailureConverter(
-		temporal.DefaultFailureConverterOptions{DataConverter: temporalcrypto.DataConverter()},
-	)
-	event := activityFailedEvent(id, scheduledID)
-	event.GetActivityTaskFailedEventAttributes().Failure = fc.ErrorToFailure(err)
-	return event
-}
-
 func activityTimedOutEvent(id, scheduledID int64) *historypb.HistoryEvent {
 	return &historypb.HistoryEvent{
 		EventId:   id,
@@ -151,37 +143,188 @@ func activityCanceledEvent(id, scheduledID int64) *historypb.HistoryEvent {
 
 const testRunnerNamespace = "runner-r1"
 
-// runnerStepScheduledEvent schedules the activity that runs a mobile step's workflow in a
-// runner namespace.
-func runnerStepScheduledEvent(t *testing.T, id int64, stepID string) *historypb.HistoryEvent {
-	event := scheduledEvent(t, id, map[string]any{
-		"config": map[string]any{workflowengine.StepIDConfigKey: stepID},
-		"payload": mobiledevicesession.RunRunnerWorkflowPayload{
-			Namespace:    testRunnerNamespace,
-			WorkflowID:   "wf-1-" + stepID,
-			WorkflowName: mobiledevicesession.MobileAutomationWorkflowName,
-		},
-	})
-	event.GetActivityTaskScheduledEventAttributes().ActivityType = &commonpb.ActivityType{
-		Name: mobiledevicesession.RunRunnerWorkflowActivityName,
-	}
-	return event
+func toPayload(t *testing.T, value any) *commonpb.Payload {
+	t.Helper()
+	payload, err := temporalcrypto.DataConverter().ToPayload(value)
+	require.NoError(t, err)
+	return payload
 }
 
-func runnerStepCompletedEvent(
+func nexusScheduledEvent(
 	t *testing.T,
-	id, scheduledID int64,
-	stepID, runID string,
-	output any,
+	id int64,
+	operation string,
+	input any,
 ) *historypb.HistoryEvent {
-	return activityCompletedEvent(t, id, scheduledID, workflowengine.ActivityResult{
-		Output: mobiledevicesession.RunRunnerWorkflowResult{
-			Namespace:  testRunnerNamespace,
-			WorkflowID: "wf-1-" + stepID,
-			RunID:      runID,
-			Result:     workflowengine.WorkflowResult{Output: output},
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED,
+		Attributes: &historypb.HistoryEvent_NexusOperationScheduledEventAttributes{
+			NexusOperationScheduledEventAttributes: &historypb.NexusOperationScheduledEventAttributes{
+				Endpoint:  testRunnerNamespace,
+				Service:   mobiledevice.ServiceName,
+				Operation: operation,
+				Input:     toPayload(t, input),
+			},
+		},
+	}
+}
+
+// runStepScheduledEvent schedules the Run step operation that runs a mobile step's
+// workflow in a runner namespace.
+func runStepScheduledEvent(t *testing.T, id int64, stepID string) *historypb.HistoryEvent {
+	return nexusScheduledEvent(t, id, mobiledevice.RunStepOperationName, mobiledevice.RunStepInput{
+		WorkflowID: "wf-1-" + stepID,
+		Pipeline: mobiledevice.PipelineRun{
+			Namespace:  "org-ns",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+		},
+		Input: workflowengine.WorkflowInput{
+			Config: map[string]any{workflowengine.StepIDConfigKey: stepID},
 		},
 	})
+}
+
+func nexusStartedEvent(id, scheduledID int64, workflowID, runID string) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_STARTED,
+		Links: []*commonpb.Link{{
+			Variant: &commonpb.Link_WorkflowEvent_{
+				WorkflowEvent: &commonpb.Link_WorkflowEvent{
+					Namespace:  testRunnerNamespace,
+					WorkflowId: workflowID,
+					RunId:      runID,
+					Reference: &commonpb.Link_WorkflowEvent_EventRef{
+						EventRef: &commonpb.Link_WorkflowEvent_EventReference{
+							EventId:   1,
+							EventType: enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
+						},
+					},
+				},
+			},
+		}},
+		Attributes: &historypb.HistoryEvent_NexusOperationStartedEventAttributes{
+			NexusOperationStartedEventAttributes: &historypb.NexusOperationStartedEventAttributes{
+				ScheduledEventId: scheduledID,
+				OperationToken:   "token-" + workflowID,
+			},
+		},
+	}
+}
+
+func nexusCompletedEvent(
+	t *testing.T,
+	id, scheduledID int64,
+	result any,
+) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED,
+		Attributes: &historypb.HistoryEvent_NexusOperationCompletedEventAttributes{
+			NexusOperationCompletedEventAttributes: &historypb.NexusOperationCompletedEventAttributes{
+				ScheduledEventId: scheduledID,
+				Result:           toPayload(t, result),
+			},
+		},
+	}
+}
+
+// nexusFailedEvent records a failed operation as the server does: a generic Nexus
+// operation failure caused by the handler's error.
+func nexusFailedEvent(id, scheduledID int64, cause error) *historypb.HistoryEvent {
+	fc := temporal.NewDefaultFailureConverter(
+		temporal.DefaultFailureConverterOptions{DataConverter: temporalcrypto.DataConverter()},
+	)
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_FAILED,
+		Attributes: &historypb.HistoryEvent_NexusOperationFailedEventAttributes{
+			NexusOperationFailedEventAttributes: &historypb.NexusOperationFailedEventAttributes{
+				ScheduledEventId: scheduledID,
+				Failure: &failurepb.Failure{
+					Message: "nexus operation completed unsuccessfully",
+					FailureInfo: &failurepb.Failure_NexusOperationExecutionFailureInfo{
+						NexusOperationExecutionFailureInfo: &failurepb.NexusOperationFailureInfo{
+							ScheduledEventId: scheduledID,
+							Endpoint:         testRunnerNamespace,
+							Service:          mobiledevice.ServiceName,
+							Operation:        mobiledevice.RunStepOperationName,
+						},
+					},
+					Cause: fc.ErrorToFailure(cause),
+				},
+			},
+		},
+	}
+}
+
+func nexusTimedOutEvent(id, scheduledID int64) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT,
+		Attributes: &historypb.HistoryEvent_NexusOperationTimedOutEventAttributes{
+			NexusOperationTimedOutEventAttributes: &historypb.NexusOperationTimedOutEventAttributes{
+				ScheduledEventId: scheduledID,
+			},
+		},
+	}
+}
+
+func nexusCanceledEvent(id, scheduledID int64) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED,
+		Attributes: &historypb.HistoryEvent_NexusOperationCanceledEventAttributes{
+			NexusOperationCanceledEventAttributes: &historypb.NexusOperationCanceledEventAttributes{
+				ScheduledEventId: scheduledID,
+			},
+		},
+	}
+}
+
+// deviceOperationEvents schedules and completes Prepare and Clean up for a device used by
+// stepID; neither is a step.
+func deviceOperationEvents(t *testing.T, firstID int64, stepID string) []*historypb.HistoryEvent {
+	cfg := workflowengine.WorkflowInput{
+		Config: map[string]any{workflowengine.StepIDConfigKey: stepID},
+	}
+	return []*historypb.HistoryEvent{
+		nexusScheduledEvent(
+			t,
+			firstID,
+			mobiledevice.PrepareOperationName,
+			mobiledevice.PrepareInput{
+				WorkflowID: "wf-1-device-pixel-prepare",
+				DeviceID:   "pixel",
+				Requests:   []mobiledevice.MobileDeviceRequest{{DeviceID: "pixel", StepID: stepID}},
+				Workflow:   cfg,
+			},
+		),
+		nexusStartedEvent(firstID+1, firstID, "wf-1-device-pixel-prepare", "prepare-run"),
+		nexusCompletedEvent(t, firstID+2, firstID, mobiledevice.PrepareResult{
+			Device: map[string]any{"serial": "s1"},
+		}),
+		nexusScheduledEvent(
+			t,
+			firstID+3,
+			mobiledevice.CleanUpOperationName,
+			mobiledevice.CleanUpInput{
+				WorkflowID: "wf-1-device-pixel-cleanup",
+				DeviceID:   "pixel",
+				Workflow:   cfg,
+			},
+		),
+		nexusFailedEvent(
+			firstID+4,
+			firstID+3,
+			workflowengine.NewAppError(workflowengine.WorkflowError{
+				Code:    "CRE201",
+				Details: map[string]any{"output": map[string]any{"cleanup": true}},
+			}),
+		),
+	}
 }
 
 func childInitiatedEvent(t *testing.T, id int64, input any) *historypb.HistoryEvent {
@@ -289,9 +432,10 @@ func TestLoadRebuildsMainStepOutputs(t *testing.T) {
 			Output: "valid",
 			Log:    []string{"checked"},
 		}),
-		runnerStepScheduledEvent(t, 17, "phone"),
-		runnerStepCompletedEvent(t, 19, 17, "phone", "phone-run", map[string]any{
-			"video": "v.mp4",
+		runStepScheduledEvent(t, 17, "phone"),
+		nexusStartedEvent(18, 17, "wf-1-phone", "phone-run"),
+		nexusCompletedEvent(t, 19, 17, workflowengine.WorkflowResult{
+			Output: map[string]any{"video": "v.mp4"},
 		}),
 		childInitiatedEvent(t, 20, map[string]any{
 			"workflow_definition": map[string]any{"name": "inner"},
@@ -381,7 +525,37 @@ func TestLoadKeepsTheOutputAFailedTaskWorkflowReports(t *testing.T) {
 	}, run.Outputs)
 }
 
-func TestLoadReadsRunnerNamespaceStepFailures(t *testing.T) {
+func TestLoadStoresTheZeroResultOfAFailedActivity(t *testing.T) {
+	step := func(id string) pipelineinternal.StepDefinition {
+		return pipelineinternal.StepDefinition{
+			StepSpec: pipelineinternal.StepSpec{ID: id, Use: "http-request"},
+		}
+	}
+	def := &pipelineinternal.WorkflowDefinition{
+		Name:  "history",
+		Steps: []pipelineinternal.StepDefinition{step("failed"), step("slow"), step("stopped")},
+	}
+	events := []*historypb.HistoryEvent{
+		startedEvent(t, def),
+		scheduledEvent(t, 5, stepConfig("failed")),
+		activityFailedEvent(7, 5),
+		scheduledEvent(t, 8, stepConfig("slow")),
+		activityTimedOutEvent(10, 8),
+		scheduledEvent(t, 11, stepConfig("stopped")),
+		activityCanceledEvent(13, 11),
+	}
+
+	run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"failed":  workflowengine.ActivityResult{},
+		"slow":    workflowengine.ActivityResult{},
+		"stopped": workflowengine.ActivityResult{},
+	}, run.Outputs)
+	require.Equal(t, map[string]int64{"failed": 7, "slow": 10, "stopped": 13}, run.EventIDs)
+}
+
+func TestLoadReadsRunStepOperationFailures(t *testing.T) {
 	step := func(id string) pipelineinternal.StepDefinition {
 		return pipelineinternal.StepDefinition{
 			StepSpec: pipelineinternal.StepSpec{ID: id, Use: "mobile-automation"},
@@ -395,8 +569,8 @@ func TestLoadReadsRunnerNamespaceStepFailures(t *testing.T) {
 	}
 	events := []*historypb.HistoryEvent{
 		startedEvent(t, def),
-		runnerStepScheduledEvent(t, 5, "engage"),
-		activityFailedWithEvent(7, 5, workflowengine.NewNonRetryableAppError(
+		runStepScheduledEvent(t, 5, "engage"),
+		nexusFailedEvent(7, 5, workflowengine.NewNonRetryableAppError(
 			workflowengine.WorkflowError{
 				Code: "CRE201",
 				Details: map[string]any{"output": map[string]any{
@@ -404,14 +578,14 @@ func TestLoadReadsRunnerNamespaceStepFailures(t *testing.T) {
 				}},
 			},
 		)),
-		runnerStepScheduledEvent(t, 8, "silent"),
-		activityFailedWithEvent(10, 8, workflowengine.NewNonRetryableAppError(
+		runStepScheduledEvent(t, 8, "silent"),
+		nexusFailedEvent(10, 8, workflowengine.NewNonRetryableAppError(
 			workflowengine.WorkflowError{Code: "CRE201"},
 		)),
-		runnerStepScheduledEvent(t, 11, "slow"),
-		activityTimedOutEvent(13, 11),
-		runnerStepScheduledEvent(t, 14, "stopped"),
-		activityCanceledEvent(16, 14),
+		runStepScheduledEvent(t, 11, "slow"),
+		nexusTimedOutEvent(13, 11),
+		runStepScheduledEvent(t, 14, "stopped"),
+		nexusCanceledEvent(16, 14),
 	}
 
 	run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
@@ -430,6 +604,24 @@ func TestLoadReadsRunnerNamespaceStepFailures(t *testing.T) {
 		"slow":    13,
 		"stopped": 16,
 	}, run.EventIDs)
+}
+
+func TestLoadIgnoresDeviceOperations(t *testing.T) {
+	def := &pipelineinternal.WorkflowDefinition{
+		Name: "history",
+		Steps: []pipelineinternal.StepDefinition{
+			{StepSpec: pipelineinternal.StepSpec{ID: "phone", Use: "mobile-automation"}},
+		},
+	}
+	events := append(
+		[]*historypb.HistoryEvent{startedEvent(t, def)},
+		deviceOperationEvents(t, 5, "phone")...,
+	)
+
+	run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
+	require.NoError(t, err)
+	require.Empty(t, run.Outputs)
+	require.Empty(t, run.EventIDs)
 }
 
 func blockInitiatedEvent(t *testing.T, id int64) *historypb.HistoryEvent {

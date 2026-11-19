@@ -18,9 +18,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,6 +29,7 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/temporalnexus"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
@@ -949,19 +950,63 @@ type executeStepOutcome struct {
 	NonRetryable bool   `json:"non_retryable"`
 }
 
+// registerRunStepOperation serves the Run step operation in env like a runner
+// namespace does, starting step as the step workflow, and returns the inputs
+// the operation received.
+func registerRunStepOperation(
+	env *testsuite.TestWorkflowEnvironment,
+	step func(workflow.Context, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error),
+) *[]mobiledevice.RunStepInput {
+	inputs := &[]mobiledevice.RunStepInput{}
+	env.RegisterWorkflowWithOptions(
+		step,
+		workflow.RegisterOptions{Name: mobiledevice.StepWorkflowName},
+	)
+	service := nexus.NewService(mobiledevice.ServiceName)
+	if err := service.Register(temporalnexus.MustNewWorkflowRunOperationWithOptions(
+		temporalnexus.WorkflowRunOperationOptions[
+			mobiledevice.RunStepInput,
+			workflowengine.WorkflowResult,
+		]{
+			Name: mobiledevice.RunStepOperationName,
+			Handler: func(
+				ctx context.Context,
+				in mobiledevice.RunStepInput,
+				options nexus.StartOperationOptions,
+			) (temporalnexus.WorkflowHandle[workflowengine.WorkflowResult], error) {
+				*inputs = append(*inputs, in)
+				return temporalnexus.ExecuteUntypedWorkflow[workflowengine.WorkflowResult](
+					ctx,
+					options,
+					client.StartWorkflowOptions{ID: in.WorkflowID},
+					mobiledevice.StepWorkflowName,
+					in.Input,
+				)
+			},
+		},
+	)); err != nil {
+		panic(err)
+	}
+	env.RegisterNexusService(service)
+	return inputs
+}
+
 func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 	pipelineRun := map[string]any{
 		"namespace":   "tenant",
 		"workflow_id": "pipeline-1",
 		"run_id":      "run-1",
 	}
-	stepConfig := func() map[string]any {
-		return map[string]any{
-			"taskqueue":                    "tenant/runner-1-TaskQueue",
-			workflowengine.StepIDConfigKey: "step-1",
-			runnerNamespaceConfigKey:       "runner-abc",
-			pipelineRunConfigKey:           pipelineRun,
+	stepConfig := func(without string) map[string]any {
+		config := map[string]any{
+			"taskqueue":                       "tenant/runner-1-TaskQueue",
+			workflowengine.StepIDConfigKey:    "step-1",
+			runnerNamespaceConfigKey:          "runner-abc",
+			pipelineRunConfigKey:              pipelineRun,
+			pipelineExecutionTimeoutConfigKey: "1h0m0s",
 		}
+		delete(config, without)
+		return config
 	}
 	missingCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code
 	failureCode := errorcodes.Codes[errorcodes.PipelineExecutionError].Code
@@ -969,32 +1014,26 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 	tests := []struct {
 		name             string
 		config           map[string]any
-		result           workflowengine.ActivityResult
+		result           workflowengine.WorkflowResult
 		err              error
 		wantCalls        int
 		wantOutput       any
 		wantCode         string
+		wantError        string
 		wantNonRetryable bool
 	}{
 		{
 			name:   "returns the workflow output",
-			config: stepConfig(),
-			result: workflowengine.ActivityResult{
-				Output: mobiledevicesession.RunRunnerWorkflowResult{
-					Namespace:  "runner-abc",
-					WorkflowID: "pipeline-1-step-1",
-					RunID:      "step-run-1",
-					Result: workflowengine.WorkflowResult{
-						Output: map[string]any{"result_video_urls": []any{"https://video"}},
-					},
-				},
+			config: stepConfig(""),
+			result: workflowengine.WorkflowResult{
+				Output: map[string]any{"result_video_urls": []any{"https://video"}},
 			},
 			wantCalls:  1,
 			wantOutput: map[string]any{"result_video_urls": []any{"https://video"}},
 		},
 		{
 			name:   "keeps the output of a failed workflow",
-			config: stepConfig(),
+			config: stepConfig(""),
 			err: workflowengine.NewNonRetryableAppError(workflowengine.WorkflowError{
 				Code:    failureCode,
 				Message: "flow failed",
@@ -1005,18 +1044,28 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 			wantCalls:        1,
 			wantOutput:       map[string]any{"screenshot_urls": []any{"https://shot"}},
 			wantCode:         failureCode,
+			wantError:        "flow failed",
 			wantNonRetryable: true,
 		},
 		{
 			name:             "rejects a step without runner namespace",
-			config:           map[string]any{pipelineRunConfigKey: pipelineRun},
+			config:           stepConfig(runnerNamespaceConfigKey),
 			wantCode:         missingCode,
+			wantError:        "missing runner_namespace for step step-1",
 			wantNonRetryable: true,
 		},
 		{
 			name:             "rejects a step without pipeline run",
-			config:           map[string]any{runnerNamespaceConfigKey: "runner-abc"},
+			config:           stepConfig(pipelineRunConfigKey),
 			wantCode:         missingCode,
+			wantError:        "missing pipeline_run for step step-1",
+			wantNonRetryable: true,
+		},
+		{
+			name:             "rejects a step without execution timeout",
+			config:           stepConfig(pipelineExecutionTimeoutConfigKey),
+			wantCode:         missingCode,
+			wantError:        "missing pipeline_execution_timeout for step step-1",
 			wantNonRetryable: true,
 		},
 	}
@@ -1026,15 +1075,11 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 			env := suite.NewTestWorkflowEnvironment()
 			env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: "pipeline-1"})
 
-			var inputs []workflowengine.ActivityInput
-			var infos []activity.Info
-			env.RegisterActivityWithOptions(
-				func(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-					inputs = append(inputs, input)
-					infos = append(infos, activity.GetInfo(ctx))
+			inputs := registerRunStepOperation(
+				env,
+				func(workflow.Context, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 					return tt.result, tt.err
 				},
-				activity.RegisterOptions{Name: mobiledevicesession.RunRunnerWorkflowActivityName},
 			)
 			env.RegisterWorkflowWithOptions(
 				func(ctx workflow.Context) (executeStepOutcome, error) {
@@ -1073,34 +1118,24 @@ func TestExecuteStepRunsMobileStepInRunnerNamespace(t *testing.T) {
 
 			assert.Equal(t, tt.wantCode, outcome.Code)
 			assert.Equal(t, tt.wantNonRetryable, outcome.NonRetryable)
-			require.Len(t, inputs, tt.wantCalls)
+			assert.Contains(t, outcome.Error, tt.wantError)
+			require.Len(t, *inputs, tt.wantCalls)
 			if tt.wantCalls == 0 {
-				assert.Contains(t, outcome.Error, "missing runner_namespace for step step-1")
 				return
 			}
 			assert.Equal(t, tt.wantOutput, outcome.Output)
 
-			payload, err := workflowengine.DecodePayload[mobiledevicesession.RunRunnerWorkflowPayload](
-				inputs[0].Payload,
-			)
-			require.NoError(t, err)
-			assert.Equal(t, "runner-abc", payload.Namespace)
-			assert.Equal(t, "pipeline-1-step-1", payload.WorkflowID)
-			assert.Equal(t, workflows.NewMobileAutomationWorkflow().Name(), payload.WorkflowName)
-			assert.Equal(t, mobiledevicesession.PipelineRunRef{
+			in := (*inputs)[0]
+			assert.Equal(t, "pipeline-1-step-1", in.WorkflowID)
+			assert.Equal(t, time.Hour, in.ExecutionTimeout)
+			assert.Equal(t, mobiledevice.PipelineRun{
 				Namespace:  "tenant",
 				WorkflowID: "pipeline-1",
 				RunID:      "run-1",
-			}, payload.Pipeline)
-			assert.Equal(t, "tenant/runner-1-TaskQueue", payload.Input.Config["taskqueue"])
-			assert.Equal(t, "https://example.test", payload.Input.Config["app_url"])
-			assert.Equal(
-				t,
-				map[string]string{workflowengine.StepIDConfigKey: "step-1"},
-				inputs[0].Config,
-			)
-			assert.Equal(t, PipelineTaskQueue, infos[0].TaskQueue)
-			assert.Equal(t, time.Minute, infos[0].HeartbeatTimeout)
+			}, in.Pipeline)
+			assert.Equal(t, "tenant/runner-1-TaskQueue", in.Input.Config["taskqueue"])
+			assert.Equal(t, "https://example.test", in.Input.Config["app_url"])
+			assert.Equal(t, "step-1", in.Input.Config[workflowengine.StepIDConfigKey])
 		})
 	}
 }

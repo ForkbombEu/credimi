@@ -585,10 +585,10 @@ type linkedStepsRuns struct {
 	latest *WorkflowExecution
 }
 
-// HandleListPipelineExecutionSteps lists the started main steps and the device sessions of
-// one pipeline run, read from its Temporal history and, for the workflows it ran in runner
-// namespaces, their visibility. With block_workflow_id and block_run_id it lists the steps
-// of one linked steps block run of that pipeline run.
+// HandleListPipelineExecutionSteps lists the started main steps of one pipeline run, read
+// from its Temporal history (mobile steps from their Nexus operations) and, for the workflows
+// it ran in runner namespaces, their visibility. With block_workflow_id and block_run_id it
+// lists the steps of one linked steps block run of that pipeline run.
 func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		scope, apiErr := resolvePipelineExecutionScope(e, e.Request.PathValue("id"))
@@ -682,7 +682,11 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 				runs.latest = child
 			}
 		}
-		runnerRuns, err := listRunnerNamespaceRuns(ctx, pipelineWorkflowID, steps)
+		namespaces := make([]string, len(steps))
+		for i, step := range steps {
+			namespaces[i] = step.Namespace
+		}
+		runnerRuns, err := listRunnerNamespaceRuns(ctx, pipelineWorkflowID, namespaces)
 		if err != nil {
 			e.App.Logger().Warn("failed to list pipeline runner namespace workflows", "error", err)
 		}
@@ -720,19 +724,18 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 // pipeline run started there.
 type runnerNamespaceRuns map[string]map[string]*WorkflowExecution
 
-// listRunnerNamespaceRuns lists, in every runner namespace the steps ran in, the device
-// sessions and step workflows of a pipeline run: their IDs, and those of its linked steps
-// blocks' steps, start with the pipeline workflow ID.
+// listRunnerNamespaceRuns lists, in every runner namespace of namespaces (empty entries are
+// skipped), the device and step workflows of a pipeline run: their IDs, and those of its
+// linked steps blocks' steps, start with the pipeline workflow ID.
 func listRunnerNamespaceRuns(
 	ctx context.Context,
 	pipelineWorkflowID string,
-	steps []pipelinehistory.Step,
+	namespaces []string,
 ) (runnerNamespaceRuns, error) {
 	runs := runnerNamespaceRuns{}
 	var errs []error
 	query := fmt.Sprintf("WorkflowId STARTS_WITH %q", pipelineWorkflowID+"-")
-	for _, step := range steps {
-		namespace := step.Namespace
+	for _, namespace := range namespaces {
 		if namespace == "" {
 			continue
 		}
@@ -812,11 +815,11 @@ func pipelineExecutionStep(
 			}
 			out.Execution = blockRuns.latest.Execution
 		}
-	case pipelinehistory.StepKindWorkflow, pipelinehistory.StepKindDevice:
+	case pipelinehistory.StepKindWorkflow:
 	}
 	if step.Namespace != "" {
 		out.ExecutionNamespace = step.Namespace
-		applyRunnerNamespaceRun(&out, step, runnerRuns[step.Namespace][step.ChildWorkflowID])
+		applyRunnerNamespaceRun(&out, runnerRuns[step.Namespace][step.ChildWorkflowID])
 		return out
 	}
 	if out.Execution != nil {
@@ -832,13 +835,9 @@ func pipelineExecutionStep(
 }
 
 // applyRunnerNamespaceRun completes a step that ran in a runner namespace with what that
-// namespace's visibility knows of its latest run. A device session outlives the activity
-// that started it, so its status and times come from its run.
-func applyRunnerNamespaceRun(
-	out *PipelineExecutionStep,
-	step pipelinehistory.Step,
-	run *WorkflowExecution,
-) {
+// namespace's visibility knows of its latest run: its run ID when the history did not
+// name it, and its logs and QR.
+func applyRunnerNamespaceRun(out *PipelineExecutionStep, run *WorkflowExecution) {
 	if run == nil || run.Execution == nil {
 		return
 	}
@@ -850,12 +849,6 @@ func applyRunnerNamespaceRun(
 	}
 	out.HasLogs = workflowExecutionHasLogs(run)
 	out.HasQR = workflowExecutionHasQR(run)
-	if step.Kind == pipelinehistory.StepKindDevice {
-		out.Status = normalizeTemporalStatus(run.Status)
-		out.StartTime = run.StartTime
-		out.EndTime = run.CloseTime
-		out.Duration = calculateDuration(out.StartTime, out.EndTime)
-	}
 }
 
 func formatStepTime(t time.Time) string {

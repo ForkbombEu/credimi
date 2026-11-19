@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -1141,12 +1142,13 @@ func TestRunnerNamespaceWorkerRegistersOnlyDeviceWork(t *testing.T) {
 	registerRunnerNamespaceWorker(fw, nil)
 
 	require.ElementsMatch(t, []string{
-		pipeline.NewDeviceSessionWorkflow().Name(),
+		mobiledevice.PrepareWorkflowName,
+		mobiledevice.CleanUpWorkflowName,
 		workflows.NewMobileAutomationWorkflow().Name(),
 		authorsession.WorkflowName,
 	}, fw.registeredWorkflows)
 	require.ElementsMatch(t, runnerNamespaceActivityNames, fw.registeredActivities)
-	require.Empty(t, fw.registeredServices)
+	require.Equal(t, []string{mobiledevice.ServiceName}, fw.registeredServices)
 }
 
 func TestRunWorkerWithRetryRetriesOnTransientError(t *testing.T) {

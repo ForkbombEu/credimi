@@ -18,6 +18,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/log"
@@ -170,7 +171,7 @@ func (w *Workflow) ExecuteWorkflow(
 		"run_identifier": execution.ID,
 		"setted_devices": settedDevices,
 	}
-	var prepared pipeline.PreparedMobileDevice
+	var prepared mobiledevice.PreparedMobileDevice
 	defer func() {
 		releaseSessionDevice(releaseSessionDeviceInput{
 			ctx:       ctx,
@@ -211,7 +212,7 @@ func (w *Workflow) ExecuteWorkflow(
 		return result, err
 	}
 
-	deviceRequest := pipeline.MobileDeviceRequest{
+	deviceRequest := mobiledevice.MobileDeviceRequest{
 		DeviceID:          session.DeviceID,
 		VersionIdentifier: build.VersionIdentifier,
 		StepID:            StepID,
@@ -354,7 +355,7 @@ func buildRequest(session SessionInput) actionauthor.BuildRequest {
 func authoringContext(
 	session SessionInput,
 	build actionauthor.Build,
-	prepared pipeline.PreparedMobileDevice,
+	prepared mobiledevice.PreparedMobileDevice,
 ) AuthoringContext {
 	return AuthoringContext{
 		WalletVersionIdentifier: session.WalletVersionIdentifier,
@@ -388,7 +389,7 @@ type releaseSessionDeviceInput struct {
 	ao        workflow.ActivityOptions
 	config    map[string]any
 	runData   map[string]any
-	prepared  pipeline.PreparedMobileDevice
+	prepared  mobiledevice.PreparedMobileDevice
 	execution workflow.Execution
 	result    string
 }

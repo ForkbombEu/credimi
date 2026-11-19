@@ -8,9 +8,11 @@ import (
 	"context"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	temporalcrypto "github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	commonpb "go.temporal.io/api/common/v1"
@@ -27,6 +29,67 @@ type PipelineExecutionDevice struct {
 	DeviceID string `json:"device_id"`
 	Name     string `json:"name"`
 	LiveView bool   `json:"live_view"`
+	// Preparation and Cleanup are the device's Prepare and Clean up workflow
+	// runs in its runner namespace, when they exist.
+	Preparation *RunnerExecutionRef `json:"preparation,omitempty"`
+	Cleanup     *RunnerExecutionRef `json:"cleanup,omitempty"`
+}
+
+// RunnerExecutionRef names a workflow run in a runner namespace.
+type RunnerExecutionRef struct {
+	Namespace  string `json:"namespace"`
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+}
+
+// addDeviceRunnerRuns links each device of the pipeline run pipelineWorkflowID
+// to its Prepare and Clean up runs in its runner namespace. A run missing from
+// the namespace's visibility leaves its field nil.
+func addDeviceRunnerRuns(
+	ctx context.Context,
+	app core.App,
+	pipelineWorkflowID string,
+	devices []PipelineExecutionDevice,
+) {
+	namespaces := make([]string, len(devices))
+	for i, device := range devices {
+		if _, runner, err := mobilerunner.ResolveDevice(app, device.DeviceID); err == nil {
+			namespaces[i] = mobilerunner.RunnerNamespace(runner.Id)
+		}
+	}
+	runs, err := listRunnerNamespaceRuns(ctx, pipelineWorkflowID, namespaces)
+	if err != nil {
+		app.Logger().Warn(
+			"failed to list device runs",
+			"workflow_id", pipelineWorkflowID,
+			"error", err,
+		)
+	}
+	ref := func(namespace, workflowID string) *RunnerExecutionRef {
+		run := runs[namespace][workflowID]
+		if run == nil || run.Execution == nil {
+			return nil
+		}
+		return &RunnerExecutionRef{
+			Namespace:  namespace,
+			WorkflowID: run.Execution.WorkflowID,
+			RunID:      run.Execution.RunID,
+		}
+	}
+	for i := range devices {
+		namespace := namespaces[i]
+		if namespace == "" {
+			continue
+		}
+		devices[i].Preparation = ref(
+			namespace,
+			mobiledevice.PrepareWorkflowID(pipelineWorkflowID, devices[i].DeviceID),
+		)
+		devices[i].Cleanup = ref(
+			namespace,
+			mobiledevice.CleanUpWorkflowID(pipelineWorkflowID, devices[i].DeviceID),
+		)
+	}
 }
 
 // ResolveAndBuildPipelineExecutionDevices resolves PocketBase device records and

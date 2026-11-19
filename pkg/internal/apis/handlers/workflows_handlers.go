@@ -421,14 +421,11 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 			workflowNamespace = runnerNamespace
 		}
 
-		c, err := workflowTemporalClient(workflowNamespace)
-		if err != nil {
-			return temporalUnavailableError()
-		}
+		// The ownership check opens a runner namespace's client only for an
+		// existing runner, so it runs before this handler opens one.
 		if runnerNamespace != "" {
 			if apiErr := requireOwnedRunnerWorkflow(
 				e,
-				c,
 				authRecord.Id,
 				runnerNamespace,
 				workflowID,
@@ -436,6 +433,10 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 			); apiErr != nil {
 				return apiErr
 			}
+		}
+		c, err := workflowTemporalClient(workflowNamespace)
+		if err != nil {
+			return temporalUnavailableError()
 		}
 		workflowExecution, err := temporalclient.Describe(e.Request.Context(), c, workflowID, runID)
 		if err != nil {
@@ -505,6 +506,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				namespace,
 				workflowExecution,
 			); len(devices) > 0 {
+				addDeviceRunnerRuns(e.Request.Context(), e.App, workflowID, devices)
 				finalJSON["devices"] = devices
 			}
 		}
@@ -517,10 +519,10 @@ func workflowRunNotFound(message string) *apierror.APIError {
 }
 
 // requireOwnedRunnerWorkflow answers a run of a runner namespace the caller's
-// organization does not own (runnerworkflows.OwnedBy) as a missing run.
+// organization does not own (runnerworkflows.OwnedBy) as a missing run. A
+// failed ownership check is logged and answered the same way.
 func requireOwnedRunnerWorkflow(
 	e *core.RequestEvent,
-	c client.Client,
 	userID, namespace, workflowID, runID string,
 ) *apierror.APIError {
 	organizationID, err := pbutils.GetUserOrganizationID(e.App, userID)
@@ -535,21 +537,20 @@ func requireOwnedRunnerWorkflow(
 	owned, err := runnerworkflows.OwnedBy(
 		e.Request.Context(),
 		e.App,
-		c,
 		organizationID,
 		namespace,
 		workflowID,
 		runID,
 	)
 	if err != nil {
-		return apierror.New(
-			http.StatusInternalServerError,
-			"workflow",
-			"failed to describe workflow execution",
-			err.Error(),
+		e.App.Logger().Warn(
+			"failed to check runner workflow ownership",
+			"namespace", namespace,
+			"workflow_id", workflowID,
+			"error", err,
 		)
 	}
-	if !owned {
+	if err != nil || !owned {
 		return workflowRunNotFound("workflow not found")
 	}
 	return nil

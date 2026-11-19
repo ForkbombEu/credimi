@@ -37,7 +37,7 @@ var (
 
 	cleanupHooks = []CleanupFunc{
 		PipelineReportCleanupHook,
-		MobileDeviceSessionsCleanupHook,
+		MobileDevicesCleanupHook,
 		ConformanceCheckCleanupHook,
 		tempCredentialsCleanupHook,
 		tempUseCaseVerificationsCleanupHook,

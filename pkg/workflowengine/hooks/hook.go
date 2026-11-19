@@ -24,6 +24,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -390,10 +391,13 @@ func runnerNamespaceActivities(app core.App) []workflowengine.ExecutableActivity
 // registerRunnerNamespaceWorker registers on w everything a runner namespace
 // serves, and nothing else.
 func registerRunnerNamespaceWorker(w worker.Registry, app core.App) {
-	deviceSessionWf := pipeline.NewDeviceSessionWorkflow()
 	w.RegisterWorkflowWithOptions(
-		deviceSessionWf.Workflow,
-		workflow.RegisterOptions{Name: deviceSessionWf.Name()},
+		pipeline.PrepareDeviceWorkflow,
+		workflow.RegisterOptions{Name: mobiledevice.PrepareWorkflowName},
+	)
+	w.RegisterWorkflowWithOptions(
+		pipeline.CleanUpDeviceWorkflow,
+		workflow.RegisterOptions{Name: mobiledevice.CleanUpWorkflowName},
 	)
 	for _, wf := range []workflowengine.Workflow{
 		workflows.NewMobileAutomationWorkflow(),
@@ -401,6 +405,7 @@ func registerRunnerNamespaceWorker(w worker.Registry, app core.App) {
 	} {
 		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
 	}
+	w.RegisterNexusService(pipeline.NewMobileDeviceService(app))
 	for _, act := range runnerNamespaceActivities(app) {
 		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
 	}
@@ -448,11 +453,6 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 		w.RegisterWorkflowWithOptions(
 			linkedStepsWf.Workflow,
 			workflow.RegisterOptions{Name: linkedStepsWf.Name()},
-		)
-		deviceSessionWf := pipeline.NewDeviceSessionWorkflow()
-		w.RegisterWorkflowWithOptions(
-			deviceSessionWf.Workflow,
-			workflow.RegisterOptions{Name: deviceSessionWf.Name()},
 		)
 		debugAct := pipeline.NewDebugActivity()
 		w.RegisterActivityWithOptions(

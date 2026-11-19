@@ -20,7 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -1537,20 +1537,82 @@ func TestHandleListPipelineExecutionStepsListsActivitiesAndWorkflows(t *testing.
 	}, response.Steps)
 }
 
-func stepsActivityScheduledEvent(
+func stepsNexusScheduledEvent(
 	t *testing.T,
 	id int64,
-	typeName string,
+	endpoint, operation string,
 	input any,
 ) *historypb.HistoryEvent {
 	t.Helper()
+	payload, err := temporalcrypto.DataConverter().ToPayload(input)
+	require.NoError(t, err)
 	return &historypb.HistoryEvent{
 		EventId:   id,
-		EventType: enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED,
-		Attributes: &historypb.HistoryEvent_ActivityTaskScheduledEventAttributes{
-			ActivityTaskScheduledEventAttributes: &historypb.ActivityTaskScheduledEventAttributes{
-				ActivityType: &common.ActivityType{Name: typeName},
-				Input:        stepsPayloads(t, input),
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED,
+		Attributes: &historypb.HistoryEvent_NexusOperationScheduledEventAttributes{
+			NexusOperationScheduledEventAttributes: &historypb.NexusOperationScheduledEventAttributes{
+				Endpoint:  endpoint,
+				Service:   mobiledevice.ServiceName,
+				Operation: operation,
+				Input:     payload,
+			},
+		},
+	}
+}
+
+func stepsRunStepScheduledEvent(
+	t *testing.T,
+	id int64,
+	endpoint, stepID string,
+) *historypb.HistoryEvent {
+	t.Helper()
+	return stepsNexusScheduledEvent(t, id, endpoint, mobiledevice.RunStepOperationName,
+		mobiledevice.RunStepInput{
+			WorkflowID: "wf-1-" + stepID,
+			Pipeline:   mobiledevice.PipelineRun{WorkflowID: "wf-1", RunID: "run-1"},
+			Input: workflowengine.WorkflowInput{
+				Config: map[string]any{workflowengine.StepIDConfigKey: stepID},
+			},
+		})
+}
+
+func stepsNexusStartedEvent(
+	id, scheduledID int64,
+	namespace, workflowID, runID string,
+) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_STARTED,
+		Links: []*common.Link{{
+			Variant: &common.Link_WorkflowEvent_{
+				WorkflowEvent: &common.Link_WorkflowEvent{
+					Namespace:  namespace,
+					WorkflowId: workflowID,
+					RunId:      runID,
+					Reference: &common.Link_WorkflowEvent_EventRef{
+						EventRef: &common.Link_WorkflowEvent_EventReference{
+							EventId:   1,
+							EventType: enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
+						},
+					},
+				},
+			},
+		}},
+		Attributes: &historypb.HistoryEvent_NexusOperationStartedEventAttributes{
+			NexusOperationStartedEventAttributes: &historypb.NexusOperationStartedEventAttributes{
+				ScheduledEventId: scheduledID,
+			},
+		},
+	}
+}
+
+func stepsNexusCompletedEvent(id, scheduledID int64) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED,
+		Attributes: &historypb.HistoryEvent_NexusOperationCompletedEventAttributes{
+			NexusOperationCompletedEventAttributes: &historypb.NexusOperationCompletedEventAttributes{
+				ScheduledEventId: scheduledID,
 			},
 		},
 	}
@@ -1573,59 +1635,59 @@ func TestHandleListPipelineExecutionStepsMergesRunnerNamespaceRuns(t *testing.T)
 			pipelineinternal.StepDefinition{
 				StepSpec: pipelineinternal.StepSpec{ID: "login", Use: "mobile-automation"},
 			},
-		),
-		stepsActivityScheduledEvent(
-			t,
-			3,
-			mobiledevicesession.StartDeviceSessionActivityName,
-			map[string]any{"payload": mobiledevicesession.StartDeviceSessionPayload{
-				Namespace:  runnerNamespace,
-				WorkflowID: "wf-1-device-pixel",
-				DeviceID:   "pixel",
-			}},
-		),
-		stepsActivityScheduledEvent(
-			t,
-			5,
-			mobiledevicesession.RunRunnerWorkflowActivityName,
-			map[string]any{
-				"config": map[string]any{workflowengine.StepIDConfigKey: "login"},
-				"payload": mobiledevicesession.RunRunnerWorkflowPayload{
-					Namespace:    runnerNamespace,
-					WorkflowID:   "wf-1-login",
-					WorkflowName: mobiledevicesession.MobileAutomationWorkflowName,
-				},
+			pipelineinternal.StepDefinition{
+				StepSpec: pipelineinternal.StepSpec{ID: "pay", Use: "mobile-automation"},
 			},
 		),
+		// Preparing the device is not a step.
+		stepsNexusScheduledEvent(t, 3, runnerNamespace, mobiledevice.PrepareOperationName,
+			mobiledevice.PrepareInput{
+				WorkflowID: "wf-1-device-pixel-prepare",
+				DeviceID:   "pixel",
+				Requests: []mobiledevice.MobileDeviceRequest{
+					{DeviceID: "pixel", StepID: "login"},
+				},
+			}),
+		stepsNexusCompletedEvent(4, 3),
+		// The history does not name login's run: visibility does.
+		stepsRunStepScheduledEvent(t, 5, runnerNamespace, "login"),
+		stepsRunStepScheduledEvent(t, 7, runnerNamespace, "pay"),
+		stepsNexusStartedEvent(8, 7, runnerNamespace, "wf-1-pay", "pay-run"),
+		stepsNexusCompletedEvent(9, 7),
 	)
 	f.children("wf-1")
 
-	deviceRun := stepsChildInfo(
-		"wf-1-device-pixel",
-		"device-run",
-		mobiledevicesession.WorkflowName,
-		nil,
-		f.historyStart,
-	)
-	deviceRun.ParentExecution = nil
-	deviceRun.CloseTime = timestamppb.New(f.historyStart.Add(time.Minute))
-	stepRun := stepsChildInfo(
+	runnerRun := func(
+		workflowID, runID string,
+		memo *common.Memo,
+		start time.Time,
+	) *workflow.WorkflowExecutionInfo {
+		run := stepsChildInfo(workflowID, runID, mobiledevice.StepWorkflowName, memo, start)
+		run.ParentExecution = nil
+		return run
+	}
+	prepareRun := runnerRun("wf-1-device-pixel-prepare", "prepare-run", nil, f.historyStart)
+	prepareRun.Type = &common.WorkflowType{Name: mobiledevice.PrepareWorkflowName}
+	loginRun := runnerRun(
 		"wf-1-login",
 		"login-run",
-		mobiledevicesession.MobileAutomationWorkflowName,
 		temporalMemoWithLogsCapability(t, true),
-		f.historyStart.Add(2*time.Second),
+		f.historyStart.Add(3*time.Second),
 	)
-	stepRun.ParentExecution = nil
-	stepRun.Status = enums.WORKFLOW_EXECUTION_STATUS_RUNNING
-	olderStepRun := stepsChildInfo(
-		"wf-1-login",
-		"login-run-old",
-		mobiledevicesession.MobileAutomationWorkflowName,
-		nil,
-		f.historyStart,
+	loginRun.Status = enums.WORKFLOW_EXECUTION_STATUS_RUNNING
+	olderLoginRun := runnerRun("wf-1-login", "login-run-old", nil, f.historyStart)
+	qr, err := converter.GetDefaultDataConverter().ToPayload(
+		workflowengine.CredimiCapabilities{QR: true},
 	)
-	olderStepRun.ParentExecution = nil
+	require.NoError(t, err)
+	payRun := runnerRun(
+		"wf-1-pay",
+		"pay-run",
+		&common.Memo{Fields: map[string]*common.Payload{
+			workflowengine.CredimiCapabilitiesMemoKey: qr,
+		}},
+		f.historyStart.Add(4*time.Second),
+	)
 	runnerClient.On(
 		"ListWorkflow",
 		mock.Anything,
@@ -1634,7 +1696,9 @@ func TestHandleListPipelineExecutionStepsMergesRunnerNamespaceRuns(t *testing.T)
 				req.GetQuery() == `WorkflowId STARTS_WITH "wf-1-"`
 		}),
 	).Return(&workflowservice.ListWorkflowExecutionsResponse{
-		Executions: []*workflow.WorkflowExecutionInfo{deviceRun, stepRun, olderStepRun},
+		Executions: []*workflow.WorkflowExecutionInfo{
+			prepareRun, loginRun, olderLoginRun, payRun,
+		},
 	}, nil).Once()
 
 	rec := f.serve(t, "")
@@ -1643,32 +1707,12 @@ func TestHandleListPipelineExecutionStepsMergesRunnerNamespaceRuns(t *testing.T)
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	require.Equal(t, []PipelineExecutionStep{
 		{
-			StepID:      "pixel",
-			Kind:        "device",
-			Type:        mobiledevicesession.WorkflowName,
-			DisplayName: "pixel",
-			Status:      "Completed",
-			StartTime:   "2026-11-11T10:00:00Z",
-			EndTime:     "2026-11-11T10:01:00Z",
-			Duration:    calculateDuration("2026-11-11T10:00:00Z", "2026-11-11T10:01:00Z"),
-			HistoryEvent: PipelineStepHistoryEvent{
-				WorkflowID: "wf-1",
-				RunID:      "run-1",
-				EventID:    3,
-			},
-			Execution: &WorkflowIdentifier{
-				WorkflowID: "wf-1-device-pixel",
-				RunID:      "device-run",
-			},
-			ExecutionNamespace: runnerNamespace,
-		},
-		{
 			StepID:      "login",
 			Kind:        "workflow",
-			Type:        mobiledevicesession.MobileAutomationWorkflowName,
+			Type:        mobiledevice.StepWorkflowName,
 			DisplayName: "login",
 			Status:      "Running",
-			StartTime:   "2026-11-11T10:00:02Z",
+			StartTime:   "2026-11-11T10:00:03Z",
 			HistoryEvent: PipelineStepHistoryEvent{
 				WorkflowID: "wf-1",
 				RunID:      "run-1",
@@ -1677,6 +1721,24 @@ func TestHandleListPipelineExecutionStepsMergesRunnerNamespaceRuns(t *testing.T)
 			Execution:          &WorkflowIdentifier{WorkflowID: "wf-1-login", RunID: "login-run"},
 			ExecutionNamespace: runnerNamespace,
 			HasLogs:            true,
+		},
+		{
+			StepID:      "pay",
+			Kind:        "workflow",
+			Type:        mobiledevice.StepWorkflowName,
+			DisplayName: "pay",
+			Status:      "Completed",
+			StartTime:   "2026-11-11T10:00:04Z",
+			EndTime:     "2026-11-11T10:00:06Z",
+			Duration:    calculateDuration("2026-11-11T10:00:04Z", "2026-11-11T10:00:06Z"),
+			HistoryEvent: PipelineStepHistoryEvent{
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				EventID:    7,
+			},
+			Execution:          &WorkflowIdentifier{WorkflowID: "wf-1-pay", RunID: "pay-run"},
+			ExecutionNamespace: runnerNamespace,
+			HasQR:              true,
 		},
 	}, response.Steps)
 }

@@ -14,7 +14,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
 	failurepb "go.temporal.io/api/failure/v1"
@@ -71,18 +71,18 @@ type loader struct {
 	run        *Run
 	steps      map[string]mainStep
 	scheduled  map[int64]string
-	// runnerWorkflows holds the scheduled events of main steps whose workflow ran in a
-	// runner namespace through mobiledevicesession.RunRunnerWorkflowActivityName.
-	runnerWorkflows map[int64]struct{}
-	initiated       map[int64]string
-	blocks          map[int64]struct{}
+	// nexusSteps holds the scheduled events of the Run step operations of
+	// main mobile steps, whose workflow ran in a runner namespace.
+	nexusSteps map[int64]string
+	initiated  map[int64]string
+	blocks     map[int64]struct{}
 }
 
 // Load reads the history of one pipeline run and rebuilds the outputs of its main steps,
 // following the same rules the pipeline workflow uses to fill its in-memory finalOutput.
 // Steps are identified by the step_id carried in their activity or child workflow input
 // config; hook, finally and internal events are ignored. A mobile step's output is the
-// result of its workflow, read from the activity that ran it in a runner namespace. Steps
+// result of its workflow, read from the Nexus operation that ran it in a runner namespace. Steps
 // run inside a linked block are recorded at the block's completion or failure event, from
 // the block's output map.
 func Load(
@@ -102,11 +102,11 @@ func Load(
 			Outputs:  map[string]any{},
 			EventIDs: map[string]int64{},
 		},
-		steps:           map[string]mainStep{},
-		scheduled:       map[int64]string{},
-		runnerWorkflows: map[int64]struct{}{},
-		initiated:       map[int64]string{},
-		blocks:          map[int64]struct{}{},
+		steps:      map[string]mainStep{},
+		scheduled:  map[int64]string{},
+		nexusSteps: map[int64]string{},
+		initiated:  map[int64]string{},
+		blocks:     map[int64]struct{}{},
 	}
 
 	iter := c.GetWorkflowHistory(
@@ -153,11 +153,6 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 		) == nil {
 			if id, ok := l.mainStepID(input.Config); ok {
 				l.scheduled[eventID] = id
-				attrs := event.GetActivityTaskScheduledEventAttributes()
-				if attrs.GetActivityType().GetName() ==
-					mobiledevicesession.RunRunnerWorkflowActivityName {
-					l.runnerWorkflows[eventID] = struct{}{}
-				}
 			}
 		}
 
@@ -165,14 +160,48 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 		return l.applyActivityCompleted(eventID, event.GetActivityTaskCompletedEventAttributes())
 	case enums.EVENT_TYPE_ACTIVITY_TASK_FAILED:
 		attrs := event.GetActivityTaskFailedEventAttributes()
-		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID, attrs.GetFailure())
+		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID)
 	case enums.EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT:
 		attrs := event.GetActivityTaskTimedOutEventAttributes()
-		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID, nil)
+		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID)
 	case enums.EVENT_TYPE_ACTIVITY_TASK_CANCELED:
 		attrs := event.GetActivityTaskCanceledEventAttributes()
-		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID, nil)
+		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID)
 
+	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED:
+		attrs := event.GetNexusOperationScheduledEventAttributes()
+		if attrs.GetOperation() != mobiledevice.RunStepOperationName {
+			return nil
+		}
+		var input mobiledevice.RunStepInput
+		// An input that does not decode as a step input belongs to no step.
+		if attrs.GetInput() != nil && l.dc.FromPayload(attrs.GetInput(), &input) == nil {
+			if id, ok := l.mainStepID(input.Input.Config); ok {
+				l.nexusSteps[eventID] = id
+			}
+		}
+	case enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED:
+		attrs := event.GetNexusOperationCompletedEventAttributes()
+		id, ok := l.nexusSteps[attrs.GetScheduledEventId()]
+		if !ok {
+			return nil
+		}
+		var result workflowengine.WorkflowResult
+		if attrs.GetResult() != nil {
+			if err := l.dc.FromPayload(attrs.GetResult(), &result); err != nil {
+				return fmt.Errorf("decode result of step %s: %w", id, err)
+			}
+		}
+		l.record(id, eventID, result.Output)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_FAILED:
+		attrs := event.GetNexusOperationFailedEventAttributes()
+		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, attrs.GetFailure())
+	case enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED:
+		attrs := event.GetNexusOperationCanceledEventAttributes()
+		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, nil)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
+		attrs := event.GetNexusOperationTimedOutEventAttributes()
+		l.recordNexusFailure(attrs.GetScheduledEventId(), eventID, nil)
 	case enums.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED:
 		var input struct {
 			Config        map[string]any `json:"config"`
@@ -287,16 +316,6 @@ func (l *loader) applyActivityCompleted(
 	if !ok {
 		return nil
 	}
-	if _, runner := l.runnerWorkflows[attrs.GetScheduledEventId()]; runner {
-		var result struct {
-			Output mobiledevicesession.RunRunnerWorkflowResult `json:"output"`
-		}
-		if err := l.decodeFirst(attrs.GetResult(), &result); err != nil {
-			return fmt.Errorf("decode result of step %s: %w", id, err)
-		}
-		l.record(id, eventID, result.Output.Result.Output)
-		return nil
-	}
 	var result workflowengine.ActivityResult
 	if err := l.decodeFirst(attrs.GetResult(), &result); err != nil {
 		return fmt.Errorf("decode result of step %s: %w", id, err)
@@ -309,20 +328,23 @@ func (l *loader) applyActivityCompleted(
 	return nil
 }
 
-// recordActivityFailure mirrors ExecuteStep. An activity step stores the zero
-// ActivityResult returned with the error, because it is non-nil. A step whose workflow ran
-// in a runner namespace stores the failure's Details.output when it carries one, and the
-// zero WorkflowResult otherwise, also when it timed out or was canceled (nil failure).
-func (l *loader) recordActivityFailure(
+// recordActivityFailure mirrors ExecuteStep: an activity step stores the zero
+// ActivityResult returned with the error, because it is non-nil.
+func (l *loader) recordActivityFailure(scheduledEventID, eventID int64) {
+	if id, ok := l.scheduled[scheduledEventID]; ok {
+		l.record(id, eventID, workflowengine.ActivityResult{})
+	}
+}
+
+// recordNexusFailure mirrors runMobileStep: a mobile step stores the
+// failure's Details.output when it carries one, and the zero WorkflowResult
+// otherwise, also when it timed out or was canceled (nil failure).
+func (l *loader) recordNexusFailure(
 	scheduledEventID, eventID int64,
 	failure *failurepb.Failure,
 ) {
-	id, ok := l.scheduled[scheduledEventID]
+	id, ok := l.nexusSteps[scheduledEventID]
 	if !ok {
-		return
-	}
-	if _, runner := l.runnerWorkflows[scheduledEventID]; !runner {
-		l.record(id, eventID, workflowengine.ActivityResult{})
 		return
 	}
 	if failure != nil {

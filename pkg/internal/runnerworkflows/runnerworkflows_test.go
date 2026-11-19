@@ -14,7 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
@@ -23,6 +23,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
@@ -111,7 +112,7 @@ func saveRecord(t *testing.T, app core.App, collection string, fields map[string
 func description(
 	t *testing.T,
 	workflowType string,
-	pipelineRun *mobiledevicesession.PipelineRunRef,
+	pipelineRun *mobiledevice.PipelineRun,
 ) *workflowservice.DescribeWorkflowExecutionResponse {
 	t.Helper()
 	info := &workflow.WorkflowExecutionInfo{
@@ -122,13 +123,49 @@ func description(
 	if pipelineRun != nil {
 		payload, err := temporalcrypto.DataConverter().ToPayload(pipelineRun)
 		require.NoError(t, err)
-		info.Memo.Fields[mobiledevicesession.PipelineRunMemoKey] = payload
+		info.Memo.Fields[mobiledevice.PipelineRunMemoKey] = payload
 	}
 	return &workflowservice.DescribeWorkflowExecutionResponse{WorkflowExecutionInfo: info}
 }
 
+// stubClient makes clientFor return c for namespace; with allowed false a
+// client request fails the test.
+func stubClient(t *testing.T, namespace string, c client.Client, allowed bool) {
+	t.Helper()
+	original := clientFor
+	t.Cleanup(func() { clientFor = original })
+	clientFor = func(got string) (client.Client, error) {
+		if !allowed {
+			t.Errorf("unexpected Temporal client for %s", got)
+		}
+		require.Equal(t, namespace, got)
+		return c, nil
+	}
+}
+
+func TestUsesRunner(t *testing.T) {
+	uses.clear()
+	f := newFixture(t)
+	for _, tc := range []struct {
+		name     string
+		org      string
+		runnerID string
+		want     bool
+	}{
+		{name: "runner of a pipeline run", org: f.orgID, runnerID: f.runnerID, want: true},
+		{name: "runner the organization never used", org: f.orgID, runnerID: f.otherRunner},
+		{name: "another organization", org: f.otherOrgID, runnerID: f.runnerID},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := UsesRunner(f.app, tc.org, tc.runnerID)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestOwnedBy(t *testing.T) {
-	ownRun := &mobiledevicesession.PipelineRunRef{
+	ownRun := &mobiledevice.PipelineRun{
 		Namespace:  "acme",
 		WorkflowID: "pipeline-1",
 		RunID:      "run-1",
@@ -141,18 +178,19 @@ func TestOwnedBy(t *testing.T) {
 		describe  func(t *testing.T) (*workflowservice.DescribeWorkflowExecutionResponse, error)
 		want      bool
 		wantErr   bool
+		disabled  bool
 	}{
 		{
 			name: "step of the organization's pipeline run",
 			describe: func(t *testing.T) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
-				return description(t, mobiledevicesession.MobileAutomationWorkflowName, ownRun), nil
+				return description(t, mobiledevice.StepWorkflowName, ownRun), nil
 			},
 			want: true,
 		},
 		{
-			name: "device session of the organization's pipeline run",
+			name: "device preparation of the organization's pipeline run",
 			describe: func(t *testing.T) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
-				return description(t, mobiledevicesession.WorkflowName, ownRun), nil
+				return description(t, mobiledevice.PrepareWorkflowName, ownRun), nil
 			},
 			want: true,
 		},
@@ -160,14 +198,14 @@ func TestOwnedBy(t *testing.T) {
 			name:     "another organization",
 			otherOrg: true,
 			describe: func(t *testing.T) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
-				return description(t, mobiledevicesession.WorkflowName, ownRun), nil
+				return description(t, mobiledevice.PrepareWorkflowName, ownRun), nil
 			},
 		},
 		{
 			name:   "runner that hosted none of the run's devices",
 			runner: func(f fixture) string { return f.otherRunner },
 			describe: func(t *testing.T) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
-				return description(t, mobiledevicesession.WorkflowName, ownRun), nil
+				return description(t, mobiledevice.PrepareWorkflowName, ownRun), nil
 			},
 		},
 		{
@@ -179,7 +217,7 @@ func TestOwnedBy(t *testing.T) {
 		{
 			name: "no memo",
 			describe: func(t *testing.T) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
-				return description(t, mobiledevicesession.WorkflowName, nil), nil
+				return description(t, mobiledevice.PrepareWorkflowName, nil), nil
 			},
 		},
 		{
@@ -187,8 +225,8 @@ func TestOwnedBy(t *testing.T) {
 			describe: func(t *testing.T) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
 				return description(
 					t,
-					mobiledevicesession.WorkflowName,
-					&mobiledevicesession.PipelineRunRef{
+					mobiledevice.PrepareWorkflowName,
+					&mobiledevice.PipelineRun{
 						Namespace:  "acme",
 						WorkflowID: "pipeline-1",
 						RunID:      "run-2",
@@ -203,6 +241,14 @@ func TestOwnedBy(t *testing.T) {
 		{
 			name:      "bare runner prefix",
 			namespace: func(fixture) string { return canonify.RunnerNamespacePrefix },
+		},
+		{
+			name:      "namespace of no runner",
+			namespace: func(fixture) string { return canonify.RunnerNamespacePrefix + "zzzzzzzzzzzzzzz" },
+		},
+		{
+			name:     "disabled runner",
+			disabled: true,
 		},
 		{
 			name: "workflow not found",
@@ -220,7 +266,7 @@ func TestOwnedBy(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			owned.Clear()
+			owned.clear()
 			f := newFixture(t)
 			runnerID := f.runnerID
 			if tc.runner != nil {
@@ -234,17 +280,23 @@ func TestOwnedBy(t *testing.T) {
 			if tc.otherOrg {
 				orgID = f.otherOrgID
 			}
+			if tc.disabled {
+				runner, err := f.app.FindRecordById("mobile_runners", runnerID)
+				require.NoError(t, err)
+				runner.Set("disabled", true)
+				require.NoError(t, f.app.Save(runner))
+			}
 			c := temporalmocks.NewClient(t)
 			if tc.describe != nil {
 				resp, err := tc.describe(t)
 				c.On("DescribeWorkflow", mock.Anything, "pipeline-1-step", "step-run").
 					Return(temporalclient.Description(resp), err).Once()
 			}
+			stubClient(t, namespace, c, tc.describe != nil)
 
 			got, err := OwnedBy(
 				context.Background(),
 				f.app,
-				c,
 				orgID,
 				namespace,
 				"pipeline-1-step",
@@ -261,7 +313,7 @@ func TestOwnedBy(t *testing.T) {
 }
 
 func TestOwnedByCachesLookups(t *testing.T) {
-	owned.Clear()
+	owned.clear()
 	f := newFixture(t)
 	namespace := canonify.RunnerNamespacePrefix + f.runnerID
 	at := time.Now()
@@ -270,11 +322,12 @@ func TestOwnedByCachesLookups(t *testing.T) {
 	now = func() time.Time { return at }
 
 	c := temporalmocks.NewClient(t)
+	stubClient(t, namespace, c, true)
 	c.On("DescribeWorkflow", mock.Anything, "pipeline-1-step", "step-run").
 		Return(temporalclient.Description(description(
 			t,
-			mobiledevicesession.WorkflowName,
-			&mobiledevicesession.PipelineRunRef{WorkflowID: "pipeline-1", RunID: "run-1"},
+			mobiledevice.PrepareWorkflowName,
+			&mobiledevice.PipelineRun{WorkflowID: "pipeline-1", RunID: "run-1"},
 		)), nil).
 		Twice()
 
@@ -282,7 +335,6 @@ func TestOwnedByCachesLookups(t *testing.T) {
 		got, err := OwnedBy(
 			context.Background(),
 			f.app,
-			c,
 			f.orgID,
 			namespace,
 			"pipeline-1-step",
@@ -292,11 +344,10 @@ func TestOwnedByCachesLookups(t *testing.T) {
 		require.True(t, got)
 	}
 
-	at = at.Add(ownedTTL)
+	at = at.Add(cacheTTL)
 	got, err := OwnedBy(
 		context.Background(),
 		f.app,
-		c,
 		f.orgID,
 		namespace,
 		"pipeline-1-step",

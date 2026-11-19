@@ -11,7 +11,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -903,11 +903,12 @@ func TestPrepareAndApplyMobileDeviceSetsStepDeviceConfig(t *testing.T) {
 				prepared,
 				"tenant/workflow-run",
 				"runner-ns",
-				mobiledevicesession.PipelineRunRef{
+				mobiledevice.PipelineRun{
 					Namespace:  "tenant",
 					WorkflowID: "pipeline-1",
 					RunID:      "run-1",
 				},
+				2*time.Hour,
 			)
 
 			deviceMap := settedDevices["tenant/runner-1/device-1"].(map[string]any)
@@ -921,6 +922,7 @@ func TestPrepareAndApplyMobileDeviceSetsStepDeviceConfig(t *testing.T) {
 				"step_id":         step.With.Config[workflowengine.StepIDConfigKey],
 				"run_identifier":  step.With.Config["run_identifier"],
 				"runner_ns":       step.With.Config[runnerNamespaceConfigKey],
+				"timeout":         step.With.Config[pipelineExecutionTimeoutConfigKey],
 				"pipeline_run":    step.With.Config[pipelineRunConfigKey],
 				"device_type":     deviceMap["type"],
 				"package_id":      deviceMap["installed"].(map[string]string)["ver-1"],
@@ -1029,6 +1031,7 @@ func TestPrepareAndApplyMobileDeviceSetsStepDeviceConfig(t *testing.T) {
 		"workflow_id": "pipeline-1",
 		"run_id":      "run-1",
 	}, result["pipeline_run"])
+	require.Equal(t, "2h0m0s", result["timeout"])
 	require.Equal(t, "android_phone", result["device_type"])
 	require.Equal(t, "pkg-1", result["package_id"])
 	require.Equal(t, float64(1), result["runner_count"])

@@ -21,7 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -469,7 +469,7 @@ func TestHandleGetMyWorkflowRunInRunnerNamespace(t *testing.T) {
 				namespace = runnerNamespace
 			}
 			memo, err := temporalcrypto.DataConverter().
-				ToPayload(mobiledevicesession.PipelineRunRef{
+				ToPayload(mobiledevice.PipelineRun{
 					Namespace:  "acme",
 					WorkflowID: "pipeline-1",
 					RunID:      "run-1",
@@ -493,13 +493,16 @@ func TestHandleGetMyWorkflowRunInRunnerNamespace(t *testing.T) {
 							RunId:      "step-run",
 						},
 						Type: &common.WorkflowType{
-							Name: mobiledevicesession.MobileAutomationWorkflowName,
+							Name: mobiledevice.StepWorkflowName,
 						},
 						Memo: &common.Memo{Fields: map[string]*common.Payload{
-							mobiledevicesession.PipelineRunMemoKey: memo,
+							mobiledevice.PipelineRunMemoKey: memo,
 						}},
 					},
 				}), nil)
+			// runnerworkflows.OwnedBy reads the run with its own client.
+			temporalclient.SetClientForTests(runnerNamespace, mockClient)
+			t.Cleanup(temporalclient.ClearTestClients)
 
 			req := httptest.NewRequest(
 				http.MethodGet,
