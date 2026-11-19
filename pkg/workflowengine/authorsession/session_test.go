@@ -168,7 +168,7 @@ func newSessionHarness(t *testing.T, deviceType string) *sessionHarness {
 		return nil, nil
 	})
 	h.register(
-		activities.NewReportMobileDeviceSemaphoreDoneActivity().Name(),
+		activities.NewReportMobileDeviceSemaphoreDoneActivity(nil).Name(),
 		func(any) (any, error) {
 			return nil, nil
 		},
@@ -282,13 +282,13 @@ func (h *sessionHarness) requireReleasedAfter(previous string, result string) {
 	h.t.Helper()
 	names := h.names()
 	cleanup := indexOf(names, activities.NewCleanupDeviceActivity().Name())
-	report := indexOf(names, activities.NewReportMobileDeviceSemaphoreDoneActivity().Name())
+	report := indexOf(names, activities.NewReportMobileDeviceSemaphoreDoneActivity(nil).Name())
 	require.GreaterOrEqual(h.t, cleanup, 0, "cleanup must run: %v", names)
 	require.Greater(h.t, report, cleanup, "RunDone must follow cleanup: %v", names)
 	if previous != "" {
 		require.Greater(h.t, cleanup, indexOf(names, previous), "%v", names)
 	}
-	reportCall, _ := h.call(activities.NewReportMobileDeviceSemaphoreDoneActivity().Name())
+	reportCall, _ := h.call(activities.NewReportMobileDeviceSemaphoreDoneActivity(nil).Name())
 	reported, err := workflowengine.DecodePayload[activities.ReportMobileDeviceSemaphoreDoneInput](
 		reportCall.payload,
 	)
@@ -506,7 +506,11 @@ func TestSessionRejectsInvalidInputAndStillReleasesTicket(t *testing.T) {
 
 	require.ErrorContains(t, err, "device_id, platform and wallet_version_identifier are required")
 	require.NotContains(t, h.names(), activities.NewCleanupDeviceActivity().Name())
-	require.Contains(t, h.names(), activities.NewReportMobileDeviceSemaphoreDoneActivity().Name())
+	require.Contains(
+		t,
+		h.names(),
+		activities.NewReportMobileDeviceSemaphoreDoneActivity(nil).Name(),
+	)
 }
 
 func TestSessionFailsOnInvalidBuild(t *testing.T) {

@@ -375,7 +375,7 @@ func runnerNamespaceActivities(app core.App) []workflowengine.ExecutableActivity
 	return []workflowengine.ExecutableActivity{
 		activities.NewGetMobileDeviceActivity(app),
 		activities.NewMobileRunnerHTTPActivity(app),
-		activities.NewReportMobileDeviceSemaphoreDoneActivity(),
+		activities.NewReportMobileDeviceSemaphoreDoneActivity(app),
 		activities.NewResolveActionAuthorBuildActivity(app),
 		activities.NewSaveAuthoredWalletActionActivity(app),
 		activities.NewGenerateActionAuthorParametersActivity(app),

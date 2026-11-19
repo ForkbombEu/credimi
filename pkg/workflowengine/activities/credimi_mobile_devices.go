@@ -47,7 +47,7 @@ func (a *GetMobileDeviceActivity) Name() string {
 }
 
 func (a *GetMobileDeviceActivity) Execute(
-	_ context.Context,
+	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
@@ -58,6 +58,13 @@ func (a *GetMobileDeviceActivity) Execute(
 	info, err := mobileDevice(a.app, payload.DeviceIdentifier)
 	if err != nil {
 		return result, recordLookupError(&a.BaseActivity, err)
+	}
+	if err := requireRunnerNamespaceOfCaller(
+		ctx,
+		&a.BaseActivity,
+		info.RunnerNamespace,
+	); err != nil {
+		return result, err
 	}
 	result.Output = info
 	return result, nil

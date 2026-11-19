@@ -74,6 +74,13 @@ func (a *MobileRunnerHTTPActivity) Execute(
 		}
 		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
+	if err := requireRunnerNamespaceOfCaller(
+		ctx,
+		&a.BaseActivity,
+		mobilerunner.RunnerNamespace(runner.Id),
+	); err != nil {
+		return result, err
+	}
 	runnerURL := mobilerunner.RunnerURL(runner)
 	if runnerURL == "" {
 		return result, a.NewCodedError(

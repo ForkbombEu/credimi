@@ -30,7 +30,7 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
 
-	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity()
+	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity(nil)
 	env.RegisterActivityWithOptions(
 		reportActivity.Execute,
 		activity.RegisterOptions{Name: reportActivity.Name()},
@@ -143,7 +143,7 @@ func TestPipelineSendsFinalReportsAfterCancellation(t *testing.T) {
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
 
-	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity()
+	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity(nil)
 	env.RegisterActivityWithOptions(
 		reportActivity.Execute,
 		activity.RegisterOptions{Name: reportActivity.Name()},

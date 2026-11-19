@@ -167,7 +167,7 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 	},
 	"mobile-device-semaphore-done": {
 		Kind:        TaskActivity,
-		NewFunc:     func(core.App) any { return activities.NewReportMobileDeviceSemaphoreDoneActivity() },
+		NewFunc:     func(app core.App) any { return activities.NewReportMobileDeviceSemaphoreDoneActivity(app) },
 		PayloadType: reflect.TypeOf(activities.ReportMobileDeviceSemaphoreDoneInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},

@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
+	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
 	tclient "go.temporal.io/sdk/client"
 )
@@ -29,17 +30,23 @@ type ReportMobileDeviceSemaphoreDoneInput struct {
 
 type ReportMobileDeviceSemaphoreDoneActivity struct {
 	workflowengine.BaseActivity
+	app core.App
 }
 
 // ReportMobileDeviceSemaphoreDoneActivityName reports a finished run to the
 // leader device's semaphore.
 const ReportMobileDeviceSemaphoreDoneActivityName = "Report mobile device semaphore done"
 
-func NewReportMobileDeviceSemaphoreDoneActivity() *ReportMobileDeviceSemaphoreDoneActivity {
+// NewReportMobileDeviceSemaphoreDoneActivity returns the activity; callers
+// that only need its Name may pass a nil app.
+func NewReportMobileDeviceSemaphoreDoneActivity(
+	app core.App,
+) *ReportMobileDeviceSemaphoreDoneActivity {
 	return &ReportMobileDeviceSemaphoreDoneActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: ReportMobileDeviceSemaphoreDoneActivityName,
 		},
+		app: app,
 	}
 }
 
@@ -69,6 +76,20 @@ func (a *ReportMobileDeviceSemaphoreDoneActivity) Execute(
 			Summary: errCode.Description,
 			Message: "ticket_id, leader_device_id, and owner_namespace are required",
 		})
+	}
+	// A runner namespace may only report the runs of its own devices.
+	if callerRunnerNamespace(ctx) != "" {
+		leader, err := mobileDevice(a.app, leaderDeviceID)
+		if err != nil {
+			return result, recordLookupError(&a.BaseActivity, err)
+		}
+		if err := requireRunnerNamespaceOfCaller(
+			ctx,
+			&a.BaseActivity,
+			leader.RunnerNamespace,
+		); err != nil {
+			return result, err
+		}
 	}
 
 	if isMobileDeviceSemaphoreDisabled() {

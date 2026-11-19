@@ -14,7 +14,7 @@ import (
 )
 
 func TestReportMobileDeviceSemaphoreDoneActivityMissingFields(t *testing.T) {
-	activity := NewReportMobileDeviceSemaphoreDoneActivity()
+	activity := NewReportMobileDeviceSemaphoreDoneActivity(nil)
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: ReportMobileDeviceSemaphoreDoneInput{
 			TicketID: "ticket-1",
@@ -25,7 +25,7 @@ func TestReportMobileDeviceSemaphoreDoneActivityMissingFields(t *testing.T) {
 }
 
 func TestReportMobileDeviceSemaphoreDoneActivityDecodeAndDisabled(t *testing.T) {
-	activity := NewReportMobileDeviceSemaphoreDoneActivity()
+	activity := NewReportMobileDeviceSemaphoreDoneActivity(nil)
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: "not-a-report-payload",
 	})
@@ -48,6 +48,6 @@ func TestMobileDeviceSemaphoreDoneActivityName(t *testing.T) {
 	require.Equal(
 		t,
 		"Report mobile device semaphore done",
-		NewReportMobileDeviceSemaphoreDoneActivity().Name(),
+		NewReportMobileDeviceSemaphoreDoneActivity(nil).Name(),
 	)
 }
