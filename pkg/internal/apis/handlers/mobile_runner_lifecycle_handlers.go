@@ -134,6 +134,15 @@ var MobileRunnerLifecycleRoutes = routing.RouteGroup{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
 		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/live-view",
+			Handler:        HandleMobileRunnerLifecycleLiveView,
+			ResponseSchema: MobileRunnerLiveViewStatusResponse{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminOrAuth(),
+			},
+		},
 	},
 }
 
@@ -647,9 +656,10 @@ func lifecycleResponse(
 
 // mobileRunnerCredential returns the credential Credimi presents to runner;
 // runners learn it from registration and lifecycle responses. An
-// admin-managed runner serves every namespace, so its credential goes only to
-// superusers and the internal admin key it registers with, never to the
-// members of the organization that owns the record; they get an empty value.
+// admin-managed runner is operator infrastructure used by every organization,
+// so its credential goes only to superusers and the internal admin key it
+// registers with, never to the members of the organization that owns the
+// record; they get an empty value.
 func mobileRunnerCredential(auth *core.Record, runner *core.Record) (string, *apierror.APIError) {
 	if runner.GetBool("admin_managed") && !isSuperuserAuth(auth) {
 		return "", nil
@@ -684,8 +694,9 @@ func lifecycleUpdateID(action, runnerID, requestID string) string {
 
 // HandleMobileRunnerLifecycleWork returns the running and queued semaphore
 // tickets of every device of a runner, redacting other organizations' runs.
-// Like the runner credential, the work of an admin-managed runner, which
-// serves every namespace, goes only to superusers and the internal admin key.
+// Like the runner credential, the work of an admin-managed runner, operator
+// infrastructure used by every organization, goes only to superusers and the
+// internal admin key.
 func HandleMobileRunnerLifecycleWork() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		runner, runnerID, apiErr := resolveLifecycleRunner(

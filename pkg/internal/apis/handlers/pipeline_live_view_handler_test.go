@@ -197,19 +197,17 @@ func createLiveViewDevice(
 }
 
 // preparedLiveViewDevice is the setted_devices entry of an emulator of runner
-// that its device session has prepared.
+// that the pipeline has prepared.
 func preparedLiveViewDevice(runner *core.Record) map[string]any {
 	return map[string]any{
-		"serial":                     "emulator-5554",
-		"type":                       "android_emulator",
-		"runner_namespace":           mobilerunner.RunnerNamespace(runner.Id),
-		"device_session_workflow_id": "pipeline-1-device-pixel",
-		"device_session_run_id":      "session-run-1",
+		"serial":           "emulator-5554",
+		"type":             "android_emulator",
+		"runner_namespace": mobilerunner.RunnerNamespace(runner.Id),
 	}
 }
 
-// A pipeline holds its device in a device session in the runner namespace, so
-// the runner must look the live view up by that session.
+// The runner looks the live view up by the pipeline run, which it later asks
+// Credimi about.
 func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 	// Set to prove Credimi never forwards an internal admin key to a runner.
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
@@ -244,33 +242,11 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 	require.Equal(t, map[string]any{
 		"device_identifier": deviceID,
 		"serial":            "emulator-5554",
-		"namespace":         mobilerunner.RunnerNamespace(runner.Id),
-		"workflow_id":       "pipeline-1-device-pixel",
-		"run_id":            "session-run-1",
+		"namespace":         namespace,
+		"workflow_id":       "pipeline-1",
+		"run_id":            "run-1",
 		"run_identifier":    pipeline.RunIdentifier(namespace, "pipeline-1", "run-1"),
 	}, call.body)
-}
-
-// A device still being prepared has no device session yet.
-func TestPipelineLiveViewExplainsDeviceSessionStillBeingPrepared(t *testing.T) {
-	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
-	app, authRecord, _ := pipelineLiveViewTestApp(t)
-	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
-	deviceID, runner := createLiveViewDevice(t, app, authRecord, server.URL, true)
-	device := preparedLiveViewDevice(runner)
-	delete(device, "device_session_run_id")
-	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		deviceID: device,
-	})
-
-	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
-		WorkflowID: "pipeline-1",
-		RunID:      "run-1",
-	})
-
-	require.Equal(t, http.StatusConflict, rec.Code)
-	require.Equal(t, "This device is still being prepared.", decodeAPIError(t, rec).Message)
-	require.Empty(t, *calls)
 }
 
 // liveViewSession is the action author session authoringSessionID that the

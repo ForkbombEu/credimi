@@ -152,28 +152,21 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		streams := make([]PipelineLiveViewStream, 0, len(deviceIDs))
 		var firstErr *apierror.APIError
 		for _, deviceID := range deviceIDs {
+			// The runner asks Credimi whether this workflow still runs
+			// (GET /api/mobile-runner/lifecycle/live-view).
 			request := runnerLiveViewRequest{
 				Namespace:     workflowNamespace,
 				WorkflowID:    workflowID,
 				RunID:         runID,
 				RunIdentifier: runIdentifier,
 			}
-			var apiErr *apierror.APIError
-			if workflowType != activities.ActionAuthorSessionWorkflowName {
-				// A pipeline holds each device in a device session in the
-				// device's runner namespace.
-				request, apiErr = deviceSessionLiveViewRequest(devices[deviceID], runIdentifier)
-			}
-			var stream PipelineLiveViewStream
-			if apiErr == nil {
-				stream, apiErr = openPipelineDeviceLiveView(
-					ctx,
-					e.App,
-					deviceID,
-					devices[deviceID],
-					request,
-				)
-			}
+			stream, apiErr := openPipelineDeviceLiveView(
+				ctx,
+				e.App,
+				deviceID,
+				devices[deviceID],
+				request,
+			)
 			if apiErr != nil {
 				if explicit {
 					return apiErr
@@ -191,33 +184,6 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, PipelineLiveViewResponse{Streams: streams})
 	}
-}
-
-// deviceSessionLiveViewRequest addresses the device session that holds a
-// pipeline's device, read from its setted_devices entry. The entry names the
-// session only once the device is prepared.
-func deviceSessionLiveViewRequest(
-	device map[string]any,
-	runIdentifier string,
-) (runnerLiveViewRequest, *apierror.APIError) {
-	namespace, _ := device["runner_namespace"].(string)
-	sessionWorkflowID, _ := device["device_session_workflow_id"].(string)
-	sessionRunID, _ := device["device_session_run_id"].(string)
-	request := runnerLiveViewRequest{
-		Namespace:     namespace,
-		WorkflowID:    sessionWorkflowID,
-		RunID:         sessionRunID,
-		RunIdentifier: runIdentifier,
-	}
-	if request.Namespace == "" || request.WorkflowID == "" || request.RunID == "" {
-		return runnerLiveViewRequest{}, apierror.New(
-			http.StatusConflict,
-			"device_id",
-			"pipeline mobile device is not initialized",
-			"This device is still being prepared.",
-		)
-	}
-	return request, nil
 }
 
 // requireActionAuthorSessionOwner allows the live view of an action author
