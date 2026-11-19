@@ -73,7 +73,7 @@ export function visibleSteps(steps: ExecutionStep[], showAll: boolean): Executio
  * The run page of a workflow run; `namespace` names the runner namespace it ran in, absent for
  * the organization's namespace.
  */
-export function runPageHref(workflowId: string, runId: string, namespace?: string): string {
+function runPageHref(workflowId: string, runId: string, namespace?: string): string {
 	const runPage = resolve('/my/tests/runs/[workflow_id]/[run_id]', {
 		workflow_id: encodeURIComponent(workflowId),
 		run_id: encodeURIComponent(runId)

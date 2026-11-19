@@ -4670,8 +4670,7 @@ Defects found and fixed:
   returns a failed flow's screenshots as `flow_output.maestro_screenshot_urls`
   in the failure's `Details.output` (no longer `Details.maestro_screenshot_urls`),
   and a failed task-workflow step stores its failure's `Details.output` as its
-  outputs (`failedTaskWorkflowOutput`, gated by
-  `credimi-2026-10-failed-task-workflow-output`; `pipelinehistory` mirrors it),
+  outputs (`failedTaskWorkflowOutput`; `pipelinehistory` mirrors it),
   so `${{ <step>.outputs.flow_output.maestro_screenshot_urls | optional }}`
   still resolves for the failed step. The stored `wallet_actions` record on
   credimi.io must be updated from the import file.

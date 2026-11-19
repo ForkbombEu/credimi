@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	type ExecutionStep,
-	runPageHref,
 	STEPS_INITIAL_LIMIT,
 	stepDetailsHref,
 	visibleSteps
@@ -70,15 +69,14 @@ describe('stepDetailsHref', () => {
 			'/my/tests/runs/wf-step/step-run?namespace=runner-abc'
 		);
 	});
-});
-
-describe('runPageHref', () => {
-	it('opens a run in the organization namespace', () => {
-		expect(runPageHref('wf', 'run')).toBe('/my/tests/runs/wf/run');
-	});
 
 	it('encodes the run and its runner namespace', () => {
-		expect(runPageHref('wf/a b', 'run#1', 'runner-a&b')).toBe(
+		const workflowStep = step(10, {
+			kind: 'workflow',
+			execution: { workflowId: 'wf/a b', runId: 'run#1' },
+			execution_namespace: 'runner-a&b'
+		});
+		expect(stepDetailsHref(workflowStep)).toBe(
 			'/my/tests/runs/wf%2Fa%20b/run%231?namespace=runner-a%26b'
 		);
 	});
