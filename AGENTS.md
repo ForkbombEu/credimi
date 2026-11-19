@@ -432,7 +432,7 @@ Runner host list shape:
 
 - `GET /api/mobile-runners`
 - Items include `path`, `is_owned`, `is_published`, `is_online`.
-- `published` is superuser-only: the `mobile_runners` create/update rules reject it (`pb_migrations/1792000000_restrict_mobile_runner_published.js`) and `POST /api/mobile-runner` ignores it from non-superusers, because a published runner serves every published organization's namespace.
+- Owners of a runner's organization may publish it, through the `mobile_runners` rules and `POST /api/mobile-runner` alike (`pb_migrations/1794900100_allow_owner_mobile_runner_published.js` lifted the superuser-only guard of `1792000000_restrict_mobile_runner_published.js`): a published runner's Temporal token still opens only its own namespace `runner-<record id>`.
   Device selector list shape:
 
 - `GET /api/mobile-devices`

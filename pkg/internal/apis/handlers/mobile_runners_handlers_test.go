@@ -1192,9 +1192,9 @@ func TestUpsertMobileRunner(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "lab device", record.GetString("description"))
 		require.Equal(t, "https://runner.example.trycloudflare.com", record.GetString("ip"))
-		// Tenants cannot publish runners: the requested flag is ignored.
-		require.False(t, record.GetBool("published"))
-		require.Equal(t, false, body["published"])
+		// Owners publish their runners.
+		require.True(t, record.GetBool("published"))
+		require.Equal(t, true, body["published"])
 	})
 
 	t.Run("runner_id update keeps the same record", func(t *testing.T) {

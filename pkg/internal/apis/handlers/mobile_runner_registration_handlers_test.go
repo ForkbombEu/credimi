@@ -740,6 +740,42 @@ func TestUpsertMobileRunnerRejectsIdentityChanges(t *testing.T) {
 	}
 }
 
+// A runner token opens only the runner's own namespace, so its organization's
+// owners may publish it.
+func TestUpsertMobileRunnerStoresPublishedFromOwner(t *testing.T) {
+	f := setupRegistrationFixture(t)
+	upsert := func(published bool) map[string]any {
+		t.Helper()
+		event := performMobileRunnerRequest(
+			t,
+			f.app,
+			f.user,
+			"/api/mobile-runner",
+			UpsertMobileRunnerRequest{
+				RunnerID:  "usera-s-organization/lab-runner",
+				Name:      "Lab Runner",
+				IP:        "https://lab.example",
+				Published: &published,
+			},
+		)
+		require.NoError(t, HandleUpsertMobileRunner()(event))
+		recorder := responseRecorder(t, event)
+		require.Equal(t, http.StatusOK, recorder.Code)
+		return decodeJSONBody(t, recorder)
+	}
+	stored := func() bool {
+		t.Helper()
+		runner, err := canonify.Resolve(f.app, "/usera-s-organization/lab-runner")
+		require.NoError(t, err)
+		return runner.GetBool("published")
+	}
+
+	require.Equal(t, true, upsert(true)["published"])
+	require.True(t, stored())
+	require.Equal(t, false, upsert(false)["published"])
+	require.False(t, stored())
+}
+
 func TestCanonifyPreviewError(t *testing.T) {
 	cases := []struct {
 		name       string

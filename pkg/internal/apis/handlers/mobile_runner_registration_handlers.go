@@ -777,9 +777,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		record.Set("type", strings.TrimSpace(input.Type))
 		record.Set("port", strings.TrimSpace(input.Port))
 		record.Set("serial", strings.TrimSpace(input.Serial))
-		// Only superusers publish runners: a published runner serves every
-		// published organization's namespace.
-		if input.Published != nil && isSuperuserAuth(e.Auth) {
+		if input.Published != nil {
 			record.Set("published", *input.Published)
 		}
 		// Another member re-registering the runner keeps its identity, so

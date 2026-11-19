@@ -113,9 +113,10 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
-			name:     "org owner cannot publish the runner",
+			name:     "org owner can publish the runner",
 			body:     `{"published":true}`,
-			wantCode: http.StatusNotFound,
+			wantCode: http.StatusOK,
+			want:     map[string]any{"published": true},
 		},
 		{
 			name:     "org owner can still edit ordinary fields",
@@ -185,7 +186,11 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			name:  "org owner cannot create a runner with agent limits",
 			extra: `"agent_others_daily_tokens":1`,
 		},
-		{name: "org owner cannot create a published runner", extra: `"published":true`},
+		{
+			name:     "org owner can create a published runner",
+			extra:    `"published":true`,
+			wantCode: http.StatusOK,
+		},
 		{
 			// The runner namespace is runner-<id>: a chosen id could claim a
 			// deleted runner's namespace.
