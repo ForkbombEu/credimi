@@ -38,7 +38,7 @@ tests:
               jsonpath: $.issuer_identifier
       - name: Get the fake issuer credential
         http:
-          url: https://credimi.io/api/pipeline/mobile-flow
+          url: "[[.app_url]]/api/pipeline/mobile-flow"
           method: POST
           json:
             workflow_id: ${{ env.workflow_id }}

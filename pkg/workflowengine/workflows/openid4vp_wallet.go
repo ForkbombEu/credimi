@@ -165,6 +165,7 @@ func (w *OpenID4VPWalletWorkflow) ExecuteWorkflow(
 			"variant": payload.Variant,
 			"form":    payload.Form,
 			"test":    payload.TestName,
+			"app_url": strings.TrimRight(appURL, "/"),
 		},
 	}
 	cfg := StepCIAndEmailConfig{

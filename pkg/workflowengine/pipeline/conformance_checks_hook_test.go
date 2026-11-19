@@ -930,11 +930,16 @@ func TestWalletStepCITemplatesSendMobileFlowToken(t *testing.T) {
 			require.NoError(t, err)
 			rendered, err := activities.RenderYAML(
 				string(template),
-				map[string]any{"mobile_flow_token": "t", "action_id": "a"},
+				map[string]any{
+					"mobile_flow_token": "t",
+					"action_id":         "a",
+					"app_url":           "https://example.test",
+				},
 			)
 			require.NoError(t, err)
 			require.Contains(t, rendered, "  mobile_flow_token: t\n")
 			require.Contains(t, rendered, "mobile_flow_token: ${{ env.mobile_flow_token }}")
+			require.Contains(t, rendered, `url: "https://example.test/api/pipeline/mobile-flow"`)
 		})
 	}
 }

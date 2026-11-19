@@ -36,7 +36,7 @@ tests:
               jsonpath: $.deeplink
       - name: Extract config from wallet
         http:
-          url: https://credimi.io/api/pipeline/mobile-flow
+          url: "[[.app_url]]/api/pipeline/mobile-flow"
           method: POST
           json:
             workflow_id: ${{ env.workflow_id }}
