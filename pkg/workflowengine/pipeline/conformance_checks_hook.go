@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/log"
@@ -46,6 +47,7 @@ func ConformanceCheckSetupHook(
 	_ log.Logger,
 ) error {
 	logger := workflow.GetLogger(ctx)
+	tokens := &mobileFlowTokens{}
 
 	for i := range wfDef.Steps {
 		step := &wfDef.Steps[i].StepSpec
@@ -53,7 +55,7 @@ func ConformanceCheckSetupHook(
 			continue
 		}
 		logger.Info("ConformanceCheckHook: processing step", "step", step.ID)
-		if err := setupConformanceCheckStep(ctx, step, config); err != nil {
+		if err := setupConformanceCheckStep(ctx, step, config, tokens); err != nil {
 			return err
 		}
 	}
@@ -67,7 +69,7 @@ func ConformanceCheckSetupHook(
 	}
 	for _, step := range hookSteps {
 		logger.Info("ConformanceCheckHook: processing hook step", "step", step.ID)
-		if err := setupConformanceCheckStep(ctx, step, config); err != nil {
+		if err := setupConformanceCheckStep(ctx, step, config, tokens); err != nil {
 			return err
 		}
 	}
@@ -99,6 +101,7 @@ func setupConformanceCheckStep(
 	ctx workflow.Context,
 	step *pipeline.StepSpec,
 	config map[string]any,
+	tokens *mobileFlowTokens,
 ) error {
 	rawPayload, err := DecodePayload(&pipeline.StepDefinition{StepSpec: *step})
 	if err != nil {
@@ -183,9 +186,56 @@ func setupConformanceCheckStep(
 	}
 
 	MergePayload(&defaultPayload, &step.With.Payload)
+	if parameters, ok := defaultPayload["parameters"].(map[string]any); ok {
+		if _, ok := parameters["action_id"]; ok {
+			token, err := tokens.get(ctx)
+			if err != nil {
+				return err
+			}
+			parameters["mobile_flow_token"] = token
+		}
+	}
 	step.With.Payload = defaultPayload
 	SetConfigValue(&step.With.Config, "template", resolved.Template)
 	return nil
+}
+
+// mobileFlowTokens signs the pipeline run's mobile flow token on first use
+// and reuses it for every later step.
+type mobileFlowTokens struct {
+	token string
+}
+
+// get returns the mobile flow token of the running pipeline, which wallet
+// conformance checks (steps with parameters.action_id) send to
+// POST /api/pipeline/mobile-flow.
+func (t *mobileFlowTokens) get(ctx workflow.Context) (string, error) {
+	if t.token != "" {
+		return t.token, nil
+	}
+	actCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 3},
+	})
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		actCtx,
+		activities.SignMobileFlowTokenActivityName,
+		workflowengine.ActivityInput{},
+	).Get(actCtx, &result); err != nil {
+		return "", err
+	}
+	token, ok := result.Output.(string)
+	if !ok || token == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return "", workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "invalid mobile flow token",
+		})
+	}
+	t.token = token
+	return token, nil
 }
 
 // loadConformanceTemplate resolves the check template through

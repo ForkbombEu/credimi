@@ -9,14 +9,17 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/signedtoken"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -261,10 +264,11 @@ func TestPipelineMobileFlowRefusesUnpublishedActionOfAnotherOrganization(t *test
 		req.Context(),
 		middlewares.ValidatedInputKey,
 		PipelineMobileFlowInput{
-			WorkflowID:     "pipeline-1",
-			RunID:          "run-1",
-			OrganizationID: "usera-s-organization",
-			ActionID:       actionPath,
+			WorkflowID:      "pipeline-1",
+			RunID:           "run-1",
+			OrganizationID:  "usera-s-organization",
+			ActionID:        actionPath,
+			MobileFlowToken: mobileFlowToken(t, app, "usera-s-organization", "pipeline-1", "run-1"),
 		},
 	))
 	rec := httptest.NewRecorder()
@@ -275,4 +279,78 @@ func TestPipelineMobileFlowRefusesUnpublishedActionOfAnotherOrganization(t *test
 	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 	require.Equal(t, "wallet action not found", decodeAPIError(t, rec).Reason)
+}
+
+// mobileFlowToken signs the mobile flow token of a pipeline run.
+func mobileFlowToken(t *testing.T, app core.App, namespace, workflowID, runID string) string {
+	t.Helper()
+	token, err := signedtoken.Sign(app, activities.MobileFlowTokenLabel, activities.MobileFlowGrant{
+		Namespace:  namespace,
+		WorkflowID: workflowID,
+		RunID:      runID,
+	})
+	require.NoError(t, err)
+	return token
+}
+
+func TestPipelineMobileFlowRequiresToken(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	body := `{"workflow_id":"pipeline-1","run_id":"run-1",` +
+		`"organization_id":"usera-s-organization","action_id":"a/b/c"}`
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/pipeline/mobile-flow",
+		strings.NewReader(body),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	err := middlewares.DynamicValidateInputByType(reflect.TypeOf(PipelineMobileFlowInput{}))(
+		&core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}},
+	)
+	requireHandlerErrorHandled(t, rec, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), "MobileFlowToken")
+}
+
+// A token opens only the pipeline run it was signed for, before any Temporal
+// client is opened.
+func TestPipelineMobileFlowRefusesTokenOfAnotherRun(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	original := pipelineMobileFlowTemporalClient
+	t.Cleanup(func() { pipelineMobileFlowTemporalClient = original })
+	pipelineMobileFlowTemporalClient = func(string) (client.Client, error) {
+		t.Fatal("no Temporal client for a refused token")
+		return nil, nil
+	}
+	for name, token := range map[string]string{
+		"another run":          mobileFlowToken(t, app, "usera-s-organization", "pipeline-1", "run-2"),
+		"another workflow":     mobileFlowToken(t, app, "usera-s-organization", "pipeline-2", "run-1"),
+		"another organization": mobileFlowToken(t, app, "userb-s-organization", "pipeline-1", "run-1"),
+		"forged":               "eyJ9.x",
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/pipeline/mobile-flow", nil)
+			req = req.WithContext(context.WithValue(
+				req.Context(),
+				middlewares.ValidatedInputKey,
+				PipelineMobileFlowInput{
+					WorkflowID:      "pipeline-1",
+					RunID:           "run-1",
+					OrganizationID:  "usera-s-organization",
+					ActionID:        "a/b/c",
+					MobileFlowToken: token,
+				},
+			))
+			rec := httptest.NewRecorder()
+			err := HandlePipelineMobileFlow()(&core.RequestEvent{
+				App:   app,
+				Event: router.Event{Request: req, Response: rec},
+			})
+			requireHandlerErrorHandled(t, rec, err)
+			require.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+			require.Equal(t, "invalid mobile flow token", decodeAPIError(t, rec).Reason)
+		})
+	}
 }

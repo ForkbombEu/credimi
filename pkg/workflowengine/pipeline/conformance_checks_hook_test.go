@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -458,6 +459,7 @@ workflow_id: "workflow-1"`
 		parameters, ok := payload["parameters"].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "org/wallet/get-credential", parameters["action_id"])
+		require.Equal(t, "signed-token", parameters["mobile_flow_token"])
 		require.Equal(t, "org", parameters["organization_id"])
 		require.Equal(t, "run-1", parameters["run_id"])
 		require.Equal(t, "workflow-1", parameters["workflow_id"])
@@ -669,6 +671,12 @@ func newConformanceHookTestEnv() *testsuite.TestWorkflowEnvironment {
 		templateAct.Execute,
 		activity.RegisterOptions{Name: templateAct.Name()},
 	)
+	env.RegisterActivityWithOptions(
+		func(context.Context, workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{Output: "signed-token"}, nil
+		},
+		activity.RegisterOptions{Name: activities.SignMobileFlowTokenActivityName},
+	)
 	return env
 }
 
@@ -839,4 +847,94 @@ func conformanceHookWorkflow(
 		Payload: wfDef.Steps[0].With.Payload,
 		Config:  wfDef.Steps[0].With.Config,
 	}, nil
+}
+
+// Wallet conformance checks (parameters.action_id) call
+// POST /api/pipeline/mobile-flow with the run's token, signed once per run.
+func TestConformanceCheckSetupHookInjectsMobileFlowToken(t *testing.T) {
+	t.Setenv("ROOT_DIR", filepath.Dir(testConfigTemplatesDir(t)))
+	checkID := "openid4vp_wallet/draft-24/openid_conformance_suite/" +
+		"sd_jwt_vc+did+request_uri_signed+direct_post"
+	step := func(id string, parameters map[string]any) pipeline.StepDefinition {
+		return pipeline.StepDefinition{StepSpec: pipeline.StepSpec{
+			ID:  id,
+			Use: conformanceCheckStepUse,
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"check_id":   checkID,
+				"parameters": parameters,
+			}},
+		}}
+	}
+	hookWorkflow := func(ctx workflow.Context) (map[string]any, error) {
+		wfDef := &pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{
+			step(
+				"wallet-1",
+				map[string]any{"action_id": "org/wallet/a", "mobile_flow_token": "forged"},
+			),
+			step("wallet-2", map[string]any{"action_id": "org/wallet/b"}),
+			step("plain", map[string]any{"deeplink": "x"}),
+		}}
+		runData := map[string]any{}
+		finalOutput := map[string]any{}
+		if err := ConformanceCheckSetupHook(
+			ctx,
+			wfDef,
+			map[string]any{"user_mail": "test@example.com"},
+			&runData,
+			&finalOutput,
+			log.Logger(noopLogger{}),
+		); err != nil {
+			return nil, err
+		}
+		tokens := map[string]any{}
+		for _, s := range wfDef.Steps {
+			parameters, _ := s.With.Payload["parameters"].(map[string]any)
+			tokens[s.ID] = parameters["mobile_flow_token"]
+		}
+		return tokens, nil
+	}
+
+	env := newConformanceHookTestEnv()
+	env.RegisterWorkflowWithOptions(
+		hookWorkflow,
+		workflow.RegisterOptions{Name: "test-conformance-hook-token"},
+	)
+	calls := 0
+	env.SetOnActivityStartedListener(
+		func(info *activity.Info, _ context.Context, _ converter.EncodedValues) {
+			if info.ActivityType.Name == activities.SignMobileFlowTokenActivityName {
+				calls++
+			}
+		},
+	)
+	env.ExecuteWorkflow("test-conformance-hook-token")
+	require.NoError(t, env.GetWorkflowError())
+	var tokens map[string]any
+	require.NoError(t, env.GetWorkflowResult(&tokens))
+	require.Equal(t, map[string]any{
+		"wallet-1": "signed-token",
+		"wallet-2": "signed-token",
+		"plain":    nil,
+	}, tokens)
+	require.Equal(t, 1, calls)
+}
+
+func TestWalletStepCITemplatesSendMobileFlowToken(t *testing.T) {
+	rootDir := filepath.Dir(testConfigTemplatesDir(t))
+	for _, path := range []string{
+		workflows.OpenID4VCIWalletStepCITemplatePath,
+		workflows.OpenID4VPWalletStepCITemplatePathv1_0,
+	} {
+		t.Run(filepath.Base(filepath.Dir(path)), func(t *testing.T) {
+			template, err := os.ReadFile(filepath.Join(rootDir, path))
+			require.NoError(t, err)
+			rendered, err := activities.RenderYAML(
+				string(template),
+				map[string]any{"mobile_flow_token": "t", "action_id": "a"},
+			)
+			require.NoError(t, err)
+			require.Contains(t, rendered, "  mobile_flow_token: t\n")
+			require.Contains(t, rendered, "mobile_flow_token: ${{ env.mobile_flow_token }}")
+		})
+	}
 }

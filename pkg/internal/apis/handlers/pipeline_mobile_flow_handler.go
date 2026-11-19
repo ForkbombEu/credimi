@@ -14,9 +14,11 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/signedtoken"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -31,10 +33,13 @@ import (
 const pipelineMobileFlowWorkflowIDPrefix = "Pipeline-Mobile-Flow-"
 
 type PipelineMobileFlowInput struct {
-	WorkflowID       string            `json:"workflow_id"       validate:"required"`
-	RunID            string            `json:"run_id"            validate:"required"`
-	OrganizationID   string            `json:"organization_id"   validate:"required"`
-	ActionID         string            `json:"action_id"         validate:"required"`
+	WorkflowID     string `json:"workflow_id"     validate:"required"`
+	RunID          string `json:"run_id"          validate:"required"`
+	OrganizationID string `json:"organization_id" validate:"required"`
+	ActionID       string `json:"action_id"       validate:"required"`
+	// MobileFlowToken is the pipeline run's token, signed by the
+	// "Sign a mobile flow token" activity: only that run may drive its devices.
+	MobileFlowToken  string            `json:"mobile_flow_token" validate:"required"`
 	ActionParameters map[string]string `json:"action_parameters"`
 }
 
@@ -54,6 +59,24 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 		}
 
 		namespace := strings.TrimSpace(input.OrganizationID)
+		var grant activities.MobileFlowGrant
+		if err := signedtoken.Verify(
+			e.App,
+			activities.MobileFlowTokenLabel,
+			input.MobileFlowToken,
+			&grant,
+		); err != nil || grant != (activities.MobileFlowGrant{
+			Namespace:  namespace,
+			WorkflowID: strings.TrimSpace(input.WorkflowID),
+			RunID:      strings.TrimSpace(input.RunID),
+		}) {
+			return apierror.New(
+				http.StatusForbidden,
+				"mobile_flow_token",
+				"invalid mobile flow token",
+				"the token was not issued for this pipeline run",
+			)
+		}
 		// Only organization namespaces get a client.
 		org, err := pbutils.FindOrganizationByNamespace(e.App, namespace)
 		if err != nil {

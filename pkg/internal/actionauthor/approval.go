@@ -5,30 +5,23 @@
 package actionauthor
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/signedtoken"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 const (
-	approvalKeyLabel     = "credimi/action-author/approval/v1"
-	sessionKeyLabel      = "credimi/action-author/session/v1"
-	ticketKeyLabel       = "credimi/action-author/ticket/v1"
-	runKeyLabel          = "credimi/action-author/run/v1"
-	approvalMinSecretLen = 32
+	approvalKeyLabel = "credimi/action-author/approval/v1"
+	sessionKeyLabel  = "credimi/action-author/session/v1"
+	ticketKeyLabel   = "credimi/action-author/ticket/v1"
+	runKeyLabel      = "credimi/action-author/run/v1"
 	// ApprovalLifetime bounds how long a signed approval can be used by Save.
 	ApprovalLifetime = 30 * time.Minute
 )
-
-var tokenEncoding = base64.RawURLEncoding
 
 // Approval is a human's acceptance of one candidate of one ActionAuthor
 // workflow, signed by Credimi.
@@ -43,73 +36,9 @@ type Approval struct {
 	Key string `json:"key"`
 }
 
-// signingKey derives a signing key for one token kind from the users
-// collection's auth token secret, so rotating that secret also revokes
-// pending approvals.
-func signingKey(app core.App, label string) ([]byte, error) {
-	users, err := app.FindCollectionByNameOrId("users")
-	if err != nil {
-		return nil, fmt.Errorf("find users collection: %w", err)
-	}
-	secret := users.AuthToken.Secret
-	if len(secret) < approvalMinSecretLen {
-		return nil, errors.New("users auth token secret is too short to sign tokens")
-	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(label))
-	return mac.Sum(nil), nil
-}
-
-func tokenMAC(key []byte, payload string) []byte {
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(payload))
-	return mac.Sum(nil)
-}
-
-// signToken returns the token base64url(json).base64url(hmac) of v, signed
-// with the key of label.
-func signToken(app core.App, label string, v any) (string, error) {
-	key, err := signingKey(app, label)
-	if err != nil {
-		return "", err
-	}
-	encoded, err := json.Marshal(v)
-	if err != nil {
-		return "", fmt.Errorf("encode token: %w", err)
-	}
-	payload := tokenEncoding.EncodeToString(encoded)
-	return payload + "." + tokenEncoding.EncodeToString(tokenMAC(key, payload)), nil
-}
-
-// errUnsigned rejects a token Credimi did not sign with the expected key.
-var errUnsigned = errors.New("token not signed by Credimi")
-
-// verifyToken decodes into v a token signed with the key of label. It
-// returns errUnsigned for a token that is malformed or signed otherwise, and
-// other errors when the key cannot be derived.
-func verifyToken(app core.App, label, token string, v any) error {
-	key, err := signingKey(app, label)
-	if err != nil {
-		return err
-	}
-	payload, signature, ok := strings.Cut(token, ".")
-	if !ok {
-		return errUnsigned
-	}
-	mac, err := tokenEncoding.DecodeString(signature)
-	if err != nil || !hmac.Equal(mac, tokenMAC(key, payload)) {
-		return errUnsigned
-	}
-	encoded, err := tokenEncoding.DecodeString(payload)
-	if err != nil || json.Unmarshal(encoded, v) != nil {
-		return errUnsigned
-	}
-	return nil
-}
-
 // SignApproval returns the token base64url(json).base64url(hmac).
 func SignApproval(app core.App, a Approval) (string, error) {
-	return signToken(app, approvalKeyLabel, a)
+	return signedtoken.Sign(app, approvalKeyLabel, a)
 }
 
 // VerifyApproval accepts only an unexpired token Credimi signed for this
@@ -123,8 +52,8 @@ func VerifyApproval(
 		return fmt.Errorf("%w: %s", ErrForbidden, reason)
 	}
 	var approval Approval
-	if err := verifyToken(app, approvalKeyLabel, token, &approval); err != nil {
-		if errors.Is(err, errUnsigned) {
+	if err := signedtoken.Verify(app, approvalKeyLabel, token, &approval); err != nil {
+		if errors.Is(err, signedtoken.ErrUnsigned) {
 			return Approval{}, forbidden("the approval is not signed by Credimi")
 		}
 		return Approval{}, err
@@ -157,7 +86,7 @@ type SessionGrant struct {
 // SignSession returns the token base64url(json).base64url(hmac) of g.
 func SignSession(app core.App, g SessionGrant) (string, error) {
 	g.DeviceID = canonify.NormalizePath(g.DeviceID)
-	return signToken(app, sessionKeyLabel, g)
+	return signedtoken.Sign(app, sessionKeyLabel, g)
 }
 
 // VerifySession accepts only a token Credimi signed for exactly want. It has
@@ -179,7 +108,7 @@ func VerifySession(app core.App, token string, want SessionGrant) error {
 // is never a session grant.
 func SignTicket(app core.App, g SessionGrant) (string, error) {
 	g.DeviceID = canonify.NormalizePath(g.DeviceID)
-	return signToken(app, ticketKeyLabel, g)
+	return signedtoken.Sign(app, ticketKeyLabel, g)
 }
 
 // VerifyTicket accepts only a ticket token Credimi signed for exactly want:
@@ -211,7 +140,7 @@ type RunGrant struct {
 
 // SignRun returns the token base64url(json).base64url(hmac) of g.
 func SignRun(app core.App, g RunGrant) (string, error) {
-	return signToken(app, runKeyLabel, g)
+	return signedtoken.Sign(app, runKeyLabel, g)
 }
 
 // VerifyRun accepts only a run token Credimi signed for exactly want.
@@ -236,8 +165,8 @@ func verifyExact[T comparable](
 	normalize ...func(*T),
 ) error {
 	var got T
-	if err := verifyToken(app, label, token, &got); err != nil {
-		if errors.Is(err, errUnsigned) {
+	if err := signedtoken.Verify(app, label, token, &got); err != nil {
+		if errors.Is(err, signedtoken.ErrUnsigned) {
 			return fmt.Errorf("%w: %s", ErrForbidden, refusal)
 		}
 		return err
