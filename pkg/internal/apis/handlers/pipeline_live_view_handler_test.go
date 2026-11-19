@@ -196,13 +196,12 @@ func createLiveViewDevice(
 	return deviceID, runner
 }
 
-// preparedLiveViewDevice is the setted_devices entry of an emulator of runner
-// that the pipeline has prepared.
-func preparedLiveViewDevice(runner *core.Record) map[string]any {
+// preparedLiveViewDevice is the setted_devices entry of an emulator the
+// pipeline has prepared.
+func preparedLiveViewDevice() map[string]any {
 	return map[string]any{
-		"serial":           "emulator-5554",
-		"type":             "android_emulator",
-		"runner_namespace": mobilerunner.RunnerNamespace(runner.Id),
+		"serial": "emulator-5554",
+		"type":   "android_emulator",
 	}
 }
 
@@ -216,7 +215,7 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
 	deviceID, runner := createLiveViewDevice(t, app, authRecord, server.URL, true)
 	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		deviceID: preparedLiveViewDevice(runner),
+		deviceID: preparedLiveViewDevice(),
 	})
 
 	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
@@ -596,9 +595,9 @@ func TestPipelineLiveViewNeverContactsTenantLoopbackRunner(t *testing.T) {
 	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
 	app, authRecord, _ := pipelineLiveViewTestApp(t)
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
-	deviceID, runner := createLiveViewDevice(t, app, authRecord, server.URL, false)
+	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, false)
 	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		deviceID: preparedLiveViewDevice(runner),
+		deviceID: preparedLiveViewDevice(),
 	})
 
 	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
@@ -616,9 +615,9 @@ func TestPipelineLiveViewRequiresRunnerCredentialSecret(t *testing.T) {
 	t.Setenv(mobilerunner.CredentialSecretEnvVar, "")
 	app, authRecord, _ := pipelineLiveViewTestApp(t)
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
-	deviceID, runner := createLiveViewDevice(t, app, authRecord, server.URL, true)
+	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		deviceID: preparedLiveViewDevice(runner),
+		deviceID: preparedLiveViewDevice(),
 	})
 
 	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
@@ -755,9 +754,9 @@ func TestPipelineLiveViewForwardsRunnerRefusals(t *testing.T) {
 				"reason":  tc.message,
 				"message": tc.message,
 			})
-			deviceID, runner := createLiveViewDevice(t, app, authRecord, server.URL, true)
+			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 			stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-				deviceID: preparedLiveViewDevice(runner),
+				deviceID: preparedLiveViewDevice(),
 			})
 
 			rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{

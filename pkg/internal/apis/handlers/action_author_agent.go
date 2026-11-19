@@ -67,7 +67,7 @@ func actionAuthorAgentAvailable(
 }
 
 // requireActionAuthorAgent refuses runners whose action author is not
-// enabled, or whose agent does not poll its task queue in the runner's agent
+// enabled, or whose agent does not poll its task queue in the runner
 // namespace.
 func requireActionAuthorAgent(e *core.RequestEvent, runner *core.Record) *apierror.APIError {
 	if !mobilerunner.AgentEnabled(runner) {

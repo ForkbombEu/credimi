@@ -552,7 +552,7 @@ type PipelineStepHistoryEvent struct {
 // PipelineExecutionStep is one main step that started in a pipeline execution.
 type PipelineExecutionStep struct {
 	StepID string `json:"step_id"`
-	// Kind is activity, workflow, block or device.
+	// Kind is activity, workflow or block.
 	Kind string `json:"kind"`
 	Type string `json:"type"`
 	// DisplayName is the step ID, or every step ID of a block joined with " → ".
