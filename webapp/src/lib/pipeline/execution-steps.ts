@@ -10,8 +10,7 @@ import { pb } from '@/pocketbase';
 
 //
 
-/** `device` rows are the device sessions that held a run's devices; their `step_id` is the device ID. */
-export type ExecutionStepKind = 'activity' | 'block' | 'workflow' | 'device';
+export type ExecutionStepKind = 'activity' | 'block' | 'workflow';
 
 export type ExecutionRef = { workflowId: string; runId: string };
 
@@ -30,7 +29,7 @@ export type ExecutionStep = {
 	failure_reason?: string;
 	/** The event that started the step, in the history of the run that ran it. */
 	history_event: { workflow_id: string; run_id: string; event_id: number };
-	/** The child workflow run of workflow and block steps, and the session of device rows. */
+	/** The child workflow run of workflow and block steps. */
 	execution?: ExecutionRef;
 	/** The runner namespace `execution` ran in; absent for the organization's namespace. */
 	execution_namespace?: string;
@@ -71,23 +70,29 @@ export function visibleSteps(steps: ExecutionStep[], showAll: boolean): Executio
 }
 
 /**
- * Workflow, block and device steps open their own run page (in their runner namespace for a
- * pipeline's device work); activity steps open the run that ran them at the event that
- * started them.
+ * The run page of a workflow run; `namespace` names the runner namespace it ran in, absent for
+ * the organization's namespace.
+ */
+export function runPageHref(workflowId: string, runId: string, namespace?: string): string {
+	const runPage = resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+		workflow_id: encodeURIComponent(workflowId),
+		run_id: encodeURIComponent(runId)
+	});
+	return namespace ? `${runPage}?${new URLSearchParams({ namespace })}` : runPage;
+}
+
+/**
+ * Workflow and block steps open their own run page (in their runner namespace for a pipeline's
+ * device work); activity steps open the run that ran them at the event that started them.
  */
 export function stepDetailsHref(step: ExecutionStep): string {
 	if (step.kind !== 'activity' && step.execution) {
-		const runPage = resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-			workflow_id: step.execution.workflowId,
-			run_id: step.execution.runId
-		});
-		return step.execution_namespace
-			? `${runPage}?${new URLSearchParams({ namespace: step.execution_namespace })}`
-			: runPage;
+		return runPageHref(
+			step.execution.workflowId,
+			step.execution.runId,
+			step.execution_namespace
+		);
 	}
-	const runPage = resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-		workflow_id: step.history_event.workflow_id,
-		run_id: step.history_event.run_id
-	});
+	const runPage = runPageHref(step.history_event.workflow_id, step.history_event.run_id);
 	return `${runPage}?event=${step.history_event.event_id}`;
 }

@@ -1094,6 +1094,8 @@
 	"Installed_from_the_store": "Installeret fra butikken",
 	"Runner_of": "Runner tilhørende {owner}",
 	"Device_runs_ahead": "Kørsler foran: {count}",
+	"Device_preparation": "Forberedelse",
+	"Device_cleanup": "Oprydning",
 	"Session_waiting_for_device": "Venter på enheden: position {position} af {total}",
 	"Session_preparing_device": "Forbereder enheden…",
 	"Session_not_found": "Denne forfattersession findes ikke.",

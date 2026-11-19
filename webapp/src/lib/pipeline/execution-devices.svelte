@@ -10,8 +10,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
 
-	import type { ExecutionDevice } from './live-view';
+	import type { ExecutionDevice, RunnerExecutionRef } from './live-view';
 
+	import { runPageHref } from './execution-steps';
 	import LiveViewSheet from './live-view-sheet.svelte';
 	import { getExecutionDevices, type ExecutionSummary } from './workflows';
 
@@ -33,6 +34,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		activeDeviceId = device.device_id;
 		sheetOpen = true;
 	}
+
+	function runnerRunHref(ref: RunnerExecutionRef): string {
+		return runPageHref(ref.workflow_id, ref.run_id, ref.namespace);
+	}
+
+	const linkClass = $derived(['h-auto px-0 py-0 font-medium', compact ? 'text-xs' : 'text-sm']);
 </script>
 
 {#if devices.length === 0}
@@ -59,6 +66,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					>
 						<StatusCircle size={compact ? 10 : 12} />
 						<span class="animate-pulse">{m.View_live()}</span>
+					</Button>
+				{/if}
+				{#if device.preparation}
+					<Button
+						variant="link"
+						size="sm"
+						class={linkClass}
+						href={runnerRunHref(device.preparation)}
+					>
+						{m.Device_preparation()}
+					</Button>
+				{/if}
+				{#if device.cleanup}
+					<Button
+						variant="link"
+						size="sm"
+						class={linkClass}
+						href={runnerRunHref(device.cleanup)}
+					>
+						{m.Device_cleanup()}
 					</Button>
 				{/if}
 			</li>

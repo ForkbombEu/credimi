@@ -1094,6 +1094,8 @@
 	"Installed_from_the_store": "Instalado pela loja",
 	"Runner_of": "Runner de {owner}",
 	"Device_runs_ahead": "Execuções à frente: {count}",
+	"Device_preparation": "Preparação",
+	"Device_cleanup": "Limpeza",
 	"Session_waiting_for_device": "Aguardando o dispositivo: posição {position} de {total}",
 	"Session_preparing_device": "Preparando o dispositivo…",
 	"Session_not_found": "Esta sessão de autoria não existe.",

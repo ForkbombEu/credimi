@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	type ExecutionStep,
+	runPageHref,
 	STEPS_INITIAL_LIMIT,
 	stepDetailsHref,
 	visibleSteps
@@ -69,18 +70,16 @@ describe('stepDetailsHref', () => {
 			'/my/tests/runs/wf-step/step-run?namespace=runner-abc'
 		);
 	});
+});
 
-	it('opens a device session in its namespace', () => {
-		const deviceStep = step(10, {
-			step_id: 'acme/runner/pixel',
-			kind: 'device',
-			type: 'Run a mobile device session',
-			display_name: 'acme/runner/pixel',
-			execution: { workflowId: 'wf-device-pixel', runId: 'session-run' },
-			execution_namespace: 'runner-abc'
-		});
-		expect(stepDetailsHref(deviceStep)).toBe(
-			'/my/tests/runs/wf-device-pixel/session-run?namespace=runner-abc'
+describe('runPageHref', () => {
+	it('opens a run in the organization namespace', () => {
+		expect(runPageHref('wf', 'run')).toBe('/my/tests/runs/wf/run');
+	});
+
+	it('encodes the run and its runner namespace', () => {
+		expect(runPageHref('wf/a b', 'run#1', 'runner-a&b')).toBe(
+			'/my/tests/runs/wf%2Fa%20b/run%231?namespace=runner-a%26b'
 		);
 	});
 });
