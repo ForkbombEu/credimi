@@ -9,6 +9,7 @@
 package mobiledevice
 
 import (
+	"path"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -54,6 +55,23 @@ func deviceWorkflowID(pipelineWorkflowID, deviceID, kind string) string {
 	return temporalid.Bounded(
 		pipelineWorkflowID + "-device-" + canonify.CanonifyPlain(deviceID) + "-" + kind,
 	)
+}
+
+// PrepareSummary names the Prepare operation and workflow of deviceID in the
+// Temporal UI, e.g. "Prepare a mobile device (pixel-7a)".
+func PrepareSummary(deviceID string) string {
+	return PrepareOperationName + " (" + deviceName(deviceID) + ")"
+}
+
+// CleanUpSummary names the Clean up operation and workflow of deviceID in the
+// Temporal UI, e.g. "Clean up a mobile device (pixel-7a)".
+func CleanUpSummary(deviceID string) string {
+	return CleanUpOperationName + " (" + deviceName(deviceID) + ")"
+}
+
+// deviceName is the last segment of the device's canonified path.
+func deviceName(deviceID string) string {
+	return path.Base(canonify.NormalizePath(deviceID))
 }
 
 // PipelineRun names the pipeline run that owns a runner-namespace workflow.

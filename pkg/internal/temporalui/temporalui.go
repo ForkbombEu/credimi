@@ -452,7 +452,8 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     run open that run's Credimi page in the top window (with ?namespace= for a
 //     run in a runner namespace), any other in-app link is blocked;
 //   - hides the Workers tab on runner-namespace pages: Credimi's own workers
-//     are no tenant's business.
+//     are no tenant's business; and the Nexus callback box there, which only
+//     says the pipeline started the run (a failed callback stays visible).
 const embedHead = `<style id="credimi-embed">` +
 	`:root{color-scheme:light}` +
 	`html,body{background-color:#f8fafc !important;color:#141414 !important;` +
@@ -471,6 +472,10 @@ const embedHead = `<style id="credimi-embed">` +
 	`[data-testid="call-stack-tab"],[data-testid="queries-tab"],` +
 	`[data-testid="relationships-tab"],` +
 	`.credimi-runner-ns [data-testid="workers-tab"]{display:none !important}` +
+	// The Nexus callback box (workflow-callback.svelte, an untagged
+	// <Alert intent="info">, the only info alert of a workflow page) names
+	// the pipeline's callback; a failed callback is intent="error" and stays.
+	`.credimi-runner-ns .alert.info{display:none !important}` +
 	`.h-dvh,.w-screen,#content-wrapper,#content,#content > div` +
 	`{width:100% !important;max-width:100% !important;` +
 	`height:auto !important;max-height:none !important;min-height:0 !important;` +

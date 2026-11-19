@@ -502,9 +502,11 @@ func TestMobileAutomationSetupHookPreparesEachDeviceOnce(t *testing.T) {
 	executionTimeout := PrepareWorkflowOptions(pipeline.RuntimeConfig{}).
 		Options.WorkflowExecutionTimeout
 	require.Len(t, *nexusOptions, 2)
-	for _, options := range *nexusOptions {
+	for i, deviceID := range []string{deviceB, deviceA} {
+		options := (*nexusOptions)[i]
 		assert.Equal(t, deviceOperationScheduleToStart, options.ScheduleToStartTimeout)
 		assert.Equal(t, executionTimeout, options.ScheduleToCloseTimeout)
+		assert.Equal(t, mobiledevice.PrepareSummary(deviceID), options.Summary)
 	}
 	// One Prepare per device, in order of first use.
 	require.Len(t, service.prepares, 2)
@@ -709,9 +711,11 @@ func TestMobileDevicesCleanupHookCleansEachPreparedDevice(t *testing.T) {
 	executionTimeout := PrepareWorkflowOptions(pipeline.RuntimeConfig{}).
 		Options.WorkflowExecutionTimeout
 	require.Len(t, *nexusOptions, 2)
-	for _, options := range *nexusOptions {
+	for i, deviceID := range []string{deviceA, deviceB} {
+		options := (*nexusOptions)[i]
 		assert.Equal(t, deviceOperationScheduleToStart, options.ScheduleToStartTimeout)
 		assert.Equal(t, executionTimeout, options.ScheduleToCloseTimeout)
+		assert.Equal(t, mobiledevice.CleanUpSummary(deviceID), options.Summary)
 	}
 	require.Len(t, service.cleanups, 2)
 	for i, deviceID := range []string{deviceA, deviceB} {

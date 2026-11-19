@@ -7,6 +7,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -315,7 +316,7 @@ func TestRequireCredimiCaller(t *testing.T) {
 			pipelineRun: pipelineRun,
 			workflowID:  "pipeline-1-step-1",
 			deviceID:    foreignDeviceID,
-			wantErr:     "device " + foreignDeviceID + " is not hosted by this runner",
+			wantErr:     fmt.Sprintf("device %s is not hosted by this runner", foreignDeviceID),
 		},
 		{
 			name:        "rejects an unknown device",

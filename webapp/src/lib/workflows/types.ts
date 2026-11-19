@@ -27,12 +27,6 @@ export const workflowExecutionInfoSchema = z
 
 export type WorkflowExecutionInfo = z.infer<typeof workflowExecutionInfoSchema>;
 
-const runnerExecutionRefSchema = z.object({
-	namespace: z.string(),
-	workflow_id: z.string(),
-	run_id: z.string()
-});
-
 export const workflowResponseSchema = z
 	.object({
 		workflowExecutionInfo: workflowExecutionInfoSchema,
@@ -42,11 +36,7 @@ export const workflowResponseSchema = z
 				z.object({
 					device_id: z.string(),
 					name: z.string(),
-					live_view: z.boolean(),
-					/** The device's Prepare workflow run in its runner namespace. */
-					preparation: runnerExecutionRefSchema.optional(),
-					/** The device's Clean up workflow run in its runner namespace. */
-					cleanup: runnerExecutionRefSchema.optional()
+					live_view: z.boolean()
 				})
 			)
 			.optional()

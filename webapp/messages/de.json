@@ -1094,8 +1094,6 @@
 	"Installed_from_the_store": "Aus dem Store installiert",
 	"Runner_of": "Runner von {owner}",
 	"Device_runs_ahead": "Läufe davor: {count}",
-	"Device_preparation": "Vorbereitung",
-	"Device_cleanup": "Bereinigung",
 	"Session_waiting_for_device": "Warten auf das Gerät: Position {position} von {total}",
 	"Session_preparing_device": "Gerät wird vorbereitet…",
 	"Session_not_found": "Diese Autorensitzung existiert nicht.",

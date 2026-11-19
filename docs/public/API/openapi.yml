@@ -1632,16 +1632,12 @@ components:
       type: object
     HandlersPipelineExecutionDevice:
       properties:
-        cleanup:
-          $ref: '#/components/schemas/HandlersRunnerExecutionRef'
         device_id:
           type: string
         live_view:
           type: boolean
         name:
           type: string
-        preparation:
-          $ref: '#/components/schemas/HandlersRunnerExecutionRef'
       type: object
     HandlersResumeScheduleResponse:
       properties:
@@ -1666,15 +1662,6 @@ components:
           nullable: true
           type: integer
         yaml:
-          type: string
-      type: object
-    HandlersRunnerExecutionRef:
-      properties:
-        namespace:
-          type: string
-        run_id:
-          type: string
-        workflow_id:
           type: string
       type: object
     HandlersScheduleInfoSummary:

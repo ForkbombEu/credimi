@@ -302,7 +302,7 @@ func MobileAutomationSetupHook(
 				workflow.NexusOperationOptions{
 					ScheduleToCloseTimeout: executionTimeout,
 					ScheduleToStartTimeout: deviceOperationScheduleToStart,
-					Summary:                "device " + deviceID,
+					Summary:                mobiledevice.PrepareSummary(deviceID),
 				},
 			).Get(ctx, &prepared); err != nil {
 			return err

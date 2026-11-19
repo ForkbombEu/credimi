@@ -109,7 +109,7 @@ func MobileDevicesCleanupHook(
 				workflow.NexusOperationOptions{
 					ScheduleToCloseTimeout: executionTimeout,
 					ScheduleToStartTimeout: deviceOperationScheduleToStart,
-					Summary:                "device " + deviceID,
+					Summary:                mobiledevice.CleanUpSummary(deviceID),
 				},
 			).Get(ctx, &cleanup); err != nil {
 			cleanupErrs = append(cleanupErrs, err.Error())

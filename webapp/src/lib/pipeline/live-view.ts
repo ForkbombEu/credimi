@@ -13,18 +13,11 @@ type LiveViewStream = { device_id: string; device_name: string; url: string };
 
 type LiveViewResponse = { streams: LiveViewStream[] };
 
-/** A workflow run in a runner namespace. */
-export type RunnerExecutionRef = { namespace: string; workflow_id: string; run_id: string };
-
 /** Display-ready device row from pipeline execution summaries / workflow describe. */
 export type ExecutionDevice = {
 	device_id: string;
 	name: string;
 	live_view: boolean;
-	/** The device's Prepare workflow run, on pipeline run pages. */
-	preparation?: RunnerExecutionRef;
-	/** The device's Clean up workflow run, on pipeline run pages. */
-	cleanup?: RunnerExecutionRef;
 };
 
 /** Requests a short-lived live-view URL for one device from the Credimi API. */

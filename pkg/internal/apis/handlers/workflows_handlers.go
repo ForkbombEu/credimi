@@ -506,7 +506,6 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				namespace,
 				workflowExecution,
 			); len(devices) > 0 {
-				addDeviceRunnerRuns(e.Request.Context(), e.App, workflowID, devices)
 				finalJSON["devices"] = devices
 			}
 		}
