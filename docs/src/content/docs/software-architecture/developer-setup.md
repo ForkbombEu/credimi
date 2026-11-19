@@ -88,7 +88,7 @@ This sets `CREDIMI_TEMPORAL_WORKERS_DISABLED=1`. Temporal Docker still starts be
 
 Parallel Credimi checkouts require [Worktrunk](https://worktrunk.dev/) for bootstrap (copy-ignored + unique ports). Classic ports stay centralized in `scripts/dev-ports.env` (`8090` / `5100` / `7233` / `8280` / `8281` / `8282`). Other worktrees override them with a gitignored `.env.worktree`; worktrees created before the embedded Temporal UI port (`TEMPORAL_UI_EMBEDDED_PORT`, classic `8281`) or the action author chat UI service port (`ACTION_AUTHOR_UI_PORT`, classic `8282`) fall back to the classic value, so add a unique one to `.env.worktree` when running several stacks at once.
 
-Run pages embed the Temporal UI from `/temporal-ui`, served by PocketBase through an organization-scoped, read-only proxy to the `temporal_ui_embedded` container. In dev, Vite forwards `/temporal-ui` to PocketBase, so the iframe stays on the webapp origin and receives the `pb_auth` session cookie.
+Run pages embed the Temporal UI from `/temporal-ui`, served by PocketBase through an organization-scoped, read-only proxy to the `temporal_ui_embedded` container; a pipeline's device workflows (Prepare, mobile steps, Clean up) open from their run page with `?namespace=runner-<record id>`, the namespace of the device's runner. In dev, Vite forwards `/temporal-ui` to PocketBase, so the iframe stays on the webapp origin and receives the `pb_auth` session cookie.
 
 Checkout **location** is per user, not per repo. Do not commit a Worktrunk `worktree-path`. Set it in `~/.config/worktrunk/config.toml` if you use `wt switch` (see [Worktrunk config](https://worktrunk.dev/config/)). Cursor agent sandboxes usually live under `~/.cursor/worktrees/` and do not need that setting.
 
@@ -200,12 +200,14 @@ One pipeline run is one trace when Credimi and the runner export to the same col
 
 1. `POST /api/pipeline/queue` (Credimi HTTP span) → `StartWorkflow` → `RunWorkflow:Dynamic Pipeline Workflow`
    (Credimi worker).
-2. `StartChildWorkflow:mobile-automation` → `RunWorkflow:mobile-automation` and its `RunActivity` spans on the
-   runner worker (`${runner_id}-TaskQueue`); Temporal headers carry the trace context.
+2. `StartNexusOperation:mobile-device/…` (Prepare a mobile device, Run a mobile automation step, Clean up a mobile
+   device) → `RunStartNexusOperationHandler` on Credimi's worker in the runner namespace (`runner-<record id>`) →
+   `RunWorkflow:Run a mobile automation workflow` (or the Prepare and Clean up workflows) and their `RunActivity`
+   spans on the runner worker (`${runner_id}-TaskQueue`); Nexus and Temporal headers carry the trace context.
 3. Inside runner activities, credimi-extra adds `mobile.*` span events and log records, and avdctl adds its
    device spans and command logs, all under the activity span.
-4. Credimi's calls to the runner (`installer-action`, `pipeline-result`, `live-view`, `worker/{namespace}`) are
-   client spans; the runner's server spans for them join the same trace.
+4. Credimi's calls to the runner (`installer-action`, `pipeline-result`, `live-view`) are client spans; the
+   runner's server spans for them join the same trace.
 
 In SigNoz, open the trace of the queue request, or filter logs by `trace_id` (and by `workflow_id` for Temporal SDK
 logs). Runners export by default through Credimi's relay (`/api/otlp/runner/v1/…`), authenticated with their

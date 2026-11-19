@@ -1502,9 +1502,10 @@ func TestUpsertMobileRunnerIssuesRunnerCredential(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	// An admin-managed runner serves every namespace and skips the tenant
-	// destination policy: members of its owner organization must neither
-	// repoint it nor learn the credential Credimi presents to it.
+	// An admin-managed runner is operator infrastructure used by every
+	// organization and skips the tenant destination policy: members of its
+	// owner organization must neither repoint it nor learn the credential
+	// Credimi presents to it.
 	t.Run("admin-managed runner is out of reach of its organization", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
 		defer app.Cleanup()
