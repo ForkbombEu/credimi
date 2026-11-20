@@ -95,7 +95,7 @@ var MobileRunnersPublicRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:        HandleListMobileRunners,
 			ResponseSchema: ListMobileRunnersPublicResponseSchema{},
 			Summary:        "List available mobile runners",
-			Description:    "Lists mobile runners visible to the caller, including health, devices, and, for online runners, runs_ahead: the runs on the runner's semaphore, running or waiting.",
+			Description:    "Lists mobile runners visible to the caller: the caller's own runners and published runners of other organizations, with health and, for online runners, runs_ahead (the runs on the runner's semaphore, running or waiting). url and devices are given only for the caller's own runners (every runner for superusers).",
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "view",
@@ -124,7 +124,7 @@ var MobileDevicesPublicRoutes = routing.RouteGroup{
 			Handler:        HandleListMobileDevices,
 			ResponseSchema: ListMobileDevicesPublicResponseSchema{},
 			Summary:        "List available mobile devices",
-			Description:    "Lists independently schedulable mobile devices visible to the caller, grouped by their hosting runner through runner context fields. Online devices report runs_ahead: the runs on the device's semaphore, running or waiting, that a new run waits for.",
+			Description:    "Lists independently schedulable mobile devices visible to the caller, grouped by their hosting runner through runner context fields. Online devices report runs_ahead: the runs on the device's semaphore, running or waiting, that a new run waits for. serial is given only for the caller's own devices (every device for superusers).",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
