@@ -663,6 +663,37 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			},
 		},
 		{
+			Name:   "store pipeline result answers only with the uploaded video",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(successBody),
+			Headers: map[string]string{
+				"Content-Type": successContentType,
+			},
+			ExpectedStatus:  200,
+			ExpectedContent: []string{`"status":"success"`},
+			TestAppFactory:  setupReservedDeviceApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				record, err := canonify.Resolve(app, "usera-s-organization/workflow123-run123")
+				require.NoError(t, err)
+				other, err := filesystem.NewFileFromBytes(
+					[]byte("other"),
+					"other-device_result_video.mp4",
+				)
+				require.NoError(t, err)
+				record.Set("video_results", []any{other})
+				require.NoError(t, app.Save(record))
+			},
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				var body struct {
+					ResultURLs []string `json:"result_urls"`
+				}
+				require.NoError(t, json.NewDecoder(res.Body).Decode(&body))
+				require.Len(t, body.ResultURLs, 1)
+				require.NotContains(t, body.ResultURLs[0], "other_device_result_video")
+			},
+		},
+		{
 			Name:   "store pipeline result keeps an already zipped log as-is",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",

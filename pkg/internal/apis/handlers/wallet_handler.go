@@ -618,20 +618,16 @@ func authorizePipelineResultDeviceStoreAccess(
 		return nil
 	}
 
-	return authorizePipelineResultOwnerAccess(
-		e,
-		resultRecord.GetString("owner"),
-		func() (*core.Record, *apierror.APIError) { return device, nil },
-	)
+	return authorizePipelineResultOwnerAccess(e, resultRecord.GetString("owner"), device)
 }
 
 // authorizePipelineResultOwnerAccess allows members of the result owner
-// organization, and owners of a published runner to store results of a run
-// whose devices list a device of that runner, resolved by resolveDevice.
+// organization, and owners of a published runner hosting device to store
+// results of a run whose devices list that device.
 func authorizePipelineResultOwnerAccess(
 	e *core.RequestEvent,
 	ownerID string,
-	resolveDevice func() (*core.Record, *apierror.APIError),
+	device *core.Record,
 ) *apierror.APIError {
 	if ownerID == "" {
 		return apierror.New(
@@ -655,11 +651,7 @@ func authorizePipelineResultOwnerAccess(
 		return nil
 	}
 
-	allowed, apiErr := publishedRunnerOwnsDevice(e.App, userOrgID, resolveDevice)
-	if apiErr != nil {
-		return apiErr
-	}
-	if allowed {
+	if publishedRunnerOwnsDevice(e.App, userOrgID, device) {
 		return nil
 	}
 
@@ -688,26 +680,17 @@ func resolvePipelineResultDevice(
 	return device, nil
 }
 
-// publishedRunnerOwnsDevice reports whether the device resolved by
-// resolveDevice belongs to a published runner owned by deviceOwnerID.
-func publishedRunnerOwnsDevice(
-	app core.App,
-	deviceOwnerID string,
-	resolveDevice func() (*core.Record, *apierror.APIError),
-) (bool, *apierror.APIError) {
-	device, apiErr := resolveDevice()
-	if apiErr != nil {
-		return false, apiErr
-	}
+// publishedRunnerOwnsDevice reports whether device belongs to a published
+// runner owned by deviceOwnerID.
+func publishedRunnerOwnsDevice(app core.App, deviceOwnerID string, device *core.Record) bool {
 	if device.Collection() == nil || device.Collection().Name != mobileDevicesCollection {
-		return false, nil
+		return false
 	}
 	runner, err := app.FindRecordById("mobile_runners", device.GetString("runner"))
-	if err == nil && runner.GetString("owner") == deviceOwnerID {
-		return runner.GetBool("published"), nil
+	if err != nil {
+		return false
 	}
-
-	return false, nil
+	return runner.GetString("owner") == deviceOwnerID && runner.GetBool("published")
 }
 
 // authorizeWalletInstallerAccess lets the internal admin and members of the
@@ -754,6 +737,9 @@ func isInternalAdminPrincipal(auth *core.Record) bool {
 	return auth.Collection().Name == "_superusers"
 }
 
+// saveUploadedFileToRecord appends the uploaded form file to recordField and
+// returns the URLs of the files this upload stored, never of the files other
+// devices or earlier uploads stored.
 func saveUploadedFileToRecord(
 	e *core.RequestEvent,
 	record *core.Record,
@@ -880,10 +866,10 @@ func saveUploadedFileToRecord(
 		)
 	}
 
-	names := record.GetStringSlice(recordField)
-	urls := make([]string, 0, len(names))
+	newNames := record.GetStringSlice(recordField)[len(existing):]
+	urls := make([]string, 0, len(newNames))
 
-	for _, fn := range names {
+	for _, fn := range newNames {
 		url := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
 			"api", "files", "pipeline_results",
