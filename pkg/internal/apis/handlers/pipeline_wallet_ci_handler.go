@@ -741,6 +741,9 @@ func resolvePipelineRunWalletAPKDeviceID(
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
 	if deviceID := strings.TrimSpace(input.DeviceID); deviceID != "" {
+		if apiErr := validatePipelineRunnerAccess(app, ownerID, []string{deviceID}); apiErr != nil {
+			return "", hasStepRunner, needsGlobalRunner, apiErr
+		}
 		if apiErr := requireMobileDeviceRunnerOnline(ctx, app, deviceID); apiErr != nil {
 			return "", hasStepRunner, needsGlobalRunner, apiErr
 		}

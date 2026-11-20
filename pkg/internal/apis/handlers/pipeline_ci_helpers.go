@@ -335,6 +335,11 @@ func resolvePipelineCIDeviceID(
 		return "", hasStepRunner, needsGlobalRunner, nil
 	}
 	if deviceID := strings.TrimSpace(input.DeviceID); deviceID != "" {
+		// Access first: a device the caller may not use must not reveal
+		// whether its runner is online.
+		if apiErr := validatePipelineRunnerAccess(app, ownerID, []string{deviceID}); apiErr != nil {
+			return "", hasStepRunner, needsGlobalRunner, apiErr
+		}
 		// A device picked from the catalog was reported available when the page
 		// rendered, which can be minutes old. The run must not start against a
 		// runner that is no longer answering, so its health is checked here.

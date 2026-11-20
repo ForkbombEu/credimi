@@ -891,6 +891,65 @@ func TestPipelineRunWalletAPKRejectsExplicitDeviceOnOfflineRunner(t *testing.T) 
 	require.Equal(t, 1, probed)
 	require.Empty(t, queueStub.enqueueRequests)
 }
+
+// An explicit device of a runner the caller may not use answers 403 before its
+// runner is probed, so the answer does not reveal whether the runner is online.
+func TestPipelineCIExplicitForeignPrivateDeviceChecksAccessFirst(t *testing.T) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	probed := 0
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) {
+		probed++
+		return false, nil
+	}
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	app := setupPipelineWalletAPKApp(t)
+	t.Cleanup(app.Cleanup)
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	otherOrg := core.NewRecord(orgColl)
+	otherOrg.Set("name", "Other Org")
+	otherOrg.Set("canonified_name", "other-org")
+	require.NoError(t, app.Save(otherOrg))
+	createWalletAPKMobileRunner(t, app, otherOrg.Id, "Private Runner", "android_phone", false)
+
+	workflowDefinition, apiErr := parsePipelineCIWorkflow(
+		"name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n" +
+			"    with:\n      action_code: \"appId: wallet\"\n",
+	)
+	require.Nil(t, apiErr)
+	const deviceID = "other-org/private-runner/device-1"
+
+	resolved, _, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKDeviceID(
+		context.Background(),
+		app,
+		orgID,
+		workflowDefinition,
+		pipelineRunWalletAPKRequest{DeviceID: deviceID},
+	)
+	require.NotNil(t, apiErr)
+	require.Empty(t, resolved)
+	require.True(t, needsGlobalRunner)
+	require.Equal(t, http.StatusForbidden, apiErr.Code)
+	require.Equal(t, "device_id is not accessible", apiErr.Reason)
+
+	resolved, _, needsGlobalRunner, apiErr = resolvePipelineCIDeviceID(
+		context.Background(),
+		app,
+		orgID,
+		workflowDefinition,
+		pipelineCIBaseRequest{DeviceID: deviceID},
+	)
+	require.NotNil(t, apiErr)
+	require.Empty(t, resolved)
+	require.True(t, needsGlobalRunner)
+	require.Equal(t, http.StatusForbidden, apiErr.Code)
+	require.Equal(t, "device_id is not accessible", apiErr.Reason)
+	require.Zero(t, probed)
+}
+
 func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
 	queueStub := &queueStub{}
