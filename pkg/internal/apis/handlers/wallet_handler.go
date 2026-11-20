@@ -843,23 +843,23 @@ func saveUploadedFileToRecord(
 		)
 	}
 
-	// Append to a record reloaded inside a transaction: concurrent uploads to
-	// the same result would otherwise overwrite the field from a stale copy.
-	var fresh *core.Record
-	var before []string
-	if err := e.App.RunInTransaction(func(tx core.App) error {
-		reloaded, err := tx.FindRecordById("pipeline_results", record.Id)
-		if err != nil {
-			return err
-		}
-		before = reloaded.GetStringSlice(recordField)
-		reloaded.Set(recordField+"+", f)
-		if err := tx.Save(reloaded); err != nil {
-			return err
-		}
-		fresh = reloaded
-		return nil
-	}); err != nil {
+	// Append to a record reloaded under the per-record lock: concurrent uploads
+	// to the same result would otherwise overwrite the field from a stale copy.
+	unlock := lockPipelineResult(record.Id)
+	defer unlock()
+	fresh, err := e.App.FindRecordById("pipeline_results", record.Id)
+	if err != nil {
+		os.Remove(absPath)
+		return "", nil, apierror.New(
+			http.StatusInternalServerError,
+			"pipeline_results",
+			"failed to save record with uploaded file",
+			err.Error(),
+		)
+	}
+	before := fresh.GetStringSlice(recordField)
+	fresh.Set(recordField+"+", f)
+	if err := e.App.Save(fresh); err != nil {
 		os.Remove(absPath)
 		return "", nil, apierror.New(
 			http.StatusInternalServerError,

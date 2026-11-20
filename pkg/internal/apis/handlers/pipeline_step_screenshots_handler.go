@@ -142,36 +142,30 @@ func storePipelineStepScreenshotFiles(
 		files = append(files, storedFile)
 	}
 
-	// Append to a record reloaded inside a transaction: concurrent uploads to
-	// the same result would otherwise overwrite the field from a stale copy.
-	var fresh *core.Record
-	var before []string
-	var limitErr *apierror.APIError
-	if err := e.App.RunInTransaction(func(tx core.App) error {
-		reloaded, err := tx.FindRecordById("pipeline_results", record.Id)
-		if err != nil {
-			return err
-		}
-		before = reloaded.GetStringSlice("maestro_screenshots")
-		if field.MaxSelect > 0 && len(before)+len(files) > field.MaxSelect {
-			limitErr = apierror.New(
-				http.StatusBadRequest,
-				"screenshots",
-				"too many Maestro screenshots",
-				fmt.Sprintf("maximum %d files allowed", field.MaxSelect),
-			)
-			return limitErr
-		}
-		reloaded.Set("maestro_screenshots+", files)
-		if err := tx.Save(reloaded); err != nil {
-			return err
-		}
-		fresh = reloaded
-		return nil
-	}); err != nil {
-		if limitErr != nil {
-			return nil, nil, limitErr
-		}
+	// Append to a record reloaded under the per-record lock: concurrent uploads
+	// to the same result would otherwise overwrite the field from a stale copy.
+	unlock := lockPipelineResult(record.Id)
+	defer unlock()
+	fresh, err := e.App.FindRecordById("pipeline_results", record.Id)
+	if err != nil {
+		return nil, nil, apierror.New(
+			http.StatusInternalServerError,
+			"pipeline_results",
+			"failed to save Maestro screenshots",
+			err.Error(),
+		)
+	}
+	before := fresh.GetStringSlice("maestro_screenshots")
+	if field.MaxSelect > 0 && len(before)+len(files) > field.MaxSelect {
+		return nil, nil, apierror.New(
+			http.StatusBadRequest,
+			"screenshots",
+			"too many Maestro screenshots",
+			fmt.Sprintf("maximum %d files allowed", field.MaxSelect),
+		)
+	}
+	fresh.Set("maestro_screenshots+", files)
+	if err := e.App.Save(fresh); err != nil {
 		return nil, nil, apierror.New(
 			http.StatusInternalServerError,
 			"pipeline_results",
