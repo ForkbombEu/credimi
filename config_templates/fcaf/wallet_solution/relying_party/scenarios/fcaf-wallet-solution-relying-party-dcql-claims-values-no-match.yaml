@@ -1,7 +1,43 @@
 name: 'FCAF ProtocolMessages 107: unmatched claim value'
 runtime:
 
+# Possession control: MainInteraction 023 treats a claim as absent for its value
+# only if the Wallet holds the credential that carries a different value. The
+# matching presentation shares that PID first, so the no-match probe cannot pass
+# on an empty Wallet. 107 keeps its dcql_exchange/visual_evidence outputs.
 steps:
+- id: possession-create-presentation
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-dcql-claims-values-possession
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims:
+            - path: [given_name]
+- id: possession-present
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ possession-create-presentation.outputs.body.deeplink }}
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+- id: possession-fetch
+  use: http-request
+  with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ possession-create-presentation.outputs.body.session_id }}', expected_status: 200 }
 - id: create
   use: http-request
   with:
@@ -41,3 +77,4 @@ steps:
         output:
           dcql_exchange: ${{ session.outputs.body }}
           visual_evidence: ${{ wallet.outputs.flow_output.maestro_screenshot_urls }}
+          possession_exchange: ${{ possession-fetch.outputs.body }}
