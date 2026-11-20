@@ -296,6 +296,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.Equal(t, []MobileRunnerHealthDevice{
 			{Serial: "ABC123", State: "device", Model: "Pixel_8"},
 		}, response.Runners[0].Devices)
+		require.NotEmpty(t, response.Runners[0].URL)
 
 		require.Equal(t, "usera-s-organization/owned-offline", response.Runners[1].Path)
 		require.True(t, response.Runners[1].IsOwned)
@@ -307,6 +308,11 @@ func TestListMobileRunners(t *testing.T) {
 		require.Equal(t, "online", response.Runners[2].HealthStatus)
 		require.NotNil(t, response.Runners[2].RunsAhead)
 		require.Equal(t, 1, *response.Runners[2].RunsAhead)
+		// Another organization's published runner: no address, no device details.
+		require.Empty(t, response.Runners[2].URL)
+		require.Empty(t, response.Runners[2].Devices)
+		require.NotContains(t, raw["runners"][2], "url")
+		require.NotContains(t, raw["runners"][2], "devices")
 	})
 
 	t.Run("admin key sees every runner", func(t *testing.T) {
@@ -625,6 +631,19 @@ func TestListMobileDevices(t *testing.T) {
 	device.Set("online", true)
 	require.NoError(t, app.Save(device))
 	markRunnerHeartbeat(t, app, runner, time.Now())
+	otherOrg := createOtherWalletAPKOrganization(t, app)
+	createMobileRunnerRecord(t, app, otherOrg.Id, "shared-host", "https://shared.example", true)
+	sharedRunner, err := canonify.Resolve(app, "/other-org/shared-host")
+	require.NoError(t, err)
+	sharedDevice := core.NewRecord(devices)
+	sharedDevice.Set("owner", otherOrg.Id)
+	sharedDevice.Set("runner", sharedRunner.Id)
+	sharedDevice.Set("name", "pixel-9")
+	sharedDevice.Set("type", "android_phone")
+	sharedDevice.Set("serial", "XYZ789")
+	sharedDevice.Set("online", true)
+	require.NoError(t, app.Save(sharedDevice))
+	markRunnerHeartbeat(t, app, sharedRunner, time.Now())
 	originalHealth := checkMobileRunnerHealth
 	checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 		t.Fatal("the device selector must not probe runners")
@@ -634,8 +653,7 @@ func TestListMobileDevices(t *testing.T) {
 
 	originalQuery := queryMobileDeviceSemaphoreState
 	queryMobileDeviceSemaphoreState = func(_ context.Context, deviceID string) (workflows.MobileDeviceSemaphoreStateView, error) {
-		require.Equal(t, "usera-s-organization/device-host/pixel-8", deviceID)
-		// One run holds the device and two wait: three runs ahead.
+		// One run holds each device and two wait: three runs ahead.
 		return workflows.MobileDeviceSemaphoreStateView{
 			DeviceID:  deviceID,
 			SlotsUsed: 1,
@@ -656,8 +674,17 @@ func TestListMobileDevices(t *testing.T) {
 
 	var response ListMobileDevicesPublicResponseSchema
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-	require.Len(t, response.Devices, 1)
-	item := response.Devices[0]
+	require.Len(t, response.Devices, 2)
+	items := make(map[string]MobileDeviceListItem, len(response.Devices))
+	for _, item := range response.Devices {
+		items[item.Path] = item
+	}
+	shared, ok := items["other-org/shared-host/pixel-9"]
+	require.True(t, ok)
+	require.False(t, shared.IsOwned)
+	require.Empty(t, shared.Serial, "another organization's device serial is hidden")
+	item, ok := items["usera-s-organization/device-host/pixel-8"]
+	require.True(t, ok)
 	require.Equal(t, "usera-s-organization/device-host/pixel-8", item.Path)
 	require.Equal(t, "usera-s-organization/device-host", item.RunnerID)
 	require.Equal(t, "device-host", item.RunnerName)

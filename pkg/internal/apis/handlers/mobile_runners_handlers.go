@@ -393,10 +393,14 @@ func mobileDeviceListItem(
 		RunnerName:  runner.GetString("name"),
 		Description: device.GetString("description"),
 		Type:        device.GetString("type"),
-		Serial:      device.GetString("serial"),
 		IsPublished: runner.GetBool("published"),
 		IsOwned:     callerOrgID != "" && device.GetString("owner") == callerOrgID,
 		IsOnline:    runnerOnline && device.GetBool("online"),
+	}
+	// Serials identify hardware: only the device's organization (and
+	// superusers, with an empty callerOrgID) see them.
+	if callerOrgID == "" || device.GetString("owner") == callerOrgID {
+		item.Serial = device.GetString("serial")
 	}
 	if item.IsOnline {
 		runsAhead, apiErr := mobileDeviceRunsAhead(ctx, deviceID)
@@ -462,9 +466,13 @@ func mobileRunnerListItem(
 	}
 
 	if includeDetails {
-		item.URL = runnerURL
 		item.Type = record.GetString("type")
-		item.Devices = devices
+		// The address and device details stay with the runner's organization
+		// (and superusers, with an empty callerOrgID).
+		if callerOrgID == "" || record.GetString("owner") == callerOrgID {
+			item.URL = runnerURL
+			item.Devices = devices
+		}
 	}
 
 	if includeDetails && online {
