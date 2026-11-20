@@ -21,6 +21,10 @@ evidence:
     from: pipeline.response-encryption.jwk-alg-mismatch.outputs.request_object
   visual_evidence:
     from: pipeline.response-encryption.jwk-alg-mismatch.outputs.visual_evidence
+# The source's only wallet-outcome sentence is "Verify the wallet does NOT send a
+# response, instead returns an error" and names no code; the HAIP bare-ECDH-ES
+# rule behind the rejection and the overlap with 006 are filed upstream
+# (TEST-AUTHOR-FEEDBACK.md Issue 34). The verdict stands.
 assertions:
 - id: verifier_jwk_alg_cannot_be_the_jwe_alg
   validator: oid4vp.request_encryption_jwk
@@ -35,7 +39,8 @@ assertions:
   input: evidence.capture_session
   params: {code: invalid_request}
 - id: wallet_processing_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

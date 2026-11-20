@@ -11,6 +11,11 @@ evidence:
   visual_evidence: { from: pipeline.oid4vp.invalid-request-uri-method.outputs.visual_evidence }
 assertions:
   - { id: invalid_request_uri_method_is_delivered, validator: json.field_equals, input: evidence.presentation_request, params: { field: request_uri_method, value: DELETE } }
+  # Source Expected result 4 demands exactly invalid_request_uri_method, but the
+  # invalid request_uri_method is what prevents fetching the Request Object that
+  # carries response_uri, so the Wallet has no channel for the error. The strict
+  # verdict stays; the channel gap is filed upstream
+  # (TEST-AUTHOR-FEEDBACK.md Issue 32).
   - { id: wallet_returns_invalid_request_uri_method_without_a_presentation, validator: oid4vp.error_response_required, input: evidence.capture_session, params: { code: invalid_request_uri_method } }
-  - { id: rejection_has_visual_evidence, validator: evidence.non_empty, input: evidence.visual_evidence }
+  - { id: rejection_has_visual_evidence, validator: evidence.screenshot_named, input: evidence.visual_evidence, params: { name: request-refused } }
 verdict: { pass_when: all_assertions_pass }

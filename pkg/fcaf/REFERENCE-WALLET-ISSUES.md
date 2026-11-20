@@ -660,7 +660,8 @@ The source requires `invalid_request` without a presentation.
 When the verifier's `client_metadata` publishes an encryption JWK the wallet
 cannot use according to HAIP — an `alg` that is not bare `ECDH-ES`, or no bare
 `ECDH-ES` key at all — the reference Android wallet does not return
-`invalid_request`: it either answers anyway or stops silently.
+`invalid_request`: it answers anyway, with a response encrypted to the
+unusable key, which verifiers report as "could not read".
 
 ### Reproduction
 
@@ -678,19 +679,28 @@ cannot use according to HAIP — an `alg` that is not bare `ECDH-ES`, or no bare
 
 ### Observed
 
-- `003`: `capture recorded 1 "vp_presentation_response_received" event(s),
-  expected 0` **and** `wallet returned no error, expected "invalid_request"` —
-  the wallet submitted a response the verifier rejected
+- `003`, 13/10/2026: `capture recorded 1 "vp_presentation_response_received"
+  event(s), expected 0` **and** `wallet returned no error, expected
+  "invalid_request"` — the wallet submitted a response the verifier rejected
   (`Oups! Something went wrong / Verifier rejected the response`), instead of
   refusing the malformed JWK.
-- `006`: `wallet returned no vp_token but no error, expected error`, with the
-  same `Verifier rejected the response` screen — the wallet stopped without
-  posting an error response.
+- `006`, 13/10/2026: `wallet returned no vp_token but no error, expected
+  error`, with the same `Verifier rejected the response` screen. The 18/11/2026
+  run resolves the ambiguity in that message: the session is
+  `presentation_invalid` and `vp_presentation_response_received` fired once
+  with no readable `vp_token` and no error — the wallet did **not** stay
+  silent, it posted a response encrypted to the unusable key.
+- `003`, 18/11/2026 (run `fcaf_assessment_b7og605gj3`): same outcome on the
+  current test shape — `vp_presentation_response_received` exactly once,
+  session `presentation_invalid`, "the wallet sent an Authorization Response
+  the verifier could not read (no vp_token and no error)".
 
 ### Expected
 
-OID4VP Section 8.3 requires `alg` in the published JWKs and the JWE `alg` to
-equal it; the sources require `invalid_request` without a presentation.
+HAIP requires the published encryption JWK's `alg` to be bare `ECDH-ES`, and
+OID4VP Section 8.3 requires the JWE `alg` to equal the chosen JWK's `alg`. The
+sources require an error without a presentation: `006` says "Wallet raises an
+error"; `003` says "returns an error" and names no code.
 
 ### FCAF Impact
 
@@ -1258,10 +1268,20 @@ fixture attestation.
 
 ### Observed
 
-Projection, not yet observed: no device run of this scenario exists. The
-expectation follows from the advertised prefixes and from RI-WALLET-002, where
-the same Wallet refuses unsupported prefixes with an error screen and posts
-nothing to the verifier.
+- Until 18/11/2026 this was a projection: the `wallet_metadata` the Wallet POSTs
+  to the Request URI advertised `client_id_prefixes_supported:
+  ["x509_san_dns", "x509_hash"]` (recorded 28/09/2026, RI-WALLET-002), and
+  RI-WALLET-002 showed that the same Wallet refuses an unsupported prefix with
+  an error screen and posts nothing.
+- 18/11/2026 (run `fcaf_assessment_b7og605gj3`): now observed end to end. Every
+  `verifier_attestation` session retrieved the Request Object and then recorded
+  `request_retrieved` with no Authorization Response and no error. The seven
+  positive tests (`WS_RP_MS_Metadata__116`, `118`, `120`, `122`, `123`, `124`,
+  `WS_RP_SM_RpIntegrity__008`) fail with "wallet returned no vp_token", and the
+  negative ones (`117`, `119`, `121`, `WS_RP_SM_RpIntegrity__009`, `011`, `012`)
+  with "wallet returned no error, expected …", on the same silent session. The
+  `redirect_uris_foreign` session behind `WS_RP_IA_MainInteraction__056` records
+  the same `client_id_prefixes_supported` list.
 
 ### Expected
 
@@ -1271,14 +1291,14 @@ names.
 
 ### FCAF Impact
 
-- Expected to fail on the positive cases: `WS_RP_MS_Metadata__116`, `118`,
-  `120`, `122`, `123`, `124`, `WS_RP_SM_RpIntegrity__008`.
-- Expected to fail on the negative cases as well, because no error reaches the
+- Failing on the positive cases (observed 18/11/2026): `WS_RP_MS_Metadata__116`,
+  `118`, `120`, `122`, `123`, `124`, `WS_RP_SM_RpIntegrity__008`.
+- Failing on the negative cases as well, because no error reaches the
   verifier (RI-WALLET-002): `WS_RP_MS_Metadata__117`, `119`, `121`,
   `WS_RP_SM_RpIntegrity__009`, `011`, `012`. `WS_RP_IA_MainInteraction__056`
-  accepts a discontinuation, so it can pass on the same refusal; that pass
-  says nothing about `response_uri` validation, because the Wallet refuses
-  the prefix before reaching it.
+  required only a discontinuation until 20/11/2026, so it passed on the same
+  refusal without exercising `response_uri` validation; it now requires the
+  error its source names, so it fails with them until the prefix is supported.
 - The positives also need the Wallet to trust the fixture attestation issuer
   (`/openid4vp/verifier-attestation-issuer/jwks.json`); supporting the prefix
   alone is not enough.
@@ -1322,6 +1342,54 @@ Wallet can be invoked through the required custom URL scheme `eu-eaa-offer://`.
   `.agents/HITL.md`, 26/10/2026, offer-by-value tests).
 - Since 27/10/2026 `fcaf-engage-credential-offer` fails when the Wallet is not
   invoked, so the four engagement steps fail together with these tests.
+
+## RI-WALLET-031: An invalid or missing `state` is accepted and a credential is presented
+
+### Summary
+
+The reference Android wallet does not validate `state` on an OpenID4VP
+Authorization Request. Given a `state` that is not an ASCII URL-safe string
+(`not safe/?`), or a request that omits `state` under the conditions of
+OpenID4VP Section 5.3, it presents a credential instead of rejecting the
+request with `invalid_request`.
+
+### Reproduction
+
+18/11/2026 (run `fcaf_assessment_b7og605gj3`), production Capture, emulator,
+scenario `fcaf-wallet-solution-relying-party-request-object-payload-controls`:
+
+- `WS_RP_MS_ProtocolMessages__033`: signed Request Object with
+  `state: "not safe/?"`.
+- `WS_RP_MS_ProtocolMessages__034`: `state` absent and
+  `require_cryptographic_holder_binding: false`.
+
+Both mutations are applied to the Request Object the Wallet retrieves
+(`vp_request_mutation_applied`).
+
+### Observed
+
+- `033`: session `presentation_invalid` with
+  `vp_presentation_response_received` and `vp_token_observed: true`; the
+  response echoed `state: "not safe/?"`, which Capture rejected ("The 'state'
+  parameter in the authorization response does not match … Expected
+  'G9hzjP-…' but received 'not safe/?'").
+- `034`: same outcome, with the response echoing `state: "undefined"` — the
+  wallet presented with no `state` at all.
+- Both tests fail with "wallet returned a vp_token, expected error
+  invalid_request"; the request-shape assertions passed on the same sessions.
+
+### Expected
+
+OpenID4VP 1.0 Section 5.2: "state values MUST only contain ASCII URL safe
+characters"; Section 5.3: a request under those conditions without `state`
+must be rejected. Sources `WS_RP_MS_ProtocolMessages__033` and `__034` require
+`invalid_request` with no presentation.
+
+### FCAF Impact
+
+- Tests: `WS_RP_MS_ProtocolMessages__033`, `WS_RP_MS_ProtocolMessages__034`.
+- Same class as RI-WALLET-012 (a request member the wallet accepts instead of
+  rejecting), on `state` instead of `nonce`.
 
 ## MOCK-ISSUER-001: Capture encrypts the Credential Error Response of an issuance response scenario
 

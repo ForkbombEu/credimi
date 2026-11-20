@@ -908,3 +908,197 @@ Please scope the test to unencrypted requests, or add the encrypted case: `Conte
 application/jwt`, Shared_JWT_JWE on the body, and Shared_JSON on the decrypted
 plaintext.
 ```
+
+## Upstream FCAF issues: relying-party error outcomes
+
+Found on 18/11/2026 while checking every passed relying-party test whose
+wallet-outcome assertion could pass on a session with no Authorization Response
+and no error. Verified against the sources vendored under
+`config_templates/fcaf_sources/wallet_solution/relying_party/`.
+
+### Issue 32: Give ProtocolMessages 152 a reachable error channel
+
+Suggested title:
+
+```text
+fix(wallet-rp): give protocol test 152 a reachable error channel
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__152` sends an Authorization Request with
+`request_uri` and `request_uri_method: DELETE`, and expects:
+
+> 4. Verify the Wallet returns an error response, where the error parameter is
+> exactly `invalid_request_uri_method`.
+
+With `request_uri_method` invalid, the Wallet cannot fetch the Request Object
+(OpenID4VP 1.0 Section 8.5 makes the parameter select between GET and POST). In
+by-reference delivery `response_uri` is a member of the Request Object
+(Section 8.2), so the Wallet never learns the endpoint the test expects the
+error on. The outer Authorization Request carries only `client_id`,
+`request_uri` and `request_uri_method` — none names a response endpoint.
+
+Observed on 18/11/2026 against the reference Wallet: the verifier session stayed
+`created` (the Wallet never retrieved the request) and no error reached the
+capture endpoint. The test cannot distinguish "Wallet refused and had nowhere
+to say so" from "Wallet never processed the request".
+
+Proposed change, choose one:
+
+1. Name the channel that must carry the error. If a previously configured
+   response endpoint is intended, say so and define how the Wallet selects it.
+2. Allow discontinuation as a conformant outcome, as tests 088-094 do, and
+   define it observably (see Issue 6).
+3. If `response_uri` is to be delivered out of band for this case, say that
+   explicitly; OpenID4VP 1.0 Section 8.2 does not allow it inside a
+   `direct_post.jwt` Request Object here.
+
+Related: Issue 6 (observable criteria for "discontinuing the interaction").
+```
+
+### Issue 33: Allow discontinuation in MainInteraction 053
+
+Suggested title:
+
+```text
+fix(wallet-rp): allow discontinuation in main-interaction 053
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_IA_MainInteraction__053` sends `response_mode=direct_post.jwt` with
+`response_uri` absent and expects:
+
+> 3. Wallet returns an error.
+
+`direct_post.jwt` has exactly one response channel, `response_uri`
+(OpenID4VP 1.0 Section 8.2 forbids carrying `redirect_uri` with it). With the
+member absent there is no endpoint that can receive the error, so a Wallet that
+validates the request can only stop. The test therefore asks for an outcome the
+protocol makes impossible, and the only way to make it pass is to count silence
+as the error.
+
+Observed on 18/11/2026: the verifier session recorded `request_retrieved` with
+no Authorization Response and no error, while the request-side assertions (the
+delivered request omits `response_uri`) passed on the same session.
+
+Proposed change: state the expected result as "Wallet rejects the request; since
+the request carries no response endpoint, it discontinues the interaction" and
+define the observable for the refusal (for example, no consent screen and no
+`vp_token`), rather than requiring an error response.
+
+Same problem, same proposal as Issue 32.
+```
+
+### Issue 34: State the HAIP rule in SessionEncryption 003 and stop duplicating 006
+
+Suggested title:
+
+```text
+fix(wallet-rp): state the HAIP rule in session-encryption 003
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_SM_SessionEncryption__003` has objective "Test the Wallet checks the JWE
+alg value exactly matches the alg value from the chosen JWK", scenario "a
+`client_metadata` object containing a JWK with an `alg` value different to the
+JWE alg value", and expected result "Verify the wallet does NOT send a response,
+instead returns an error".
+
+Three problems:
+
+1. **The objective and the expected result disagree.** A Wallet that encrypts
+   with the JWK's `alg` (`ECDH-ES+A256KW`) has done exactly what the objective
+   asks, yet the expected result requires it to refuse. The refusal follows only
+   from HAIP's rule that the JWE `alg` must be bare `ECDH-ES`. Test 006 cites
+   "[HAIP] Section 5 (introduction)" for the same rule; 003 cites only
+   OpenID4VP Section 8. Add the HAIP reference and say the published JWK's `alg`
+   must be bare `ECDH-ES`.
+2. **"does NOT send a response, instead returns an error" is contradictory in
+   `direct_post.jwt`.** An error response is delivered to `response_uri` and a
+   verifier cannot distinguish it from a presentation response in its own event
+   log. If the requirement is "MUST NOT send a `vp_token`", say that.
+3. **003 and 006 test one rule twice.** The scenarios
+   `…-response-encryption-jwk-alg-mismatch` (003) and
+   `…-response-encryption-no-ecdh-es-jwk` (006) publish byte-identical
+   `client_metadata` (one `use: enc` JWK with `alg: ECDH-ES+A256KW`) and differ
+   only in the nonce, so one emulator run produces the evidence for both.
+   Consider merging them into one test with two cases, or state which distinct
+   requirement each one checks.
+
+Related: the expected result names no error code ("returns an error"), so a test
+must not demand `invalid_request` unless the source does.
+```
+
+### Issue 35: Do not pin `invalid_client` in RpIntegrity 011 and 012
+
+Suggested title:
+
+```text
+fix(wallet-rp): stop pinning invalid_client in rp-integrity 011 and 012
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_SM_RpIntegrity__011` (attestation issuer not trusted) and `__012`
+(attestation signature invalid) expect:
+
+> Wallet refuses the request and returns an `invalid_client` error due to
+> untrusted attestation issuer; presentation flow is not initiated.
+
+OpenID4VP 1.0 Section 5.9.3 says only that the Wallet MUST refuse the request
+when it cannot establish trust; it names no error code. Section 8.5 defines
+`invalid_client` for the different case of a `client_metadata`/pre-registered
+metadata conflict. A conformant Wallet that answers `invalid_request`, or that
+refuses without an error response, fails these tests for a reason the source
+does not require.
+
+Proposed change: require the refusal (no presentation, interaction
+discontinued) and name `invalid_client` only as an example, e.g. "returns an
+error, for example `invalid_client`". If the exact code is intended, cite the
+normative sentence that mandates it.
+
+Note on isolation: in both tests the attestation is signed by the trusted
+fixture issuer key while its `iss` is untrusted (011) or its signature is
+corrupt (012). A Wallet that resolves the JWKS from `iss` fails key lookup
+before it ever consults a trust list, so 011 does not isolate the trust-list
+check it describes. Consider signing 011 with a key the Wallet would accept if
+it resolved trust from the fixture issuer, and making the trust decision the
+only defect.
+```
+
+### Issue 36: Give ProtocolMessages 159 a supported transaction data type
+
+Suggested title:
+
+```text
+fix(wallet-rp): require a supported transaction data type in protocol-messages 159
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_ProtocolMessages__159` sends a `transaction_data` object whose
+`credential_ids` reference a Credential the Wallet does not hold and expects:
+
+> 3. Wallet identifies that it does not hold credentials of credential_ids in
+>    transaction_data object.
+> 4. The Wallet returns the invalid_transaction_data error message.
+
+The test has no precondition on the transaction data `type`. A Wallet that
+supports no transaction data type answers every entry with
+`invalid_transaction_data` for the unsupported type (as `__153` and `__136`
+require), so it passes 159 without ever performing the check in expected
+result 3. `error_description` is optional (OpenID4VP 8.5), so the reason for
+the code cannot be observed.
+
+Proposed change: add the precondition used by `__028`, "Wallet supports the
+transaction_data type", so that the unavailable Credential is the request's
+only defect.
+```
