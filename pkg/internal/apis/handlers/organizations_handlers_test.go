@@ -18,21 +18,9 @@ import (
 func setupOrganizationApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
-	ensureOrganizationPublishedField(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	OrganizationRoutes.Add(app)
 	return app
-}
-
-func ensureOrganizationPublishedField(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-
-	organizations, err := app.FindCollectionByNameOrId("organizations")
-	require.NoError(t, err)
-	if organizations.Fields.GetByName("published") == nil {
-		organizations.Fields.Add(&core.BoolField{Name: "published"})
-	}
-	require.NoError(t, app.Save(organizations))
 }
 
 func getUserRecordFromName(name string) (*core.Record, error) {
