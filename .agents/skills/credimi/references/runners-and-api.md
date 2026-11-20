@@ -15,7 +15,7 @@ Flags:
 
 - `disabled` — administratively hidden from every catalog surface; its runner namespace's workers are stopped (its Nexus endpoint is kept until the record is deleted).
 - `online` — durable liveness, driven by heartbeats (runner posts every 30s) and a background monitor.
-- `published` — visible to other orgs; non-published callers see `owner = me OR (published AND admin_managed)`, published callers see `owner = me OR published`. Only superusers, the internal admin key and owners of the runner's organization may set it through `POST /api/mobile-runner`; a member's value is ignored.
+- `published` — visible to and usable by every other organization: callers see `owner = me OR published`. Only superusers, the internal admin key and owners of the runner's organization may set it through `POST /api/mobile-runner`; a member's value is ignored.
 - `admin_managed` — set when a superuser or the internal admin key registers the runner; admin-managed runners are operator infrastructure used by every organization (exempt from the tenant destination policy). Every runner's device work runs only in its own Temporal namespace `runner-<record id>`.
 
 Liveness env vars: `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL` (default `60s`, governs whether a runner counts as recently alive for selectors), `MOBILE_RUNNER_LIFECYCLE_HEARTBEAT_TIMEOUT` (default `1h`, marks stale runners offline and pauses their device semaphores), plus `MOBILE_RUNNER_LIFECYCLE_MONITOR_INTERVAL` (30s) and `MOBILE_RUNNER_LIFECYCLE_SHUTDOWN_AFTER` (7d).

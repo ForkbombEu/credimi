@@ -129,7 +129,7 @@ Separate, older substitution: `${fixture.<key>}` (no `${{ }}`), keys `issuer_url
 
 - No device steps → started directly, response `status: "running"` with `workflow_id`/`run_id`, and a `pipeline_results` row created immediately.
 - Device steps → one ticket per device on that device's semaphore; responses carry `ticket_id`, `status`, `position`, `line_len`, ids and URLs (`PipelineQueueResponse`).
-- Guards: runner ownership (`404 runner not found`, `403 device_id is not accessible` — unless the device is yours, or its runner is `published` and either your organization is published or the runner is `admin_managed`; the same rule as the runner list), liveness (`503 device runner is offline`), queue cap (`409 queue_limit`).
+- Guards: runner ownership (`404 runner not found`, `403 device_id is not accessible` — unless the device is yours or its runner is `published`; the same rule as the runner list), liveness (`503 device runner is offline`), queue cap (`409 queue_limit`).
 - `GET`/`DELETE /api/pipeline/queue/{ticket}` require the `device_ids` query parameter (repeated or comma separated).
 - Statuses: `queued`, `starting`, `running`, `failed`, `canceled`, `not_found`. `position` is **0-based** from the API; the wallet-APK response and the CLI display `position + 1`.
 - Cancel of a not-yet-running wallet-APK ticket deletes the temporary wallet version.
