@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { organization, isOrganizationNotEdited } = $derived(data);
+	let { organization, isOrganizationNotEdited, isPublic } = $derived(data);
 
 	setDashboardNavbar({
 		title: m.Organization(),
@@ -35,12 +35,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let updateLocked = $state(true);
 
 	const publishLabel = $derived(
-		organization.published ? m.organization_is_public() : m.organization_is_not_public()
+		isPublic ? m.organization_is_public() : m.organization_is_not_public()
 	);
 	const publishReason = $derived(
-		organization.published
-			? m.organization_is_public_reason()
-			: m.organization_is_not_public_reason()
+		isPublic ? m.organization_is_public_reason() : m.organization_is_not_public_reason()
 	);
 </script>
 
@@ -49,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CopyButton textToCopy={organization.canonified_name} icon={CopyIcon}></CopyButton>
 
 		<div class="flex items-center gap-1 pl-2">
-			<PublishedStatus item={organization} privateDisplay="warning" />
+			<PublishedStatus item={{ published: isPublic }} privateDisplay="warning" />
 			<p class="text-sm font-medium">{publishLabel}</p>
 			<Tooltip contentClass="max-w-xs">
 				{#snippet child({ props })}
@@ -61,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Tooltip>
 		</div>
 
-		{#if organization.published}
+		{#if isPublic}
 			<Button variant="outline" href="/organizations/{organization.canonified_name}">
 				{m.Page_preview()}
 				<ArrowUpRight />

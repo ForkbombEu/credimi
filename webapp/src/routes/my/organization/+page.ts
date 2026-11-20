@@ -11,11 +11,18 @@ export const load = async ({ fetch, parent }) => {
 	if (!organization) throw error(404);
 
 	const hubItems = await pb.collection('hub_items').getFullList({
-		filter: `organization_id = '${organization.id}'`,
+		filter: pb.filter('organization_id = {:id}', { id: organization.id }),
 		fetch
 	});
 
 	const isOrganizationNotEdited = organization.created === organization.updated;
 
-	return { organization, hubItems, isOrganizationNotEdited };
+	// Public organizations are the ones listed on the hub.
+	const hubListing = await pb.collection('hub_organizations').getList(1, 1, {
+		filter: pb.filter('id = {:id}', { id: organization.id }),
+		fetch
+	});
+	const isPublic = hubListing.totalItems > 0;
+
+	return { organization, hubItems, isOrganizationNotEdited, isPublic };
 };
