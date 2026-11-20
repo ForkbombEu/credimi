@@ -209,6 +209,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			homeURL = getStringFromMap(metadata, "sellerUrl")
 			appstoreURL = req.URL
 		}
+		description = withoutRepeatedTitle(description, name)
 
 		return e.JSON(http.StatusOK, map[string]any{
 			"type":          storeType,
@@ -223,6 +224,15 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			"owner":         organization,
 		})
 	}
+}
+
+// withoutRepeatedTitle drops one copy of a title that a store description repeats
+// at its start, as some Play Store listings do ("TitleTitle\n...").
+func withoutRepeatedTitle(description, title string) string {
+	if title == "" || !strings.HasPrefix(description, title+title) {
+		return description
+	}
+	return strings.TrimPrefix(description, title)
 }
 
 type WalletInstallerMD5OrETagRequest struct {

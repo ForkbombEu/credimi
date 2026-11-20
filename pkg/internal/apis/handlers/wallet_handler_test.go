@@ -1302,7 +1302,7 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 				"icon":             "logo.png",
 				"appId":            "com.example",
 				"developerWebsite": "https://example.com",
-				"description":      "desc",
+				"description":      "WalletWallet\ndesc",
 			},
 		}, nil
 	}
@@ -1330,9 +1330,17 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 	require.Equal(t, "google", payload["type"])
 	require.Equal(t, "Wallet", payload["name"])
 	require.Equal(t, "logo.png", payload["logo"])
+	require.Equal(t, "Wallet\ndesc", payload["description"])
 	require.Equal(t, "com.example", payload["google_app_id"])
 	require.Equal(t, "https://example.com", payload["playstore_url"])
 	require.Equal(t, orgID, payload["owner"])
+}
+
+func TestWithoutRepeatedTitle(t *testing.T) {
+	require.Equal(t, "Wallet\ndesc", withoutRepeatedTitle("WalletWallet\ndesc", "Wallet"))
+	require.Equal(t, "Wallet\ndesc", withoutRepeatedTitle("Wallet\ndesc", "Wallet"))
+	require.Equal(t, "Wallets Wallet", withoutRepeatedTitle("Wallets Wallet", "Wallet"))
+	require.Equal(t, "desc", withoutRepeatedTitle("desc", ""))
 }
 
 func setupWalletPipelineTestRecords(
