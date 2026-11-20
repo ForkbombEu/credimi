@@ -854,6 +854,10 @@ func selectPipelineCIDeviceByType(
 		default:
 			continue
 		}
+		// A worse tier than the current pick can never win; skip its probe.
+		if selectedDeviceID != "" && tier > selectedTier {
+			continue
+		}
 		if !mobilerunner.RunnerNamespaceReady(runner) {
 			continue
 		}

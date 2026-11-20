@@ -83,6 +83,9 @@ export function init() {
 			let unsubscribe: (() => Promise<void>) | undefined;
 			let cancelled = false;
 
+			// Realtime follows the collection's owner-only rule, so it fires for the
+			// caller's own devices only; other organizations' published devices refresh
+			// with the periodic refresh and when the picker opens.
 			void pb
 				.collection('mobile_devices')
 				.subscribe('*', () => {

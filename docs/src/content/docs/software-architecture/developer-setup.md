@@ -136,8 +136,9 @@ Temporal upgrades existing data only one minor version at a time. Dev Temporal d
 ## Temporal Visibility Search Attributes
 
 Pipeline listings and filters rely on custom Temporal visibility search attributes. Credimi registers them
-itself on every namespace it sets up (`hooks.EnsureNamespaceReady`, at server start and on organization
-create/rename), so no manual `temporal operator search-attribute create` step is needed:
+itself on every namespace it sets up (`hooks.EnsureNamespaceReady`, at server start, on organization
+create/rename, and when Credimi prepares a runner namespace (`runner-<record id>`)), so no manual
+`temporal operator search-attribute create` step is needed:
 
 | Name | Type |
 | --- | --- |
