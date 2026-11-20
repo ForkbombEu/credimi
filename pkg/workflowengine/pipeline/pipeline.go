@@ -127,6 +127,10 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	defer func() {
+		// Only the top-level pipeline reports the run; child pipelines share its ticket and its result.
+		if workflow.GetInfo(ctx).ParentWorkflowExecution != nil {
+			return
+		}
 		finalResult := pipelineFinalResult(ctx, finalErr)
 		reportAO := ao
 		if input.WorkflowInput.ActivityOptions == nil {

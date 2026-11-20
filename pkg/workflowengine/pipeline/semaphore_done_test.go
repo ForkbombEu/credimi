@@ -221,3 +221,104 @@ func TestPipelineSendsFinalReportsAfterCancellation(t *testing.T) {
 	require.Equal(t, resultCanceled, notifiedResult)
 	env.AssertExpectations(t)
 }
+
+func TestChildPipelineDoesNotSendTheRunReports(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	semaphoreDone := activities.NewReportMobileDeviceSemaphoreDoneActivity(nil)
+	registerStubActivity(env, semaphoreDone.Name())
+	registerStubActivity(env, activities.SendPipelineCompletionNotificationActivityName)
+	githubUpdate := activities.NewUpdateGitHubPRCommentActivity()
+	registerStubActivity(env, githubUpdate.Name())
+	env.OnActivity(activities.ResolveRecordActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": `
+name: Child Pipeline
+steps:
+  - id: inner
+    use: capture-runtime
+    with:
+      payload:
+        text: inner
+`}}, nil).Once()
+
+	reportedBy := map[string][]string{}
+	recordReport := func(name string, workflowID func(workflowengine.ActivityInput) string) {
+		env.OnActivity(name, mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				input, ok := args.Get(1).(workflowengine.ActivityInput)
+				require.True(t, ok)
+				reportedBy[name] = append(reportedBy[name], workflowID(input))
+			}).
+			Return(workflowengine.ActivityResult{}, nil)
+	}
+	recordReport(semaphoreDone.Name(), func(input workflowengine.ActivityInput) string {
+		payload, err := workflowengine.DecodePayload[activities.ReportMobileDeviceSemaphoreDoneInput](
+			input.Payload,
+		)
+		require.NoError(t, err)
+		return payload.WorkflowID
+	})
+	recordReport(
+		activities.SendPipelineCompletionNotificationActivityName,
+		func(input workflowengine.ActivityInput) string {
+			payload, err := workflowengine.DecodePayload[activities.SendPipelineCompletionNotificationInput](
+				input.Payload,
+			)
+			require.NoError(t, err)
+			return payload.WorkflowID
+		},
+	)
+	recordReport(githubUpdate.Name(), func(input workflowengine.ActivityInput) string {
+		payload, err := workflowengine.DecodePayload[activities.UpdateGitHubPRCommentInput](
+			input.Payload,
+		)
+		require.NoError(t, err)
+		return payload.WorkflowID
+	})
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name: "Parent Pipeline",
+			Steps: []pipeline.StepDefinition{
+				{StepSpec: pipeline.StepSpec{
+					ID:   "child",
+					Use:  "child-pipeline",
+					With: pipeline.StepInputs{Payload: map[string]any{"pipeline_id": "child"}},
+				}},
+			},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url":                           "https://example.test",
+				"namespace":                         "tenant-1",
+				"mobile_device_semaphore_ticket_id": "ticket-1",
+				"mobile_device_semaphore_leader_device_id": "runner-1/device-1",
+				"mobile_device_semaphore_owner_namespace":  "tenant-1",
+				CompletionNotificationConfigKey:            true,
+				GitHubPRCommentConfigKey: map[string]any{
+					GitHubPRCommentConfigRepositoryKey:        "forkbombeu/issuer",
+					GitHubPRCommentConfigPullRequestNumberKey: 17,
+				},
+			},
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, []string{"inner"}, captured)
+	parentOnly := []string{"default-test-workflow-id"}
+	require.Equal(t, map[string][]string{
+		semaphoreDone.Name(): parentOnly,
+		activities.SendPipelineCompletionNotificationActivityName: parentOnly,
+		githubUpdate.Name(): parentOnly,
+	}, reportedBy)
+}
