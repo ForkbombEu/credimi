@@ -4,12 +4,16 @@ tags:
   - fcaf
   - ws_rp
 ---
+# Every wait that can fail comes after a screenshot, so a step that fails on any
+# of them still shows the screen the Wallet stopped on.
 - launchApp:
     stopApp: true
     clearState: false
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: pid-candidates-launch
 - runFlow:
     when:
       visible: "1"
@@ -26,9 +30,13 @@ tags:
 - tapOn:
     text: "Just once"
     optional: true
+# Phase 1: a bounded, optional probe, because a second `Welcome back` lock screen
+# after openLink counts as a reaction even though it says nothing yet.
 - extendedWaitUntil:
-    visible: "Welcome back|Data sharing request"
-    timeout: 100000
+    visible: "Welcome back|Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 30000
+    optional: true
+- takeScreenshot: pid-candidates-open
 - runFlow:
     when:
       visible: "Welcome back"
@@ -38,9 +46,13 @@ tags:
           timeout: 30000
       - inputText: "12345"
       - tapOn: "6"
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets the
+# whole window to render its candidate list.
 - extendedWaitUntil:
-    visible: "Data sharing request"
-    timeout: 30000
+    visible: "Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 100000
+    optional: true
+- takeScreenshot: pid-candidates-request
 # M >= 2 proves several candidates are offered; reading "Option 2 of M"
 # after the tap proves the user could select the second one.
 - assertVisible: "Option 1 of [2-9][0-9]*"
@@ -55,7 +67,13 @@ tags:
     timeout: 30000
 - inputText: "12345"
 - tapOn: "6"
+# The result screen, or the error screen a Wallet that refused ends on: optional
+# wait, then the screenshot, then the strict wait.
+- extendedWaitUntil:
+    visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+    timeout: 30000
+    optional: true
+- takeScreenshot: pid-candidate-shared
 - extendedWaitUntil:
     visible: ".*successfully shared.*"
     timeout: 30000
-- takeScreenshot: pid-candidate-shared

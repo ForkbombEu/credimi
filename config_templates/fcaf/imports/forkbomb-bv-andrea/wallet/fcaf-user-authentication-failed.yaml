@@ -4,12 +4,19 @@ tags:
   - fcaf
   - ws_rp
 ---
+# Every wait that can fail comes after a screenshot: the launch screen, the
+# request screen, the consent screen and the failed-authentication screen are
+# stored first, so a step that fails on any of them still shows the screen the
+# Wallet stopped on. Screenshot names stay short so the snake-cased
+# `<step id>-<name>` stem keeps them inside PocketBase's 100-character cap.
 - launchApp:
     stopApp: true
     clearState: false
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-149-launch
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -28,9 +35,13 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
+# Phase 1: a bounded, optional probe, because a second `Welcome back` lock screen
+# after openLink counts as a reaction even though it says nothing yet.
 - extendedWaitUntil:
-    visible: "Welcome back|Data sharing request"
-    timeout: 100000
+    visible: "Welcome back|Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-149-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -42,9 +53,13 @@ tags:
         timeout: 30000
     - inputText: "12345"
     - tapOn: "6"
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets the
+# whole window to render its request screen.
 - extendedWaitUntil:
-    visible: "Data sharing request"
+    visible: "Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
     timeout: 100000
+    optional: true
+- takeScreenshot: fcaf-149-request
 - assertVisible:
     id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
 - tapOn:
@@ -53,24 +68,37 @@ tags:
 - assertVisible: "Given Name"
 - takeScreenshot: "fcaf-149-consent-screen-before-authentication"
 - tapOn: "Share"
+# The second-authentication screen, or the Wallet's error screen instead.
 - extendedWaitUntil:
-    visible: "PIN|To approve the transaction you need to verify your identity."
+    visible: "PIN|To approve the transaction you need to verify your identity.|Oups! Something went wrong|invalid request"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-149-share-auth
 - extendedWaitUntil:
     visible: "1"
     timeout: 30000
 - inputText: "11111"
 - tapOn: "1"
+# The failed-authentication screen, or whatever the Wallet shows instead: optional
+# wait and screenshot before the assertions that decide.
 - extendedWaitUntil:
-    visible: "Invalid pin"
+    visible: "Invalid pin|.*successfully shared.*|Oups! Something went wrong"
     timeout: 30000
-- assertNotVisible: ".*successfully shared.*"
+    optional: true
 - takeScreenshot: "fcaf-149-user-authentication-failed"
+- assertVisible: "Invalid pin"
+- assertNotVisible: ".*successfully shared.*"
+# The way back is housekeeping, so both waits are optional: the Wallet may word or
+# order its screens differently, and the terminal screenshot below records wherever
+# it ends.
 - tapOn: "Go Back"
 - extendedWaitUntil:
     visible: "Data sharing request"
     timeout: 30000
+    optional: true
 - tapOn: "Go Back"
 - extendedWaitUntil:
     visible: "Home|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-149-end

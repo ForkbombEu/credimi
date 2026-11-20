@@ -35,9 +35,14 @@ tags:
     permissions:
       camera: allow
       notifications: allow
+# Optional, so a Wallet that is slow to launch cannot end the step before it has
+# stored anything: `refused-open` records the launch screen and the flow below
+# still reaches its terminal screenshot whatever the Wallet shows.
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: refused-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:

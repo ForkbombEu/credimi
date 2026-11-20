@@ -9,7 +9,9 @@ tags:
 # Records the Wallet's reaction to a request without selecting or sharing a
 # credential: whichever screen it ends on, a consent screen included, is
 # screenshotted and left unanswered. The action never fails on the Wallet's
-# outcome; the calling test proves engagement from the Verifier's capture.
+# outcome, so only `openLink` can end it early; `observe-launch` is stored first,
+# so even that exit shows the Wallet's screen. The calling test proves engagement
+# from the Verifier's capture.
 - launchApp:
     stopApp: true
     clearState: false
@@ -19,8 +21,12 @@ tags:
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: observe-launch
 - waitForAnimationToEnd:
     timeout: 3000
+# The keypad is entered only while it is up: this flow must reach its terminal
+# screenshot even when the unlock sequence does not complete.
 - runFlow:
     when:
       visible: "Welcome back"
@@ -28,11 +34,17 @@ tags:
       - extendedWaitUntil:
           visible: "1"
           timeout: 30000
-      - inputText: "12345"
-      - tapOn: "6"
+          optional: true
+      - runFlow:
+          when:
+            visible: "1"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
 - extendedWaitUntil:
     visible: "Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+    optional: true
 - openLink:
     link: "${deeplink}"
     autoVerify: false
@@ -50,8 +62,13 @@ tags:
       - extendedWaitUntil:
           visible: "1"
           timeout: 30000
-      - inputText: "12345"
-      - tapOn: "6"
+          optional: true
+      - runFlow:
+          when:
+            visible: "1"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
       - waitForAnimationToEnd:
           timeout: 3000
 - extendedWaitUntil:

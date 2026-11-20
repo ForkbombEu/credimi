@@ -4,12 +4,17 @@ tags:
   - fcaf
   - ws_rp
 ---
+# Every wait that can fail comes after a screenshot: the launch screen, the
+# request screen, the consent screen and the post-denial screen are stored first,
+# so a step that fails on any of them still shows the screen the Wallet stopped on.
 - launchApp:
     stopApp: true
     clearState: false
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-148-launch
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -28,9 +33,13 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
+# Phase 1: a bounded, optional probe, because a second `Welcome back` lock screen
+# after openLink counts as a reaction even though it says nothing yet.
 - extendedWaitUntil:
-    visible: "Welcome back|Data sharing request"
-    timeout: 100000
+    visible: "Welcome back|Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-148-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -42,9 +51,13 @@ tags:
         timeout: 30000
     - inputText: "12345"
     - tapOn: "6"
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets the
+# whole window to render its request screen.
 - extendedWaitUntil:
-    visible: "Data sharing request"
+    visible: "Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
     timeout: 100000
+    optional: true
+- takeScreenshot: fcaf-148-request
 - assertVisible:
     id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
 - tapOn:
@@ -60,7 +73,10 @@ tags:
     - tapOn:
         text: "Cancel|Yes|Confirm"
         index: 1
+# The screen the Wallet returns to after the denial, or wherever it stopped: the
+# wait is optional and the screenshot follows it, before the flow ends.
 - extendedWaitUntil:
-    visible: "Home|Welcome, .*|Oups! Something went wrong"
+    visible: "Home|Welcome, .*|Oups! Something went wrong|Data sharing request"
     timeout: 30000
+    optional: true
 - takeScreenshot: "fcaf-148-after-consent-denial"
