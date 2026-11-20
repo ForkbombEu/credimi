@@ -479,8 +479,7 @@ func TestLinkedBlockRetryable(t *testing.T) {
 	))
 }
 
-// TestLinkedBlockRetryableNexusOperation retries a block whose mobile step operation failed,
-// as it retried the step's child workflow before mobile steps ran through Nexus.
+// TestLinkedBlockRetryableNexusOperation retries a block whose mobile step operation failed.
 func TestLinkedBlockRetryableNexusOperation(t *testing.T) {
 	require.True(t, linkedBlockRetryable(&temporal.NexusOperationError{
 		Cause: temporal.NewNonRetryableApplicationError("boom", "x", nil),

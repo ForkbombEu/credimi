@@ -253,7 +253,7 @@ func missingMobileStepConfig(stepID, key string) error {
 
 // taskWorkflowID is the workflow ID of a task workflow step: the running workflow's ID and
 // the step ID, plus the attempt inside a Linked Steps Workflow, whose attempts would
-// otherwise reuse one child workflow ID.
+// otherwise reuse one workflow ID.
 func taskWorkflowID(ctx workflow.Context, stepID string) string {
 	info := workflow.GetInfo(ctx)
 	id := fmt.Sprintf("%s-%s", info.WorkflowExecution.ID, canonify.CanonifyPlain(stepID))

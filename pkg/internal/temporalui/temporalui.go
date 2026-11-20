@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package temporalui serves the upstream Temporal UI under PathPrefix through a
-// read-only reverse proxy scoped to the caller's organization namespace.
+// read-only reverse proxy scoped to the caller's organization namespace and to
+// the runner-namespace runs of its pipelines.
 //
 // The embedded UI runs with auth disabled and is reachable only through this proxy,
 // so the proxy is the security boundary:
@@ -11,8 +12,9 @@
 //     already keeps in sync with the PocketBase auth store;
 //   - only GET and HEAD reach the UI, so no workflow can be started, signaled,
 //     cancelled, terminated or reset from it;
-//   - API calls must target the caller's organization namespace; the namespace
-//     list is replaced by the caller's namespace alone;
+//   - API calls must target the caller's organization namespace or, as below, a
+//     runner namespace; the namespace list is replaced by the caller's namespace
+//     alone;
 //   - in a runner namespace (runner-<runner record id>) only the pages and API
 //     calls of a workflow run the caller's organization owns
 //     (runnerworkflows.OwnedBy) are served, plus, when a pipeline run of the
