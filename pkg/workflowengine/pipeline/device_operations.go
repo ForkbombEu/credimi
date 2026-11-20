@@ -46,9 +46,10 @@ const (
 	parentDeviceKey = "parent_device"
 )
 
-// MobileDevicesCleanupHook cleans every device the pipeline prepared, through
-// the Clean up operation of the device's runner namespace, unless the
-// pipeline's cancellation policy skips it, and merges the evidence it stored.
+// MobileDevicesCleanupHook cleans every device the pipeline prepared, except
+// those it borrowed from its parent pipeline, through the Clean up operation
+// of the device's runner namespace, unless the pipeline's cancellation policy
+// skips it, and merges the evidence it stored.
 func MobileDevicesCleanupHook(
 	ctx workflow.Context,
 	wfDef *pipeline.WorkflowDefinition,
@@ -245,7 +246,8 @@ func PrepareDeviceWorkflow(
 
 // setUpDevice prepares the device for every request, then disables the Play
 // Store when asked and starts the device log and the recording. It stops at
-// the first error.
+// the first error; for a device the parent prepared (`in.Device`) it prepares
+// only the requests.
 func setUpDevice(
 	ctx workflow.Context,
 	ao workflow.ActivityOptions,
@@ -316,8 +318,8 @@ func CleanUpDeviceWorkflow(
 	return result, nil
 }
 
-// deviceEntryFromJSON restores the Go types the cleanup reads from a
-// setted_devices entry that crossed the Nexus operations as JSON: process
+// deviceEntryFromJSON restores the Go types Prepare and the cleanup read from
+// a setted_devices entry that crossed the Nexus operations as JSON: process
 // IDs as int and the installed packages as map[string]string.
 func deviceEntryFromJSON(device map[string]any) map[string]any {
 	restored := make(map[string]any, len(device))

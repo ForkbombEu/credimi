@@ -321,6 +321,8 @@ func MobileAutomationSetupHook(
 		device[runnerNamespaceConfigKey] = runnerNamespace
 		if parentEntry != nil {
 			device[parentDeviceKey] = true
+		} else {
+			delete(device, parentDeviceKey)
 		}
 		settedDevices[deviceID] = device
 		SetRunDataValue(runData, "setted_devices", settedDevices)
