@@ -100,7 +100,7 @@ Pipeline device work runs in the runner's namespace `runner-<record id>` through
 
 **Schedules.** `POST /api/my/schedules/start`, `GET /api/my/schedules`, `POST /api/my/schedules/{scheduleId}/{cancel,pause,resume}` (U).
 
-**Runners / devices.** `GET /api/mobile-runners`, `GET /api/mobile-devices` (internal-or-auth); registration and lifecycle routes (`/api/mobile-runner[...]`, `POST|DELETE /api/mobile-device`, `/api/mobile-device/{preview-id,reconcile}`, `…/lifecycle/{resume,heartbeat,pause}`, `GET …/lifecycle/{work,live-view}`) are internal-or-auth. Workers look devices up with the `Get a mobile device` and `Validate mobile device access` activities (`credimi_mobile_devices.go`).
+**Runners / devices.** `GET /api/mobile-runners`, `GET /api/mobile-devices` (internal-or-auth); runner items carry `url` and device details, and device items `serial`, only for the caller's own runners and devices (everything for superusers), and the `mobile_runners`/`mobile_devices` collection API shows records only to their organization. Registration and lifecycle routes (`/api/mobile-runner[...]`, `POST|DELETE /api/mobile-device`, `/api/mobile-device/{preview-id,reconcile}`, `…/lifecycle/{resume,heartbeat,pause}`, `GET …/lifecycle/{work,live-view}`) are internal-or-auth. Workers look devices up with the `Get a mobile device` and `Validate mobile device access` activities (`credimi_mobile_devices.go`).
 
 **Web push.** `GET /api/web-push/vapid-public-key` (P). Pipeline completion pushes are sent by the `Send pipeline completion notification` activity.
 

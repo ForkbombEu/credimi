@@ -442,14 +442,16 @@ PocketBase collection:
 Runner host list shape:
 
 - `GET /api/mobile-runners`
-- Items include `path`, `is_owned`, `is_published`, `is_online`.
+- Items include `path`, `is_owned`, `is_published`, `is_online`; `url` and device details only for the caller's own runners (all runners for superusers).
 - Owners of a runner's organization may publish it, through the `mobile_runners` rules and `POST /api/mobile-runner` alike (`pb_migrations/1794900100_allow_owner_mobile_runner_published.js` lifted the superuser-only guard of `1792000000_restrict_mobile_runner_published.js`): a published runner's Temporal token still opens only its own namespace `runner-<record id>`. `POST /api/mobile-runner` sets `published` only for superusers, the internal admin key and owners of the runner's organization (`mayPublishMobileRunner`); a member's value is ignored and registration goes on.
   Device selector list shape:
 
 - `GET /api/mobile-devices`
 - Items include `path`, device `type`, `serial`, `is_owned`, `is_published`,
   `is_online`, `runs_ahead` (online devices: runs on the device's semaphore,
-  running or waiting), plus `runner_id` and `runner_name` as host context.
+  running or waiting), plus `runner_id` and `runner_name` as host context;
+  `serial` only for the caller's devices.
+- The `mobile_runners` and `mobile_devices` collection API shows records only to their organization (`pb_migrations/1794900400_restrict_mobile_runner_reads.js`); other organizations reach published runners only through the two lists above.
 - Pipeline YAML uses `device_id` and `global_device_id` only.
 
 Internal lookup:
@@ -467,7 +469,7 @@ External runner HTTP contract:
     - Not called for `version_id: installed_from_external_source`. Credimi resolves a stored action's code itself through the `Resolve a Credimi record` activity, scoped to the pipeline's organization, and puts it in the step payload; runners never look wallet actions up.
 - `POST {runner_url}/credimi/pipeline-result`
     - Body: `{ video_path, last_frame_path, log_path?, run_identifier, device_identifier, platform }`; `run_identifier` and `platform` are required, `log_path` is sent only when a log was recorded.
-    - Response: `{ result_urls: string[], screenshot_urls: string[] }`
+    - Response: `{ result_urls: string[], screenshot_urls: string[] }`, relayed from Credimi's `POST /api/wallet/store-pipeline-result`, whose answer lists only the files that upload stored.
 - `POST {runner_url}/credimi/live-view`
     - Body: `{ device_identifier, serial, namespace, workflow_id, run_id, run_identifier }`
     - `namespace`, `workflow_id` and `run_id` name the run that holds the device: a pipeline run in its organization namespace (the device must have a `setted_devices` entry), or an action author session in the runner namespace its ID names, where Credimi also describes and queries it. The runner asks Credimi whether that run still runs (`GET /api/mobile-runner/lifecycle/live-view`, below); it does not query Temporal.
@@ -512,6 +514,10 @@ Catalog availability and run-path health:
   ready (`mobilerunner.RunnerNamespaceReady`) fails it with
   `503 device runner is not ready`. The helpers live in
   `pkg/internal/apis/handlers/mobile_runner_availability.go`.
+- For `device_type`, `selectPipelineCIDeviceByType` offers only devices on
+  ready runners the caller owns, then on published admin-managed runners, the
+  shortest queue first within the first group that has one; another
+  organization's tenant runner is used only through an explicit `device_id`.
 - Every Credimi-to-runner HTTP call goes through the `mobile-runner-http-request`
   activity (`activities.NewMobileRunnerHTTPActivity`): `installer-action` and
   `pipeline-result` in `mobile_automation_hooks.go`.

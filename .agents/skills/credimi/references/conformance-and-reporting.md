@@ -43,6 +43,8 @@ Records are written in-process by `pkg/internal/pipeline_results` (no HTTP route
 
 Runner artifacts are appended to an existing record by `POST /api/wallet/store-pipeline-result` (`RequireInternalAdminOrAuth`): `credimi-runner` sends its `CREDIMI_USER_API_KEY`, falling back to the internal admin key. It uploads `result_video`, `last_frame` and `logfile` into `video_results`, `screenshots` and `logcats`/`ios_logstreams`. This route and `POST /api/pipeline/store-step-screenshots` share `authorizePipelineResultDeviceStoreAccess`: every caller, internal admin included, must name a device listed in the record's `devices` (otherwise 403 `device did not run this pipeline result`); a non-admin caller must also belong to the record's organization or own that device's published runner.
 
+The answer lists only the files that upload stored (`result_urls`, `screenshot_urls`, `log_urls`), never those other devices or earlier uploads stored.
+
 ## Scoreboard
 
 - Aggregation: `AggregateScoreboardWorkflow` (queue `AggregateScoreboardTaskQueue`) runs four activities that read and write the database directly (`pkg/internal/apis/handlers/scoreboard_activities.go`; names in `pkg/workflowengine/workflows/scoreboard.go`): `List organization namespaces for the scoreboard`, `Get the pipeline scoreboard of a namespace` per namespace, recomputes rates, enriches with `Get scoreboard execution details`, then `Save aggregated scoreboard results` (truncates and rewrites the cache). It runs in the Temporal `default` namespace and can be started/scheduled with `POST /api/pipeline/scoreboard/aggregate/start?schedule=<seconds>` (cancel: `DELETE /api/pipeline/scoreboard/aggregate/schedule/{schedule_id}`).

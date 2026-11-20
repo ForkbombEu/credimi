@@ -136,6 +136,8 @@ Separate, older substitution: `${fixture.<key>}` (no `${{ }}`), keys `issuer_url
 
 **CI, wallet APK.** `POST /api/pipeline/run-wallet-apk`: `pipeline_identifier` required, `metadata.sha` required (becomes `commit_sha`), `device_id` or `device_type`, and exactly one of `apk_file` (multipart) or `apk_url` (max 1 GiB, 30s download timeout). It creates a temporary `wallet_versions` record for that SHA, rewrites the run YAML to it, forces run type `CI`, and enqueues through the semaphore. Siblings: `/run-issuer`, `/run-verifier`.
 
+With `device_type`, `selectPipelineCIDeviceByType` offers only devices on ready runners the caller owns, then on published admin-managed runners, the shortest queue first within the first group that has one; another organization's tenant runner is used only through an explicit `device_id`.
+
 **Ephemeral execute.** `POST /api/pipeline/execute` takes YAML in the body, query `deeplink=true` / `redirect=true`. Only `http-request` steps are allowed; no `pipeline_results` row, no search attributes; 2m timeout.
 
 **Live view.** `POST /api/pipeline/live-view` `{workflow_id, run_id[, device_id]}` — only for **running** dynamic pipeline workflows; `409` if the mobile devices are not initialized yet; `422` for `ios_simulator`; returns `{streams:[{device_id, device_name, url}]}` where `url` is the runner's `/live/<token>` path.
