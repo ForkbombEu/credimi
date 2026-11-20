@@ -35,7 +35,8 @@ assertions:
     forbidden_values:
     - University of Betelgeuse
 - id: wallet_completes_the_degree_presentation
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

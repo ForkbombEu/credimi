@@ -28,7 +28,8 @@ assertions:
     media_type: application/x-www-form-urlencoded
     accept: application/oauth-authz-req+jwt
 - id: wallet_request_uri_processing_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

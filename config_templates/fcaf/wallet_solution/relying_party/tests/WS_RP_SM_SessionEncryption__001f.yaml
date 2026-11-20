@@ -35,7 +35,8 @@ assertions:
   validator: shared.json
   input: evidence.decrypted_response_raw
 - id: encrypted_response_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

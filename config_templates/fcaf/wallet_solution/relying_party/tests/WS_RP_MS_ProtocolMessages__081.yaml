@@ -114,8 +114,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_number_zero_session
 - id: holder_binding_number_zero_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_number_zero
+  params: { name: request-refused }
 - id: holder_binding_number_one_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_number_one
@@ -128,8 +129,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_number_one_session
 - id: holder_binding_number_one_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_number_one
+  params: { name: request-refused }
 - id: holder_binding_number_random_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_number_random
@@ -142,8 +144,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_number_random_session
 - id: holder_binding_number_random_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_number_random
+  params: { name: request-refused }
 - id: holder_binding_string_true_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_true
@@ -156,8 +159,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_true_session
 - id: holder_binding_string_true_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_true
+  params: { name: request-refused }
 - id: holder_binding_string_false_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_false
@@ -170,8 +174,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_false_session
 - id: holder_binding_string_false_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_false
+  params: { name: request-refused }
 - id: holder_binding_string_uppercase_true_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_uppercase_true
@@ -184,8 +189,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_uppercase_true_session
 - id: holder_binding_string_uppercase_true_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_uppercase_true
+  params: { name: request-refused }
 - id: holder_binding_string_uppercase_false_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_uppercase_false
@@ -198,8 +204,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_uppercase_false_session
 - id: holder_binding_string_uppercase_false_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_uppercase_false
+  params: { name: request-refused }
 - id: holder_binding_string_yes_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_yes
@@ -212,8 +219,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_yes_session
 - id: holder_binding_string_yes_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_yes
+  params: { name: request-refused }
 - id: holder_binding_string_no_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_no
@@ -226,8 +234,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_no_session
 - id: holder_binding_string_no_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_no
+  params: { name: request-refused }
 - id: holder_binding_string_y_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_y
@@ -240,8 +249,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_y_session
 - id: holder_binding_string_y_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_y
+  params: { name: request-refused }
 - id: holder_binding_string_n_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_n
@@ -254,8 +264,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_n_session
 - id: holder_binding_string_n_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_n
+  params: { name: request-refused }
 - id: holder_binding_string_zero_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_zero
@@ -268,8 +279,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_zero_session
 - id: holder_binding_string_zero_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_zero
+  params: { name: request-refused }
 - id: holder_binding_string_one_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_one
@@ -282,8 +294,9 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_one_session
 - id: holder_binding_string_one_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_one
+  params: { name: request-refused }
 - id: holder_binding_string_random_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_random
@@ -296,7 +309,8 @@ assertions:
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_random_session
 - id: holder_binding_string_random_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence_string_random
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

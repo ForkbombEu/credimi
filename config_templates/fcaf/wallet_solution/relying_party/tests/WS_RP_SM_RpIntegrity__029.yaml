@@ -34,7 +34,8 @@ assertions:
   input: evidence.capture_session
   params: {mode: credentials_match}
 - id: wallet_processing_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

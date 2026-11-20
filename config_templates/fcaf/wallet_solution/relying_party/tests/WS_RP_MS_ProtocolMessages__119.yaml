@@ -30,7 +30,8 @@ assertions:
   input: evidence.dcql_exchange
   params: { mode: request_rejected }
 - id: ws_rp_ms_protocolmessages__119_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

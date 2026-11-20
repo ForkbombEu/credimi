@@ -44,7 +44,8 @@ assertions:
     field: presentation_valid
     value: true
 - id: user_consent_was_exercised
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

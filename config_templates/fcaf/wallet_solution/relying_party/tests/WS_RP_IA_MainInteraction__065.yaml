@@ -26,7 +26,8 @@ assertions:
   params:
     mode: trusted_authorities_match
 - id: ws_rp_ia_maininteraction__065_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

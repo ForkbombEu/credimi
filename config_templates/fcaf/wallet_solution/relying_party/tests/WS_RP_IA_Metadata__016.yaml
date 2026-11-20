@@ -35,6 +35,7 @@ assertions:
     input: evidence.dcql_exchange
     params: {mode: invalid_request_required}
   - id: rejection_has_visual_evidence
-    validator: evidence.non_empty
+    validator: evidence.screenshot_named
     input: evidence.visual_evidence
+    params: { name: request-refused }
 verdict: {pass_when: all_assertions_pass}

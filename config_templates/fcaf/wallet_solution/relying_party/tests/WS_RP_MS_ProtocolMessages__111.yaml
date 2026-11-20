@@ -26,7 +26,8 @@ assertions:
   params:
     mode: empty_claim_id
 - id: ws_rp_ms_protocolmessages__111_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

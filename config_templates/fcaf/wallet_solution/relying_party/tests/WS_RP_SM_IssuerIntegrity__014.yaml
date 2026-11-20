@@ -27,7 +27,8 @@ assertions:
   validator: sdjwt.issuer_trust_anchor_excluded
   input: evidence.pid_sdjwt
 - id: ws_rp_sm_issuerintegrity__014_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

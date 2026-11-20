@@ -42,8 +42,9 @@ assertions:
   input: evidence.constrained_exchange
   params: { mode: claims_values_no_match, expected_claim_path: [age_over_18], expected_value: true }
 - id: visual_evidence_of_the_held_pid_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.matching_visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 - id: visual_evidence_of_the_unmet_requirement_is_stored
   validator: evidence.screenshot_named
   input: evidence.constrained_visual_evidence
