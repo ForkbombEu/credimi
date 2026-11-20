@@ -557,7 +557,7 @@ func newMobileWorkflowError(
 ) error {
 	failure := workflowengine.ParseWorkflowError(err)
 	if failure.Code == "" {
-		errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
+		errCode := errorcodes.Codes[errorcodes.MobileAutomationStepError]
 		failure = workflowengine.WorkflowError{
 			Code:    errCode.Code,
 			Summary: errCode.Description,

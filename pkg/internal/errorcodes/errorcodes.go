@@ -59,6 +59,7 @@ var Codes = map[string]Code{
 	DockerCommandExecutionFailed:   {"CRE311", "Docker command execution failed"},
 	MobileRunnerBusy:               {"CRE312", "Mobile runner busy"},
 	ActionAuthorAgentNotStarted:    {"CRE314", "Action author agent did not start"},
+	MobileAutomationStepError:      {"CRE315", "Mobile automation step failed"},
 	ReadFromReaderFailed:           {"CRE901", "Failed to read from reader"},
 	CopyFromReaderFailed:           {"CRE902", "Failed to copy from reader"},
 	MkdirFailed:                    {"CRE903", "Failed to create a new folder"},
@@ -115,6 +116,7 @@ const (
 	DockerCommandExecutionFailed   = "CRE311"
 	MobileRunnerBusy               = "CRE312"
 	ActionAuthorAgentNotStarted    = "CRE314"
+	MobileAutomationStepError      = "CRE315"
 	ReadFromReaderFailed           = "CRE901"
 	CopyFromReaderFailed           = "CRE902"
 	MkdirFailed                    = "CRE903"

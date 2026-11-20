@@ -77,6 +77,25 @@ func TestBuildPipelineFailureSummaryIncludesChildWorkflowContext(t *testing.T) {
 	)
 }
 
+func TestBuildPipelineFailureSummaryIncludesMobileStepContext(t *testing.T) {
+	summary := buildPipelineFailureSummary([]pipelineStepFailure{
+		{
+			StepID: "obtain-pid-sdjwt",
+			Failure: workflowengine.WorkflowError{
+				Code:    errorcodes.MobileAutomationStepError,
+				Summary: "Mobile automation step failed",
+				Message: "Maestro flow failed while opening the credential offer",
+			},
+		},
+	})
+
+	require.Equal(
+		t,
+		"Pipeline failed: 1 step failed; obtain-pid-sdjwt failed with CRE315 Mobile automation step failed: Maestro flow failed while opening the credential offer",
+		summary,
+	)
+}
+
 func TestBuildPipelineFailureSummaryLimitsDisplayedCauses(t *testing.T) {
 	summary := buildPipelineFailureSummary([]pipelineStepFailure{
 		{StepID: "step-1", Failure: workflowengine.WorkflowError{Code: "CRE-1", Summary: "err-1"}},
