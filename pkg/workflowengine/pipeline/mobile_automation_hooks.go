@@ -28,6 +28,7 @@ import (
 const (
 	mobileAutomationStepUse                = "mobile-automation"
 	mobileDeviceSemaphoreTicketIDConfigKey = "mobile_device_semaphore_ticket_id"
+	mobileDeviceSemaphoreDeviceIDsKey      = "mobile_device_semaphore_device_ids"
 	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
 	mobileNoVideoConfigKey                 = "no_video"
 	mobilePlatformAndroid                  = "android"
@@ -243,6 +244,9 @@ func MobileAutomationSetupHook(
 				Message: "mobile-runner pipelines must be started via queue/semaphore",
 			},
 		)
+	}
+	if err := validateTicketCoversDevices(config, deviceIDs); err != nil {
+		return err
 	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
@@ -1735,6 +1739,36 @@ func isSemaphoreManagedRun(config map[string]any) bool {
 	}
 	ticketID, ok := config[mobileDeviceSemaphoreTicketIDConfigKey].(string)
 	return ok && ticketID != ""
+}
+
+// validateTicketCoversDevices refuses any device the run's queue ticket did not
+// lock. The queue access-checks and locks only the devices of the pipeline it
+// starts, so a child pipeline, which inherits the parent's ticket, may use only
+// devices its parent lists. A missing list covers no device.
+func validateTicketCoversDevices(config map[string]any, deviceIDs []string) error {
+	covered := make(map[string]struct{})
+	for _, id := range workflowengine.AsSliceOfStrings(config[mobileDeviceSemaphoreDeviceIDsKey]) {
+		covered[canonify.NormalizePath(id)] = struct{}{}
+	}
+	for _, deviceID := range deviceIDs {
+		deviceID = canonify.NormalizePath(deviceID)
+		if _, ok := covered[deviceID]; ok {
+			continue
+		}
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.NewNonRetryableAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"device %s is not covered by the run's queue ticket: "+
+						"a child pipeline may use only devices its parent pipeline lists",
+					deviceID,
+				),
+			},
+		)
+	}
+	return nil
 }
 
 func mobileRunnerActivityOptions(

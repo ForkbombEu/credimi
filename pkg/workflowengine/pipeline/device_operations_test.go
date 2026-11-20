@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"path"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -471,6 +473,8 @@ func TestMobileAutomationSetupHookPreparesEachDeviceOnce(t *testing.T) {
 				map[string]any{
 					"namespace":                            "tenant",
 					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+					// After JSON the ticket's device list is []any.
+					mobileDeviceSemaphoreDeviceIDsKey:      []any{deviceA, deviceB},
 					mobileDisableAndroidPlayStoreConfigKey: true,
 					mobileNoVideoConfigKey:                 true,
 				},
@@ -607,6 +611,7 @@ func TestMobileAutomationSetupHookStopsAtFailedPrepare(t *testing.T) {
 				map[string]any{
 					"namespace":                            "tenant",
 					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileDeviceSemaphoreDeviceIDsKey:      []string{deviceA, deviceB, deviceC},
 				},
 				&runData,
 				&map[string]any{},
@@ -630,6 +635,67 @@ func TestMobileAutomationSetupHookStopsAtFailedPrepare(t *testing.T) {
 	assert.Equal(t, deviceA, service.prepares[0].DeviceID)
 	assert.Equal(t, deviceB, service.prepares[1].DeviceID)
 	assert.Equal(t, []string{deviceA}, slices.Sorted(maps.Keys(out.Devices)))
+}
+
+// TestMobileAutomationSetupHookRefusesDeviceOutsideTicket: a child pipeline
+// inherits its parent's ticket, but the queue locked only the parent's devices.
+func TestMobileAutomationSetupHookRefusesDeviceOutsideTicket(t *testing.T) {
+	const (
+		lockedDevice = "tenant/runner-a/device-a"
+		otherDevice  = "other-org/runner-b/device-b"
+	)
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: "pipeline-1"})
+	registerRunnerNamespaceLookup(env)
+	service := &fakeDeviceService{}
+	service.register(t, env)
+	nexusOptions := recordNexusOptions(env)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (string, error) {
+			runData := map[string]any{"run_identifier": "tenant/pipeline-run"}
+			err := MobileAutomationSetupHook(
+				ctx,
+				&pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{
+					{StepSpec: mobileStep("child-step", otherDevice)},
+				}},
+				map[string]any{
+					"namespace":                            "tenant",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileDeviceSemaphoreDeviceIDsKey:      []any{lockedDevice},
+				},
+				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
+			)
+			if err == nil {
+				return "", nil
+			}
+			var appErr *temporal.ApplicationError
+			if !errors.As(err, &appErr) || !appErr.NonRetryable() {
+				return "retryable: " + err.Error(), nil
+			}
+			return appErr.Type() + ": " + err.Error(), nil
+		},
+		workflow.RegisterOptions{Name: "test-setup-device-outside-ticket"},
+	)
+
+	env.ExecuteWorkflow("test-setup-device-outside-ticket")
+	require.NoError(t, env.GetWorkflowError())
+	var got string
+	require.NoError(t, env.GetWorkflowResult(&got))
+
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+	assert.True(t, strings.HasPrefix(got, errCode.Code+": "), got)
+	assert.Contains(
+		t,
+		got,
+		"device "+otherDevice+" is not covered by the run's queue ticket: "+
+			"a child pipeline may use only devices its parent pipeline lists",
+	)
+	assert.Empty(t, *nexusOptions)
+	assert.Empty(t, service.prepares)
 }
 
 func TestMobileDevicesCleanupHookCleansEachPreparedDevice(t *testing.T) {
