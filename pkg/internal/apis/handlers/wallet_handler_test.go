@@ -1425,3 +1425,82 @@ func addWalletPipelineResultDevice(t testing.TB, app *tests.TestApp, deviceID st
 	result.Set("devices", append(result.GetStringSlice("devices"), deviceID))
 	require.NoError(t, app.Save(result))
 }
+
+// uploadRequestEvent is a request carrying the given files under field.
+func uploadRequestEvent(
+	t testing.TB,
+	app core.App,
+	field string,
+	filenames ...string,
+) *core.RequestEvent {
+	t.Helper()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for _, filename := range filenames {
+		part, err := writer.CreateFormFile(field, filename)
+		require.NoError(t, err)
+		_, err = part.Write([]byte("content of " + filename))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+	req := httptest.NewRequest(http.MethodPost, "/", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	require.NoError(t, req.ParseMultipartForm(1<<20))
+	return &core.RequestEvent{
+		App:   app,
+		Event: router.Event{Request: req, Response: httptest.NewRecorder()},
+	}
+}
+
+func findWalletPipelineTestResult(t testing.TB, app core.App) *core.Record {
+	t.Helper()
+
+	result, err := app.FindFirstRecordByFilter(
+		"pipeline_results",
+		"workflow_id = 'workflow123' && run_id = 'run123'",
+	)
+	require.NoError(t, err)
+	return result
+}
+
+// Two uploads that each loaded the result before the other saved must both
+// keep their file.
+func TestSaveUploadedFileToRecordKeepsConcurrentUploads(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	app := setupWalletApp(t)
+	t.Cleanup(app.Cleanup)
+	setupWalletPipelineTestRecords(t, app, orgID)
+
+	firstHandlerRecord := findWalletPipelineTestResult(t, app)
+	secondHandlerRecord := findWalletPipelineTestResult(t, app)
+
+	_, firstURLs, apiErr := saveUploadedFileToRecord(
+		uploadRequestEvent(t, app, "result_video", "first.mp4"),
+		firstHandlerRecord,
+		"result_video",
+		"video_results",
+		"first_result_video",
+		false,
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, firstURLs, 1)
+
+	_, secondURLs, apiErr := saveUploadedFileToRecord(
+		uploadRequestEvent(t, app, "result_video", "second.mp4"),
+		secondHandlerRecord,
+		"result_video",
+		"video_results",
+		"second_result_video",
+		false,
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, secondURLs, 1)
+
+	stored := findWalletPipelineTestResult(t, app).GetStringSlice("video_results")
+	require.Len(t, stored, 2)
+	require.Contains(t, stored[0], "first_result_video")
+	require.Contains(t, stored[1], "second_result_video")
+	require.Contains(t, secondURLs[0], stored[1])
+}

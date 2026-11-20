@@ -110,20 +110,7 @@ func storePipelineStepScreenshotFiles(
 			"invalid collection schema",
 		)
 	}
-	existing := record.GetStringSlice("maestro_screenshots")
-	if field.MaxSelect > 0 && len(existing)+len(headers) > field.MaxSelect {
-		return nil, nil, apierror.New(
-			http.StatusBadRequest,
-			"screenshots",
-			"too many Maestro screenshots",
-			fmt.Sprintf("maximum %d files allowed", field.MaxSelect),
-		)
-	}
-
-	values := make([]any, 0, len(existing)+len(headers))
-	for _, filename := range existing {
-		values = append(values, filename)
-	}
+	files := make([]*filesystem.File, 0, len(headers))
 	for _, header := range headers {
 		file, err := header.Open()
 		if err != nil {
@@ -152,11 +139,39 @@ func storePipelineStepScreenshotFiles(
 		if err != nil {
 			return nil, nil, uploadedStepScreenshotError("prepare", err)
 		}
-		values = append(values, storedFile)
+		files = append(files, storedFile)
 	}
 
-	record.Set("maestro_screenshots", values)
-	if err := e.App.Save(record); err != nil {
+	// Append to a record reloaded inside a transaction: concurrent uploads to
+	// the same result would otherwise overwrite the field from a stale copy.
+	var fresh *core.Record
+	var before []string
+	var limitErr *apierror.APIError
+	if err := e.App.RunInTransaction(func(tx core.App) error {
+		reloaded, err := tx.FindRecordById("pipeline_results", record.Id)
+		if err != nil {
+			return err
+		}
+		before = reloaded.GetStringSlice("maestro_screenshots")
+		if field.MaxSelect > 0 && len(before)+len(files) > field.MaxSelect {
+			limitErr = apierror.New(
+				http.StatusBadRequest,
+				"screenshots",
+				"too many Maestro screenshots",
+				fmt.Sprintf("maximum %d files allowed", field.MaxSelect),
+			)
+			return limitErr
+		}
+		reloaded.Set("maestro_screenshots+", files)
+		if err := tx.Save(reloaded); err != nil {
+			return err
+		}
+		fresh = reloaded
+		return nil
+	}); err != nil {
+		if limitErr != nil {
+			return nil, nil, limitErr
+		}
 		return nil, nil, apierror.New(
 			http.StatusInternalServerError,
 			"pipeline_results",
@@ -165,13 +180,12 @@ func storePipelineStepScreenshotFiles(
 		)
 	}
 
-	storedNames := record.GetStringSlice("maestro_screenshots")
-	newNames := storedNames[len(existing):]
+	newNames := fresh.GetStringSlice("maestro_screenshots")[len(before):]
 	urls := make([]string, 0, len(newNames))
 	for _, filename := range newNames {
 		urls = append(urls, utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
-			"api", "files", "pipeline_results", record.Id, filename,
+			"api", "files", "pipeline_results", fresh.Id, filename,
 		))
 	}
 	return newNames, urls, nil

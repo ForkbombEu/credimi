@@ -843,20 +843,23 @@ func saveUploadedFileToRecord(
 		)
 	}
 
-	existing := record.GetStringSlice(recordField)
-
-	values := make([]any, 0, len(existing)+1)
-
-	for _, name := range existing {
-		values = append(values, name)
-	}
-
-	// add new file
-	values = append(values, f)
-
-	record.Set(recordField, values)
-
-	if err := e.App.Save(record); err != nil {
+	// Append to a record reloaded inside a transaction: concurrent uploads to
+	// the same result would otherwise overwrite the field from a stale copy.
+	var fresh *core.Record
+	var before []string
+	if err := e.App.RunInTransaction(func(tx core.App) error {
+		reloaded, err := tx.FindRecordById("pipeline_results", record.Id)
+		if err != nil {
+			return err
+		}
+		before = reloaded.GetStringSlice(recordField)
+		reloaded.Set(recordField+"+", f)
+		if err := tx.Save(reloaded); err != nil {
+			return err
+		}
+		fresh = reloaded
+		return nil
+	}); err != nil {
 		os.Remove(absPath)
 		return "", nil, apierror.New(
 			http.StatusInternalServerError,
@@ -866,15 +869,15 @@ func saveUploadedFileToRecord(
 		)
 	}
 
-	newNames := record.GetStringSlice(recordField)[len(existing):]
+	newNames := fresh.GetStringSlice(recordField)[len(before):]
 	urls := make([]string, 0, len(newNames))
 
 	for _, fn := range newNames {
 		url := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
 			"api", "files", "pipeline_results",
-			record.Id,
-			record.GetString(recordField),
+			fresh.Id,
+			fresh.GetString(recordField),
 			fn,
 		)
 		urls = append(urls, url)
