@@ -626,8 +626,8 @@ func authorizePipelineResultDeviceStoreAccess(
 }
 
 // authorizePipelineResultOwnerAccess allows members of the result owner
-// organization, or owners of a published runner whose device is resolved
-// by resolveDevice when the result owner organization is published.
+// organization, and owners of a published runner to store results of a run
+// whose devices list a device of that runner, resolved by resolveDevice.
 func authorizePipelineResultOwnerAccess(
 	e *core.RequestEvent,
 	ownerID string,
@@ -655,12 +655,7 @@ func authorizePipelineResultOwnerAccess(
 		return nil
 	}
 
-	allowed, apiErr := publishedDeviceCanStoreForPublishedOrganization(
-		e.App,
-		userOrgID,
-		ownerID,
-		resolveDevice,
-	)
+	allowed, apiErr := publishedRunnerOwnsDevice(e.App, userOrgID, resolveDevice)
 	if apiErr != nil {
 		return apiErr
 	}
@@ -693,25 +688,13 @@ func resolvePipelineResultDevice(
 	return device, nil
 }
 
-func publishedDeviceCanStoreForPublishedOrganization(
+// publishedRunnerOwnsDevice reports whether the device resolved by
+// resolveDevice belongs to a published runner owned by deviceOwnerID.
+func publishedRunnerOwnsDevice(
 	app core.App,
 	deviceOwnerID string,
-	resultOwnerID string,
 	resolveDevice func() (*core.Record, *apierror.APIError),
 ) (bool, *apierror.APIError) {
-	ownerOrg, err := app.FindRecordById("organizations", resultOwnerID)
-	if err != nil {
-		return false, apierror.New(
-			http.StatusInternalServerError,
-			"organization",
-			"failed to get result owner organization",
-			err.Error(),
-		)
-	}
-	if !ownerOrg.GetBool("published") {
-		return false, nil
-	}
-
 	device, apiErr := resolveDevice()
 	if apiErr != nil {
 		return false, apiErr

@@ -150,7 +150,6 @@ func TestStorePipelineStepScreenshotsPublishedRunnerOwner(t *testing.T) {
 			app := setupWalletApp(t)
 			PipelineInternalRoutes.Add(app)
 			setupWalletPipelineTestRecords(t, app, orgID)
-			setOrganizationPublished(t, app, orgID, true)
 			runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUser.Id)
 			require.NoError(t, err)
 			runner := createWalletTestMobileRunner(t, app, runnerOrgID, "public-runner", true)

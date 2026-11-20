@@ -952,20 +952,6 @@ func createMobileRunnerRecord(
 	require.NoError(t, app.Save(record))
 }
 
-func setOrganizationPublished(
-	t testing.TB,
-	app *tests.TestApp,
-	orgID string,
-	published bool,
-) {
-	t.Helper()
-
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	org.Set("published", published)
-	require.NoError(t, app.Save(org))
-}
-
 func setMobileRunnerAdminManaged(
 	t testing.TB,
 	app *tests.TestApp,

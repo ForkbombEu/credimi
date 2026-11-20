@@ -621,9 +621,14 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		addWalletPipelineResultDevice(t, app, device.Id)
 		return app
 	}
-	setupPublicRunnerApp := func(t testing.TB, reserved bool) *tests.TestApp {
+	setupPublicRunnerApp := func(t testing.TB, reserved, ownerPublishes bool) *tests.TestApp {
 		app := setupReservedDeviceApp(t)
-		setOrganizationPublished(t, app, orgID, true)
+		if ownerPublishes {
+			pipeline, err := canonify.Resolve(app, "usera-s-organization/pipeline123")
+			require.NoError(t, err)
+			pipeline.Set("published", true)
+			require.NoError(t, app.Save(pipeline))
+		}
 
 		runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUserRecord.Id)
 		require.NoError(t, err)
@@ -746,7 +751,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
-			Name:   "published runner owner can store result for published organization",
+			Name:   "published runner owner can store results of runs on its devices",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
 			Body:   bytes.NewReader(crossOrgRunnerBody),
@@ -760,7 +765,25 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"device":"userb-s-organization/public-runner/public-device"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				return setupPublicRunnerApp(t, true)
+				return setupPublicRunnerApp(t, true, true)
+			},
+		},
+		{
+			Name:   "published runner owner can store results for an organization that publishes nothing",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(crossOrgRunnerBody),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + runnerUserToken,
+				"Content-Type":  crossOrgRunnerContentType,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"device":"userb-s-organization/public-runner/public-device"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				return setupPublicRunnerApp(t, true, false)
 			},
 		},
 		{
@@ -779,7 +802,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`device did not run this pipeline result`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				return setupPublicRunnerApp(t, false)
+				return setupPublicRunnerApp(t, false, true)
 			},
 		},
 		{
