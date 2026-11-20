@@ -195,7 +195,6 @@ func enabledMobileRunnerRecords(records []*core.Record) []*core.Record {
 func HandleListMobileRunners() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		callerOrgID := ""
-		callerOrgPublished := false
 		if e.Auth == nil {
 			return apierror.New(
 				http.StatusUnauthorized,
@@ -215,10 +214,9 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 				)
 			}
 			callerOrgID = orgRecord.Id
-			callerOrgPublished = orgRecord.GetBool("published")
 		}
 
-		records, err := listMobileRunnerRecords(e.App, callerOrgID, callerOrgPublished)
+		records, err := listMobileRunnerRecords(e.App, callerOrgID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -267,12 +265,12 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 
 func HandleListMobileDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		callerOrgID, callerOrgPublished, apiErr := mobileRunnerCatalogCaller(e)
+		callerOrgID, apiErr := mobileRunnerCatalogCaller(e)
 		if apiErr != nil {
 			return apiErr
 		}
 
-		runners, err := listMobileRunnerRecords(e.App, callerOrgID, callerOrgPublished)
+		runners, err := listMobileRunnerRecords(e.App, callerOrgID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -338,9 +336,9 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 	}
 }
 
-func mobileRunnerCatalogCaller(e *core.RequestEvent) (string, bool, *apierror.APIError) {
+func mobileRunnerCatalogCaller(e *core.RequestEvent) (string, *apierror.APIError) {
 	if e.Auth == nil {
-		return "", false, apierror.New(
+		return "", apierror.New(
 			http.StatusUnauthorized,
 			"auth",
 			"authentication_required",
@@ -348,18 +346,18 @@ func mobileRunnerCatalogCaller(e *core.RequestEvent) (string, bool, *apierror.AP
 		)
 	}
 	if isSuperuserAuth(e.Auth) {
-		return "", false, nil
+		return "", nil
 	}
 	orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
 	if err != nil {
-		return "", false, apierror.New(
+		return "", apierror.New(
 			http.StatusInternalServerError,
 			"organization",
 			"failed_to_find_user_organization",
 			err.Error(),
 		)
 	}
-	return orgRecord.Id, orgRecord.GetBool("published"), nil
+	return orgRecord.Id, nil
 }
 
 func mobileDeviceListItem(
@@ -410,24 +408,9 @@ func mobileDeviceListItem(
 	return item, nil
 }
 
-func listMobileRunnerRecords(
-	app core.App,
-	callerOrgID string,
-	callerOrgPublished bool,
-) ([]*core.Record, error) {
+func listMobileRunnerRecords(app core.App, callerOrgID string) ([]*core.Record, error) {
 	if callerOrgID == "" {
 		return app.FindRecordsByFilter("mobile_runners", "", "name", -1, 0)
-	}
-
-	if !callerOrgPublished {
-		return app.FindRecordsByFilter(
-			"mobile_runners",
-			"owner = {:owner} || (published = true && admin_managed = true)",
-			"name",
-			-1,
-			0,
-			dbx.Params{"owner": callerOrgID},
-		)
 	}
 
 	return app.FindRecordsByFilter(

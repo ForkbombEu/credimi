@@ -227,7 +227,6 @@ func TestListMobileRunners(t *testing.T) {
 		require.NoError(t, err)
 		userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 		require.NoError(t, err)
-		setOrganizationPublished(t, app, userOrgID, true)
 		otherOrg := createOtherWalletAPKOrganization(t, app)
 
 		createMobileRunnerRecord(t, app, userOrgID, "owned-offline", "offline-runner", false)
@@ -368,7 +367,6 @@ func TestListMobileRunners(t *testing.T) {
 			require.NoError(t, err)
 			userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 			require.NoError(t, err)
-			setOrganizationPublished(t, app, userOrgID, true)
 			otherOrg := createOtherWalletAPKOrganization(t, app)
 
 			createMobileRunnerRecord(
@@ -453,7 +451,7 @@ func TestListMobileRunners(t *testing.T) {
 	)
 
 	t.Run(
-		"unpublished normal user organization sees owned and published admin-managed runners",
+		"user sees owned runners and every published runner of other organizations",
 		func(t *testing.T) {
 			app := setupMobileRunnerApp(t)
 			defer app.Cleanup()
@@ -462,7 +460,6 @@ func TestListMobileRunners(t *testing.T) {
 			require.NoError(t, err)
 			userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 			require.NoError(t, err)
-			setOrganizationPublished(t, app, userOrgID, false)
 			otherOrg := createOtherWalletAPKOrganization(t, app)
 
 			createMobileRunnerRecord(
@@ -488,6 +485,14 @@ func TestListMobileRunners(t *testing.T) {
 				"admin-published",
 				"http://127.0.0.1:1",
 				true,
+			)
+			createMobileRunnerRecord(
+				t,
+				app,
+				otherOrg.Id,
+				"other-private",
+				"http://127.0.0.1:1",
+				false,
 			)
 			setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
 
@@ -516,14 +521,15 @@ func TestListMobileRunners(t *testing.T) {
 
 			var response ListMobileRunnersPublicResponseSchema
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-			require.Len(t, response.Runners, 2)
+			paths := make([]string, 0, len(response.Runners))
+			for _, runner := range response.Runners {
+				paths = append(paths, runner.Path)
+			}
 			require.ElementsMatch(t, []string{
 				"usera-s-organization/owned-private",
+				"other-org/other-published",
 				"other-org/admin-published",
-			}, []string{
-				response.Runners[0].Path,
-				response.Runners[1].Path,
-			})
+			}, paths)
 		},
 	)
 

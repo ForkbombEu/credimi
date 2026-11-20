@@ -1006,7 +1006,7 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 }
 
 // CI selection offers foreign runners under the same rule as the runner
-// catalog: an unpublished organization only gets admin-managed ones.
+// catalog: every organization is offered other organizations' published runners.
 func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 	origHealthCheck := checkRunnerReachable
 	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
@@ -1026,17 +1026,23 @@ func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 	require.NoError(t, err)
 
 	cases := []struct {
-		name         string
-		runnerAdmin  bool
-		wantDeviceID string
+		name          string
+		runnerPrivate bool
+		runnerAdmin   bool
+		wantDeviceID  string
 	}{
 		{
-			name: "unpublished org is not offered published non-admin runner",
+			name:         "any org is offered a published tenant runner",
+			wantDeviceID: "other-org/shared-runner/device-1",
 		},
 		{
-			name:         "unpublished org is offered published admin-managed runner",
+			name:         "any org is offered a published admin-managed runner",
 			runnerAdmin:  true,
 			wantDeviceID: "other-org/shared-runner/device-1",
+		},
+		{
+			name:          "org is not offered another org's private runner",
+			runnerPrivate: true,
 		},
 	}
 
@@ -1051,7 +1057,14 @@ func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 			otherOrg.Set("name", "Other Org")
 			otherOrg.Set("canonified_name", "other-org")
 			require.NoError(t, app.Save(otherOrg))
-			createWalletAPKMobileRunner(t, app, otherOrg.Id, "Shared Runner", "android_phone", true)
+			createWalletAPKMobileRunner(
+				t,
+				app,
+				otherOrg.Id,
+				"Shared Runner",
+				"android_phone",
+				!tc.runnerPrivate,
+			)
 			setMobileRunnerAdminManaged(t, app, "other-org/shared-runner", tc.runnerAdmin)
 
 			deviceID, apiErr := selectPipelineCIDeviceByType(

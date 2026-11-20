@@ -827,7 +827,6 @@ func selectPipelineCIDeviceByType(
 		)
 	}
 
-	ownerPublished := mobilerunner.OrganizationPublishedLoader(app, ownerID)
 	selectedDeviceID := ""
 	selectedBacklog := 0
 	for _, device := range devices {
@@ -835,19 +834,8 @@ func selectPipelineCIDeviceByType(
 		if runnerErr != nil {
 			continue
 		}
-		if runner.GetString("owner") != ownerID {
-			orgPublished, orgErr := ownerPublished()
-			if orgErr != nil {
-				return "", apierror.New(
-					http.StatusInternalServerError,
-					"organization",
-					"failed to load organization",
-					orgErr.Error(),
-				)
-			}
-			if !mobilerunner.SharedWith(runner, orgPublished) {
-				continue
-			}
+		if runner.GetString("owner") != ownerID && !mobilerunner.SharedWith(runner) {
+			continue
 		}
 		online, apiErr := mobileRunnerReachable(ctx, runner)
 		if apiErr != nil {

@@ -111,7 +111,6 @@ func TestHandleMobileRunnerTemporalToken(t *testing.T) {
 			name: "published runner",
 			prepare: func(t *testing.T, f registrationFixture) {
 				f.setRunnerField(t, "published", true)
-				setOrganizationPublished(t, f.app, f.otherOrg, true)
 			},
 			auth: func(f registrationFixture) *core.Record { return f.user },
 		},
