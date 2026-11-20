@@ -1005,8 +1005,9 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	require.Equal(t, "no online device found for device_type", apiErr.Reason)
 }
 
-// CI selection offers foreign runners under the same rule as the runner
-// catalog: every organization is offered other organizations' published runners.
+// CI selection by device type offers another organization's runner only when
+// it is published and admin-managed: tenant runners are used only through an
+// explicit device_id.
 func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 	origHealthCheck := checkRunnerReachable
 	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
@@ -1032,8 +1033,7 @@ func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 		wantDeviceID  string
 	}{
 		{
-			name:         "any org is offered a published tenant runner",
-			wantDeviceID: "other-org/shared-runner/device-1",
+			name: "published tenant runner of another organization is not auto-selected",
 		},
 		{
 			name:         "any org is offered a published admin-managed runner",
@@ -1084,6 +1084,90 @@ func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 			require.Equal(t, tc.wantDeviceID, deviceID)
 		})
 	}
+}
+
+func TestSelectPipelineCIDeviceByTypePrefersOwnRunners(t *testing.T) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) {
+		return true, nil
+	}
+	origQueueState := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = origQueueState })
+	queryMobileDeviceSemaphoreState = func(
+		_ context.Context,
+		deviceID string,
+	) (workflows.MobileDeviceSemaphoreStateView, error) {
+		if strings.HasPrefix(deviceID, "other-org/") {
+			return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
+		}
+		return workflows.MobileDeviceSemaphoreStateView{QueueLen: 3}, nil
+	}
+
+	app := setupPipelineWalletAPKApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	org, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	createWalletAPKMobileRunner(t, app, orgID, "Own Runner", "android_phone", false)
+	otherOrg := createOtherWalletAPKOrganization(t, app)
+	createWalletAPKMobileRunner(t, app, otherOrg.Id, "Admin Runner", "android_phone", true)
+	setMobileRunnerAdminManaged(t, app, "other-org/admin-runner", true)
+
+	deviceID, apiErr := selectPipelineCIDeviceByType(
+		context.Background(),
+		app,
+		orgID,
+		"android_phone",
+	)
+
+	require.Nil(t, apiErr)
+	require.Equal(t, org.GetString("canonified_name")+"/own-runner/device-1", deviceID)
+}
+
+func TestSelectPipelineCIDeviceByTypeSkipsRunnersNotReady(t *testing.T) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) {
+		return true, nil
+	}
+	origQueueState := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = origQueueState })
+	queryMobileDeviceSemaphoreState = func(
+		_ context.Context,
+		_ string,
+	) (workflows.MobileDeviceSemaphoreStateView, error) {
+		return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
+	}
+
+	app := setupPipelineWalletAPKApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	createWalletAPKMobileRunner(t, app, orgID, "Own Runner", "android_phone", false)
+	runner, err := app.FindFirstRecordByFilter(
+		"mobile_runners",
+		"owner = {:owner} && name = 'Own Runner'",
+		dbx.Params{"owner": orgID},
+	)
+	require.NoError(t, err)
+	runner.Set(mobilerunner.RunnerNamespaceReadyField, false)
+	require.NoError(t, app.Save(runner))
+
+	deviceID, apiErr := selectPipelineCIDeviceByType(
+		context.Background(),
+		app,
+		orgID,
+		"android_phone",
+	)
+
+	require.Empty(t, deviceID)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
+	require.Equal(t, "no online device found for device_type", apiErr.Reason)
 }
 
 func TestInjectPipelineRunWalletAPKGlobalDeviceID(t *testing.T) {

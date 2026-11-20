@@ -802,6 +802,11 @@ func pipelineCIMobileRunnerSelectionState(
 	return hasStepRunner, needsGlobalRunner
 }
 
+// selectPipelineCIDeviceByType picks an online device of deviceType on a ready
+// runner the caller owns, else on a published admin-managed runner: the device
+// with the shortest queue within the first group that has one. Another
+// organization's tenant runner is used only when a run names its device
+// explicitly.
 func selectPipelineCIDeviceByType(
 	ctx context.Context,
 	app core.App,
@@ -828,13 +833,23 @@ func selectPipelineCIDeviceByType(
 	}
 
 	selectedDeviceID := ""
+	selectedTier := 0
 	selectedBacklog := 0
 	for _, device := range devices {
 		runner, runnerErr := app.FindRecordById("mobile_runners", device.GetString("runner"))
 		if runnerErr != nil {
 			continue
 		}
-		if runner.GetString("owner") != ownerID && !mobilerunner.SharedWith(runner) {
+		var tier int
+		switch {
+		case runner.GetString("owner") == ownerID:
+			tier = 0
+		case runner.GetBool("published") && runner.GetBool("admin_managed"):
+			tier = 1
+		default:
+			continue
+		}
+		if !mobilerunner.RunnerNamespaceReady(runner) {
 			continue
 		}
 		online, apiErr := mobileRunnerReachable(ctx, runner)
@@ -857,9 +872,11 @@ func selectPipelineCIDeviceByType(
 		if apiErr != nil {
 			return "", apiErr
 		}
-		if selectedDeviceID == "" || backlog < selectedBacklog ||
-			(backlog == selectedBacklog && deviceID < selectedDeviceID) {
+		if selectedDeviceID == "" || tier < selectedTier ||
+			(tier == selectedTier && backlog < selectedBacklog) ||
+			(tier == selectedTier && backlog == selectedBacklog && deviceID < selectedDeviceID) {
 			selectedDeviceID = deviceID
+			selectedTier = tier
 			selectedBacklog = backlog
 		}
 	}
