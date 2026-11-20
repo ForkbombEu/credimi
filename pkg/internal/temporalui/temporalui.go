@@ -140,6 +140,11 @@ func classify(
 		return routePage
 	case "_app":
 		return routeProxy
+	case "render":
+		// Upstream's markdown renderer for event summaries, loaded in its own
+		// iframes under a CSP with nonces and a sandbox without scripts, which
+		// would block embedHead's style and script.
+		return routeProxy
 	default:
 		// Other client-side pages and static files; their data comes from the API.
 		return routePage

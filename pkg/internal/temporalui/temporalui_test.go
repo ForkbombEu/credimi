@@ -32,6 +32,7 @@ func TestClassify(t *testing.T) {
 		{name: "prefix only redirects home", path: "/temporal-ui", want: routeHome},
 		{name: "prefix slash redirects home", path: "/temporal-ui/", want: routeHome},
 		{name: "static asset", path: "/temporal-ui/_app/immutable/x.js", want: routeProxy},
+		{name: "markdown render", path: "/temporal-ui/render", want: routeProxy},
 		{name: "favicon", path: "/temporal-ui/favicon.png", want: routePage},
 		{
 			name: "own namespace page",
@@ -397,6 +398,13 @@ func TestHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Contains(t, rec.Body.String(), embedHead+"</head>")
+	})
+
+	t.Run("forwards the sandboxed markdown render unchanged", func(t *testing.T) {
+		rec, err := serve(http.MethodGet, "/temporal-ui/render?content=step", authCookie)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.NotContains(t, rec.Body.String(), embedHead)
 	})
 
 	t.Run("serves only owned runner namespace runs", func(t *testing.T) {
