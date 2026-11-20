@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -334,6 +335,79 @@ func TestHandleStartScheduleSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pipelineRec.Id, record.GetString("pipeline"))
 	require.Equal(t, orgID, record.GetString("owner"))
+}
+
+func TestHandleStartScheduleRejectsForeignPrivateGlobalDevice(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipelineRec, pipelineID := createSchedulePipelineRecord(t, app, orgID, "pipeline-global")
+	pipelineRec.Set(
+		"yaml",
+		"name: pipeline-global\nsteps:\n  - name: step1\n    use: mobile-automation\n"+
+			"    with:\n      action_code: \"appId: wallet\"\n",
+	)
+	require.NoError(t, app.Save(pipelineRec))
+	canonify.RegisterCanonifyHooks(app)
+
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	otherOrg := core.NewRecord(orgColl)
+	otherOrg.Set("name", "Other Org")
+	otherOrg.Set("canonified_name", "other-org")
+	require.NoError(t, app.Save(otherOrg))
+	createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Private Runner", false)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+	fakeSchedule := &fakeScheduleClient{}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"pipeline_id":      pipelineID,
+		"schedule_mode":    map[string]any{"mode": "daily"},
+		"global_device_id": "other-org/private-runner/device-1",
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
+	rec := httptest.NewRecorder()
+	schedulesBefore, err := app.CountRecords("schedules")
+	require.NoError(t, err)
+
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	requireHandlerErrorHandled(t, rec, err)
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), "device_id is not accessible")
+	require.Empty(t, fakeSchedule.createdOptions)
+
+	schedulesAfter, err := app.CountRecords("schedules")
+	require.NoError(t, err)
+	require.Equal(t, schedulesBefore, schedulesAfter)
 }
 
 // TestStartScheduledPipelineUsesScheduledEnqueueWorkflow ensures schedules target the enqueue workflow.

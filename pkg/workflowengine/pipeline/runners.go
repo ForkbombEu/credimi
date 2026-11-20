@@ -136,6 +136,9 @@ func GlobalDeviceIDFromConfig(config map[string]any) string {
 	return ""
 }
 
+// ResolveDeviceRecord returns the display fields of a mobile device: id, name,
+// canonified_name, type and live_stream. Callers may show them to any
+// organization, so the serial, owner and runner stay out.
 func ResolveDeviceRecord(
 	app core.App,
 	deviceID string,
@@ -160,8 +163,13 @@ func ResolveDeviceRecord(
 		return nil
 	}
 
-	fields := record.PublicExport()
-	fields[core.FieldNameId] = record.Id
+	fields := map[string]any{
+		core.FieldNameId:  record.Id,
+		"name":            record.GetString("name"),
+		"canonified_name": record.GetString("canonified_name"),
+		"type":            record.GetString("type"),
+		"live_stream":     record.GetBool("live_stream"),
+	}
 	deviceCache[deviceID] = fields
 	return fields
 }

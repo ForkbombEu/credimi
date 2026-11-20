@@ -152,6 +152,20 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
+		deviceInfo, err := pipeline.ParsePipelineDeviceInfo(rec.GetString("yaml"))
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"pipeline",
+				"failed to parse pipeline yaml",
+				err.Error(),
+			)
+		}
+		deviceIDs := pipeline.DeviceIDsWithGlobal(deviceInfo, req.GlobalDeviceID)
+		if apiErr := validatePipelineRunnerAccess(e.App, orgID, deviceIDs); apiErr != nil {
+			return apiErr
+		}
+
 		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
 		scheduleInfo, err := startScheduledPipelineWithOptions(
