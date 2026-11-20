@@ -10,6 +10,21 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Run review fixes, 20/11/2026
+
+A review of the 18/11/2026 relying-party run (`fcaf_assessment_b7og605gj3`) applied one rule throughout: a test follows what the FCAF source requires, never what the reference Wallet can do; `not_applicable`/`skipped` only where the source limits applicability or the harness cannot build a source precondition; `error_description` is never matched (optional in OpenID4VP 8.5).
+
+- Verdict precedence (`pkg/fcaf/engine/verdict.go`, `executor.go`): one ranking, `error > blocked > fail > skipped/inconclusive > not_applicable > pass`, so a harness gap hides a co-recorded fail. `engine/input_evidence.go` reports blocked for nil/empty screenshot evidence ("the mobile step stored no screenshots") and for any other nil evidence ("evidence <name> was not captured"), except `*wallet_response` (nil there is the Wallet's silence). The wallet-engagement guard now also turns a fail into blocked on a by_reference session that stayed `created`; plain/by_value sessions are not guarded. On the 18/11 evidence: Engagement 001b, ProtocolMessages 087, 145, 146, 150, 152, RpIntegrity 028, 030 → blocked.
+- `credentials_match` now checks each presented credential's format and `meta` (`vct_values`, `doctype_value`), not only that a `vp_token` entry exists. `claims_values_no_match` with a value restriction says the wallet shared the credential pinned by the probe (status-reference 084–100).
+- Source requires an error, wallet silent → now fails: MainInteraction 056 and 022 (`wallet_error_required`), CredentialStructure 009 (response event required). Silence audit of every other silent pass found sources that allow discontinuation. No error channel: MainInteraction 053, ProtocolMessages 152 (TEST-AUTHOR-FEEDBACK Issues 32/33); also Issues 34 (SessionEncryption 003), 35 (RpIntegrity 011/012 `invalid_client`), 36 (ProtocolMessages 159 lacks a supported-type precondition).
+- TextualEncoding 011 now requires `presentation_valid`: the wallet disclosed the out-of-range array instead of removing it (fails). 001e, Metadata 108/109 assert the response encryption against the delivered keys. IssuerIntegrity 013, ProtocolMessages 044, MainInteraction 052 → `fcaf.skipped` (no Capture control for a bad issuer signature; no verifier-controlled non-ASCII form value).
+- RpIntegrity 016/018/020 run on `signed-x509-hash` (leaf-only `x5c` issued by `PID Issuer CA 02`, new `oid4vp.request_certificate_chain` shape `trust_anchor_excluded`), consistent with 025, which requires rejecting the anchor in `x5c`. DeviceBinding 006 runs on `verifier-info-all-credentials`; 002–005 skip reasons name the missing profile attestation format.
+- Transaction data: 026/027 run (their precondition constrains the request; 027 binds 158's session); 154–157 scenarios now carry `credential_ids` and the tested field defect and use `fcaf-expect-request-rejected`, `not_applicable` on their source preconditions (Wallet schema/range/required fields); 159 keeps the error-code check plus a delivered-entry assertion.
+- No-match negatives MainInteraction 012c/012d/021/023/027/031/034h/034i prove possession with a matching `fcaf-engagement-haip-vp` presentation in the same scenario (new control steps in 021/023/027/031).
+- Wallet actions take a screenshot before every wait or assert that can fail (`fcaf-dc-api-present` now passes Chrome's trust prompt and stores `dc-api-picker`); `fcaf-reset-and-onboard`/`fcaf-issue-pid` stay screenshot-free, so a composed prerequisite failure leaves no screenshots and the test reports blocked. The ~26 changed actions must be re-synced with `fcaf sync`.
+- 345 visual-evidence assertions on `fcaf-expect-request-rejected` / `fcaf-engagement-haip-vp` steps use `evidence.screenshot_named` (`request-refused`, `fcaf-engagement-haip-vp-shared`) instead of `evidence.non_empty`; 23 keep `non_empty` because their generated step id leaves no room for the name in the 100-character stem, and gated (`not_applicable`/`skipped`) tests keep `non_empty`.
+- Not run on the reference Wallet: the emulator was unreachable.
+
 ## Wallet flows follow the FCAF expected outcome, 20/11/2026
 
 `fcaf-exercise-wallet-generic` accepted any final screen (success, no-match, `invalid request`, `Oups! Something went wrong`, Home) and shared whenever consent appeared, so a DNS failure (ProtocolMessages 145 on 18/11, `Unable to resolve host "capture-wallet.credimi.io"`) or a refusal ended in a successful step. 112 of its 116 relying-party steps now use the action matching what the consuming tests' FCAF sources require, never what the reference Wallet does:
@@ -18,7 +33,7 @@ Upstream and local quality findings are maintained as copy-paste-ready issue dra
 - 52 → `fcaf-expect-request-rejected` (error, no-match or discontinuation expected).
 - 4 → `fcaf-observe-request`: ProtocolMessages 145/146 (precondition the harness cannot build), 151 (FCAF profile: Wallet without `mso_mdoc`) and 028; their tests are `not_applicable` and only read the delivered request.
 - Metadata 135/136 carry valid requests and would fit `fcaf-observe-request`, but it leaves consent unanswered and the next step of the same scenario starts with `fcaf-engagement-haip-vp`, which has no `launchApp`; they use `fcaf-engagement-haip-vp`.
-- 154-157 stay on the generic action: their requests omit `credential_ids`, so they must first be rebuilt with a transaction data type defined for testing, expecting `invalid_transaction_data`.
+- 154-157 stayed on the generic action here; superseded by the 20/11 run review fixes above.
 
 No wallet action file changed, so no `wallet_actions` re-import is needed. PID injection is unchanged (265 `fcaf-issue-pid` entries). Not run on the reference Wallet yet.
 

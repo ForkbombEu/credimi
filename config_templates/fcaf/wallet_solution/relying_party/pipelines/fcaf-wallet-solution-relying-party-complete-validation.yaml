@@ -3132,6 +3132,67 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claims-omitted-119046a6-create-mdoc-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-claims-path-no-match-00a99e11-possession-create-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-dcql-claims-path-possession
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-claims-path-no-match-00a99e11-possession-present-issue-pid-session
+      linked_to: dcql-claims-path-no-match-00a99e11-possession-create-presentation
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claims-path-no-match-00a99e11-possession-present
+      linked_to: dcql-claims-path-no-match-00a99e11-possession-present-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claims-path-no-match-00a99e11-possession-present-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+              parameters:
+                deeplink: ${{ dcql-claims-path-no-match-00a99e11-possession-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claims-path-no-match-00a99e11-possession-fetch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claims-path-no-match-00a99e11-possession-create-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-claims-path-no-match-00a99e11-create
       use: http-request
       with:
@@ -3176,7 +3237,6 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claims-path-no-match-00a99e11-wallet-issue-pid-session.outputs.body.deeplink }}
@@ -3260,6 +3320,67 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claims-union-b689aff5-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-claims-values-no-match-9e05fa90-possession-create-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-dcql-claims-values-possession
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-claims-values-no-match-9e05fa90-possession-present-issue-pid-session
+      linked_to: dcql-claims-values-no-match-9e05fa90-possession-create-presentation
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claims-values-no-match-9e05fa90-possession-present
+      linked_to: dcql-claims-values-no-match-9e05fa90-possession-present-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claims-values-no-match-9e05fa90-possession-present-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+              parameters:
+                deeplink: ${{ dcql-claims-values-no-match-9e05fa90-possession-create-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claims-values-no-match-9e05fa90-possession-fetch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claims-values-no-match-9e05fa90-possession-create-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-claims-values-no-match-9e05fa90-create
       use: http-request
       with:
@@ -3303,7 +3424,6 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claims-values-no-match-9e05fa90-wallet-issue-pid-session.outputs.body.deeplink }}
@@ -7510,6 +7630,63 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-create-possession-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - given_name
+                        - path:
+                            - family_name
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+            nonce: fcaf-ia-027-possession
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-present-possession-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-027-create-possession-presentation
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-present-possession
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-027-present-possession-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-present-possession-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-possession-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-fetch-possession
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-possession-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation
       use: http-request
       with:
@@ -7816,6 +7993,44 @@ steps:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-possession-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
+                      id: available_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+            nonce: fcaf-ia-031-possession
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-031-present-possession
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-possession-presentation
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-possession-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-031-fetch-possession
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-possession-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation
       use: http-request
       with:
@@ -7847,13 +8062,30 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option-issue-pid-session
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option-issue-pid-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation.outputs.body.deeplink }}
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-fetch-result
@@ -9634,7 +9866,9 @@ steps:
                                 - urn:eudi:pid:1
                 nonce: fcaf-154
                 transaction_data:
-                    - data: dGVzdA==
+                    - credential_ids:
+                        - pid
+                      data: dGVzdA==
                       type: supported_type
                       unknown_field: bad
             response_mode: direct_post.jwt
@@ -9666,7 +9900,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-154-922365b1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-154-922365b1-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9677,6 +9911,13 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-154-922365b1-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-protocol-messages-154-922365b1-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-154-922365b1-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-protocol-messages-155-dfda78fc-create-capture-session
       use: http-request
@@ -9695,7 +9936,10 @@ steps:
                                 - urn:eudi:pid:1
                 nonce: fcaf-155
                 transaction_data:
-                    - data: 12345
+                    - amount: twelve
+                      credential_ids:
+                        - pid
+                      data: dGVzdA==
                       type: supported_type
             response_mode: direct_post.jwt
         expected_status: 201
@@ -9726,7 +9970,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-155-dfda78fc-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-155-dfda78fc-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9737,6 +9981,13 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-155-dfda78fc-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-protocol-messages-155-dfda78fc-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-155-dfda78fc-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-protocol-messages-156-244b8949-create-capture-session
       use: http-request
@@ -9756,6 +10007,8 @@ steps:
                 nonce: fcaf-156
                 transaction_data:
                     - amount: -1
+                      credential_ids:
+                        - pid
                       data: dGVzdA==
                       type: supported_type
             response_mode: direct_post.jwt
@@ -9787,7 +10040,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-156-244b8949-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-156-244b8949-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9798,6 +10051,13 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-156-244b8949-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-protocol-messages-156-244b8949-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-156-244b8949-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-protocol-messages-157-c7e04b42-create-capture-session
       use: http-request
@@ -9816,7 +10076,9 @@ steps:
                                 - urn:eudi:pid:1
                 nonce: fcaf-157
                 transaction_data:
-                    - currency: EUR
+                    - credential_ids:
+                        - pid
+                      currency: EUR
                       data: dGVzdA==
                       type: supported_type
             response_mode: direct_post.jwt
@@ -9848,7 +10110,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-157-c7e04b42-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-157-c7e04b42-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9859,6 +10121,13 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-157-c7e04b42-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-protocol-messages-157-c7e04b42-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-157-c7e04b42-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-protocol-messages-158-ae4d2651-create-capture-session
       use: http-request
@@ -10004,6 +10273,13 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-159-fd92371b-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-protocol-messages-159-fd92371b-fetch-signed-request-object
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-159-fd92371b-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-create-transaction-data-session
       use: http-request
@@ -16194,6 +16470,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
+                        /authorization_encrypted_response_alg: ECDH-ES+A128KW
                         /client_name: FCAF metadata outside client_metadata
                 verification_applies: true
             request_uri_method: post
@@ -22499,6 +22776,7 @@ steps:
             pipeline.dcql.claims-path-no-match:
                 output:
                     dcql_exchange: ${{ dcql-claims-path-no-match-00a99e11-session.outputs.body | optional }}
+                    possession_exchange: ${{ dcql-claims-path-no-match-00a99e11-possession-fetch.outputs.body | optional }}
                     visual_evidence: ${{ dcql-claims-path-no-match-00a99e11-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claims-union:
                 output:
@@ -22510,6 +22788,7 @@ steps:
             pipeline.dcql.claims-values-no-match:
                 output:
                     dcql_exchange: ${{ dcql-claims-values-no-match-9e05fa90-session.outputs.body | optional }}
+                    possession_exchange: ${{ dcql-claims-values-no-match-9e05fa90-possession-fetch.outputs.body | optional }}
                     visual_evidence: ${{ dcql-claims-values-no-match-9e05fa90-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claims-without-id-without-claim-sets:
                 output:
@@ -22581,6 +22860,7 @@ steps:
             pipeline.dcql.credential-sets-combined-option-no-match:
                 output:
                     dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-fetch-result.outputs.body | optional }}
+                    possession_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-fetch-possession.outputs.body | optional }}
                     visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credential-sets-empty:
                 output:
@@ -22693,6 +22973,7 @@ steps:
             pipeline.dcql.degree-index-selector:
                 output:
                     dcql_exchange: ${{ dcql-degree-index-selector-9bbb109a-fetch-degree-presentation.outputs.body | optional }}
+                    session_checks: ${{ dcql-degree-index-selector-9bbb109a-fetch-degree-presentation.outputs.body.checks | optional }}
                     visual_evidence: ${{ dcql-degree-index-selector-9bbb109a-present-degree-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.duplicate-claim-ids:
                 output:
@@ -22962,18 +23243,22 @@ steps:
             pipeline.dcql.protocol-messages-154:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-154-922365b1-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-protocol-messages-154-922365b1-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-154-922365b1-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-155:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-155-dfda78fc-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-protocol-messages-155-dfda78fc-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-155-dfda78fc-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-156:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-156-244b8949-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-protocol-messages-156-244b8949-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-156-244b8949-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-157:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-157-c7e04b42-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-protocol-messages-157-c7e04b42-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-157-c7e04b42-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-158:
                 output:
@@ -22983,6 +23268,7 @@ steps:
             pipeline.dcql.protocol-messages-159:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-159-fd92371b-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-protocol-messages-159-fd92371b-fetch-signed-request-object.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-159-fd92371b-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.required-credentials-no-partial-presentation:
                 output:
@@ -23012,6 +23298,9 @@ steps:
                     decrypted_response: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.raw.presentation_response_decrypted | optional }}
                     decrypted_response_raw: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.raw.presentation_response_decrypted_raw | optional }}
                     encrypted_response: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.observed.wallet_response.value.response | optional }}
+                    encryption_evidence:
+                        presentation_response_http: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     session_checks: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.checks | optional }}
                     visual_evidence: ${{ dcql-session-encryption-210827bd-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.standard-all:
@@ -23181,6 +23470,7 @@ steps:
             pipeline.dcql.two-claims-value-mismatch:
                 output:
                     dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-fetch-result.outputs.body | optional }}
+                    possession_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-fetch-possession.outputs.body | optional }}
                     visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.unchecked-claim:
                 output:
@@ -23499,6 +23789,7 @@ steps:
                     default_post_retrieval_request_uri_payload: ${{ metadata-request-controls-913fbdc1-fetch-default-post-retrieval.outputs.body.observed.request_uri_payload.value | optional }}
                     default_post_retrieval_session: ${{ metadata-request-controls-913fbdc1-fetch-default-post-retrieval.outputs.body | optional }}
                     default_post_retrieval_visual_evidence: ${{ metadata-request-controls-913fbdc1-exercise-default-post-retrieval.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    metadata_outside_client_metadata_encrypted_response: ${{ metadata-request-controls-913fbdc1-fetch-metadata-outside-client-metadata.outputs.body.observed.wallet_response.value.response | optional }}
                     metadata_outside_client_metadata_request_object: ${{ metadata-request-controls-913fbdc1-fetch-metadata-outside-client-metadata.outputs.body.raw.authorization_request_jwt | optional }}
                     metadata_outside_client_metadata_session: ${{ metadata-request-controls-913fbdc1-fetch-metadata-outside-client-metadata.outputs.body | optional }}
                     metadata_outside_client_metadata_visual_evidence: ${{ metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata.outputs.flow_output.maestro_screenshot_urls | optional }}
@@ -23859,6 +24150,9 @@ steps:
                 output:
                     create-presentation: ${{ request-object-by-value-f1c94061-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body | optional }}
+                    encryption_evidence:
+                        presentation_response_http: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body.raw.outer_request_delivered.request | optional }}
                     get-presentation-result: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs | optional }}
                     request_object: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body.raw.outer_request_delivered.request | optional }}
                     submit-request-object-by-value: ${{ request-object-by-value-f1c94061-submit-request-object-by-value.outputs | optional }}
