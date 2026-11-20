@@ -72,6 +72,12 @@ steps:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           encrypted_response: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.response }}
+          # The response JWE and the Request Object whose client metadata
+          # publishes its decryption key; WS_RP_SM_SessionEncryption__001e
+          # checks the JWE kid against that metadata.
+          encryption_evidence:
+            request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
+            presentation_response_http: ${{ fetch-capture-session.outputs.body.raw.presentation_response_http }}
           decrypted_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted }}
           decrypted_response_raw: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted_raw }}
           session_checks: ${{ fetch-capture-session.outputs.body.checks }}

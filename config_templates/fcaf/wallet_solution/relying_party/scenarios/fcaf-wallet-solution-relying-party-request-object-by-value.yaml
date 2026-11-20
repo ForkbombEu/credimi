@@ -58,6 +58,12 @@ steps:
                 output:
                     create-presentation: ${{ create-presentation.outputs }}
                     dcql_exchange: ${{ get-presentation-result.outputs.body }}
+                    # The response JWE and the by-value Request Object it must be
+                    # encrypted for; WS_RP_MS_Metadata__108 checks the kid against
+                    # the jwks inside the delivered client_metadata.
+                    encryption_evidence:
+                        request_object: ${{ get-presentation-result.outputs.body.raw.outer_request_delivered.request }}
+                        presentation_response_http: ${{ get-presentation-result.outputs.body.raw.presentation_response_http }}
                     get-presentation-result: ${{ get-presentation-result.outputs }}
                     request_object: ${{ get-presentation-result.outputs.body.raw.outer_request_delivered.request }}
                     submit-request-object-by-value: ${{ submit-request-object-by-value.outputs }}

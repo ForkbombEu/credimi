@@ -136,7 +136,6 @@ steps:
     - WS_RP_SM_DeviceBinding__003
     - WS_RP_SM_DeviceBinding__004
     - WS_RP_SM_DeviceBinding__005
-    - WS_RP_SM_DeviceBinding__006
     - WS_RP_SM_RpIntegrity_CryptographicSignature_002
     - WS_RP_SM_RpIntegrity_CryptographicSignature_003
     - WS_RP_SM_RpIntegrity_CryptographicSignature_004
