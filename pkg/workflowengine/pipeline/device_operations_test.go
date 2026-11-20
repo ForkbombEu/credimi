@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/interceptor"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
@@ -313,12 +314,18 @@ func TestCleanUpDeviceWorkflowMapsCleanupOutput(t *testing.T) {
 
 // fakeDeviceService answers the Prepare and Clean up operations like a
 // runner namespace would, each starting a workflow, and records their inputs.
+// With serveSteps it also answers Run a mobile automation step. events lists
+// every operation in the order it started. prepareExtra adds its keys to
+// every device entry Prepare returns.
 type fakeDeviceService struct {
-	prepares   []mobiledevice.PrepareInput
-	cleanups   []mobiledevice.CleanUpInput
-	prepareErr map[string]error
-	cleanup    map[string]mobiledevice.CleanUpResult
-	cleanupErr map[string]error
+	prepares     []mobiledevice.PrepareInput
+	cleanups     []mobiledevice.CleanUpInput
+	prepareErr   map[string]error
+	prepareExtra map[string]any
+	cleanup      map[string]mobiledevice.CleanUpResult
+	cleanupErr   map[string]error
+	serveSteps   bool
+	events       []string
 }
 
 func (f *fakeDeviceService) register(t *testing.T, env *testsuite.TestWorkflowEnvironment) {
@@ -332,6 +339,7 @@ func (f *fakeDeviceService) register(t *testing.T, env *testsuite.TestWorkflowEn
 				Device: map[string]any{"serial": "serial-of-" + in.DeviceID},
 				Steps:  map[string]mobiledevice.PreparedMobileDevice{},
 			}
+			maps.Copy(result.Device, f.prepareExtra)
 			for _, req := range in.Requests {
 				result.Steps[req.StepID] = mobiledevice.PreparedMobileDevice{
 					RunnerID: path.Dir(req.DeviceID),
@@ -353,6 +361,9 @@ func (f *fakeDeviceService) register(t *testing.T, env *testsuite.TestWorkflowEn
 		workflow.RegisterOptions{Name: mobiledevice.CleanUpWorkflowName},
 	)
 	service := nexus.NewService(mobiledevice.ServiceName)
+	if f.serveSteps {
+		f.registerRunStep(t, env, service)
+	}
 	require.NoError(t, service.Register(
 		temporalnexus.MustNewWorkflowRunOperationWithOptions(
 			temporalnexus.WorkflowRunOperationOptions[
@@ -366,6 +377,7 @@ func (f *fakeDeviceService) register(t *testing.T, env *testsuite.TestWorkflowEn
 					options nexus.StartOperationOptions,
 				) (temporalnexus.WorkflowHandle[mobiledevice.PrepareResult], error) {
 					f.prepares = append(f.prepares, in)
+					f.events = append(f.events, "prepare "+in.WorkflowID)
 					return temporalnexus.ExecuteUntypedWorkflow[mobiledevice.PrepareResult](
 						ctx,
 						options,
@@ -388,6 +400,7 @@ func (f *fakeDeviceService) register(t *testing.T, env *testsuite.TestWorkflowEn
 					options nexus.StartOperationOptions,
 				) (temporalnexus.WorkflowHandle[mobiledevice.CleanUpResult], error) {
 					f.cleanups = append(f.cleanups, in)
+					f.events = append(f.events, "cleanup "+in.WorkflowID)
 					return temporalnexus.ExecuteUntypedWorkflow[mobiledevice.CleanUpResult](
 						ctx,
 						options,
@@ -400,6 +413,44 @@ func (f *fakeDeviceService) register(t *testing.T, env *testsuite.TestWorkflowEn
 		),
 	))
 	env.RegisterNexusService(service)
+}
+
+func (f *fakeDeviceService) registerRunStep(
+	t *testing.T,
+	env *testsuite.TestWorkflowEnvironment,
+	service *nexus.Service,
+) {
+	t.Helper()
+	env.RegisterWorkflowWithOptions(
+		func(_ workflow.Context, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+			return workflowengine.WorkflowResult{Output: map[string]any{}}, nil
+		},
+		workflow.RegisterOptions{Name: mobiledevice.StepWorkflowName},
+	)
+	require.NoError(t, service.Register(temporalnexus.MustNewWorkflowRunOperationWithOptions(
+		temporalnexus.WorkflowRunOperationOptions[
+			mobiledevice.RunStepInput,
+			workflowengine.WorkflowResult,
+		]{
+			Name: mobiledevice.RunStepOperationName,
+			Handler: func(
+				ctx context.Context,
+				in mobiledevice.RunStepInput,
+				options nexus.StartOperationOptions,
+			) (temporalnexus.WorkflowHandle[workflowengine.WorkflowResult], error) {
+				f.events = append(f.events, "step "+workflowengine.AsString(
+					in.Input.Config[workflowengine.StepIDConfigKey],
+				))
+				return temporalnexus.ExecuteUntypedWorkflow[workflowengine.WorkflowResult](
+					ctx,
+					options,
+					client.StartWorkflowOptions{ID: in.WorkflowID},
+					mobiledevice.StepWorkflowName,
+					in.Input,
+				)
+			},
+		},
+	)))
 }
 
 // registerRunnerNamespaceLookup answers the device lookup with runner
@@ -960,6 +1011,549 @@ func TestPrepareDeviceWorkflowCaptureOptions(t *testing.T) {
 			} else {
 				assert.NotContains(t, device, "play_store_disabled")
 			}
+		})
+	}
+}
+
+// sharedPhoneEntry is the setted_devices entry of a physical Android phone a
+// parent pipeline prepared, as a child pipeline's Prepare receives it.
+func sharedPhoneEntry() map[string]any {
+	return map[string]any{
+		"serial":                 "serial-1",
+		"runner_id":              "tenant/runner-1",
+		"type":                   "android_phone",
+		"screen_prepared":        true,
+		"initial_installed_apps": []any{},
+		"installed":              map[string]any{},
+		"recording":              true,
+		runnerNamespaceConfigKey: "runner-runner-1",
+	}
+}
+
+// registerSharedPrepare registers Prepare and every activity it may run on a
+// physical Android phone, answers the install path with installErr, and
+// returns the names of the activities the workflow started, in order.
+func registerSharedPrepare(env *testsuite.TestWorkflowEnvironment, installErr error) *[]string {
+	env.RegisterWorkflowWithOptions(
+		PrepareDeviceWorkflow,
+		workflow.RegisterOptions{Name: mobiledevice.PrepareWorkflowName},
+	)
+	registerStubActivity(env, activities.GetMobileDeviceActivityName)
+	runnerHTTPActivity := registerMobileRunnerHTTPActivity(env)
+	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
+	// Any device-level activity would succeed; the tests check none started.
+	deviceLevel := []workflowengine.ExecutableActivity{
+		activities.NewSetupMobileDeviceActivity(),
+		activities.NewPreparePhysicalAndroidAppsActivity(),
+		activities.NewListInstalledAppsActivity(),
+		activities.NewStartRecordingActivity(),
+		activities.NewDisableAndroidPlayStoreActivity(),
+		activities.NewStartAndroidDeviceLogActivity(),
+		activities.NewCleanupDeviceActivity(),
+	}
+	for _, a := range append([]workflowengine.ExecutableActivity{
+		installActivity,
+		postInstallActivity,
+	}, deviceLevel...) {
+		env.RegisterActivityWithOptions(a.Execute, activity.RegisterOptions{Name: a.Name()})
+	}
+	for _, a := range deviceLevel {
+		env.OnActivity(a.Name(), mock.Anything, mock.Anything).
+			Return(workflowengine.ActivityResult{}, nil).Maybe()
+	}
+	env.OnActivity(runnerHTTPActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{
+				"installer_path": "/tmp/app.apk",
+				"version_id":     "tenant/wallet/v1",
+			},
+		}}, nil)
+	installed := workflowengine.ActivityResult{Output: map[string]any{"package_id": "pkg-1"}}
+	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+		Return(installed, installErr)
+	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
+		Return(installed, nil).Maybe()
+
+	started := &[]string{}
+	env.SetOnActivityStartedListener(
+		func(info *activity.Info, _ context.Context, _ converter.EncodedValues) {
+			*started = append(*started, info.ActivityType.Name)
+		},
+	)
+	return started
+}
+
+func sharedPrepareInput(deviceID string) mobiledevice.PrepareInput {
+	return mobiledevice.PrepareInput{
+		WorkflowID: mobiledevice.PrepareWorkflowID("pipeline-1-child", deviceID),
+		DeviceID:   deviceID,
+		Requests: []mobiledevice.MobileDeviceRequest{{
+			DeviceID:          deviceID,
+			VersionIdentifier: "tenant/wallet/v1",
+			StepID:            "child-step",
+			RunIdentifier:     "tenant/pipeline-run",
+		}},
+		Device:           sharedPhoneEntry(),
+		RunIdentifier:    "tenant/pipeline-run",
+		DisablePlayStore: true,
+		Pipeline:         testPipelineRun,
+		Workflow:         deviceWorkflowInput(),
+	}
+}
+
+// TestPrepareDeviceWorkflowReusesTheParentDevice: a device the parent pipeline
+// prepared is only prepared for the child's steps: no new device, no app
+// listing, no Play Store change, no log and no recording.
+func TestPrepareDeviceWorkflowReusesTheParentDevice(t *testing.T) {
+	const deviceID = "tenant/runner-1/device-1"
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	started := registerSharedPrepare(env, nil)
+
+	env.ExecuteWorkflow(mobiledevice.PrepareWorkflowName, sharedPrepareInput(deviceID))
+	require.NoError(t, env.GetWorkflowError())
+	var result mobiledevice.PrepareResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+
+	assert.Equal(t, []string{
+		activities.NewMobileRunnerHTTPActivity(nil).Name(),
+		activities.NewApkInstallActivity().Name(),
+		activities.NewApkPostInstallChecksActivity().Name(),
+	}, *started)
+	require.Contains(t, result.Steps, "child-step")
+	prepared := result.Steps["child-step"]
+	assert.Equal(t, "tenant/runner-1", prepared.RunnerID)
+	assert.Equal(t, "serial-1", prepared.Serial)
+	assert.Equal(t, "android_phone", prepared.Type)
+	assert.Equal(t, true, result.Device["recording"])
+	assert.Equal(t, "runner-runner-1", result.Device[runnerNamespaceConfigKey])
+}
+
+// TestPrepareDeviceWorkflowLeavesAFailedSharedDeviceToTheParent: when the
+// child's setup of a borrowed device fails, Prepare fails without cleaning
+// the device, which the parent still uses and cleans.
+func TestPrepareDeviceWorkflowLeavesAFailedSharedDeviceToTheParent(t *testing.T) {
+	const deviceID = "tenant/runner-1/device-1"
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	started := registerSharedPrepare(
+		env,
+		temporal.NewNonRetryableApplicationError("install failed", "CRE1", nil),
+	)
+
+	env.ExecuteWorkflow(mobiledevice.PrepareWorkflowName, sharedPrepareInput(deviceID))
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "install failed")
+	assert.Equal(t, []string{
+		activities.NewMobileRunnerHTTPActivity(nil).Name(),
+		activities.NewApkInstallActivity().Name(),
+	}, *started)
+}
+
+// TestMobileDevicesCleanupHookSkipsBorrowedDevices: a child pipeline leaves
+// the devices it borrowed from its parent to the parent's cleanup.
+func TestMobileDevicesCleanupHookSkipsBorrowedDevices(t *testing.T) {
+	const (
+		ownDevice      = "tenant/runner-a/device-a"
+		borrowedDevice = "tenant/runner-b/device-b"
+	)
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: "pipeline-1"})
+	service := &fakeDeviceService{}
+	service.register(t, env)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			output := map[string]any{}
+			err := MobileDevicesCleanupHook(
+				ctx,
+				nil,
+				&workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+				map[string]any{"namespace": "tenant"},
+				map[string]any{
+					"run_identifier": "tenant/pipeline-run",
+					"setted_devices": map[string]any{
+						ownDevice: map[string]any{
+							runnerNamespaceConfigKey: testRunnerNamespace(ownDevice),
+						},
+						borrowedDevice: map[string]any{
+							runnerNamespaceConfigKey: testRunnerNamespace(borrowedDevice),
+							parentDeviceKey:          true,
+						},
+					},
+				},
+				&output,
+			)
+			return output, err
+		},
+		workflow.RegisterOptions{Name: "test-cleanup-skips-borrowed"},
+	)
+
+	env.ExecuteWorkflow("test-cleanup-skips-borrowed")
+	require.NoError(t, env.GetWorkflowError())
+	var output map[string]any
+	require.NoError(t, env.GetWorkflowResult(&output))
+	require.Len(t, service.cleanups, 1)
+	assert.Equal(t, ownDevice, service.cleanups[0].DeviceID)
+	assert.NotContains(t, output, cleanupWarningsOutputKey)
+}
+
+// TestChildPipelineReusesTheParentDevice: a child pipeline that uses its
+// parent's device prepares it for its own step only, with the parent's entry,
+// and leaves it to the parent, which cleans it once after its last step.
+func TestChildPipelineReusesTheParentDevice(t *testing.T) {
+	const deviceID = "tenant/runner-1/device-1"
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: "pipeline-1"})
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	registerRunnerNamespaceLookup(env)
+	service := &fakeDeviceService{serveSteps: true}
+	service.register(t, env)
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	registerStubActivity(env, activities.NewReportMobileDeviceSemaphoreDoneActivity(nil).Name())
+	env.OnActivity(activities.ResolveRecordActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": `
+name: child
+steps:
+  - id: c1
+    use: mobile-automation
+    with:
+      action_code: "appId: wallet"
+      version_id: tenant/wallet/v1
+      device_id: ` + deviceID + `
+`}}, nil).Once()
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name: "parent",
+			Steps: []pipeline.StepDefinition{
+				{StepSpec: mobileStep("p1", deviceID)},
+				{StepSpec: pipeline.StepSpec{
+					ID:  "child",
+					Use: "child-pipeline",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{"pipeline_id": "tenant/child"},
+					},
+				}},
+				{StepSpec: mobileStep("p2", deviceID)},
+			},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url":                                  "https://example.test",
+				"namespace":                                "tenant",
+				mobileDeviceSemaphoreTicketIDConfigKey:     "ticket-1",
+				mobileDeviceSemaphoreDeviceIDsKey:          []any{deviceID},
+				"mobile_device_semaphore_leader_device_id": deviceID,
+				"mobile_device_semaphore_owner_namespace":  "tenant",
+			},
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+	require.NoError(t, env.GetWorkflowError())
+
+	require.Len(t, service.prepares, 2)
+	assert.Nil(t, service.prepares[0].Device)
+	assert.Equal(t, map[string]any{
+		"serial":                 "serial-of-" + deviceID,
+		runnerNamespaceConfigKey: testRunnerNamespace(deviceID),
+	}, service.prepares[1].Device)
+	require.Len(t, service.cleanups, 1)
+	cleanUpID := mobiledevice.CleanUpWorkflowID("pipeline-1", deviceID)
+	assert.Equal(t, cleanUpID, service.cleanups[0].WorkflowID)
+	assert.Equal(t, []string{
+		"prepare " + mobiledevice.PrepareWorkflowID("pipeline-1", deviceID),
+		"step p1",
+		"prepare " + service.prepares[1].WorkflowID,
+		"step c1",
+		"step p2",
+		"cleanup " + cleanUpID,
+	}, service.events)
+}
+
+// sharedDeviceConfig is the config of a pipeline run whose queue ticket
+// locked deviceID.
+func sharedDeviceConfig(deviceID string) map[string]any {
+	return map[string]any{
+		"app_url":                                  "https://example.test",
+		"namespace":                                "tenant",
+		mobileDeviceSemaphoreTicketIDConfigKey:     "ticket-1",
+		mobileDeviceSemaphoreDeviceIDsKey:          []any{deviceID},
+		"mobile_device_semaphore_leader_device_id": deviceID,
+		"mobile_device_semaphore_owner_namespace":  "tenant",
+	}
+}
+
+// newSharedDeviceEnv registers the pipeline workflow, the device lookup and
+// a fake device service that runs mobile steps.
+func newSharedDeviceEnv(
+	t *testing.T,
+) (*testsuite.TestWorkflowEnvironment, *PipelineWorkflow, *fakeDeviceService) {
+	t.Helper()
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: "pipeline-1"})
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	registerRunnerNamespaceLookup(env)
+	service := &fakeDeviceService{serveSteps: true}
+	service.register(t, env)
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	registerStubActivity(env, activities.NewReportMobileDeviceSemaphoreDoneActivity(nil).Name())
+	return env, pipelineWf, service
+}
+
+// TestGrandchildPipelineReusesTheParentDevice: a child pipeline that does not
+// use its parent's device still lends it to its own child, which prepares it
+// for its step only and leaves it to the top-level parent's cleanup.
+func TestGrandchildPipelineReusesTheParentDevice(t *testing.T) {
+	const deviceID = "tenant/runner-1/device-1"
+	env, pipelineWf, service := newSharedDeviceEnv(t)
+	env.OnActivity(activities.ResolveRecordActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": `
+name: child
+steps:
+  - id: gc
+    use: child-pipeline
+    with:
+      pipeline_id: tenant/grandchild
+`}}, nil).Once()
+	env.OnActivity(activities.ResolveRecordActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": `
+name: grandchild
+steps:
+  - id: g1
+    use: mobile-automation
+    with:
+      action_code: "appId: wallet"
+      version_id: tenant/wallet/v1
+      device_id: ` + deviceID + `
+`}}, nil).Once()
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name: "parent",
+			Steps: []pipeline.StepDefinition{
+				{StepSpec: mobileStep("p1", deviceID)},
+				{StepSpec: pipeline.StepSpec{
+					ID:  "child",
+					Use: "child-pipeline",
+					With: pipeline.StepInputs{
+						Payload: map[string]any{"pipeline_id": "tenant/child"},
+					},
+				}},
+				{StepSpec: mobileStep("p2", deviceID)},
+			},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config:          sharedDeviceConfig(deviceID),
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+	})
+	require.NoError(t, env.GetWorkflowError())
+
+	// The parent's Prepare and the grandchild's: the child prepares nothing.
+	require.Len(t, service.prepares, 2)
+	assert.Nil(t, service.prepares[0].Device)
+	grandchild := service.prepares[1]
+	require.Len(t, grandchild.Requests, 1)
+	assert.Equal(t, "g1", grandchild.Requests[0].StepID)
+	assert.Equal(t, map[string]any{
+		"serial":                 "serial-of-" + deviceID,
+		runnerNamespaceConfigKey: testRunnerNamespace(deviceID),
+	}, grandchild.Device)
+	require.Len(t, service.cleanups, 1)
+	cleanUpID := mobiledevice.CleanUpWorkflowID("pipeline-1", deviceID)
+	assert.Equal(t, cleanUpID, service.cleanups[0].WorkflowID)
+	assert.Equal(t, []string{
+		"prepare " + mobiledevice.PrepareWorkflowID("pipeline-1", deviceID),
+		"step p1",
+		"prepare " + grandchild.WorkflowID,
+		"step g1",
+		"step p2",
+		"cleanup " + cleanUpID,
+	}, service.events)
+}
+
+// TestMobileAutomationSetupHookIgnoresABorrowedFlagFromPrepare: only the
+// parent decides that a device is borrowed; a top-level run cleans a device
+// whose Prepare result claims it is.
+func TestMobileAutomationSetupHookIgnoresABorrowedFlagFromPrepare(t *testing.T) {
+	const deviceID = "tenant/runner-a/device-a"
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: "pipeline-1"})
+	registerRunnerNamespaceLookup(env)
+	service := &fakeDeviceService{prepareExtra: map[string]any{parentDeviceKey: true}}
+	service.register(t, env)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			config := map[string]any{
+				"namespace":                            "tenant",
+				mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+				mobileDeviceSemaphoreDeviceIDsKey:      []any{deviceID},
+			}
+			runData := map[string]any{"run_identifier": "tenant/pipeline-run"}
+			if err := MobileAutomationSetupHook(
+				ctx,
+				&pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{
+					{StepSpec: mobileStep("first", deviceID)},
+				}},
+				config,
+				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
+			); err != nil {
+				return nil, err
+			}
+			if err := MobileDevicesCleanupHook(
+				ctx,
+				nil,
+				&workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+				config,
+				runData,
+				&map[string]any{},
+			); err != nil {
+				return nil, err
+			}
+			return workflowengine.AsMap(runData["setted_devices"]), nil
+		},
+		workflow.RegisterOptions{Name: "test-setup-ignores-borrowed-flag"},
+	)
+
+	env.ExecuteWorkflow("test-setup-ignores-borrowed-flag")
+	require.NoError(t, env.GetWorkflowError())
+	var devices map[string]any
+	require.NoError(t, env.GetWorkflowResult(&devices))
+	assert.Equal(t, map[string]any{
+		"serial":                 "serial-of-" + deviceID,
+		runnerNamespaceConfigKey: testRunnerNamespace(deviceID),
+	}, devices[deviceID])
+	require.Len(t, service.cleanups, 1)
+	assert.Equal(t, deviceID, service.cleanups[0].DeviceID)
+}
+
+// TestTopLevelPipelineIgnoresParentDevices: only a child pipeline borrows
+// devices; a top-level run prepares, records and cleans its device itself.
+func TestTopLevelPipelineIgnoresParentDevices(t *testing.T) {
+	const deviceID = "tenant/runner-1/device-1"
+	env, pipelineWf, service := newSharedDeviceEnv(t)
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name:  "top-level",
+			Steps: []pipeline.StepDefinition{{StepSpec: mobileStep("s1", deviceID)}},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config:          sharedDeviceConfig(deviceID),
+			ActivityOptions: &workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+		},
+		ParentDevices: map[string]any{deviceID: map[string]any{
+			"serial":                 "serial-of-" + deviceID,
+			runnerNamespaceConfigKey: testRunnerNamespace(deviceID),
+		}},
+	})
+	require.NoError(t, env.GetWorkflowError())
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+
+	require.Len(t, service.prepares, 1)
+	assert.Nil(t, service.prepares[0].Device)
+	require.Len(t, service.cleanups, 1)
+	assert.Equal(t, deviceID, service.cleanups[0].DeviceID)
+	assert.Contains(t, workflowengine.AsMap(result.Output), "result_video_warning")
+}
+
+// TestChildPipelineOnBorrowedDevicesHasNoVideoWarning: a child pipeline whose
+// devices are all borrowed records no video, so it warns about none.
+func TestChildPipelineOnBorrowedDevicesHasNoVideoWarning(t *testing.T) {
+	const deviceID = "tenant/runner-1/device-1"
+	env, pipelineWf, service := newSharedDeviceEnv(t)
+	parentEntry := map[string]any{
+		"serial":                 "serial-of-" + deviceID,
+		runnerNamespaceConfigKey: testRunnerNamespace(deviceID),
+	}
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (workflowengine.WorkflowResult, error) {
+			var result workflowengine.WorkflowResult
+			err := workflow.ExecuteChildWorkflow(ctx, pipelineWf.Name(), PipelineWorkflowInput{
+				WorkflowDefinition: &pipeline.WorkflowDefinition{
+					Name:  "child",
+					Steps: []pipeline.StepDefinition{{StepSpec: mobileStep("c1", deviceID)}},
+				},
+				WorkflowInput: workflowengine.WorkflowInput{
+					Config: sharedDeviceConfig(deviceID),
+					ActivityOptions: &workflow.ActivityOptions{
+						StartToCloseTimeout: time.Second,
+					},
+				},
+				ParentDevices: map[string]any{deviceID: parentEntry},
+			}).Get(ctx, &result)
+			return result, err
+		},
+		workflow.RegisterOptions{Name: "test-parent-of-borrowing-child"},
+	)
+
+	env.ExecuteWorkflow("test-parent-of-borrowing-child")
+	require.NoError(t, env.GetWorkflowError())
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+
+	require.Len(t, service.prepares, 1)
+	assert.Equal(t, parentEntry, service.prepares[0].Device)
+	assert.Empty(t, service.cleanups)
+	assert.NotContains(t, workflowengine.AsMap(result.Output), "result_video_warning")
+}
+
+func TestPreparedDevices(t *testing.T) {
+	own := map[string]any{runnerNamespaceConfigKey: "runner-a", "installed": "own"}
+	lent := map[string]any{runnerNamespaceConfigKey: "runner-b", "installed": "parent"}
+	tests := []struct {
+		name    string
+		runData *map[string]any
+		want    map[string]any
+	}{
+		{name: "nil run data", runData: nil, want: nil},
+		{
+			name: "entry without runner namespace",
+			runData: &map[string]any{"setted_devices": map[string]any{
+				"tenant/r/local": map[string]any{"serial": "s"},
+				"tenant/r/a":     own,
+			}},
+			want: map[string]any{"tenant/r/a": own},
+		},
+		{
+			name: "only parent devices",
+			runData: &map[string]any{
+				parentDevicesRunDataKey: map[string]any{"tenant/r/b": lent},
+			},
+			want: map[string]any{"tenant/r/b": lent},
+		},
+		{
+			name: "setted device overrides the parent entry",
+			runData: &map[string]any{
+				parentDevicesRunDataKey: map[string]any{"tenant/r/a": lent, "tenant/r/b": lent},
+				"setted_devices":        map[string]any{"tenant/r/a": own},
+			},
+			want: map[string]any{"tenant/r/a": own, "tenant/r/b": lent},
+		},
+		{name: "nothing prepared", runData: &map[string]any{}, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, preparedDevices(tt.runData))
 		})
 	}
 }

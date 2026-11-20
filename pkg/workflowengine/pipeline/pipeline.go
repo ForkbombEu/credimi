@@ -6,6 +6,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -40,8 +41,10 @@ type PipelineWorkflowInput struct {
 	WorkflowDefinition *pipeline.WorkflowDefinition `yaml:"workflow_definition" json:"workflow_definition"`
 	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"      json:"workflow_input"`
 
-	Debug         bool           `yaml:"debug,omitempty"           json:"debug,omitempty"`
-	ParentRunData map[string]any `yaml:"parent_run_data,omitempty" json:"parent_run_data,omitempty"`
+	Debug bool `yaml:"debug,omitempty" json:"debug,omitempty"`
+	// ParentDevices holds the setted_devices entries the parent pipeline prepared.
+	// Only a child pipeline reads it: its mobile steps reuse these devices.
+	ParentDevices map[string]any `yaml:"parent_devices,omitempty" json:"parent_devices,omitempty"`
 	// ReturnOutputs lists the main step outputs the caller references, so the run returns
 	// them in its result. Nil, as for a top-level run, returns no step outputs;
 	// pipeline.AllStepOutputs returns all of them.
@@ -64,10 +67,36 @@ type pipelineExecutionState struct {
 	priorFailures bool
 	// stepErr is the error of the step that stopped the run.
 	stepErr error
+	// runData is the run's data; child pipelines reuse the devices it prepared.
+	runData *map[string]any
 }
 
 func (s *pipelineExecutionState) hasFailures() bool {
 	return len(s.failures) > 0 || s.priorFailures
+}
+
+// preparedDevices returns the devices the run prepared or borrowed from its
+// parent: its parent_devices, overlaid by the setted_devices entries with a
+// runner namespace, which carry newer data. Nil without any.
+func preparedDevices(runData *map[string]any) map[string]any {
+	if runData == nil {
+		return nil
+	}
+	prepared := map[string]any{}
+	if parentDevices, ok := (*runData)[parentDevicesRunDataKey].(map[string]any); ok {
+		maps.Copy(prepared, parentDevices)
+	}
+	for deviceID, entry := range getOrCreateSettedDevices(runData) {
+		device, _ := entry.(map[string]any)
+		if namespace, _ := device[runnerNamespaceConfigKey].(string); namespace == "" {
+			continue
+		}
+		prepared[deviceID] = device
+	}
+	if len(prepared) == 0 {
+		return nil
+	}
+	return prepared
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -184,7 +213,8 @@ func (w *PipelineWorkflow) Workflow(
 		resultOutput: map[string]any{},
 		failedSteps:  map[string]struct{}{},
 	}
-	if hasMobileAutomationStep(wfDef.Steps) && !wfDef.Runtime.NoVideo {
+	if hasMobileAutomationStep(wfDef.Steps) && !wfDef.Runtime.NoVideo &&
+		!usesOnlyParentDevices(ctx, wfDef.Steps, config, input.ParentDevices) {
 		state.finalOutput["result_video_warning"] = "Video recordings are limited to 30 minutes. " +
 			"Tests exceeding this duration may result in an incomplete video."
 	}
@@ -197,9 +227,10 @@ func (w *PipelineWorkflow) Workflow(
 		),
 	}
 
-	if input.ParentRunData != nil {
-		runData = input.ParentRunData
+	if len(input.ParentDevices) > 0 && workflow.GetInfo(ctx).ParentWorkflowExecution != nil {
+		runData[parentDevicesRunDataKey] = input.ParentDevices
 	}
+	state.runData = &runData
 	startPipelineCancellationPolicyReceiver(ctx, &runData)
 	if err := workflow.SetQueryHandler(
 		ctx,
@@ -403,6 +434,34 @@ func hasMobileAutomationStep(steps []pipeline.StepDefinition) bool {
 		return false
 	}
 	return found
+}
+
+// usesOnlyParentDevices reports that the run is a child pipeline whose mobile
+// steps all run on devices its parent lent it: the parent records them.
+func usesOnlyParentDevices(
+	ctx workflow.Context,
+	steps []pipeline.StepDefinition,
+	config map[string]any,
+	parentDevices map[string]any,
+) bool {
+	if workflow.GetInfo(ctx).ParentWorkflowExecution == nil || len(parentDevices) == 0 {
+		return false
+	}
+	globalDeviceID, _ := config["global_device_id"].(string)
+	deviceIDs, err := collectMobileDeviceIDs(steps, globalDeviceID)
+	if err != nil || len(deviceIDs) == 0 {
+		return false
+	}
+	borrowed := make(map[string]struct{}, len(parentDevices))
+	for deviceID := range parentDevices {
+		borrowed[canonify.NormalizePath(deviceID)] = struct{}{}
+	}
+	for _, deviceID := range deviceIDs {
+		if _, ok := borrowed[canonify.NormalizePath(deviceID)]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func wrapWorkflowCancellationError(
@@ -668,6 +727,7 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 		stepInputs,
 		runMetadata,
 		returnOutputs,
+		preparedDevices(state.runData),
 	)
 	if err != nil {
 		return handleChildPipelineStepError(

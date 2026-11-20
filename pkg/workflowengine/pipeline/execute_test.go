@@ -435,6 +435,7 @@ steps: []
 				map[string]any{},
 				&workflowengine.WorkflowRunMetadata{},
 				[]string{"inner"},
+				nil,
 			)
 			if err != nil {
 				return nil, err
