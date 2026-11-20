@@ -60,7 +60,7 @@ steps:
 - id: present-va-default
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-default.outputs.body.deeplink }}"
@@ -195,7 +195,7 @@ steps:
 - id: present-va-redirect-match
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-redirect-match.outputs.body.deeplink }}"
@@ -422,7 +422,7 @@ steps:
 - id: present-va-outside-metadata
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-outside-metadata.outputs.body.deeplink }}"

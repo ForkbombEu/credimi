@@ -51,7 +51,7 @@ steps:
 - id: present-missing-element
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-missing-element-presentation.outputs.body.deeplink }}
@@ -123,7 +123,7 @@ steps:
 - id: present-element-and-missing
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-element-and-missing-presentation.outputs.body.deeplink }}

@@ -37,7 +37,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-unknown-request-parameter.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
 - id: fetch-unknown-request-parameter
   use: http-request
   with:

@@ -40,11 +40,13 @@ assertions:
     mode: trusted_authority_empty_string_item
     property: values
 - id: single_value_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.single_visual_evidence
+  params: { name: request-refused }
 - id: mixed_value_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.mixed_visual_evidence
+  params: { name: request-refused }
 - id: single_value_no_presentation_returned
   validator: oid4vp.no_presentation_returned
   input: evidence.single_value_session

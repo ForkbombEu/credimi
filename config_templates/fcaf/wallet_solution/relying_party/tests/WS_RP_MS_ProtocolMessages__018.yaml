@@ -11,9 +11,18 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '5'
+  section: '5, 8.4'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.baseline
+# The source contradicts itself: its Profile applicability reads "Wallet does
+# not support transaction_data", while its Test Scenario and Expected result
+# require "a Wallet that DOES support it" and the presentation to proceed. The
+# second reading is the one that can be exercised, and it needs a transaction
+# data type the Wallet accepts. The Wallet under test advertises no transaction
+# data type in its request_uri wallet_metadata (OpenID4VP 10.1 defines no such
+# parameter) and answers transaction_data with invalid_transaction_data, so the
+# Wallet's own capabilities refute the source's premise and no supported entry
+# can be put to it.
 evidence:
   session:
     from: pipeline.dcql.baseline.outputs.session
@@ -23,9 +32,12 @@ assertions:
   input: evidence.session
   params:
     reason: >-
-      the source applies to a Wallet that supports the transaction_data
-      parameter ("a Wallet that DOES support it"); the reference Wallet declares
-      no supported transaction-data type, so a valid supported entry cannot be
-      put to it
+      the source's Test Scenario requires "a valid transaction_data parameter
+      to a Wallet that DOES support it" and its Expected result requires the
+      Wallet to process it and proceed with the presentation; the Wallet under
+      test declares no transaction data type (its request_uri wallet_metadata
+      carries none and its captures answer transaction_data with
+      invalid_transaction_data), so a supported entry and the resulting
+      presentation cannot be produced
 verdict:
   pass_when: all_assertions_pass

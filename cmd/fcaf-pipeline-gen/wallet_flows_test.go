@@ -51,6 +51,11 @@ func TestWalletActionShareConsumption(t *testing.T) {
 			want:   1,
 		},
 		{
+			name:   "multi-line Share tap of a presentation that must complete",
+			action: walletActionNamespace + "fcaf-engagement-haip-vp",
+			want:   1,
+		},
+		{
 			name:   "consent share of an accepted DC API request",
 			action: walletActionNamespace + "fcaf-dc-api-present",
 			want:   1,

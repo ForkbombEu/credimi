@@ -19,6 +19,7 @@ normative_references:
 evidence:
   session: { from: pipeline.protocol.metadata-request-controls.outputs.metadata_outside_client_metadata_session }
   request_object: { from: pipeline.protocol.metadata-request-controls.outputs.metadata_outside_client_metadata_request_object }
+  encrypted_response: { from: pipeline.protocol.metadata-request-controls.outputs.metadata_outside_client_metadata_encrypted_response }
   visual_evidence: { from: pipeline.protocol.metadata-request-controls.outputs.metadata_outside_client_metadata_visual_evidence }
 assertions:
 - id: request_object_is_signed
@@ -28,6 +29,17 @@ assertions:
   validator: jwt.payload_field_equals
   input: evidence.request_object
   params: { field: client_name, value: FCAF metadata outside client_metadata }
+# This top-level member contradicts the ECDH-ES alg of the encryption key inside
+# client_metadata. Reading it would change the response JWE, so the alg observed
+# below proves whether the Wallet took any metadata from outside client_metadata.
+- id: request_object_carries_a_conflicting_alg_outside_client_metadata
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: authorization_encrypted_response_alg, value: ECDH-ES+A128KW }
+- id: client_metadata_publishes_the_ecdh_es_key
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.request_object
+  params: { field: alg, value: ECDH-ES }
 - id: request_object_keeps_client_metadata
   validator: jwt.payload_field_presence
   input: evidence.request_object
@@ -47,6 +59,10 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.session
   params: { mode: credentials_match }
+- id: wallet_ignored_metadata_outside_client_metadata
+  validator: jose.jwe_protected_header
+  input: evidence.encrypted_response
+  params: { field: alg, value: ECDH-ES }
 - id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

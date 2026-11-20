@@ -19,13 +19,23 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.claim-sets-without-claims.outputs.visual_evidence
 assertions:
-  - id: invalid_claim_sets_without_claims_is_rejected
+  # Request side: the delivered DCQL query carries claim_sets without claims.
+  - id: delivered_claim_sets_have_no_claims
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange
     params:
       mode: claim_sets_without_claims
+  # Source Expected result 1: "Wallet identifies invalid query, returns error."
+  # The source names no error code, so any OAuth2 error without a presentation
+  # satisfies it; a silent discontinuation is not the required error.
+  - id: wallet_returns_an_error_without_a_presentation
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: wallet_error_required
   - id: wallet_outcome_is_recorded
-    validator: evidence.non_empty
+    validator: evidence.screenshot_named
     input: evidence.visual_evidence
+    params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

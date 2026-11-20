@@ -26,7 +26,8 @@ assertions:
   params:
     mode: vp_token_signed_presentation
 - id: ws_rp_ia_maininteraction__035_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

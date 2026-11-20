@@ -7,7 +7,11 @@ tags:
 # Shares the presentation, then closes the Wallet's success screen so it can
 # follow the redirect_uri the Verifier's Response Endpoint returned. Every wait
 # is optional: the protocol assertion (oid4vp.redirect_uri_visited) decides the
-# verdict, and the screenshots record what the Wallet showed.
+# verdict, and the screenshots record what the Wallet showed. Each screenshot
+# comes before the next command that can fail, so a run that stops early still
+# stores the screen it stopped on. Names stay within 16 characters, the budget
+# the longest step id that binds this action leaves under PocketBase's
+# 100-character cap.
 - launchApp:
     stopApp: true
     clearState: false
@@ -15,8 +19,10 @@ tags:
       camera: allow
       notifications: allow
 - extendedWaitUntil:
-    visible: "Welcome back"
+    visible: "Welcome back|Home|Documents|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: wallet-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -37,17 +43,18 @@ tags:
     when:
       visible: "Requested data"
     commands:
+      - takeScreenshot: wallet-consent
       - tapOn: "Share"
       - waitForAnimationToEnd:
           timeout: 3000
       - inputText: "12345"
       - tapOn: "6"
 - extendedWaitUntil:
-    visible: ".*successfully shared.*"
+    visible: ".*successfully shared.*|Oups! Something went wrong|invalid request|Presentation blocked"
     timeout: 30000
     optional: true
 - extendedWaitUntil:
-    visible: "Close"
+    visible: "Close|.*successfully shared.*|Oups! Something went wrong|invalid request"
     timeout: 30000
     optional: true
 - takeScreenshot: "wallet-success"
@@ -61,7 +68,7 @@ tags:
     commands:
       - tapOn: "Close"
 - extendedWaitUntil:
-    visible: "Presentation complete"
+    visible: "Presentation complete|.*(did not complete|answered without a presentation|rejected the presentation|could not be submitted).*"
     timeout: 30000
     optional: true
 - takeScreenshot: "redirect-visit"

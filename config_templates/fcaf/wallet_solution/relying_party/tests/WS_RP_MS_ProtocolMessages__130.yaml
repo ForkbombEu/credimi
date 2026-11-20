@@ -36,7 +36,8 @@ assertions:
     metadata_enc_values_exclusive: true
     expected_enc: A256GCM
 - id: wallet_response_visual_evidence_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

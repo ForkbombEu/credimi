@@ -18,12 +18,29 @@ evidence:
     from: pipeline.dcql.two-claims-value-mismatch.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.two-claims-value-mismatch.outputs.visual_evidence
+  possession_exchange:
+    from: pipeline.dcql.two-claims-value-mismatch.outputs.possession_exchange
 assertions:
+  # Precondition: "The wallet contains a credential that holds both requested
+  # claims, but one of those claims has a value that does not match". The
+  # scenario shares such a PID in a matching presentation first, so an empty
+  # Wallet cannot pass the probe.
+  - id: wallet_holds_a_credential_with_both_requested_claims
+    validator: dcql.response_satisfies_constraints
+    input: evidence.possession_exchange
+    params:
+      mode: claims_subset
+      forbidden_paths:
+        - [birthdate]
+  # expected_claim_path/expected_value bind the no-match to the request's own
+  # restrictions, so any other unsatisfiable query cannot satisfy this step.
   - id: value_mismatched_credential_is_not_returned
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange
     params:
       mode: claims_values_no_match
+      expected_claim_path: [family_name]
+      expected_value: value-that-does-not-match
   - id: wallet_outcome_is_recorded
     validator: evidence.non_empty
     input: evidence.visual_evidence

@@ -307,12 +307,17 @@ func TestWalletEngagementFromEvidence(t *testing.T) {
 	}
 }
 
-// TestGuardWalletEngagementOnlyConvertsPasses pins the guard's contract: it
-// speaks for a pass and for nothing else, so a verdict the validator reached on
+// TestGuardWalletEngagementConvertsPassesAndFails pins the guard's contract: it
+// speaks for a pass or a fail — the two verdicts that state what the Wallet did
+// with the request — and for nothing else, so a verdict the validator reached on
 // other grounds survives untouched.
-func TestGuardWalletEngagementOnlyConvertsPasses(t *testing.T) {
+func TestGuardWalletEngagementConvertsPassesAndFails(t *testing.T) {
 	never := neverRetrievedSession(nil)
 	engaged := retrievedSessionWithoutResponse(nil)
+	byValue := capturePresentationRecord("created", "vp_session_created")
+	byValue["request_delivery"] = "by_value"
+	plain := capturePresentationRecord("created", "vp_session_created")
+	plain["request_delivery"] = "plain"
 
 	tests := []struct {
 		name   string
@@ -340,8 +345,35 @@ func TestGuardWalletEngagementOnlyConvertsPasses(t *testing.T) {
 			want:   Result{Status: StatusPass, Message: "wallet returned no presentation"},
 		},
 		{
-			name:   "fail is kept",
+			name:   "fail without an engaged wallet is blocked",
 			value:  never,
+			result: Result{Status: StatusFail, Message: "wallet presented a credential"},
+			want: Result{
+				Status:  StatusBlocked,
+				Message: walletNeverRetrievedMessage,
+				Details: map[string]any{
+					"wallet_engagement": "not_established",
+					"session_id":        captureSessionID,
+				},
+			},
+		},
+		{
+			name:   "fail on an engaged wallet is kept",
+			value:  engaged,
+			result: Result{Status: StatusFail, Message: "wallet presented a credential"},
+			want:   Result{Status: StatusFail, Message: "wallet presented a credential"},
+		},
+		{
+			// There is nothing to retrieve with by_value delivery, so a plain
+			// fail is the Wallet's own answer and stays a failure.
+			name:   "fail with by_value delivery is kept",
+			value:  byValue,
+			result: Result{Status: StatusFail, Message: "wallet presented a credential"},
+			want:   Result{Status: StatusFail, Message: "wallet presented a credential"},
+		},
+		{
+			name:   "fail with plain delivery is kept",
+			value:  plain,
 			result: Result{Status: StatusFail, Message: "wallet presented a credential"},
 			want:   Result{Status: StatusFail, Message: "wallet presented a credential"},
 		},

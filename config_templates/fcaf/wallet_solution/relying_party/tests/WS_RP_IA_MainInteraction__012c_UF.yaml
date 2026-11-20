@@ -20,7 +20,20 @@ evidence:
     from: pipeline.interaction.pid-sdjwt-missing-claim.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.interaction.pid-sdjwt-missing-claim.outputs.visual_evidence
+  possession_exchange:
+    from: pipeline.interaction.pid-sdjwt-two-claims.outputs.dcql_exchange
 assertions:
+# Precondition: the Wallet holds default_credential_A, the PID the absent claim
+# is looked up in. The scenario's two-claim presentation shares that PID, so an
+# empty Wallet leaves this exchange without a presentation and the probe below
+# cannot pass.
+- id: wallet_holds_the_pid_the_request_targets
+  validator: dcql.response_satisfies_constraints
+  input: evidence.possession_exchange
+  params:
+    mode: claims_subset
+    forbidden_paths:
+    - - birthdate
 - id: only_the_unavailable_claim_is_requested
   validator: oid4vp.dcql_requested_claim_paths
   input: evidence.dcql_exchange
@@ -41,7 +54,8 @@ assertions:
   params:
     mode: request_rejected
 - id: unavailable_claim_request_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

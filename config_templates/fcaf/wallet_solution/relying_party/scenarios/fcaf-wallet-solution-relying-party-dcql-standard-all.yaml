@@ -117,7 +117,7 @@ steps:
 - id: exercise-claim-sets
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-claim-sets-session.outputs.body.deeplink }}

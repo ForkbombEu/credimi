@@ -87,4 +87,5 @@ steps:
       pipeline.dcql.degree-index-selector:
         output:
           dcql_exchange: ${{ fetch-degree-presentation.outputs.body }}
+          session_checks: ${{ fetch-degree-presentation.outputs.body.checks }}
           visual_evidence: ${{ present-degree-credential.outputs.flow_output.maestro_screenshot_urls }}

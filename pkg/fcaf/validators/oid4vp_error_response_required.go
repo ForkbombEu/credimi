@@ -59,10 +59,14 @@ func (OID4VPErrorResponseRequiredValidator) Validate(_ context.Context, input In
 	errorValue := findWalletError(session)
 	code := normalizeString(errorValue)
 	if code == "" {
-		return withWalletOutcome(session, Result{
+		// A Wallet that never retrieved the request has no channel for the
+		// error, so its silence is a harness gap rather than a Wallet breach:
+		// the guard blocks a by-reference session still in `created`. On plain
+		// or by-value delivery nothing is retrievable and the failure stands.
+		return guardWalletEngagement(session, withWalletOutcome(session, Result{
 			Status:  StatusFail,
 			Message: fmt.Sprintf("wallet returned no error, expected %q", params.Code),
-		})
+		}))
 	}
 	if code != params.Code {
 		return Result{

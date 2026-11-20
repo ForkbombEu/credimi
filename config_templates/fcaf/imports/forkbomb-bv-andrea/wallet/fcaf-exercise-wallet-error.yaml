@@ -7,7 +7,8 @@ tags:
 # Shares the presentation, then waits for the Wallet's error screen after a
 # Verifier response it must not accept. `wallet-error` is taken only while that
 # screen is up, so a Wallet that stays on its success screen stores no such
-# file and fails the test's evidence.screenshot_named assertion.
+# file and fails the test's evidence.screenshot_named assertion; the screenshots
+# taken before every command that can fail keep the other screens as evidence.
 - launchApp:
     stopApp: true
     clearState: false
@@ -15,8 +16,10 @@ tags:
       camera: allow
       notifications: allow
 - extendedWaitUntil:
-    visible: "Welcome back"
+    visible: "Welcome back|Home|Documents|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: wallet-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -37,6 +40,7 @@ tags:
     when:
       visible: "Requested data"
     commands:
+      - takeScreenshot: wallet-consent
       - tapOn: "Share"
       - waitForAnimationToEnd:
           timeout: 3000

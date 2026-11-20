@@ -34,8 +34,9 @@ assertions:
     params:
       mode: no_match
   - id: matching_meta_visual_evidence_is_stored
-    validator: evidence.non_empty
+    validator: evidence.screenshot_named
     input: evidence.matching_meta_visual_evidence
+    params: { name: fcaf-engagement-haip-vp-shared }
   - id: mismatching_meta_visual_evidence_is_stored
     validator: evidence.non_empty
     input: evidence.mismatching_meta_visual_evidence

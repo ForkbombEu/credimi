@@ -34,11 +34,16 @@ assertions:
   input: evidence.session
   params: { method: GET }
 - id: wallet_rejects_the_request
+  # Source Expected result 3 is "Wallet returns an error", but this request
+  # omits response_uri and carries no redirect_uri, so no channel exists that
+  # could deliver it. The discontinuation-accepting mode stays; the channel gap
+  # is filed upstream (TEST-AUTHOR-FEEDBACK.md Issue 33).
   validator: dcql.response_satisfies_constraints
   input: evidence.session
   params: { mode: request_rejected }
 - id: visual_evidence_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

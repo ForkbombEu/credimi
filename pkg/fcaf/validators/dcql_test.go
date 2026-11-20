@@ -361,7 +361,11 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 				"dcql_query": map[string]any{
 					"credentials": []any{validSDJWTCredentialQuery("pid")},
 				},
-				"vp_token": map[string]any{"pid": []any{"presentation"}},
+				"vp_token": map[string]any{"pid": []any{
+					testSDJWTPresentation(map[string]any{
+						"vct": "urn:eu.europa.ec.eudi:pid:1",
+					}),
+				}},
 			},
 			status: StatusPass,
 		},
@@ -1955,7 +1959,7 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 						"claims": []any{map[string]any{"path": []any{"given_name"}}},
 					}},
 				},
-				"vp_token": map[string]any{"pid": []any{"presentation"}},
+				"vp_token": map[string]any{"pid": []any{signedSDJWTPresentation()}},
 			},
 			status: StatusPass,
 		},
@@ -2050,7 +2054,7 @@ func TestDCQLClaimsPathPointerMembers(t *testing.T) {
 		credential["claims"] = []any{map[string]any{"path": path}}
 		return map[string]any{
 			"dcql_query": map[string]any{"credentials": []any{credential}},
-			"vp_token":   map[string]any{"pid": []any{"presentation"}},
+			"vp_token":   map[string]any{"pid": []any{signedSDJWTPresentation()}},
 		}
 	}
 	for _, tc := range []struct {
@@ -2764,7 +2768,12 @@ func unsignedSDJWTPresentation() string {
 
 func signedSDJWTPresentation() string {
 	header, _ := json.Marshal(map[string]any{"alg": "ES256"})
-	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256"})
+	payload, _ := json.Marshal(map[string]any{
+		"_sd_alg": "sha-256",
+		// validSDJWTCredentialQuery fixes vct_values to this PID type, so the
+		// fixture carries the vct that credentials_match checks against meta.
+		"vct": "urn:eu.europa.ec.eudi:pid:1",
+	})
 	return base64.RawURLEncoding.EncodeToString(
 		header,
 	) + "." + base64.RawURLEncoding.EncodeToString(

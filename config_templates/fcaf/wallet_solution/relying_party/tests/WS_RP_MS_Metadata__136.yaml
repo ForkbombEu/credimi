@@ -27,7 +27,8 @@ assertions:
   input: evidence.request_uri_payload
   params: { present: [request_object_signing_alg_values_supported] }
 - id: visual_evidence_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

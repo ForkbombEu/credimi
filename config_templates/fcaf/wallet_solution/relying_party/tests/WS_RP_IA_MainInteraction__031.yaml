@@ -18,7 +18,19 @@ evidence:
     from: pipeline.dcql.credential-sets-combined-option-no-match.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.credential-sets-combined-option-no-match.outputs.visual_evidence
+  possession_exchange:
+    from: pipeline.dcql.credential-sets-combined-option-no-match.outputs.possession_exchange
 assertions:
+  # Precondition: the credential_sets option combines "1 the wallet has" with
+  # one it does not. The scenario shares the held PID in a matching
+  # presentation first, so an empty Wallet cannot pass the combined probe.
+  - id: wallet_holds_the_available_credential_of_the_set
+    validator: dcql.response_satisfies_constraints
+    input: evidence.possession_exchange
+    params:
+      mode: claims_subset
+      forbidden_paths:
+        - [birthdate]
   - id: ws_rp_ia_maininteraction__031_unsatisfied_combined_set
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange

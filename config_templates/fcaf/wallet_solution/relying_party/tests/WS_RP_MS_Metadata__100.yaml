@@ -42,7 +42,8 @@ assertions:
     expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
     expected_value: CREDIMI-MDOC-MISSING-URI
 - id: wallet_reaction_to_the_probe_is_recorded
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

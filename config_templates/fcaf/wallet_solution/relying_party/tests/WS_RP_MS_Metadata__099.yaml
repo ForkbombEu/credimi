@@ -76,8 +76,9 @@ assertions:
     expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
     expected_value: CREDIMI-MDOC-MALFORMED-URI
 - id: malformed_uri_wallet_reaction_is_recorded
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.malformed_uri_visual_evidence
+  params: { name: request-refused }
 # step 1, no scheme
 - id: uri_missing_scheme_issuer_offered_the_status_shape
   validator: json.field_equals
@@ -99,8 +100,9 @@ assertions:
     expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
     expected_value: CREDIMI-MDOC-URI-MISSING-SCHEME
 - id: uri_missing_scheme_wallet_reaction_is_recorded
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.uri_missing_scheme_visual_evidence
+  params: { name: request-refused }
 # step 2, unencoded space in the host
 - id: uri_space_in_host_issuer_offered_the_status_shape
   validator: json.field_equals
@@ -122,8 +124,9 @@ assertions:
     expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
     expected_value: CREDIMI-MDOC-URI-SPACE-IN-HOST
 - id: uri_space_in_host_wallet_reaction_is_recorded
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.uri_space_in_host_visual_evidence
+  params: { name: request-refused }
 # step 3, invalid percent-encoding
 - id: uri_invalid_percent_encoding_issuer_offered_the_status_shape
   validator: json.field_equals
@@ -145,8 +148,9 @@ assertions:
     expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
     expected_value: CREDIMI-MDOC-URI-INVALID-PERCENT-ENCODING
 - id: uri_invalid_percent_encoding_wallet_reaction_is_recorded
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.uri_invalid_percent_encoding_visual_evidence
+  params: { name: request-refused }
 # step 4, illegal characters <, > and |
 - id: uri_illegal_characters_issuer_offered_the_status_shape
   validator: json.field_equals
@@ -168,8 +172,9 @@ assertions:
     expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
     expected_value: CREDIMI-MDOC-URI-ILLEGAL-CHARACTERS
 - id: uri_illegal_characters_wallet_reaction_is_recorded
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.uri_illegal_characters_visual_evidence
+  params: { name: request-refused }
 # step 5, empty string
 - id: uri_empty_issuer_offered_the_status_shape
   validator: json.field_equals
@@ -191,7 +196,8 @@ assertions:
     expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
     expected_value: CREDIMI-MDOC-URI-EMPTY
 - id: uri_empty_wallet_reaction_is_recorded
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.uri_empty_visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

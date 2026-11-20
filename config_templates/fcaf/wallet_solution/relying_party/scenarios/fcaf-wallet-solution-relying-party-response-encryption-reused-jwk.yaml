@@ -55,7 +55,7 @@ steps:
 - id: exercise-first-wallet
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-first-capture-session.outputs.body.deeplink }}
@@ -99,7 +99,7 @@ steps:
 - id: exercise-second-wallet
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-second-capture-session.outputs.body.deeplink }}

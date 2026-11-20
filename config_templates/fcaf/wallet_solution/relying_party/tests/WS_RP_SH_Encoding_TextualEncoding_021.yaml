@@ -41,7 +41,8 @@ assertions:
     namespace: eu.europa.ec.eudi.pid.1
     element: given_name
 - id: ws_rp_sh_encoding_textualencoding_021_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

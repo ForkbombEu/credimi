@@ -37,7 +37,8 @@ assertions:
     validator: jose.jwe_encrypted_response
     input: evidence.encrypted_response
   - id: ws_rp_ia_metadata__009_visual_evidence
-    validator: evidence.non_empty
+    validator: evidence.screenshot_named
     input: evidence.visual_evidence
+    params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

@@ -25,7 +25,8 @@ assertions:
     params:
       mode: invalid_request_required
   - id: conflict_rejection_visual_evidence_is_stored
-    validator: evidence.non_empty
+    validator: evidence.screenshot_named
     input: evidence.visual_evidence
+    params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

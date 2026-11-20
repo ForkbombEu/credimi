@@ -228,6 +228,14 @@ func TestOID4VPRequestURINotRetrievedValidator(t *testing.T) {
 		{name: "retrieval event present", value: map[string]any{
 			"events": []any{map[string]any{"type": "vp_request_retrieved"}},
 		}, status: StatusFail},
+		{
+			// Non-retrieval is the expected Wallet behaviour, which the
+			// engagement guard must not block: a by-reference session still in
+			// created is exactly what this assertion requires.
+			name:   "by-reference session that stayed created passes",
+			value:  neverRetrievedSession(nil),
+			status: StatusPass,
+		},
 	}
 
 	for _, tt := range tests {

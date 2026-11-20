@@ -33,7 +33,7 @@ steps:
     use: mobile-automation
     with:
       version_id: installed_from_external_source
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
       parameters:
         deeplink: ${{ create-capture-session.outputs.body.deeplink }}
   - id: fetch-capture-session

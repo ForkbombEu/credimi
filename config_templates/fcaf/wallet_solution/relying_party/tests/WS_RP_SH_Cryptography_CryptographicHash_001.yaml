@@ -26,7 +26,8 @@ assertions:
   validator: sdjwt.disclosure_digests_sha_256
   input: evidence.pid_sdjwt
 - id: ws_rp_sh_cryptography_cryptographichash_001_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

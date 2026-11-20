@@ -28,7 +28,7 @@ steps:
 - id: exercise-default-post-retrieval
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-default-post-retrieval.outputs.body.deeplink }}" }
 - id: fetch-default-post-retrieval
@@ -57,7 +57,7 @@ steps:
 - id: exercise-unrecognised-client-metadata
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-unrecognised-client-metadata.outputs.body.deeplink }}" }
 - id: fetch-unrecognised-client-metadata
@@ -110,12 +110,18 @@ steps:
           credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
       request_mutation:
         request_object:
-          set: { /client_name: FCAF metadata outside client_metadata }
+          set:
+            /client_name: FCAF metadata outside client_metadata
+            # A non-key client metadata member delivered outside client_metadata
+            # that contradicts the metadata key's ECDH-ES alg. A Wallet that
+            # reads it produces an ECDH-ES+A128KW response JWE; a Wallet that
+            # ignores everything outside client_metadata keeps ECDH-ES.
+            /authorization_encrypted_response_alg: ECDH-ES+A128KW
         verification_applies: true
 - id: exercise-metadata-outside-client-metadata
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-metadata-outside-client-metadata.outputs.body.deeplink }}" }
 - id: fetch-metadata-outside-client-metadata
@@ -146,4 +152,5 @@ steps:
           non_object_client_metadata_visual_evidence: ${{ reject-non-object-client-metadata.outputs.flow_output.maestro_screenshot_urls }}
           metadata_outside_client_metadata_session: ${{ fetch-metadata-outside-client-metadata.outputs.body }}
           metadata_outside_client_metadata_request_object: ${{ fetch-metadata-outside-client-metadata.outputs.body.raw.authorization_request_jwt }}
+          metadata_outside_client_metadata_encrypted_response: ${{ fetch-metadata-outside-client-metadata.outputs.body.observed.wallet_response.value.response }}
           metadata_outside_client_metadata_visual_evidence: ${{ exercise-metadata-outside-client-metadata.outputs.flow_output.maestro_screenshot_urls }}

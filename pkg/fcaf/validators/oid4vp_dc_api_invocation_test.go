@@ -111,14 +111,14 @@ func TestOID4VPDCAPIInvocationValidator(t *testing.T) {
 		},
 		{
 			// The wallet-outcome half: an invocation was required and the
-			// session records none, which the validator reports itself.
-			name:  "a required invocation that was never reported fails",
+			// session records none, so the Wallet's answer is not evidenced.
+			name:  "a required invocation that was never reported is blocked",
 			value: dcAPIUnsignedRequest(dcAPICaptureRecord(nil)),
 			params: map[string]any{
 				"allowed_outcomes": []any{"rejected"},
 				"vp_token_present": false,
 			},
-			wantStatus: StatusFail,
+			wantStatus: StatusBlocked,
 		},
 		{
 			name: "a reported refusal satisfies the wallet-outcome assertion",
@@ -132,12 +132,13 @@ func TestOID4VPDCAPIInvocationValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
-			name: "a browser without an API never invoked a wallet",
+			// A browser without the API is the harness, not the Wallet.
+			name: "a browser without an API never invoked a wallet and is blocked",
 			value: dcAPIUnsignedRequest(
 				dcAPICaptureRecord(dcAPIInvocation(dcAPIOutcomeAPIUnavailable, false)),
 			),
 			params:     map[string]any{"invoked": true},
-			wantStatus: StatusFail,
+			wantStatus: StatusBlocked,
 		},
 		{
 			// The wallet-outcome path the guard exists for: the validator reads a

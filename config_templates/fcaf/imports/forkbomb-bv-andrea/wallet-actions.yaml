@@ -14,10 +14,6 @@ actions:
     category: get-credential-generic
     tags: fcaf, ws_rp, ws_ap, expect, rejected, credential
     file: wallet/fcaf-expect-credential-rejected.yaml
-  - name: unlock-wallet
-    category: other
-    tags: fcaf, helper
-    file: wallet/unlock-wallet.yaml
   - name: fcaf-reset-and-onboard
     category: onboarding
     tags: fcaf, ws_rp, ws_ap, helper, reset, onboarding

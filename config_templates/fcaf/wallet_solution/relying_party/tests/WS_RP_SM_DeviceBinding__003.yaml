@@ -23,10 +23,12 @@ assertions:
   input: evidence.dcql_exchange
   params:
     reason: >-
-      needs a key-bound Verifier Info attestation whose signature object is
-      missing the nonce or client_id and whose rejection by the Wallet is
-      observable; the harness cannot sign an attestation bound to the request
-      nonce and Client Identifier, because Capture delivers verifier_info
-      verbatim and signs none of its own
+      no FCAF profile defines a verifier_info attestation format for the
+      harness to sign: OpenID4VP 5.11.1 leaves the format and semantics to
+      ecosystems and profiles, and the EUDI Relying Party Registration
+      Certificate has no TS5 attachment structure, so there is no
+      profile-conformant structure in which a signature object can omit or
+      carry the nonce and client_id; this is a missing source precondition, not
+      a Wallet limitation
 verdict:
   pass_when: all_assertions_pass
