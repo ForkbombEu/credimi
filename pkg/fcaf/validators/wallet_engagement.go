@@ -13,11 +13,12 @@ import (
 // Messages the guard reports when a pass rests on a Capture verifier session
 // record that shows no Wallet ever engaged with the Authorization Request.
 const (
-	walletNeverRetrievedMessage = "wallet never retrieved the request, so its rejection is not evidenced"
-	walletNeverInvokedMessage   = "the wallet was never invoked through the Digital Credentials API, " +
-		"so its rejection is not evidenced"
+	walletNeverRetrievedMessage = "the wallet never retrieved the request, " +
+		"so its answer is not evidenced"
+	walletNeverInvokedMessage = "the wallet was never invoked through the Digital Credentials API, " +
+		"so its answer is not evidenced"
 	walletNeverInvokedAPIMissingMessage = "the browser exposed no Digital Credentials API, " +
-		"so the wallet was never invoked and its rejection is not evidenced"
+		"so the wallet was never invoked and its answer is not evidenced"
 )
 
 // Capture session members and event types the guard reads. The names are the
@@ -55,21 +56,28 @@ type walletEngagement struct {
 	message   string
 }
 
-// guardWalletEngagement turns a pass into StatusBlocked when the evidence is a
-// Capture verifier session record that shows the Wallet never engaged with the
-// Authorization Request.
+// guardWalletEngagement turns a pass or a fail into StatusBlocked when the
+// evidence is a Capture verifier session record that shows the Wallet never
+// engaged with the Authorization Request.
 //
-// A validator whose pass states what the Wallet did with a request — that it
-// rejected it, presented nothing, or matched no credential — has no evidence at
-// all once the Wallet never received the request: the request never left the
-// verifier, and a Wallet that was never shown it cannot have refused it. Every
-// other result is returned unchanged: fails, errors and blocks, and passes
-// whose evidence is not a session record (a delivered request object, a
-// decrypted response, a bare status) or whose session shows the Wallet did
-// engage. With by_value or plain delivery Capture records no retrieval, so the
-// guard stays silent there and the gap is documented instead of guessed.
+// A validator whose verdict states what the Wallet did with a request — that it
+// rejected it, presented nothing, matched no credential, or failed to produce
+// the response the source requires — has no evidence at all once the Wallet
+// never received the request: the request never left the verifier, and a Wallet
+// that was never shown it can neither refuse it nor answer it. Such a fail is a
+// gap in what the harness captured, not a Wallet breach, so it reports blocked.
+// Errors and blocks are returned unchanged.
+//
+// Only validators that judge the Wallet's answer call this guard. Validators
+// whose subject is the absence of engagement must not: for
+// oid4vp.request_uri_not_retrieved non-retrieval is the expected Wallet
+// behaviour, so a pass there is the required outcome and a fail can only happen
+// once retrieval was recorded; blocking either would report the opposite of what
+// the assertion proves. With by_value or plain delivery Capture records no
+// retrieval either, so the guard stays silent there and the gap is documented
+// instead of guessed.
 func guardWalletEngagement(value any, result Result) Result {
-	if result.Status != StatusPass {
+	if result.Status != StatusPass && result.Status != StatusFail {
 		return result
 	}
 	engagement := walletEngagementFromEvidence(value)

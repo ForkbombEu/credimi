@@ -196,6 +196,17 @@ func (e *Engine) executeAssertion(
 			EvidenceKeys: evidenceKeysFromAssertionInput(assertion.Input),
 		}
 	}
+	if missing := missingInputEvidence(assertion, value); missing != nil {
+		return AssertionResult{
+			ID:           assertion.ID,
+			Validator:    assertion.Validator,
+			Input:        assertion.Input,
+			Status:       missing.Status,
+			Message:      missing.Message,
+			Details:      missing.Details,
+			EvidenceKeys: evidenceKeysFromAssertionInput(assertion.Input),
+		}
+	}
 	result := validator.Validate(ctx, validators.Input{
 		Value:   value,
 		Bundle:  bundle,
@@ -262,18 +273,7 @@ func evidenceKeysFromAssertionInput(input string) []string {
 }
 
 func mergeStatus(current validators.Status, next validators.Status) validators.Status {
-	switch {
-	case next == validators.StatusError || current == validators.StatusError:
-		return validators.StatusError
-	case current == validators.StatusFail || next == validators.StatusFail:
-		return validators.StatusFail
-	case current == validators.StatusBlocked || next == validators.StatusBlocked:
-		return validators.StatusBlocked
-	case current == validators.StatusInconclusive || next == validators.StatusInconclusive:
-		return validators.StatusInconclusive
-	default:
-		return current
-	}
+	return worseStatus(current, next)
 }
 
 func addSummary(summary *Summary, status validators.Status) {

@@ -88,11 +88,11 @@ func TestEvidenceScreenshotNamedValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
-			name:        "fails when the step stored no screenshot",
+			name:        "blocks when the step stored no screenshot",
 			params:      map[string]any{"name": "no-match-notice"},
 			value:       nil,
-			wantStatus:  StatusFail,
-			wantMessage: "expected a list of screenshot URLs",
+			wantStatus:  StatusBlocked,
+			wantMessage: ScreenshotEvidenceMissingMessage,
 		},
 		{
 			name:        "fails when the evidence is not a URL list",
@@ -109,11 +109,11 @@ func TestEvidenceScreenshotNamedValidator(t *testing.T) {
 			wantMessage: "evidence[1] is int, expected a screenshot URL",
 		},
 		{
-			name:        "fails when the list is empty",
+			name:        "blocks when the list is empty",
 			params:      map[string]any{"name": "no-match-notice"},
 			value:       []any{},
-			wantStatus:  StatusFail,
-			wantMessage: "evidence contains no screenshot",
+			wantStatus:  StatusBlocked,
+			wantMessage: ScreenshotEvidenceMissingMessage,
 		},
 		{
 			name:        "requires the name param",

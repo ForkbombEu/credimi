@@ -67,6 +67,28 @@ func TestOID4VPErrorResponseRequiredValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			// A by-reference session the Wallet never fetched gives the Wallet
+			// no channel for the error (WS_RP_MS_ProtocolMessages__150/152).
+			name: "never retrieved by reference blocks the missing error",
+			value: neverRetrievedSession(
+				capturedWalletResponse(map[string]any{}),
+			),
+			params: map[string]any{"code": "invalid_request_uri_method"},
+			status: StatusBlocked,
+		},
+		{
+			// With plain delivery there is nothing to retrieve, so the silence
+			// is the Wallet's own answer and stays a failure.
+			name: "plain delivery keeps the missing error a failure",
+			value: func() map[string]any {
+				session := neverRetrievedSession(capturedWalletResponse(map[string]any{}))
+				session["request_delivery"] = "plain"
+				return session
+			}(),
+			params: map[string]any{"code": "invalid_request"},
+			status: StatusFail,
+		},
+		{
 			name:   "error code plus presentation",
 			value:  capturedWalletResponse(map[string]any{"error": "invalid_scope", "vp_token": map[string]any{"pid": []any{"a.b.c"}}}),
 			params: map[string]any{"code": "invalid_scope"},

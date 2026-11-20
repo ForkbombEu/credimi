@@ -24,6 +24,13 @@ import (
 // have been truncated away, so the validator reports blocked rather than fail.
 const screenshotStemLimit = 100
 
+// ScreenshotEvidenceMissingMessage is the verdict for screenshot evidence that
+// holds nothing. A flow output that was never captured decodes as nil and a
+// step that ran no screenshot command stores an empty list; neither is evidence
+// that the Wallet failed, so both report blocked. The engine applies the same
+// message when it finds the gap before the validator runs.
+const ScreenshotEvidenceMissingMessage = "the mobile step stored no screenshots"
+
 // EvidenceScreenshotNamedValidator proves that a flow stored a screenshot under
 // a given name, which is how a source requirement that a particular screen was
 // shown is evidenced: the flow takes that screenshot only while the screen is
@@ -125,10 +132,17 @@ func screenshotStoredStem(fileName string) (string, bool) {
 }
 
 // screenshotFileNames returns the file names of the screenshot URLs in the
-// evidence. A single URL is accepted as a one-screenshot list; a missing
-// evidence or a non-URL value is a failure to prove the screen, matching the
-// way evidence.non_empty reports missing evidence.
+// evidence. A single URL is accepted as a one-screenshot list. Evidence that was
+// never captured (nil) or that holds no screenshot reports blocked: the step
+// stored nothing, which is a harness gap rather than a Wallet verdict. A
+// non-URL value is still a failure to prove the screen.
 func screenshotFileNames(value any) ([]string, *Result) {
+	if value == nil {
+		return nil, &Result{
+			Status:  StatusBlocked,
+			Message: ScreenshotEvidenceMissingMessage,
+		}
+	}
 	var urls []string
 	switch typed := value.(type) {
 	case []any:
@@ -162,8 +176,8 @@ func screenshotFileNames(value any) ([]string, *Result) {
 	}
 	if len(urls) == 0 {
 		return nil, &Result{
-			Status:  StatusFail,
-			Message: "evidence contains no screenshot",
+			Status:  StatusBlocked,
+			Message: ScreenshotEvidenceMissingMessage,
 		}
 	}
 
