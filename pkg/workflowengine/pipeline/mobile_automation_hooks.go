@@ -275,7 +275,10 @@ func MobileAutomationSetupHook(
 		return err
 	}
 
+	// A child pipeline reuses the devices its parent prepared.
+	parentDevices, _ := (*runData)[parentDevicesRunDataKey].(map[string]any)
 	for _, deviceID := range deviceOrder {
+		parentEntry, _ := parentDevices[deviceID].(map[string]any)
 		runnerNamespace, err := deviceRunnerNamespace(ctx, deviceID)
 		if err != nil {
 			return err
@@ -291,6 +294,7 @@ func MobileAutomationSetupHook(
 					WorkflowID:    mobiledevice.PrepareWorkflowID(pipelineRun.WorkflowID, deviceID),
 					DeviceID:      deviceID,
 					Requests:      requests[deviceID],
+					Device:        parentEntry,
 					RunIdentifier: runIdentifier,
 					DisablePlayStore: workflowengine.AsBool(
 						config[mobileDisableAndroidPlayStoreConfigKey],
@@ -315,6 +319,9 @@ func MobileAutomationSetupHook(
 			device = map[string]any{}
 		}
 		device[runnerNamespaceConfigKey] = runnerNamespace
+		if parentEntry != nil {
+			device[parentDeviceKey] = true
+		}
 		settedDevices[deviceID] = device
 		SetRunDataValue(runData, "setted_devices", settedDevices)
 

@@ -412,6 +412,7 @@ func ExecuteOnSuccess(
 
 // runChildPipeline executes a nested child pipeline and returns its outputs. returnOutputs
 // lists the child's step outputs the parent references; the child returns only those.
+// parentDevices are the devices the parent prepared, which the child reuses.
 func runChildPipeline(
 	ctx workflow.Context,
 	step pipeline.StepDefinition,
@@ -420,6 +421,7 @@ func runChildPipeline(
 	dataCtx map[string]any,
 	runMetadata *workflowengine.WorkflowRunMetadata,
 	returnOutputs []string,
+	parentDevices map[string]any,
 ) (any, error) {
 	// Fetch child pipeline YAML
 	yaml, err := fetchChildPipelineYAML(ctx, step, input, runMetadata)
@@ -474,6 +476,7 @@ func runChildPipeline(
 		},
 		Debug:         wfDef.Runtime.Debug,
 		ReturnOutputs: returnOutputs,
+		ParentDevices: parentDevices,
 	}
 	childInput.WorkflowInput.Config[workflowengine.StepIDConfigKey] = step.ID
 

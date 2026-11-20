@@ -40,8 +40,10 @@ type PipelineWorkflowInput struct {
 	WorkflowDefinition *pipeline.WorkflowDefinition `yaml:"workflow_definition" json:"workflow_definition"`
 	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"      json:"workflow_input"`
 
-	Debug         bool           `yaml:"debug,omitempty"           json:"debug,omitempty"`
-	ParentRunData map[string]any `yaml:"parent_run_data,omitempty" json:"parent_run_data,omitempty"`
+	Debug bool `yaml:"debug,omitempty" json:"debug,omitempty"`
+	// ParentDevices holds the setted_devices entries the parent pipeline prepared.
+	// Only a child pipeline reads it: its mobile steps reuse these devices.
+	ParentDevices map[string]any `yaml:"parent_devices,omitempty" json:"parent_devices,omitempty"`
 	// ReturnOutputs lists the main step outputs the caller references, so the run returns
 	// them in its result. Nil, as for a top-level run, returns no step outputs;
 	// pipeline.AllStepOutputs returns all of them.
@@ -64,10 +66,32 @@ type pipelineExecutionState struct {
 	priorFailures bool
 	// stepErr is the error of the step that stopped the run.
 	stepErr error
+	// runData is the run's data; child pipelines reuse the devices it prepared.
+	runData *map[string]any
 }
 
 func (s *pipelineExecutionState) hasFailures() bool {
 	return len(s.failures) > 0 || s.priorFailures
+}
+
+// preparedDevices returns the setted_devices entries the run prepared: the ones
+// with a runner namespace. Nil without run data.
+func preparedDevices(runData *map[string]any) map[string]any {
+	if runData == nil {
+		return nil
+	}
+	var prepared map[string]any
+	for deviceID, entry := range getOrCreateSettedDevices(runData) {
+		device, _ := entry.(map[string]any)
+		if workflowengine.AsString(device[runnerNamespaceConfigKey]) == "" {
+			continue
+		}
+		if prepared == nil {
+			prepared = map[string]any{}
+		}
+		prepared[deviceID] = device
+	}
+	return prepared
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -197,9 +221,10 @@ func (w *PipelineWorkflow) Workflow(
 		),
 	}
 
-	if input.ParentRunData != nil {
-		runData = input.ParentRunData
+	if len(input.ParentDevices) > 0 && workflow.GetInfo(ctx).ParentWorkflowExecution != nil {
+		runData[parentDevicesRunDataKey] = input.ParentDevices
 	}
+	state.runData = &runData
 	startPipelineCancellationPolicyReceiver(ctx, &runData)
 	if err := workflow.SetQueryHandler(
 		ctx,
@@ -668,6 +693,7 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 		stepInputs,
 		runMetadata,
 		returnOutputs,
+		preparedDevices(state.runData),
 	)
 	if err != nil {
 		return handleChildPipelineStepError(

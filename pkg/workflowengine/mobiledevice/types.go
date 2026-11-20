@@ -110,14 +110,18 @@ type PreparedMobileDevice struct {
 // PrepareInput prepares one device for every mobile step of a pipeline run
 // that uses it.
 type PrepareInput struct {
-	WorkflowID       string                `json:"workflow_id"`
-	DeviceID         string                `json:"device_id"`
-	Requests         []MobileDeviceRequest `json:"requests"`
-	RunIdentifier    string                `json:"run_identifier"`
-	DisablePlayStore bool                  `json:"disable_play_store"`
-	NoVideo          bool                  `json:"no_video"`
-	ExecutionTimeout time.Duration         `json:"execution_timeout"`
-	Pipeline         PipelineRun           `json:"pipeline"`
+	WorkflowID string                `json:"workflow_id"`
+	DeviceID   string                `json:"device_id"`
+	Requests   []MobileDeviceRequest `json:"requests"`
+	// Device is the entry of a device the calling pipeline's parent already
+	// prepared. With it, Prepare prepares only the requests: it changes no
+	// device setting, starts no log or recording, and never cleans the device.
+	Device           map[string]any `json:"device,omitempty"`
+	RunIdentifier    string         `json:"run_identifier"`
+	DisablePlayStore bool           `json:"disable_play_store"`
+	NoVideo          bool           `json:"no_video"`
+	ExecutionTimeout time.Duration  `json:"execution_timeout"`
+	Pipeline         PipelineRun    `json:"pipeline"`
 	// Workflow carries the pipeline's activity options and config; its
 	// payload is unused.
 	Workflow workflowengine.WorkflowInput `json:"workflow"`

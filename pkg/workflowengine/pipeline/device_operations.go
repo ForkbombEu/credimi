@@ -38,6 +38,12 @@ const (
 	// pipelineExecutionTimeoutConfigKey is the pipeline's execution timeout,
 	// which bounds a mobile step's workflow.
 	pipelineExecutionTimeoutConfigKey = "pipeline_execution_timeout"
+	// parentDevicesRunDataKey holds, in a child pipeline's run data, the
+	// setted_devices entries its parent prepared.
+	parentDevicesRunDataKey = "parent_devices"
+	// parentDeviceKey marks a setted_devices entry a child pipeline borrowed
+	// from its parent, which cleans it.
+	parentDeviceKey = "parent_device"
 )
 
 // MobileDevicesCleanupHook cleans every device the pipeline prepared, through
@@ -74,6 +80,10 @@ func MobileDevicesCleanupHook(
 		device, _ := devices[deviceID].(map[string]any)
 		runnerNamespace, _ := device[runnerNamespaceConfigKey].(string)
 		if runnerNamespace == "" {
+			continue
+		}
+		// The parent pipeline cleans the devices it lent to this run.
+		if workflowengine.AsBool(device[parentDeviceKey]) {
 			continue
 		}
 		if shouldSkipDeviceCleanup(runData, deviceID) {
@@ -174,7 +184,9 @@ func deviceWorkflowContext(
 // PrepareDeviceWorkflow prepares one device of a pipeline run in its runner's
 // namespace: it sets the device up for every mobile step that uses it, then
 // disables the Play Store when asked and starts the device log and the
-// recording. When the setup fails it cleans the device before failing.
+// recording. When the setup fails it cleans the device before failing. A
+// device the parent pipeline prepared (in.Device) is only prepared for the
+// requests and never cleaned: the parent owns it.
 func PrepareDeviceWorkflow(
 	ctx workflow.Context,
 	in mobiledevice.PrepareInput,
@@ -196,8 +208,14 @@ func PrepareDeviceWorkflow(
 		return mobiledevice.PrepareResult{}, err
 	}
 
+	if in.Device != nil {
+		settedDevices[in.DeviceID] = deviceEntryFromJSON(in.Device)
+	}
 	steps := map[string]mobiledevice.PreparedMobileDevice{}
 	if err := setUpDevice(ctx, ao, in, settedDevices, steps); err != nil {
+		if in.Device != nil {
+			return mobiledevice.PrepareResult{}, err
+		}
 		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 		cleanupAO := deviceCleanupActivityOptions()
 		output := map[string]any{}
@@ -241,6 +259,10 @@ func setUpDevice(
 			return err
 		}
 		steps[req.StepID] = device
+	}
+	// The parent pipeline already set its device up and is recording it.
+	if in.Device != nil {
+		return nil
 	}
 	if in.DisablePlayStore {
 		if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
