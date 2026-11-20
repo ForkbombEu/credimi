@@ -459,7 +459,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ client-id-binding-controls-616e872a-exercise-derived-response-uri-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ client-id-binding-controls-616e872a-create-derived-response-uri.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -929,7 +929,7 @@ steps:
       linked_to: credential-digest-algorithm-1354cfc6-create-sha384-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ credential-digest-algorithm-1354cfc6-create-sha384-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1034,7 +1034,7 @@ steps:
       linked_to: credential-digest-algorithm-1354cfc6-create-sha256-only-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ credential-digest-algorithm-1354cfc6-create-sha256-only-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1759,7 +1759,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-baseline-ab869899-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-baseline-ab869899-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1828,7 +1828,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claim-id-missing-with-claim-set-6de0c1eb-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-claim-id-missing-with-claim-set-6de0c1eb-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1889,7 +1889,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claim-path-reversed-e458d519-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-claim-path-reversed-e458d519-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1965,7 +1965,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claim-sets-empty-2fce8ed5-reject-empty-claim-sets-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-claim-sets-empty-2fce8ed5-create-empty-claim-sets-request.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -2503,7 +2503,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claims-empty-baf266c3-reject-empty-claims-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-claims-empty-baf266c3-create-empty-claims-request.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -3069,7 +3069,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claims-omitted-119046a6-present-without-claims-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-claims-omitted-119046a6-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -3120,7 +3120,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claims-omitted-119046a6-present-mdoc-without-claims-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-claims-omitted-119046a6-create-mdoc-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -3364,7 +3364,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claims-without-id-without-claim-939800aa-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-claims-without-id-without-claim-939800aa-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -3421,7 +3421,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-claims-without-values-174b98b6-present-claim-without-values-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-claims-without-values-174b98b6-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -4777,7 +4777,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-sets-options-valid-r-bea443fd-present-valid-credential-sets-options-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-credential-sets-options-valid-r-bea443fd-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -4845,7 +4845,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-sets-required-false-88748634-present-optional-set-with-valid-set-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-credential-sets-required-false-88748634-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -4904,7 +4904,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-sets-required-omitte-7e234cc1-present-default-required-set-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-credential-sets-required-omitte-7e234cc1-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5555,7 +5555,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-duplicate-claim-ids-05455537-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-duplicate-claim-ids-05455537-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5613,7 +5613,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-empty-claim-id-30473d71-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-empty-claim-id-30473d71-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5672,7 +5672,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-empty-claim-path-selection-5f7756d6-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-empty-claim-path-selection-5f7756d6-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5729,7 +5729,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-empty-claim-path-5e517cde-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-empty-claim-path-5e517cde-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5799,7 +5799,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-format-mso-mdoc-fe537db0-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5860,7 +5860,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-format-mso-mdoc-fe537db0-present-sdjwt-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-format-mso-mdoc-fe537db0-create-sdjwt-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5923,7 +5923,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5985,7 +5985,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -7187,7 +7187,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-invalid-claim-id-characters-810a5ad8-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-invalid-claim-id-characters-810a5ad8-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -7254,7 +7254,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -7320,7 +7320,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -7990,7 +7990,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-meta-empty-1fc6aca5-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-meta-empty-1fc6aca5-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8244,7 +8244,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-meta-vct-mismatch-1d861c4c-present-matching-meta-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-meta-vct-mismatch-1d861c4c-create-matching-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8300,7 +8300,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-missing-claim-path-4cb9035a-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-missing-claim-path-4cb9035a-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8587,7 +8587,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-non-array-claim-path-c23ef0aa-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-non-array-claim-path-c23ef0aa-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8649,7 +8649,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-object-claim-path-array-selecto-611dd5cc-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-object-claim-path-array-selecto-611dd5cc-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8707,7 +8707,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-120-b6247e8b-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-120-b6247e8b-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8765,7 +8765,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-121-47c8da6a-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-121-47c8da6a-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8822,7 +8822,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-122-d80887a4-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-122-d80887a4-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8880,7 +8880,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-123-dab665e2-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-123-dab665e2-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -8942,7 +8942,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-135-a8f6bf3d-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-135-a8f6bf3d-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9053,7 +9053,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-137-ba3248bd-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-137-ba3248bd-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9102,7 +9102,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-138-f0f24bb5-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-138-f0f24bb5-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9151,7 +9151,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-139-6e481943-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-139-6e481943-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9200,7 +9200,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-140-f6edc6e1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-140-f6edc6e1-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9258,7 +9258,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-141-d9dbf3bc-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-141-d9dbf3bc-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9306,7 +9306,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-142-f7a51d3c-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-142-f7a51d3c-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9368,7 +9368,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-145-43efad77-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
               parameters:
                 deeplink: ${{ dcql-protocol-messages-145-43efad77-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9427,7 +9427,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-146-3483d14f-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
               parameters:
                 deeplink: ${{ dcql-protocol-messages-146-3483d14f-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9484,7 +9484,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-150-5b015ca8-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-150-5b015ca8-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9543,7 +9543,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-151-02b4e313-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
               parameters:
                 deeplink: ${{ dcql-protocol-messages-151-02b4e313-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9605,7 +9605,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-153-0bf70160-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-153-0bf70160-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9910,7 +9910,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-158-ae4d2651-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-158-ae4d2651-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -9993,7 +9993,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-159-fd92371b-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-159-fd92371b-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10333,7 +10333,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-session-encryption-210827bd-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10470,7 +10470,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-standard-all-28f43ce6-exercise-claim-sets-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-standard-all-28f43ce6-create-claim-sets-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10532,7 +10532,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-string-claim-path-index-selecto-e72d9b13-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-string-claim-path-index-selecto-e72d9b13-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10593,7 +10593,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-string-claim-path-segment-189c3530-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-string-claim-path-segment-189c3530-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10653,7 +10653,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-top-level-claim-path-no-match-07b20d93-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-top-level-claim-path-no-match-07b20d93-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10718,7 +10718,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10840,7 +10840,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-empty-21a59091-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-empty-21a59091-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10906,7 +10906,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-invalid-obj-72360be6-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-invalid-obj-72360be6-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -10979,7 +10979,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-match-a95b9bcc-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-match-a95b9bcc-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -11039,7 +11039,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-missing-typ-64de56cc-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-missing-typ-64de56cc-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -11123,7 +11123,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-missing-val-3972fc33-reject-missing-trusted-authorities-values-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-missing-val-3972fc33-create-missing-trusted-authorities-values.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -11242,7 +11242,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-non-array-b004573c-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-non-array-b004573c-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -11858,7 +11858,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-trusted-authorities-unsupported-90d3d4bb-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13233,7 +13233,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-unsupported-claim-path-componen-39ccebe1-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-unsupported-claim-path-componen-39ccebe1-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13415,7 +13415,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-valid-id-alphanumeric-0dd94705-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-valid-id-alphanumeric-0dd94705-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13477,7 +13477,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-valid-id-special-4b48cc60-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-valid-id-special-4b48cc60-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13538,7 +13538,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ default-x509-hash-metadata-6eed4e38-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ default-x509-hash-metadata-6eed4e38-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13602,7 +13602,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ did-empty-metadata-0b80b79f-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ did-empty-metadata-0b80b79f-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13673,7 +13673,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ did-metadata-b39af5a1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ did-metadata-b39af5a1-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13750,7 +13750,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -14326,7 +14326,7 @@ steps:
       linked_to: interaction-pid-mdoc-6b049464-create-missing-element-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ interaction-pid-mdoc-6b049464-create-missing-element-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -14452,7 +14452,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ interaction-pid-mdoc-6b049464-present-element-and-missing-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ interaction-pid-mdoc-6b049464-create-element-and-missing-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -14520,7 +14520,7 @@ steps:
       linked_to: interaction-pid-sdjwt-ec048f5c-create-missing-claim-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ interaction-pid-sdjwt-ec048f5c-create-missing-claim-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -14654,7 +14654,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ interaction-pid-sdjwt-ec048f5c-present-claim-and-missing-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ interaction-pid-sdjwt-ec048f5c-create-claim-and-missing-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -14874,7 +14874,7 @@ steps:
       linked_to: mdoc-absent-namespace-8c8f84c8-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-absent-namespace-8c8f84c8-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -14932,7 +14932,7 @@ steps:
       linked_to: mdoc-claim-path-absent-element-492e5a68-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-claim-path-absent-element-492e5a68-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -14989,7 +14989,7 @@ steps:
       linked_to: mdoc-claim-path-component-count-b56f251e-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-claim-path-component-count-b56f251e-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15047,7 +15047,7 @@ steps:
       linked_to: mdoc-claim-path-non-string-61ff9b89-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ mdoc-claim-path-non-string-61ff9b89-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15179,7 +15179,7 @@ steps:
       linked_to: mdoc-multiple-device-responses-78e404d8-create-three-mdoc-request
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ mdoc-multiple-device-responses-78e404d8-create-three-mdoc-request.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -15974,7 +15974,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ metadata-direct-post-jwt-bf077ae9-submit-direct-post-jwt-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ metadata-direct-post-jwt-bf077ae9-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -16034,7 +16034,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ metadata-request-controls-913fbdc1-exercise-default-post-retrieval-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ metadata-request-controls-913fbdc1-create-default-post-retrieval.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -16098,7 +16098,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ metadata-request-controls-913fbdc1-exercise-unrecognised-client-metadata-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ metadata-request-controls-913fbdc1-create-unrecognised-client-metadata.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -16226,7 +16226,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ metadata-request-controls-913fbdc1-create-metadata-outside-client-metadata.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -16288,7 +16288,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ metadata-request-object-delivery-8ca4f941-exercise-unencrypted-request-object-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ metadata-request-object-delivery-8ca4f941-create-unencrypted-request-object.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -16348,7 +16348,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ metadata-request-object-delivery-8ca4f941-exercise-absent-client-metadata-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ metadata-request-object-delivery-8ca4f941-create-absent-client-metadata.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -17166,7 +17166,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ plain-redirect-uri-82b46bbe-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ plain-redirect-uri-82b46bbe-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -17488,7 +17488,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ request-object-outer-controls-84cfd8b2-exercise-conflicting-nonce-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ request-object-outer-controls-84cfd8b2-create-conflicting-nonce.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -17617,7 +17617,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ request-object-payload-controls-aefde1c6-exercise-different-iss-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ request-object-payload-controls-aefde1c6-create-different-iss.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -17745,7 +17745,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ request-object-payload-controls-aefde1c6-exercise-unknown-parameter-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ request-object-payload-controls-aefde1c6-create-unknown-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -17938,7 +17938,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ request-uri-method-default-9bc74bd3-submit-request-uri-method-default-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ request-uri-method-default-9bc74bd3-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18002,7 +18002,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ request-uri-method-get-91ef716c-submit-request-uri-method-get-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ request-uri-method-get-91ef716c-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18066,7 +18066,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ request-uri-method-post-11b1acd0-submit-request-uri-method-post-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18317,7 +18317,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-a128gcm-57bacf6d-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ response-encryption-a128gcm-57bacf6d-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18381,7 +18381,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-a256gcm-a9a43850-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ response-encryption-a256gcm-a9a43850-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18446,7 +18446,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-both-gcm-76a19a08-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ response-encryption-both-gcm-76a19a08-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18518,7 +18518,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-jwk-alg-mismatch-72932517-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ response-encryption-jwk-alg-mismatch-72932517-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18589,7 +18589,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-jwk-without-alg-3e14f10a-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ response-encryption-jwk-without-alg-3e14f10a-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18653,7 +18653,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-metadata-7d34f50e-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ response-encryption-metadata-7d34f50e-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18725,7 +18725,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-no-ecdh-es-jwk-00b10ba8-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ response-encryption-no-ecdh-es-jwk-00b10ba8-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18786,7 +18786,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-per-request-keys-4f12992b-exercise-wallet-for-first-request-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ response-encryption-per-request-keys-4f12992b-create-first-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18846,7 +18846,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-per-request-keys-4f12992b-exercise-wallet-for-second-request-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ response-encryption-per-request-keys-4f12992b-create-second-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18918,7 +18918,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-reused-jwk-183059b7-exercise-first-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ response-encryption-reused-jwk-183059b7-create-first-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -18982,7 +18982,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ response-encryption-reused-jwk-183059b7-exercise-second-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ response-encryption-reused-jwk-183059b7-create-second-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -19640,7 +19640,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ session-binding-invalid-nonce-0c3e8d16-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ session-binding-invalid-nonce-0c3e8d16-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -19705,7 +19705,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ session-binding-missing-nonce-2d9d51e7-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ session-binding-missing-nonce-2d9d51e7-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -19769,7 +19769,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ session-binding-valid-nonce-aa3a1f9c-submit-valid-nonce-presentation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ session-binding-valid-nonce-aa3a1f9c-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -19831,7 +19831,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ signed-x509-hash-metadata-ec05d944-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ signed-x509-hash-metadata-ec05d944-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20761,7 +20761,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ transaction-data-matching-credential-09aba950-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
               parameters:
                 deeplink: ${{ transaction-data-matching-credential-09aba950-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -20969,7 +20969,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-exercise-unknown-request-parameter-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-create-unknown-request-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21219,7 +21219,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-attestation-caa851a5-present-va-default-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ verifier-attestation-caa851a5-create-va-default.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21409,7 +21409,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-attestation-caa851a5-present-va-redirect-match-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ verifier-attestation-caa851a5-create-va-redirect-match.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21730,7 +21730,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-attestation-caa851a5-present-va-outside-metadata-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ verifier-attestation-caa851a5-create-va-outside-metadata.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21795,7 +21795,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-info-all-credentials-039537ba-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ verifier-info-all-credentials-039537ba-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source

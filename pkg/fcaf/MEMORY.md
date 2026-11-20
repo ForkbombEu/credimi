@@ -10,6 +10,18 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Wallet flows follow the FCAF expected outcome, 20/11/2026
+
+`fcaf-exercise-wallet-generic` accepted any final screen (success, no-match, `invalid request`, `Oups! Something went wrong`, Home) and shared whenever consent appeared, so a DNS failure (ProtocolMessages 145 on 18/11, `Unable to resolve host "capture-wallet.credimi.io"`) or a refusal ended in a successful step. 112 of its 116 relying-party steps now use the action matching what the consuming tests' FCAF sources require, never what the reference Wallet does:
+
+- 56 → `fcaf-engagement-haip-vp` (presentation expected). This includes the steps the reference Wallet cannot complete (DID, `verifier_attestation:`, `redirect_uri:` Client Identifiers, claimless queries): their steps now fail along with their tests.
+- 52 → `fcaf-expect-request-rejected` (error, no-match or discontinuation expected).
+- 4 → `fcaf-observe-request`: ProtocolMessages 145/146 (precondition the harness cannot build), 151 (FCAF profile: Wallet without `mso_mdoc`) and 028; their tests are `not_applicable` and only read the delivered request.
+- Metadata 135/136 carry valid requests and would fit `fcaf-observe-request`, but it leaves consent unanswered and the next step of the same scenario starts with `fcaf-engagement-haip-vp`, which has no `launchApp`; they use `fcaf-engagement-haip-vp`.
+- 154-157 stay on the generic action: their requests omit `credential_ids`, so they must first be rebuilt with a transaction data type defined for testing, expecting `invalid_transaction_data`.
+
+No wallet action file changed, so no `wallet_actions` re-import is needed. PID injection is unchanged (265 `fcaf-issue-pid` entries). Not run on the reference Wallet yet.
+
 ## Run review fixes, 13/11/2026
 
 A review of the 12/11/2026 relying-party run (`fcaf_assessment_0a83f5cgx2`) found these wrong verdicts, now fixed:

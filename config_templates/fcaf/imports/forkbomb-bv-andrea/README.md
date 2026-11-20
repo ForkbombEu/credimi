@@ -41,6 +41,14 @@ database records, API keys, wallet APKs, screenshots, or runner state.
 The FCAF scenarios additionally share flows that must exist as `wallet_actions`
 records before the aggregate pipeline runs:
 
+- `fcaf-engagement-haip-vp`: strict positive flow, for every request whose FCAF
+  expected result is a completed presentation. It fails its step unless the
+  consent screen offers `Share` and the Wallet then reports
+  `successfully shared`; the `fcaf-engagement-haip-vp-request` screenshot is
+  taken first, so a refusal or error screen is still stored.
+- `fcaf-exercise-wallet-generic`: accepts any final screen, so it proves no
+  outcome. Only the transaction-data scenarios 154-157 still use it, until
+  their requests are rebuilt.
 - `fcaf-expect-request-rejected`: strict negative flow. The Wallet answers
   with an error screen or the no-match notice, or returns Home; showing consent
   records the Verifier response and fails the Wallet action.

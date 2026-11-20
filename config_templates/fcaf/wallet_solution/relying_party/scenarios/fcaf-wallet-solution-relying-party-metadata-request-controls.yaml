@@ -28,7 +28,7 @@ steps:
 - id: exercise-default-post-retrieval
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-default-post-retrieval.outputs.body.deeplink }}" }
 - id: fetch-default-post-retrieval
@@ -57,7 +57,7 @@ steps:
 - id: exercise-unrecognised-client-metadata
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-unrecognised-client-metadata.outputs.body.deeplink }}" }
 - id: fetch-unrecognised-client-metadata
@@ -115,7 +115,7 @@ steps:
 - id: exercise-metadata-outside-client-metadata
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-metadata-outside-client-metadata.outputs.body.deeplink }}" }
 - id: fetch-metadata-outside-client-metadata
