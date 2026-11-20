@@ -76,29 +76,9 @@ func NormalizeDeviceIDs(values []string) []string {
 }
 
 // SharedWith reports whether another organization's runner may be used by an
-// organization: only published runners are shared, and unpublished
-// organizations only get admin-managed ones.
-func SharedWith(runner *core.Record, orgPublished bool) bool {
-	return runner.GetBool("published") && (orgPublished || runner.GetBool("admin_managed"))
-}
-
-// OrganizationPublishedLoader returns a function that reads the organization's
-// published flag on first use and reuses it afterwards.
-func OrganizationPublishedLoader(app core.App, orgID string) func() (bool, error) {
-	loaded := false
-	published := false
-	return func() (bool, error) {
-		if loaded {
-			return published, nil
-		}
-		org, err := app.FindRecordById("organizations", orgID)
-		if err != nil {
-			return false, err
-		}
-		loaded = true
-		published = org.GetBool("published")
-		return published, nil
-	}
+// organization: published runners are shared with every organization.
+func SharedWith(runner *core.Record) bool {
+	return runner.GetBool("published")
 }
 
 // ResolveRunner returns the mobile runner at the canonified path id. It
@@ -152,7 +132,6 @@ func ResolveDevice(app core.App, id string) (device, runner *core.Record, err er
 // ValidateDeviceAccess checks that every device exists, has a runner and is
 // either owned by ownerID or shared with that organization.
 func ValidateDeviceAccess(app core.App, ownerID string, deviceIDs []string) error {
-	ownerPublished := OrganizationPublishedLoader(app, ownerID)
 	for _, deviceID := range NormalizeDeviceIDs(deviceIDs) {
 		record, runner, err := ResolveDevice(app, deviceID)
 		if err != nil {
@@ -161,11 +140,7 @@ func ValidateDeviceAccess(app core.App, ownerID string, deviceIDs []string) erro
 		if record.GetString("owner") == ownerID {
 			continue
 		}
-		orgPublished, err := ownerPublished()
-		if err != nil {
-			return fmt.Errorf("load organization %s: %w", ownerID, err)
-		}
-		if SharedWith(runner, orgPublished) {
+		if SharedWith(runner) {
 			continue
 		}
 		return fmt.Errorf(

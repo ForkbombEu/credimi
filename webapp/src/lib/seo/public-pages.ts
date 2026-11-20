@@ -151,8 +151,8 @@ function newsPages(fetch: Fetch) {
 function organizationPages(fetch: Fetch) {
 	return listSource('organizations', async () => {
 		const organizations = await pb
-			.collection('organizations')
-			.getFullList({ fetch, filter: 'published = true', sort: 'name' });
+			.collection('hub_organizations')
+			.getFullList({ fetch, sort: 'name' });
 		return organizations
 			.filter((organization) => organization.canonified_name)
 			.map((organization) => ({

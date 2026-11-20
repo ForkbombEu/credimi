@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -334,6 +335,210 @@ func TestHandleStartScheduleSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pipelineRec.Id, record.GetString("pipeline"))
 	require.Equal(t, orgID, record.GetString("owner"))
+}
+
+func TestHandleStartScheduleRejectsForeignPrivateGlobalDevice(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipelineRec, pipelineID := createSchedulePipelineRecord(t, app, orgID, "pipeline-global")
+	pipelineRec.Set(
+		"yaml",
+		"name: pipeline-global\nsteps:\n  - name: step1\n    use: mobile-automation\n"+
+			"    with:\n      action_code: \"appId: wallet\"\n",
+	)
+	require.NoError(t, app.Save(pipelineRec))
+	canonify.RegisterCanonifyHooks(app)
+
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	otherOrg := core.NewRecord(orgColl)
+	otherOrg.Set("name", "Other Org")
+	otherOrg.Set("canonified_name", "other-org")
+	require.NoError(t, app.Save(otherOrg))
+	createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Private Runner", false)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+	fakeSchedule := &fakeScheduleClient{}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"pipeline_id":      pipelineID,
+		"schedule_mode":    map[string]any{"mode": "daily"},
+		"global_device_id": "other-org/private-runner/device-1",
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
+	rec := httptest.NewRecorder()
+	schedulesBefore, err := app.CountRecords("schedules")
+	require.NoError(t, err)
+
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	requireHandlerErrorHandled(t, rec, err)
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), "device_id is not accessible")
+	require.Empty(t, fakeSchedule.createdOptions)
+
+	schedulesAfter, err := app.CountRecords("schedules")
+	require.NoError(t, err)
+	require.Equal(t, schedulesBefore, schedulesAfter)
+}
+
+type scheduleStartResult struct {
+	app             *tests.TestApp
+	rec             *httptest.ResponseRecorder
+	err             error
+	fakeSchedule    *fakeScheduleClient
+	schedulesBefore int64
+}
+
+// startScheduleWithGlobalDevices starts a schedule for a pipeline that needs a
+// global device, set in the YAML runtime and in the request as given. "own" and
+// "foreign" name userA's device and another organization's unpublished device.
+func startScheduleWithGlobalDevices(
+	t *testing.T,
+	yamlGlobal, requestGlobal string,
+) scheduleStartResult {
+	t.Helper()
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	t.Cleanup(app.Cleanup)
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipelineRec, pipelineID := createSchedulePipelineRecord(t, app, orgID, "pipeline-global")
+	orgRecord, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	devices := map[string]string{
+		"own":     orgRecord.GetString("canonified_name") + "/own-runner/device-1",
+		"foreign": "other-org/private-runner/device-1",
+	}
+	yaml := "name: pipeline-global\n"
+	if yamlGlobal != "" {
+		yaml += "runtime:\n  global_device_id: " + devices[yamlGlobal] + "\n"
+	}
+	yaml += "steps:\n  - name: step1\n    use: mobile-automation\n" +
+		"    with:\n      action_code: \"appId: wallet\"\n"
+	pipelineRec.Set("yaml", yaml)
+	require.NoError(t, app.Save(pipelineRec))
+	canonify.RegisterCanonifyHooks(app)
+
+	createPipelineQueueMobileRunner(t, app, orgID, "Own Runner", false)
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	otherOrg := core.NewRecord(orgColl)
+	otherOrg.Set("name", "Other Org")
+	otherOrg.Set("canonified_name", "other-org")
+	require.NoError(t, app.Save(otherOrg))
+	createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Private Runner", false)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+	handle := temporalmocks.NewScheduleHandle(t)
+	handle.On("Describe", mock.Anything).Return(&client.ScheduleDescription{}, nil).Maybe()
+	fakeSchedule := &fakeScheduleClient{handle: handle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	payload := map[string]any{
+		"pipeline_id":   pipelineID,
+		"schedule_mode": map[string]any{"mode": "daily"},
+	}
+	if requestGlobal != "" {
+		payload["global_device_id"] = devices[requestGlobal]
+	}
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
+	rec := httptest.NewRecorder()
+	schedulesBefore, err := app.CountRecords("schedules")
+	require.NoError(t, err)
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	return scheduleStartResult{
+		app:             app,
+		rec:             rec,
+		err:             err,
+		fakeSchedule:    fakeSchedule,
+		schedulesBefore: schedulesBefore,
+	}
+}
+
+func TestHandleStartScheduleRejectsForeignPrivateYAMLGlobalDevice(t *testing.T) {
+	res := startScheduleWithGlobalDevices(t, "foreign", "")
+
+	requireHandlerErrorHandled(t, res.rec, res.err)
+	require.Equal(t, http.StatusForbidden, res.rec.Code)
+	require.Contains(t, res.rec.Body.String(), "device_id is not accessible")
+	require.Empty(t, res.fakeSchedule.createdOptions)
+
+	schedulesAfter, err := res.app.CountRecords("schedules")
+	require.NoError(t, err)
+	require.Equal(t, res.schedulesBefore, schedulesAfter)
+}
+
+func TestHandleStartScheduleChecksYAMLGlobalDeviceOverRequest(t *testing.T) {
+	res := startScheduleWithGlobalDevices(t, "own", "foreign")
+
+	require.NoError(t, res.err)
+	require.Equal(t, http.StatusOK, res.rec.Code, res.rec.Body.String())
+	require.Len(t, res.fakeSchedule.createdOptions, 1)
+
+	var response StartScheduleResponse
+	require.NoError(t, json.NewDecoder(res.rec.Body).Decode(&response))
+	_, err := res.app.FindFirstRecordByFilter(
+		"schedules",
+		"temporal_schedule_id = {:sid}",
+		map[string]any{"sid": response.ScheduleID},
+	)
+	require.NoError(t, err)
 }
 
 // TestStartScheduledPipelineUsesScheduledEnqueueWorkflow ensures schedules target the enqueue workflow.

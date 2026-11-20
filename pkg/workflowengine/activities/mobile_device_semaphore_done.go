@@ -10,10 +10,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
+	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
 	tclient "go.temporal.io/sdk/client"
 )
@@ -29,14 +32,90 @@ type ReportMobileDeviceSemaphoreDoneInput struct {
 
 type ReportMobileDeviceSemaphoreDoneActivity struct {
 	workflowengine.BaseActivity
+	app core.App
+	// sessionLookup returns the running, Credimi-started action author session
+	// run sessionRunID of sessionID in namespace.
+	sessionLookup func(
+		ctx context.Context,
+		namespace, sessionID, sessionRunID string,
+	) (ActionAuthorSessionRef, error)
 }
 
-func NewReportMobileDeviceSemaphoreDoneActivity() *ReportMobileDeviceSemaphoreDoneActivity {
+// ReportMobileDeviceSemaphoreDoneActivityName reports a finished run to the
+// leader device's semaphore.
+const ReportMobileDeviceSemaphoreDoneActivityName = "Report mobile device semaphore done"
+
+// NewReportMobileDeviceSemaphoreDoneActivity returns the activity; callers
+// that only need its Name may pass a nil app.
+func NewReportMobileDeviceSemaphoreDoneActivity(
+	app core.App,
+) *ReportMobileDeviceSemaphoreDoneActivity {
 	return &ReportMobileDeviceSemaphoreDoneActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Report mobile device semaphore done",
+			Name: ReportMobileDeviceSemaphoreDoneActivityName,
+		},
+		app: app,
+		sessionLookup: func(
+			ctx context.Context,
+			namespace, sessionID, sessionRunID string,
+		) (ActionAuthorSessionRef, error) {
+			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+			if err != nil {
+				return ActionAuthorSessionRef{}, fmt.Errorf(
+					"look up action author session: %w",
+					err,
+				)
+			}
+			return lookupSessionStart(ctx, app, c, namespace, sessionID, sessionRunID)
 		},
 	}
+}
+
+// authorizeRunnerNamespaceReport accepts a report from a runner namespace only
+// from the trusted action author session run of the reported ticket, for its
+// own device and organization.
+func (a *ReportMobileDeviceSemaphoreDoneActivity) authorizeRunnerNamespaceReport(
+	ctx context.Context,
+	caller authorCaller,
+	payload ReportMobileDeviceSemaphoreDoneInput,
+) error {
+	const notSession = "only an action author session may report a run from a runner namespace"
+	if caller.WorkflowType != ActionAuthorSessionWorkflowName {
+		return actionAuthorError(&a.BaseActivity, sessionForbidden(notSession))
+	}
+	namespace, ok := actionauthor.SessionNamespace(caller.WorkflowID)
+	if !ok || namespace != caller.Namespace {
+		return actionAuthorError(&a.BaseActivity, sessionForbidden(notSession))
+	}
+	runnerID, _ := actionauthor.SessionRunnerID(caller.WorkflowID)
+	ticketID := strings.TrimSpace(payload.TicketID)
+	if caller.WorkflowID != actionauthor.SessionWorkflowID(runnerID, ticketID) {
+		return actionAuthorError(&a.BaseActivity, sessionForbidden(
+			fmt.Sprintf("ticket %s is not this session's ticket", payload.TicketID),
+		))
+	}
+	if strings.TrimSpace(payload.WorkflowID) != caller.WorkflowID ||
+		strings.TrimSpace(payload.RunID) != caller.RunID {
+		return actionAuthorError(&a.BaseActivity, sessionForbidden("the report names another run"))
+	}
+	ref, err := a.sessionLookup(ctx, caller.Namespace, caller.WorkflowID, caller.RunID)
+	if err != nil {
+		if errors.Is(err, actionauthor.ErrForbidden) {
+			return actionAuthorError(&a.BaseActivity, err)
+		}
+		return lookupError(&a.BaseActivity, err)
+	}
+	if canonify.NormalizePath(payload.LeaderDeviceID) != canonify.NormalizePath(ref.DeviceID) {
+		return actionAuthorError(&a.BaseActivity, sessionForbidden(
+			"the leader device is not the session's device",
+		))
+	}
+	if strings.TrimSpace(payload.OwnerNamespace) != ref.Organization {
+		return actionAuthorError(&a.BaseActivity, sessionForbidden(
+			"the owner namespace is not the session's organization",
+		))
+	}
+	return nil
 }
 
 func (a *ReportMobileDeviceSemaphoreDoneActivity) Name() string {
@@ -65,6 +144,13 @@ func (a *ReportMobileDeviceSemaphoreDoneActivity) Execute(
 			Summary: errCode.Description,
 			Message: "ticket_id, leader_device_id, and owner_namespace are required",
 		})
+	}
+	// From a runner namespace only an action author session may report, and
+	// only its own run: the runner owner can start anything there.
+	if callerRunnerNamespace(ctx) != "" {
+		if err := a.authorizeRunnerNamespaceReport(ctx, activityCaller(ctx), payload); err != nil {
+			return result, err
+		}
 	}
 
 	if isMobileDeviceSemaphoreDisabled() {

@@ -17,11 +17,12 @@ import (
 
 // MobileDeviceInfo describes a mobile device and the runner that hosts it.
 type MobileDeviceInfo struct {
-	DeviceID  string `json:"device_id"`
-	RunnerID  string `json:"runner_id"`
-	Type      string `json:"type"`
-	Serial    string `json:"serial"`
-	RunnerURL string `json:"runner_url"`
+	DeviceID        string `json:"device_id"`
+	RunnerID        string `json:"runner_id"`
+	Type            string `json:"type"`
+	Serial          string `json:"serial"`
+	RunnerURL       string `json:"runner_url"`
+	RunnerNamespace string `json:"runner_namespace"`
 }
 
 type GetMobileDeviceInput struct {
@@ -46,7 +47,7 @@ func (a *GetMobileDeviceActivity) Name() string {
 }
 
 func (a *GetMobileDeviceActivity) Execute(
-	_ context.Context,
+	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
@@ -57,6 +58,13 @@ func (a *GetMobileDeviceActivity) Execute(
 	info, err := mobileDevice(a.app, payload.DeviceIdentifier)
 	if err != nil {
 		return result, recordLookupError(&a.BaseActivity, err)
+	}
+	if err := requireRunnerNamespaceOfCaller(
+		ctx,
+		&a.BaseActivity,
+		info.RunnerNamespace,
+	); err != nil {
+		return result, err
 	}
 	result.Output = info
 	return result, nil
@@ -76,11 +84,12 @@ func mobileDevice(app core.App, identifier string) (MobileDeviceInfo, error) {
 		return MobileDeviceInfo{}, fmt.Errorf("build mobile runner identifier: %w", err)
 	}
 	return MobileDeviceInfo{
-		DeviceID:  deviceID,
-		RunnerID:  runnerIdentifier,
-		Type:      device.GetString("type"),
-		Serial:    device.GetString("serial"),
-		RunnerURL: mobilerunner.RunnerURL(runner),
+		DeviceID:        deviceID,
+		RunnerID:        runnerIdentifier,
+		Type:            device.GetString("type"),
+		Serial:          device.GetString("serial"),
+		RunnerURL:       mobilerunner.RunnerURL(runner),
+		RunnerNamespace: mobilerunner.RunnerNamespace(runner.Id),
 	}, nil
 }
 

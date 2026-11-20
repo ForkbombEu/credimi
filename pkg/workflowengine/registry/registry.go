@@ -25,7 +25,6 @@ type TaskFactory struct {
 	PayloadType         reflect.Type
 	PipelinePayloadType reflect.Type
 	OutputKind          workflowengine.OutputKind
-	CustomTaskQueue     bool
 	// InheritedConfigKeys lists the workflow-level config keys copied into this
 	// activity's input config. Other workflow-level keys stay out of the input.
 	InheritedConfigKeys []string
@@ -168,7 +167,7 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 	},
 	"mobile-device-semaphore-done": {
 		Kind:        TaskActivity,
-		NewFunc:     func(core.App) any { return activities.NewReportMobileDeviceSemaphoreDoneActivity() },
+		NewFunc:     func(app core.App) any { return activities.NewReportMobileDeviceSemaphoreDoneActivity(app) },
 		PayloadType: reflect.TypeOf(activities.ReportMobileDeviceSemaphoreDoneInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},

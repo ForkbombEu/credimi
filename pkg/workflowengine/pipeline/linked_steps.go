@@ -175,9 +175,9 @@ func linkedStepsOutput(
 }
 
 // linkedBlockRetryable decides whether a failed block attempt is retried. A failure inside
-// an activity or child workflow is retried with a fresh deeplink, even when the inner error
-// is non-retryable for the same input. Engine errors raised before a step is scheduled
-// (input resolution, failed dependencies, oversized input) are non-retryable.
+// an activity, child workflow or Nexus operation is retried with a fresh deeplink, even when
+// the inner error is non-retryable for the same input. Engine errors raised before a step is
+// scheduled (input resolution, failed dependencies, oversized input) are non-retryable.
 func linkedBlockRetryable(err error) bool {
 	var activityErr *temporal.ActivityError
 	if errors.As(err, &activityErr) {
@@ -185,6 +185,10 @@ func linkedBlockRetryable(err error) bool {
 	}
 	var childErr *temporal.ChildWorkflowExecutionError
 	if errors.As(err, &childErr) {
+		return true
+	}
+	var nexusErr *temporal.NexusOperationError
+	if errors.As(err, &nexusErr) {
 		return true
 	}
 	var appErr *temporal.ApplicationError

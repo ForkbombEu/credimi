@@ -143,6 +143,7 @@ func createWalletAPKMobileRunner(
 	record.Set("ip", "https://"+strings.ReplaceAll(strings.ToLower(name), " ", "-")+".example.test")
 	record.Set("type", deviceType)
 	record.Set("published", published)
+	record.Set(mobilerunner.RunnerNamespaceReadyField, true)
 	require.NoError(t, app.Save(record))
 
 	deviceColl, err := app.FindCollectionByNameOrId("mobile_devices")
@@ -890,6 +891,65 @@ func TestPipelineRunWalletAPKRejectsExplicitDeviceOnOfflineRunner(t *testing.T) 
 	require.Equal(t, 1, probed)
 	require.Empty(t, queueStub.enqueueRequests)
 }
+
+// An explicit device of a runner the caller may not use answers 403 before its
+// runner is probed, so the answer does not reveal whether the runner is online.
+func TestPipelineCIExplicitForeignPrivateDeviceChecksAccessFirst(t *testing.T) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	probed := 0
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) {
+		probed++
+		return false, nil
+	}
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	app := setupPipelineWalletAPKApp(t)
+	t.Cleanup(app.Cleanup)
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	otherOrg := core.NewRecord(orgColl)
+	otherOrg.Set("name", "Other Org")
+	otherOrg.Set("canonified_name", "other-org")
+	require.NoError(t, app.Save(otherOrg))
+	createWalletAPKMobileRunner(t, app, otherOrg.Id, "Private Runner", "android_phone", false)
+
+	workflowDefinition, apiErr := parsePipelineCIWorkflow(
+		"name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n" +
+			"    with:\n      action_code: \"appId: wallet\"\n",
+	)
+	require.Nil(t, apiErr)
+	const deviceID = "other-org/private-runner/device-1"
+
+	resolved, _, needsGlobalRunner, apiErr := resolvePipelineRunWalletAPKDeviceID(
+		context.Background(),
+		app,
+		orgID,
+		workflowDefinition,
+		pipelineRunWalletAPKRequest{DeviceID: deviceID},
+	)
+	require.NotNil(t, apiErr)
+	require.Empty(t, resolved)
+	require.True(t, needsGlobalRunner)
+	require.Equal(t, http.StatusForbidden, apiErr.Code)
+	require.Equal(t, "device_id is not accessible", apiErr.Reason)
+
+	resolved, _, needsGlobalRunner, apiErr = resolvePipelineCIDeviceID(
+		context.Background(),
+		app,
+		orgID,
+		workflowDefinition,
+		pipelineCIBaseRequest{DeviceID: deviceID},
+	)
+	require.NotNil(t, apiErr)
+	require.Empty(t, resolved)
+	require.True(t, needsGlobalRunner)
+	require.Equal(t, http.StatusForbidden, apiErr.Code)
+	require.Equal(t, "device_id is not accessible", apiErr.Reason)
+	require.Zero(t, probed)
+}
+
 func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 	installWalletAPKURLDownloaderStub(t)
 	queueStub := &queueStub{}
@@ -1004,8 +1064,9 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	require.Equal(t, "no online device found for device_type", apiErr.Reason)
 }
 
-// CI selection offers foreign runners under the same rule as the runner
-// catalog: an unpublished organization only gets admin-managed ones.
+// CI selection by device type offers another organization's runner only when
+// it is published and admin-managed: tenant runners are used only through an
+// explicit device_id.
 func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 	origHealthCheck := checkRunnerReachable
 	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
@@ -1025,17 +1086,22 @@ func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 	require.NoError(t, err)
 
 	cases := []struct {
-		name         string
-		runnerAdmin  bool
-		wantDeviceID string
+		name          string
+		runnerPrivate bool
+		runnerAdmin   bool
+		wantDeviceID  string
 	}{
 		{
-			name: "unpublished org is not offered published non-admin runner",
+			name: "published tenant runner of another organization is not auto-selected",
 		},
 		{
-			name:         "unpublished org is offered published admin-managed runner",
+			name:         "any org is offered a published admin-managed runner",
 			runnerAdmin:  true,
 			wantDeviceID: "other-org/shared-runner/device-1",
+		},
+		{
+			name:          "org is not offered another org's private runner",
+			runnerPrivate: true,
 		},
 	}
 
@@ -1050,7 +1116,14 @@ func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 			otherOrg.Set("name", "Other Org")
 			otherOrg.Set("canonified_name", "other-org")
 			require.NoError(t, app.Save(otherOrg))
-			createWalletAPKMobileRunner(t, app, otherOrg.Id, "Shared Runner", "android_phone", true)
+			createWalletAPKMobileRunner(
+				t,
+				app,
+				otherOrg.Id,
+				"Shared Runner",
+				"android_phone",
+				!tc.runnerPrivate,
+			)
 			setMobileRunnerAdminManaged(t, app, "other-org/shared-runner", tc.runnerAdmin)
 
 			deviceID, apiErr := selectPipelineCIDeviceByType(
@@ -1070,6 +1143,90 @@ func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
 			require.Equal(t, tc.wantDeviceID, deviceID)
 		})
 	}
+}
+
+func TestSelectPipelineCIDeviceByTypePrefersOwnRunners(t *testing.T) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) {
+		return true, nil
+	}
+	origQueueState := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = origQueueState })
+	queryMobileDeviceSemaphoreState = func(
+		_ context.Context,
+		deviceID string,
+	) (workflows.MobileDeviceSemaphoreStateView, error) {
+		if strings.HasPrefix(deviceID, "other-org/") {
+			return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
+		}
+		return workflows.MobileDeviceSemaphoreStateView{QueueLen: 3}, nil
+	}
+
+	app := setupPipelineWalletAPKApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	org, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	createWalletAPKMobileRunner(t, app, orgID, "Own Runner", "android_phone", false)
+	otherOrg := createOtherWalletAPKOrganization(t, app)
+	createWalletAPKMobileRunner(t, app, otherOrg.Id, "Admin Runner", "android_phone", true)
+	setMobileRunnerAdminManaged(t, app, "other-org/admin-runner", true)
+
+	deviceID, apiErr := selectPipelineCIDeviceByType(
+		context.Background(),
+		app,
+		orgID,
+		"android_phone",
+	)
+
+	require.Nil(t, apiErr)
+	require.Equal(t, org.GetString("canonified_name")+"/own-runner/device-1", deviceID)
+}
+
+func TestSelectPipelineCIDeviceByTypeSkipsRunnersNotReady(t *testing.T) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) {
+		return true, nil
+	}
+	origQueueState := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = origQueueState })
+	queryMobileDeviceSemaphoreState = func(
+		_ context.Context,
+		_ string,
+	) (workflows.MobileDeviceSemaphoreStateView, error) {
+		return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
+	}
+
+	app := setupPipelineWalletAPKApp(t)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	createWalletAPKMobileRunner(t, app, orgID, "Own Runner", "android_phone", false)
+	runner, err := app.FindFirstRecordByFilter(
+		"mobile_runners",
+		"owner = {:owner} && name = 'Own Runner'",
+		dbx.Params{"owner": orgID},
+	)
+	require.NoError(t, err)
+	runner.Set(mobilerunner.RunnerNamespaceReadyField, false)
+	require.NoError(t, app.Save(runner))
+
+	deviceID, apiErr := selectPipelineCIDeviceByType(
+		context.Background(),
+		app,
+		orgID,
+		"android_phone",
+	)
+
+	require.Empty(t, deviceID)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
+	require.Equal(t, "no online device found for device_type", apiErr.Reason)
 }
 
 func TestInjectPipelineRunWalletAPKGlobalDeviceID(t *testing.T) {

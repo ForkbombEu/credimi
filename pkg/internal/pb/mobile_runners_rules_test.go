@@ -5,6 +5,7 @@
 package pb
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -86,12 +87,12 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
-			// agent_namespace_ready is hidden and guarded: only Credimi
-			// marks a runner's agent namespace ready.
-			name:     "org owner cannot mark the agent namespace ready",
-			body:     `{"agent_namespace_ready":true}`,
+			// runner_namespace_ready is hidden and guarded: only Credimi
+			// marks a runner's namespace ready.
+			name:     "org owner cannot mark the runner namespace ready",
+			body:     `{"runner_namespace_ready":true}`,
 			wantCode: http.StatusOK,
-			want:     map[string]any{"agent_namespace_ready": false},
+			want:     map[string]any{"runner_namespace_ready": false},
 		},
 		{
 			// The usage fields are hidden and guarded: only the runner's
@@ -113,9 +114,10 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
-			name:     "org owner cannot publish the runner",
+			name:     "org owner can publish the runner",
 			body:     `{"published":true}`,
-			wantCode: http.StatusNotFound,
+			wantCode: http.StatusOK,
+			want:     map[string]any{"published": true},
 		},
 		{
 			name:     "org owner can still edit ordinary fields",
@@ -185,9 +187,13 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			name:  "org owner cannot create a runner with agent limits",
 			extra: `"agent_others_daily_tokens":1`,
 		},
-		{name: "org owner cannot create a published runner", extra: `"published":true`},
 		{
-			// The agent namespace is runner-<id>: a chosen id could claim a
+			name:     "org owner can create a published runner",
+			extra:    `"published":true`,
+			wantCode: http.StatusOK,
+		},
+		{
+			// The runner namespace is runner-<id>: a chosen id could claim a
 			// deleted runner's namespace.
 			name:  "org owner cannot choose the runner record id",
 			extra: `"id":"chosenrunnerid1"`,
@@ -259,7 +265,7 @@ func TestMobileRunnersRulesGuardEveryAgentField(t *testing.T) {
 		"agent_model",
 		"agent_settings_from",
 		"agent_enabled",
-		"agent_namespace_ready",
+		"runner_namespace_ready",
 		"agent_usage_day",
 		"agent_own_tokens_used",
 		"agent_others_tokens_used",
@@ -392,6 +398,75 @@ func TestMobileDevicesCreateRuleGuardsBindingAndLiveness(t *testing.T) {
 			)
 			require.Equal(t, tc.wantCode, rec.Code, rec.Body.String())
 			assertCreatedCount(t, app, "mobile_devices", "created-device", tc.wantCode)
+		})
+	}
+}
+
+// TestMobileRunnersReadRulesShowOnlyTheOwnerOrganization: published runners
+// reach other organizations through Credimi's lists, which omit addresses and
+// serials; the collection API shows runners and devices to their organization only.
+func TestMobileRunnersReadRulesShowOnlyTheOwnerOrganization(t *testing.T) {
+	cases := []struct {
+		name      string
+		anonymous bool
+		actor     rulesTestActor
+		wantSeen  bool
+	}{
+		{name: "member of another organization sees nothing", actor: actorOrgOwner},
+		{name: "anonymous visitor sees nothing", anonymous: true},
+		{name: "member of the owner organization sees them", actor: actorNonMember, wantSeen: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := newRulesTestApp(t)
+			runner := createRulesTestRunner(t, app, jsHooksUserBOrg, "published-runner")
+			runner.Set("published", true)
+			require.NoError(t, app.Save(runner))
+			device := createRulesTestDevice(t, app, runner)
+			token := ""
+			if !tc.anonymous {
+				token = rulesTestToken(t, app, tc.actor)
+			}
+			mux := buildRulesTestMux(t, app)
+
+			for collection, id := range map[string]string{
+				"mobile_runners": runner.Id,
+				"mobile_devices": device.Id,
+			} {
+				list := serveRulesRequest(
+					mux,
+					http.MethodGet,
+					"/api/collections/"+collection+"/records?perPage=500",
+					"",
+					token,
+				)
+				require.Equal(t, http.StatusOK, list.Code, list.Body.String())
+				var page struct {
+					Items []struct {
+						ID string `json:"id"`
+					} `json:"items"`
+				}
+				require.NoError(t, json.Unmarshal(list.Body.Bytes(), &page))
+				seen := false
+				for _, item := range page.Items {
+					seen = seen || item.ID == id
+				}
+				assert.Equal(t, tc.wantSeen, seen, collection+" list")
+
+				view := serveRulesRequest(
+					mux,
+					http.MethodGet,
+					"/api/collections/"+collection+"/records/"+id,
+					"",
+					token,
+				)
+				if tc.wantSeen {
+					assert.Equal(t, http.StatusOK, view.Code, collection+" view")
+				} else {
+					assert.Equal(t, http.StatusNotFound, view.Code, collection+" view")
+				}
+			}
 		})
 	}
 }

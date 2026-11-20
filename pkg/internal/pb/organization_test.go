@@ -6,17 +6,13 @@ package pb
 
 import (
 	"errors"
-	"net/http"
 	"testing"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,15 +54,6 @@ func TestEnsureNamespaceAndWorkersCreatesNamespace(t *testing.T) {
 func TestEnsureNamespaceAndWorkersStartsWorkersForExistingNamespace(t *testing.T) {
 	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: t.TempDir()})
 	ensured, started := stubEnsureNamespace(t, nil)
-
-	origStartManager := startWorkerManagerFn
-	origAdminRunnerIDs := adminRunnerIDsFn
-	t.Cleanup(func() {
-		startWorkerManagerFn = origStartManager
-		adminRunnerIDsFn = origAdminRunnerIDs
-	})
-	adminRunnerIDsFn = func(_ core.App) ([]string, error) { return nil, nil }
-	startWorkerManagerFn = func(_, _ string, _ []string) {}
 
 	registerOrganizationNamespaceHooks(app)
 
@@ -131,34 +118,14 @@ func TestOrganizationNamespaceHooksAfterCreate(t *testing.T) {
 	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: t.TempDir()})
 
 	origEnsure := ensureNamespaceAndWorkersFn
-	origStartManager := startWorkerManagerFn
-	origAdminRunnerIDs := adminRunnerIDsFn
 	t.Cleanup(func() {
 		ensureNamespaceAndWorkersFn = origEnsure
-		startWorkerManagerFn = origStartManager
-		adminRunnerIDsFn = origAdminRunnerIDs
 	})
 
 	var ensured string
 	ensureNamespaceAndWorkersFn = func(_ core.App, namespace string) {
 		ensured = namespace
 	}
-
-	adminRunnerIDsFn = func(_ core.App) ([]string, error) {
-		return []string{"admin/runner"}, nil
-	}
-
-	var started struct {
-		namespace    string
-		oldNamespace string
-		runnerIDs    []string
-	}
-	startWorkerManagerFn = func(namespace, oldNamespace string, runnerIDs []string) {
-		started.namespace = namespace
-		started.oldNamespace = oldNamespace
-		started.runnerIDs = runnerIDs
-	}
-
 	registerOrganizationNamespaceHooks(app)
 
 	collection := core.NewBaseCollection("organizations")
@@ -173,9 +140,6 @@ func TestOrganizationNamespaceHooksAfterCreate(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, "org-1", ensured)
-	require.Equal(t, "org-1", started.namespace)
-	require.Equal(t, "", started.oldNamespace)
-	require.Equal(t, []string{"admin/runner"}, started.runnerIDs)
 }
 
 func TestOrganizationNamespaceHooksCreateDefaults(t *testing.T) {
@@ -238,67 +202,6 @@ func TestOrganizationProtectedFieldsHooks_AllowsMaxPipelinesInQueueForSuperuser(
 	require.Equal(t, 99, event.Record.GetInt("max_pipelines_in_queue"))
 }
 
-func TestOrganizationProtectedFieldsHooks_RevertsPublishedForUser(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	ensureOrganizationPublicationFields(t, app)
-	registerOrganizationProtectedFieldsHooks(app)
-
-	org := loadOrgWithPublished(t, app, false)
-
-	userAuth := core.NewRecord(mustFindCollection(t, app, "users"))
-	event := newOrganizationUpdateRequestEvent(app, org, userAuth)
-	event.Record.Set("published", true)
-
-	err = app.OnRecordUpdateRequest("organizations").Trigger(
-		event,
-		func(_ *core.RecordRequestEvent) error { return nil },
-	)
-	require.NoError(t, err)
-	require.False(t, event.Record.GetBool("published"))
-}
-
-func TestOrganizationProtectedFieldsHooks_AllowsPublishedForSuperuser(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	ensureOrganizationPublicationFields(t, app)
-	registerOrganizationProtectedFieldsHooks(app)
-
-	org := loadOrgWithPublished(t, app, false)
-
-	superuserAuth := core.NewRecord(mustFindCollection(t, app, core.CollectionNameSuperusers))
-	event := newOrganizationUpdateRequestEvent(app, org, superuserAuth)
-	event.Record.Set("published", true)
-
-	err = app.OnRecordUpdateRequest("organizations").Trigger(
-		event,
-		func(_ *core.RecordRequestEvent) error { return nil },
-	)
-	require.NoError(t, err)
-	require.True(t, event.Record.GetBool("published"))
-}
-
-func loadOrgWithPublished(t testing.TB, app core.App, value bool) *core.Record {
-	t.Helper()
-
-	orgID, err := getOrgIDfromName(app)
-	require.NoError(t, err)
-
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	org.Set("published", value)
-	require.NoError(t, app.Save(org))
-
-	org, err = app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	require.Equal(t, value, org.GetBool("published"))
-	return org
-}
-
 func loadOrgWithMaxPipelines(t testing.TB, app core.App, value int) *core.Record {
 	t.Helper()
 
@@ -338,270 +241,4 @@ func newOrganizationUpdateRequestEvent(
 	}
 	event.Collection = org.Collection()
 	return event
-}
-
-func TestOrganizationPublicationHooks_PublishesOrgWhenWalletPublished(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	ensureOrganizationPublicationFields(t, app)
-	canonify.RegisterCanonifyHooks(app)
-	RegisterOrganizationPublicationHooks(app)
-
-	orgID, err := getOrgIDfromName(app)
-	require.NoError(t, err)
-
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	require.False(t, org.GetBool("published"))
-
-	wallet := createOrganizationPublicationWallet(t, app, orgID)
-	require.NoError(t, app.Save(wallet))
-
-	org, err = app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	require.True(t, org.GetBool("published"))
-}
-
-func TestOrganizationPublicationHooks_UnpublishesOrgWhenLastPublicEntityUnpublished(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	ensureOrganizationPublicationFields(t, app)
-	canonify.RegisterCanonifyHooks(app)
-	RegisterOrganizationPublicationHooks(app)
-
-	orgID, err := getOrgIDfromName(app)
-	require.NoError(t, err)
-
-	wallet := createOrganizationPublicationWallet(t, app, orgID)
-	require.NoError(t, app.Save(wallet))
-
-	wallet.Set("published", false)
-	require.NoError(t, app.Save(wallet))
-
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	require.False(t, org.GetBool("published"))
-}
-
-func TestOrganizationPublicationHooks_KeepsOrgPublishedWhileAnotherEntityPublic(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	ensureOrganizationPublicationFields(t, app)
-	canonify.RegisterCanonifyHooks(app)
-	RegisterOrganizationPublicationHooks(app)
-
-	orgID, err := getOrgIDfromName(app)
-	require.NoError(t, err)
-
-	wallet := createOrganizationPublicationWallet(t, app, orgID)
-	require.NoError(t, app.Save(wallet))
-
-	pipeline := createTestPipelineRecord(t, app)
-	pipeline.Set("published", true)
-	require.NoError(t, app.Save(pipeline))
-
-	wallet.Set("published", false)
-	require.NoError(t, app.Save(wallet))
-
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	require.True(t, org.GetBool("published"))
-
-	pipeline.Set("published", false)
-	require.NoError(t, app.Save(pipeline))
-
-	org, err = app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	require.False(t, org.GetBool("published"))
-}
-
-func TestOrganizationPublicationHooks_BlocksManualUnpublishWithPublicEntity(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	ensureOrganizationPublicationFields(t, app)
-	canonify.RegisterCanonifyHooks(app)
-	RegisterOrganizationPublicationHooks(app)
-
-	orgID, err := getOrgIDfromName(app)
-	require.NoError(t, err)
-
-	wallet := createOrganizationPublicationWallet(t, app, orgID)
-	require.NoError(t, app.Save(wallet))
-
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	org.Set("published", false)
-
-	err = app.Save(org)
-	require.Error(t, err)
-
-	var apiErr *router.ApiError
-	require.True(t, errors.As(err, &apiErr))
-	require.Equal(t, http.StatusBadRequest, apiErr.Status)
-	require.Contains(t, apiErr.Message, "Organization cannot be unpublished")
-
-	org, err = app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	require.True(t, org.GetBool("published"))
-}
-
-func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	ensureWorkerManagerPublicationFields(t, app)
-	canonify.RegisterCanonifyHooks(app)
-
-	orgID, err := getOrgIDfromName(app)
-	require.NoError(t, err)
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	org.Set("published", false)
-	require.NoError(t, app.Save(org))
-
-	createWorkerManagerRunnerRecord(
-		t,
-		app,
-		orgID,
-		"private-admin",
-		"https://admin.example",
-		false,
-		true,
-	)
-	publicRunner := createWorkerManagerRunnerRecord(
-		t,
-		app,
-		orgID,
-		"public-user",
-		"https://public.example",
-		true,
-		false,
-	)
-
-	origStartManager := startWorkerManagerFn
-	t.Cleanup(func() {
-		startWorkerManagerFn = origStartManager
-	})
-
-	type call struct {
-		namespace string
-		runnerIDs []string
-	}
-	calls := make(chan call, 1)
-	startWorkerManagerFn = func(namespace, oldNamespace string, runnerIDs []string) {
-		require.Empty(t, oldNamespace)
-		calls <- call{namespace: namespace, runnerIDs: runnerIDs}
-	}
-	HookOrganizations(app)
-
-	org.Set("published", true)
-	require.NoError(t, app.Save(org))
-
-	select {
-	case got := <-calls:
-		require.Equal(t, org.GetString("canonified_name"), got.namespace)
-		require.Equal(t, []string{workerManagerRunnerID(t, app, publicRunner)}, got.runnerIDs)
-	default:
-		t.Fatal("expected worker manager call")
-	}
-}
-
-func createOrganizationPublicationWallet(
-	t testing.TB,
-	app core.App,
-	orgID string,
-) *core.Record {
-	t.Helper()
-
-	walletsColl, err := app.FindCollectionByNameOrId("wallets")
-	require.NoError(t, err)
-
-	wallet := core.NewRecord(walletsColl)
-	wallet.Set("owner", orgID)
-	wallet.Set("name", "hook-test-wallet")
-	wallet.Set("published", true)
-
-	return wallet
-}
-
-func ensureOrganizationPublicationFields(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-
-	organizations, err := app.FindCollectionByNameOrId("organizations")
-	require.NoError(t, err)
-	if organizations.Fields.GetByName("published") == nil {
-		organizations.Fields.Add(&core.BoolField{Name: "published"})
-	}
-	require.NoError(t, app.Save(organizations))
-}
-
-func ensureWorkerManagerPublicationFields(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-
-	orgs, err := app.FindCollectionByNameOrId("organizations")
-	require.NoError(t, err)
-	if orgs.Fields.GetByName("published") == nil {
-		orgs.Fields.Add(&core.BoolField{Name: "published"})
-	}
-	require.NoError(t, app.Save(orgs))
-
-	runners, err := app.FindCollectionByNameOrId("mobile_runners")
-	require.NoError(t, err)
-	if runners.Fields.GetByName("published") == nil {
-		runners.Fields.Add(&core.BoolField{Name: "published"})
-	}
-	if runners.Fields.GetByName("admin_managed") == nil {
-		runners.Fields.Add(&core.BoolField{Name: "admin_managed"})
-	}
-	if runners.Fields.GetByName("disabled") == nil {
-		runners.Fields.Add(&core.BoolField{Name: "disabled"})
-	}
-	if runners.Fields.GetByName("online") == nil {
-		runners.Fields.Add(&core.BoolField{Name: "online"})
-	}
-	require.NoError(t, app.Save(runners))
-}
-
-func createWorkerManagerRunnerRecord(
-	t testing.TB,
-	app core.App,
-	orgID string,
-	name string,
-	ip string,
-	published bool,
-	adminManaged bool,
-) *core.Record {
-	t.Helper()
-
-	runners, err := app.FindCollectionByNameOrId("mobile_runners")
-	require.NoError(t, err)
-
-	record := core.NewRecord(runners)
-	record.Set("owner", orgID)
-	record.Set("name", name)
-	record.Set("ip", ip)
-	record.Set("type", "android_emulator")
-	record.Set("published", published)
-	record.Set("admin_managed", adminManaged)
-	record.Set("online", true)
-	require.NoError(t, app.Save(record))
-
-	return record
-}
-
-func workerManagerRunnerID(t testing.TB, app core.App, runner *core.Record) string {
-	t.Helper()
-
-	runnerID, err := mobilerunner.RunnerIdentifier(app, runner)
-	require.NoError(t, err)
-	return runnerID
 }

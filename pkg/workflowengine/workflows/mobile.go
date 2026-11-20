@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -92,7 +93,7 @@ type MobileWorkflowOutput struct {
 }
 
 func (MobileAutomationWorkflow) Name() string {
-	return "Run a mobile automation workflow"
+	return mobiledevice.StepWorkflowName
 }
 
 func (w *MobileAutomationWorkflow) Workflow(
@@ -165,8 +166,8 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
 	// Runner-side artifact validation is scoped by the canonical pipeline run
-	// identifier. Activities must use that same workspace name rather than the
-	// Temporal child workflow ID, otherwise valid Maestro screenshots are
+	// identifier. Activities must use that same workspace name rather than
+	// this step workflow's ID, otherwise valid Maestro screenshots are
 	// written under a directory the runner cannot later upload from.
 	workspaceID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	if runIdentifier := workflowengine.AsString(
@@ -556,7 +557,7 @@ func newMobileWorkflowError(
 ) error {
 	failure := workflowengine.ParseWorkflowError(err)
 	if failure.Code == "" {
-		errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
+		errCode := errorcodes.Codes[errorcodes.MobileAutomationStepError]
 		failure = workflowengine.WorkflowError{
 			Code:    errCode.Code,
 			Summary: errCode.Description,

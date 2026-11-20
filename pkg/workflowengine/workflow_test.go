@@ -456,12 +456,15 @@ func TestParseWorkflowFailure_ConvertsActivityErrorPayload(t *testing.T) {
 
 func TestParseWorkflowFailure_UsesFirstUsefulMessageFallback(t *testing.T) {
 	failure := &failurepb.Failure{
-		Message: "child workflow execution error",
+		Message: "nexus operation completed unsuccessfully",
 		Cause: &failurepb.Failure{
-			Message: "activity error",
+			Message: "child workflow execution error",
 			Cause: &failurepb.Failure{
-				Message: "Failure exceeds size limit.",
-				Cause:   &failurepb.Failure{Message: "actual failure"},
+				Message: "activity error",
+				Cause: &failurepb.Failure{
+					Message: "Failure exceeds size limit.",
+					Cause:   &failurepb.Failure{Message: "actual failure"},
+				},
 			},
 		},
 	}

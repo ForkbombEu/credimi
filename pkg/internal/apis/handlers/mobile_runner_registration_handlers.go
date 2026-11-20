@@ -648,9 +648,9 @@ type UpsertMobileRunnerResponse struct {
 	// RunnerCredential is the key Credimi presents to this runner from now
 	// on; every upsert rotates it.
 	RunnerCredential string `json:"runner_credential"`
-	// AgentNamespace is the Temporal namespace the runner's action author
-	// serves; absent until Credimi has prepared it for an enabled agent.
-	AgentNamespace string `json:"agent_namespace,omitempty"`
+	// RunnerNamespace is the runner's Temporal namespace; absent until
+	// Credimi has prepared it for a runner that is not disabled.
+	RunnerNamespace string `json:"runner_namespace,omitempty"`
 }
 
 func HandlePreviewMobileRunnerID() func(*core.RequestEvent) error {
@@ -732,8 +732,8 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			)
 		}
 
-		// An admin-managed runner is operator infrastructure: it serves every
-		// namespace and is exempt from the tenant destination policy, so a
+		// An admin-managed runner is operator infrastructure used by every
+		// organization and is exempt from the tenant destination policy, so a
 		// non-superuser may not change its address while it stays
 		// admin-managed. A runner re-registering with a user key alone is
 		// still allowed: below, that turns it into a tenant runner, which the
@@ -777,10 +777,15 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		record.Set("type", strings.TrimSpace(input.Type))
 		record.Set("port", strings.TrimSpace(input.Port))
 		record.Set("serial", strings.TrimSpace(input.Serial))
-		// Only superusers publish runners: a published runner serves every
-		// published organization's namespace.
-		if input.Published != nil && isSuperuserAuth(e.Auth) {
-			record.Set("published", *input.Published)
+		if input.Published != nil {
+			mayPublish, apiErr := mayPublishMobileRunner(e.App, e.Auth, owner.Id)
+			if apiErr != nil {
+				return apiErr
+			}
+			// Members register runners but leave publishing to owners.
+			if mayPublish {
+				record.Set("published", *input.Published)
+			}
 		}
 		// Another member re-registering the runner keeps its identity, so
 		// the runner's own heartbeats still set its limits.
@@ -828,7 +833,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			Published:        record.GetBool("published"),
 			AdminManaged:     record.GetBool("admin_managed"),
 			RunnerCredential: credential,
-			AgentNamespace:   runnerAgentNamespace(record),
+			RunnerNamespace:  runnerNamespace(record),
 		})
 	}
 }
@@ -937,6 +942,43 @@ func isSuperuserAuth(auth *core.Record) bool {
 func authenticatedByAPIKeyOnly(e *core.RequestEvent) bool {
 	return strings.TrimSpace(e.Request.Header.Get(APIKeyHeaderName)) != "" &&
 		strings.TrimSpace(e.Request.Header.Get("Authorization")) == ""
+}
+
+// mayPublishMobileRunner reports whether auth may set the published flag of a
+// runner of organization orgID: superusers (which includes the internal admin
+// key) and the organization's owners may.
+func mayPublishMobileRunner(
+	app core.App,
+	auth *core.Record,
+	orgID string,
+) (bool, *apierror.APIError) {
+	if isSuperuserAuth(auth) {
+		return true, nil
+	}
+	owner, err := isOrganizationOwner(app, auth.Id, orgID)
+	if err != nil {
+		return false, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"failed_to_check_role",
+			err.Error(),
+		)
+	}
+	return owner, nil
+}
+
+// isOrganizationOwner reports whether the user has the owner role in the
+// organization orgID.
+func isOrganizationOwner(app core.App, userID, orgID string) (bool, error) {
+	_, err := app.FindFirstRecordByFilter(
+		"orgAuthorizations",
+		"user = {:user} && organization = {:org} && role.name = {:role}",
+		dbx.Params{"user": userID, "org": orgID, "role": "owner"},
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func previewMobileRunnerIdentifier(

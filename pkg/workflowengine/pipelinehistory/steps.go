@@ -13,12 +13,14 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
 	failurepb "go.temporal.io/api/failure/v1"
 	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
+	"go.temporal.io/sdk/temporalnexus"
 )
 
 // StepKind tells how a main step ran in its run.
@@ -51,12 +53,16 @@ type Step struct {
 	EndTime   time.Time // zero while running
 	// Attempt is the attempt of the last start of an activity; 0 otherwise.
 	Attempt int32
-	// EventID is the ActivityTaskScheduled or StartChildWorkflowExecutionInitiated event.
+	// EventID is the ActivityTaskScheduled, StartChildWorkflowExecutionInitiated or
+	// NexusOperationScheduled event.
 	EventID         int64
 	ChildWorkflowID string // workflow and block steps
 	ChildRunID      string // last run known from this history
-	BlockStepIDs    []string
-	FailureMessage  string
+	// Namespace is the runner namespace a mobile step's workflow ran in; empty for
+	// children in the run's own namespace.
+	Namespace      string
+	BlockStepIDs   []string
+	FailureMessage string
 }
 
 type stepsLoader struct {
@@ -73,8 +79,8 @@ type stepsLoader struct {
 
 // LoadSteps reads the history of one pipeline run, or of one linked steps block run, and
 // lists the main steps that started in it. Steps are identified by the step_id carried in
-// their activity or child workflow input config, and blocks by their child workflow ID;
-// hook, finally and internal events are ignored.
+// their activity, child workflow or Run step operation input config, blocks by their child
+// workflow ID; hook, finally and internal events are ignored.
 func LoadSteps(ctx context.Context, c client.Client, workflowID, runID string) ([]Step, error) {
 	l := &stepsLoader{
 		dc:         temporalcrypto.DataConverter(),
@@ -120,23 +126,11 @@ func (l *stepsLoader) apply(event *historypb.HistoryEvent) error {
 		return l.applyStarted(event.GetWorkflowExecutionStartedEventAttributes().GetInput())
 
 	case enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED:
-		attrs := event.GetActivityTaskScheduledEventAttributes()
-		var input struct {
-			Config map[string]any `json:"config"`
-		}
-		// An input that does not decode as an activity input belongs to no step.
-		if l.decodeFirst(attrs.GetInput(), &input) == nil {
-			if id, ok := l.mainStepID(input.Config); ok {
-				l.add(eventID, &Step{
-					ID:        id,
-					Kind:      StepKindActivity,
-					TypeName:  attrs.GetActivityType().GetName(),
-					Status:    statusRunning,
-					StartTime: eventTime,
-					EventID:   eventID,
-				})
-			}
-		}
+		l.applyActivityScheduled(
+			eventID,
+			eventTime,
+			event.GetActivityTaskScheduledEventAttributes(),
+		)
 
 	case enums.EVENT_TYPE_ACTIVITY_TASK_STARTED:
 		attrs := event.GetActivityTaskStartedEventAttributes()
@@ -156,6 +150,14 @@ func (l *stepsLoader) apply(event *historypb.HistoryEvent) error {
 	case enums.EVENT_TYPE_ACTIVITY_TASK_CANCELED:
 		attrs := event.GetActivityTaskCanceledEventAttributes()
 		l.close(attrs.GetScheduledEventId(), statusCanceled, eventTime, nil)
+
+	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_STARTED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_FAILED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED,
+		enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
+		l.applyNexus(eventID, eventTime, event)
 
 	case enums.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED:
 		l.applyChildInitiated(
@@ -272,6 +274,103 @@ func (l *stepsLoader) applyStarted(input *commonpb.Payloads) error {
 		}
 	}
 	return nil
+}
+
+// applyActivityScheduled adds the main step an activity runs.
+func (l *stepsLoader) applyActivityScheduled(
+	eventID int64,
+	eventTime time.Time,
+	attrs *historypb.ActivityTaskScheduledEventAttributes,
+) {
+	var input struct {
+		Config map[string]any `json:"config"`
+	}
+	// An input that does not decode as an activity input belongs to no step.
+	if l.decodeFirst(attrs.GetInput(), &input) != nil {
+		return
+	}
+	id, ok := l.mainStepID(input.Config)
+	if !ok {
+		return
+	}
+	l.add(eventID, &Step{
+		ID:        id,
+		Kind:      StepKindActivity,
+		TypeName:  attrs.GetActivityType().GetName(),
+		Status:    statusRunning,
+		StartTime: eventTime,
+		EventID:   eventID,
+	})
+}
+
+// applyNexus follows the Run step operations of main mobile steps.
+func (l *stepsLoader) applyNexus(
+	eventID int64,
+	eventTime time.Time,
+	event *historypb.HistoryEvent,
+) {
+	switch event.GetEventType() {
+	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED:
+		l.applyNexusScheduled(eventID, eventTime, event.GetNexusOperationScheduledEventAttributes())
+	case enums.EVENT_TYPE_NEXUS_OPERATION_STARTED:
+		attrs := event.GetNexusOperationStartedEventAttributes()
+		step, ok := l.byEvent[attrs.GetScheduledEventId()]
+		if !ok {
+			return
+		}
+		for _, link := range event.GetLinks() {
+			started, err := temporalnexus.ConvertNexusLinkToLinkWorkflowEvent(
+				temporalnexus.ConvertCommonLinkToNexusLink(link),
+			)
+			if err == nil && started.GetRunId() != "" {
+				step.ChildRunID = started.GetRunId()
+				return
+			}
+		}
+	case enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED:
+		attrs := event.GetNexusOperationCompletedEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusCompleted, eventTime, nil)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_FAILED:
+		attrs := event.GetNexusOperationFailedEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusFailed, eventTime, attrs.GetFailure())
+	case enums.EVENT_TYPE_NEXUS_OPERATION_CANCELED:
+		attrs := event.GetNexusOperationCanceledEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusCanceled, eventTime, nil)
+	case enums.EVENT_TYPE_NEXUS_OPERATION_TIMED_OUT:
+		attrs := event.GetNexusOperationTimedOutEventAttributes()
+		l.close(attrs.GetScheduledEventId(), statusTimedOut, eventTime, attrs.GetFailure())
+	}
+}
+
+// applyNexusScheduled adds the main mobile step whose workflow a Run step operation runs
+// in the runner namespace the operation's endpoint is named after.
+func (l *stepsLoader) applyNexusScheduled(
+	eventID int64,
+	eventTime time.Time,
+	attrs *historypb.NexusOperationScheduledEventAttributes,
+) {
+	if attrs.GetOperation() != mobiledevice.RunStepOperationName || attrs.GetInput() == nil {
+		return
+	}
+	var input mobiledevice.RunStepInput
+	// An input that does not decode as a step input belongs to no step.
+	if l.dc.FromPayload(attrs.GetInput(), &input) != nil {
+		return
+	}
+	id, ok := l.mainStepID(input.Input.Config)
+	if !ok {
+		return
+	}
+	l.add(eventID, &Step{
+		ID:              id,
+		Kind:            StepKindWorkflow,
+		TypeName:        mobiledevice.StepWorkflowName,
+		Status:          statusRunning,
+		StartTime:       eventTime,
+		EventID:         eventID,
+		ChildWorkflowID: input.WorkflowID,
+		Namespace:       attrs.GetEndpoint(),
+	})
 }
 
 func (l *stepsLoader) applyChildInitiated(

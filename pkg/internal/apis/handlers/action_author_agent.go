@@ -43,8 +43,8 @@ var describeActionAuthorTaskQueue = func(
 
 // actionAuthorAgentAvailable reports whether the runner's action author
 // agent polled <runnerID>-ActionAuthor within actionAuthorPollerFreshness.
-// c must be a client of the runner's agent namespace
-// (mobilerunner.AgentNamespace).
+// c must be a client of the runner's namespace
+// (mobilerunner.RunnerNamespace).
 func actionAuthorAgentAvailable(
 	ctx context.Context,
 	c client.Client,
@@ -67,7 +67,7 @@ func actionAuthorAgentAvailable(
 }
 
 // requireActionAuthorAgent refuses runners whose action author is not
-// enabled, or whose agent does not poll its task queue in the runner's agent
+// enabled, or whose agent does not poll its task queue in the runner
 // namespace.
 func requireActionAuthorAgent(e *core.RequestEvent, runner *core.Record) *apierror.APIError {
 	if !mobilerunner.AgentEnabled(runner) {
@@ -77,7 +77,7 @@ func requireActionAuthorAgent(e *core.RequestEvent, runner *core.Record) *apierr
 	if err != nil {
 		return authoringAPIError(e, fmt.Errorf("build runner identifier: %w", err))
 	}
-	c, err := queueTemporalClient(mobilerunner.AgentNamespace(runner.Id))
+	c, err := queueTemporalClient(mobilerunner.RunnerNamespace(runner.Id))
 	if err != nil {
 		return temporalUnavailableError()
 	}
@@ -107,7 +107,7 @@ func runnerActionAuthorAvailable(e *core.RequestEvent, runner *core.Record) bool
 		e.App.Logger().Warn(fmt.Sprintf("cannot identify runner %s: %v", runner.Id, err))
 		return false
 	}
-	c, err := queueTemporalClient(mobilerunner.AgentNamespace(runner.Id))
+	c, err := queueTemporalClient(mobilerunner.RunnerNamespace(runner.Id))
 	if err != nil {
 		e.App.Logger().Warn(fmt.Sprintf(
 			"cannot check the action author of runner %s: %v", runnerID, err,
@@ -124,7 +124,7 @@ func runnerActionAuthorAvailable(e *core.RequestEvent, runner *core.Record) bool
 }
 
 // runnersActionAuthorAvailable checks the agents of runners, each in its own
-// agent namespace, in parallel, and reports them by runner record ID.
+// runner namespace, in parallel, and reports them by runner record ID.
 func runnersActionAuthorAvailable(e *core.RequestEvent, runners []*core.Record) map[string]bool {
 	available := make(map[string]bool, len(runners))
 	var mu sync.Mutex

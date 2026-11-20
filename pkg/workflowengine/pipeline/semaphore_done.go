@@ -37,7 +37,7 @@ func ReportMobileDeviceSemaphoreDone(
 		return
 	}
 
-	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity()
+	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity(nil)
 	payload := activities.ReportMobileDeviceSemaphoreDoneInput{
 		OwnerNamespace: ownerNamespace,
 		LeaderDeviceID: leaderDeviceID,

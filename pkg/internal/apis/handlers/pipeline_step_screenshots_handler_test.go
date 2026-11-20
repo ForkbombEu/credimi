@@ -150,7 +150,6 @@ func TestStorePipelineStepScreenshotsPublishedRunnerOwner(t *testing.T) {
 			app := setupWalletApp(t)
 			PipelineInternalRoutes.Add(app)
 			setupWalletPipelineTestRecords(t, app, orgID)
-			setOrganizationPublished(t, app, orgID, true)
 			runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUser.Id)
 			require.NoError(t, err)
 			runner := createWalletTestMobileRunner(t, app, runnerOrgID, "public-runner", true)
@@ -200,6 +199,40 @@ func TestStorePipelineStepScreenshotsPublishedRunnerOwner(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+// Two screenshot uploads that each loaded the result before the other saved
+// must both keep their files.
+func TestStorePipelineStepScreenshotFilesKeepsConcurrentUploads(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	app := setupWalletApp(t)
+	t.Cleanup(app.Cleanup)
+	setupWalletPipelineTestRecords(t, app, orgID)
+
+	firstHandlerRecord := findWalletPipelineTestResult(t, app)
+	secondHandlerRecord := findWalletPipelineTestResult(t, app)
+
+	firstNames, _, apiErr := storePipelineStepScreenshotFiles(
+		uploadRequestEvent(t, app, pipelineStepScreenshotFormField, "a.png", "b.png"),
+		firstHandlerRecord,
+		"first-step",
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, firstNames, 2)
+
+	secondNames, secondURLs, apiErr := storePipelineStepScreenshotFiles(
+		uploadRequestEvent(t, app, pipelineStepScreenshotFormField, "c.png"),
+		secondHandlerRecord,
+		"second-step",
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, secondNames, 1)
+	require.Len(t, secondURLs, 1)
+	require.Contains(t, secondNames[0], "second_step_c")
+
+	stored := findWalletPipelineTestResult(t, app).GetStringSlice("maestro_screenshots")
+	require.Equal(t, append(firstNames, secondNames...), stored)
 }
 
 func reserveStepScreenshotDevice(t testing.TB, app *tests.TestApp, orgID string) {

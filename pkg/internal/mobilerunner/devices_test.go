@@ -81,7 +81,6 @@ func TestValidateDeviceAccess(t *testing.T) {
 		name          string
 		published     bool
 		adminManaged  bool
-		orgPublished  bool
 		deviceOwner   string
 		deviceID      func(t *testing.T, app *tests.TestApp, device *core.Record) string
 		wantErr       error
@@ -118,20 +117,12 @@ func TestValidateDeviceAccess(t *testing.T) {
 			wantErrSubstr: "is private and does not belong to the caller organization",
 		},
 		{
-			name:         "published runner and published org",
-			deviceOwner:  orgBID,
-			published:    true,
-			orgPublished: true,
+			name:        "published tenant runner",
+			deviceOwner: orgBID,
+			published:   true,
 		},
 		{
-			name:         "published unmanaged runner and unpublished org",
-			deviceOwner:  orgBID,
-			published:    true,
-			orgPublished: false,
-			wantErr:      ErrDeviceNotAccessible,
-		},
-		{
-			name:         "admin managed runner and unpublished org",
+			name:         "published admin-managed runner",
 			deviceOwner:  orgBID,
 			published:    true,
 			adminManaged: true,
@@ -139,12 +130,6 @@ func TestValidateDeviceAccess(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app := newDevicesTestApp(t)
-			if tc.orgPublished {
-				org, err := app.FindRecordById("organizations", orgAID)
-				require.NoError(t, err)
-				org.Set("published", true)
-				require.NoError(t, app.Save(org))
-			}
 			runner := createRunner(
 				t,
 				app,

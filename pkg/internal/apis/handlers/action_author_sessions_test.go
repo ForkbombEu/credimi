@@ -757,7 +757,7 @@ func TestActionAuthorSessionRefusesOtherWorkflows(t *testing.T) {
 }
 
 // listedAuthoringSession is a session the wallet sessions query lists in a
-// runner's agent namespace.
+// runner's namespace.
 type listedAuthoringSession struct {
 	authoringSessionGrant
 	run     string
@@ -797,7 +797,7 @@ func (s listedAuthoringSession) stub(t testing.TB, app *tests.TestApp, c *tempor
 	}
 }
 
-// The sessions of the agent namespaces of the runners offered to the caller's
+// The sessions of the runner namespaces of the runners offered to the caller's
 // organization are merged newest first; listed runs that are not trusted
 // runs of the caller's sessions are dropped.
 func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
@@ -824,11 +824,11 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 			require.NoError(t, err)
 			tenant, err := app.FindFirstRecordByData("mobile_runners", "name", "tenant-runner")
 			require.NoError(t, err)
-			// Only runners whose agent namespace is ready are listed.
-			require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, admin.Id))
-			require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, tenant.Id))
-			adminNamespace = mobilerunner.AgentNamespace(admin.Id)
-			tenantNamespace = mobilerunner.AgentNamespace(tenant.Id)
+			// Only runners whose namespace is ready are listed.
+			require.NoError(t, mobilerunner.MarkRunnerNamespaceReady(app, admin.Id))
+			require.NoError(t, mobilerunner.MarkRunnerNamespaceReady(app, tenant.Id))
+			adminNamespace = mobilerunner.RunnerNamespace(admin.Id)
+			tenantNamespace = mobilerunner.RunnerNamespace(tenant.Id)
 			sessionID := func(runner *core.Record, ticket string) string {
 				return actionauthor.SessionWorkflowID(runner.Id, ticket)
 			}
@@ -919,7 +919,7 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 		},
 	}).Test(t)
 
-	// Each runner's agent namespace is listed.
+	// Each runner's namespace is listed.
 	require.Subset(t, *namespaces, []string{adminNamespace, tenantNamespace})
 	c.AssertNumberOfCalls(t, "DescribeWorkflow", 2)
 	require.Equal(t, []ActionAuthorSessionListItem{
@@ -941,7 +941,7 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 	}, response.Sessions)
 }
 
-// walletSessionsFixture is the caller userA, the agent namespaces of the
+// walletSessionsFixture is the caller userA, the runner namespaces of the
 // ready admin and tenant runners, and the sessions query of userA's sessions
 // of authoringSessionsWallet.
 type walletSessionsFixture struct {
@@ -953,7 +953,7 @@ type walletSessionsFixture struct {
 
 const authoringSessionsWallet = "usera-s-organization/authoring-handler-wallet"
 
-// session is a signed session of the caller on runner (an agent namespace),
+// session is a signed session of the caller on runner (a runner namespace),
 // listed with run, started on day d of January 2026.
 func (f walletSessionsFixture) session(
 	runnerNamespace, ticket, run string,
@@ -1040,8 +1040,8 @@ func listWalletSessions(
 			} {
 				runner, err := app.FindFirstRecordByData("mobile_runners", "name", name)
 				require.NoError(t, err)
-				require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, runner.Id))
-				*namespace = mobilerunner.AgentNamespace(runner.Id)
+				require.NoError(t, mobilerunner.MarkRunnerNamespaceReady(app, runner.Id))
+				*namespace = mobilerunner.RunnerNamespace(runner.Id)
 			}
 			setup(t, f, c)
 			return app
@@ -1055,7 +1055,7 @@ func listWalletSessions(
 	return response.Sessions, *namespaces
 }
 
-// A runner whose agent namespace is not ready is not listed, a namespace
+// A runner whose namespace is not ready is not listed, a namespace
 // Temporal does not know or that fails to list is skipped, and the request
 // fails only when every listed namespace fails.
 func TestActionAuthorSessionsSkipsUnavailableNamespaces(t *testing.T) {
@@ -1098,7 +1098,7 @@ func TestActionAuthorSessionsSkipsUnavailableNamespaces(t *testing.T) {
 					"unready",
 					false,
 				)
-				unready = mobilerunner.AgentNamespace(runner.Id)
+				unready = mobilerunner.RunnerNamespace(runner.Id)
 				f.list(c, f.admin, tc.adminErr)
 				if tc.tenantErr != nil {
 					f.list(c, f.tenant, tc.tenantErr)

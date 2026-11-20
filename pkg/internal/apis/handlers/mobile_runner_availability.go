@@ -27,9 +27,11 @@ const runnerHealthTimeout = 10 * time.Second
 var checkRunnerReachable = checkRunnerReachableHTTP
 
 // requireMobileDeviceRunnersOnline rejects a run unless every chosen device is
-// hosted by a runner answering its health endpoint. Runners are probed once
-// even when a run spans several of their devices: a pipeline that needs three
-// devices and gets two fails anyway, so partial availability is not a run.
+// hosted by a runner answering its health endpoint whose Temporal namespace
+// Credimi has prepared (mobilerunner.RunnerNamespaceReady). Runners are probed
+// once even when a run spans several of their devices: a pipeline that needs
+// three devices and gets two fails anyway, so partial availability is not a
+// run.
 func requireMobileDeviceRunnersOnline(
 	ctx context.Context,
 	app core.App,
@@ -52,6 +54,9 @@ func requireMobileDeviceRunnersOnline(
 		if !online {
 			return mobileDeviceRunnerOfflineError(deviceID)
 		}
+		if !mobilerunner.RunnerNamespaceReady(runner) {
+			return mobileDeviceRunnerNotReadyError(deviceID)
+		}
 	}
 
 	return nil
@@ -65,6 +70,17 @@ func mobileDeviceRunnerOfflineError(deviceID string) *apierror.APIError {
 		"device_id",
 		"device runner is offline",
 		"mobile device "+deviceID+" is hosted by a runner that is not reachable",
+	)
+}
+
+// mobileDeviceRunnerNotReadyError rejects a run on a device whose runner's
+// namespace, where its device work runs, is not prepared yet.
+func mobileDeviceRunnerNotReadyError(deviceID string) *apierror.APIError {
+	return apierror.New(
+		http.StatusServiceUnavailable,
+		"device_id",
+		"device runner is not ready",
+		"mobile device "+deviceID+" is hosted by a runner whose Temporal namespace is not ready yet",
 	)
 }
 

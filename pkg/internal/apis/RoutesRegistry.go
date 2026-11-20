@@ -34,7 +34,6 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.CanonifyRoutes,
 	handlers.ConformanceCheckRoutes,
 	handlers.OrganizationRoutes,
-	handlers.OrganizationInternalRoutes,
 	// handlers.ScoreboardPublicRoutes,
 	handlers.CloneRecord,
 	handlers.MobileRunnerRegistrationRoutes,

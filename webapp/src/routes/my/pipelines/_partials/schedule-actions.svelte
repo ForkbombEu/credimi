@@ -152,7 +152,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet subtitle()}
-		{@const runners = schedule.__schedule_status__.runners.join(', ')}
+		{@const runners = schedule.__schedule_status__.runners
+			.map((runner) => runner.name)
+			.join(', ')}
 		{#if !hideDetailsInPopover}
 			<div class="space-y-1.5 px-2 pb-1 text-xs text-slate-600">
 				<T>

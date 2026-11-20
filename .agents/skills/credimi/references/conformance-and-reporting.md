@@ -21,7 +21,7 @@ Provider slugs are constants in `pkg/workflowengine/workflows/conformance_check.
 
 `visible_in` decides where a suite/check shows up (`manual`, `pipeline`; empty = both). eudiw is `manual`-only; FCAF and most OpenID suites are `pipeline`-only (`pkg/conformancecatalog/catalog.go:178-198`).
 
-Prerequisites: the `stepci-captured-runner` binary for every classic provider (env `BIN`, default `.bin/`), `OPENIDNET_TOKEN` for the OpenID certification API, and the PocketBase Settings **Application URL**: starters copy it into workflow config as `app_url` (`workflowengine.WithAppConfig`), and workflows use it only to build links (Temporal UI, emails, the EUDIW callback page). Live check logs reach the webapp through the `Send realtime logs` activity on the PocketBase realtime topic `<workflowID>{openidnet,eudiw,ewc}-logs`.
+Prerequisites: the `stepci-captured-runner` binary for every classic provider (env `BIN`, default `.bin/`), `OPENIDNET_TOKEN` for the OpenID certification API, and the PocketBase Settings **Application URL**: starters copy it into workflow config as `app_url` (`workflowengine.WithAppConfig`), and workflows use it to build links (Temporal UI, emails, the EUDIW callback page). The OpenID wallet conformance checks also put `app_url` into their StepCI data, so the v1_0 wallet templates call `<app_url>/api/pipeline/mobile-flow`. Live check logs reach the webapp through the `Send realtime logs` activity on the PocketBase realtime topic `<workflowID>{openidnet,eudiw,ewc}-logs`.
 
 ## How a check runs
 
@@ -41,7 +41,9 @@ Results are now `pipeline_results` rows (see the pipelines reference for the ful
 
 Records are written in-process by `pkg/internal/pipeline_results` (no HTTP route): `Create` (from `POST /api/pipeline/queue` and the `StartQueuedPipelineActivity`; idempotent on `(workflow_id, run_id)`, `ErrConflict` for another owner/pipeline, validates the run type; device access is checked before the run is queued), `StoreEvidence` (the `Extract pipeline conformance evidence` activity), `StoreReport` (the `Generate pipeline conformance report` activity). The FCAF assessment is stored by the `fcaf-validation` activity (`pkg/workflowengine/activities/fcaf_report_store.go`).
 
-Runner artifacts are appended to an existing record by `POST /api/wallet/store-pipeline-result` (`RequireInternalAdminOrAuth`): `credimi-runner` sends its `CREDIMI_USER_API_KEY`, falling back to the internal admin key. It uploads `result_video`, `last_frame` and `logfile` into `video_results`, `screenshots` and `logcats`/`ios_logstreams`. This route and `POST /api/pipeline/store-step-screenshots` share `authorizePipelineResultDeviceStoreAccess`: every caller, internal admin included, must name a device listed in the record's `devices` (otherwise 403 `device did not run this pipeline result`); a non-admin caller must also belong to the record's organization or own that device's published runner while the record's organization is published.
+Runner artifacts are appended to an existing record by `POST /api/wallet/store-pipeline-result` (`RequireInternalAdminOrAuth`): `credimi-runner` sends its `CREDIMI_USER_API_KEY`, falling back to the internal admin key. It uploads `result_video`, `last_frame` and `logfile` into `video_results`, `screenshots` and `logcats`/`ios_logstreams`. This route and `POST /api/pipeline/store-step-screenshots` share `authorizePipelineResultDeviceStoreAccess`: every caller, internal admin included, must name a device listed in the record's `devices` (otherwise 403 `device did not run this pipeline result`); a non-admin caller must also belong to the record's organization or own that device's published runner.
+
+The answer lists only the files that upload stored (`result_urls`, `screenshot_urls`, `log_urls`), never those other devices or earlier uploads stored.
 
 ## Scoreboard
 

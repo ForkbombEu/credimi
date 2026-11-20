@@ -191,10 +191,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 
 	globalDeviceID := ""
 	if runnerInfo.NeedsGlobalRunner {
-		globalDeviceID = strings.TrimSpace(parsedPipeline.Runtime.GlobalDeviceID)
-		if globalDeviceID == "" {
-			globalDeviceID = strings.TrimSpace(payload.GlobalDeviceID)
-		}
+		globalDeviceID = ScheduledGlobalDeviceID(
+			parsedPipeline.Runtime.GlobalDeviceID,
+			payload.GlobalDeviceID,
+		)
 		if globalDeviceID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 				"global_device_id",
@@ -431,4 +431,13 @@ func deviceIDsWithGlobal(info scheduledPipelineRunnerInfo, globalDeviceID string
 		}
 	}
 	return deviceIDs
+}
+
+// ScheduledGlobalDeviceID returns the global device a scheduled run uses: the
+// pipeline YAML's runtime.global_device_id, else the one sent with the schedule.
+func ScheduledGlobalDeviceID(yamlGlobalDeviceID, scheduleGlobalDeviceID string) string {
+	if id := strings.TrimSpace(yamlGlobalDeviceID); id != "" {
+		return id
+	}
+	return strings.TrimSpace(scheduleGlobalDeviceID)
 }

@@ -58,6 +58,7 @@ var allCodes = []string{
 	MobileRunnerBusy,
 	OpenID4VCIIssuerCheckFailed,
 	ActionAuthorAgentNotStarted,
+	MobileAutomationStepError,
 	ReadFromReaderFailed,
 	CopyFromReaderFailed,
 	MkdirFailed,

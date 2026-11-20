@@ -621,9 +621,14 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		addWalletPipelineResultDevice(t, app, device.Id)
 		return app
 	}
-	setupPublicRunnerApp := func(t testing.TB, reserved bool) *tests.TestApp {
+	setupPublicRunnerApp := func(t testing.TB, reserved, ownerPublishes bool) *tests.TestApp {
 		app := setupReservedDeviceApp(t)
-		setOrganizationPublished(t, app, orgID, true)
+		if ownerPublishes {
+			pipeline, err := canonify.Resolve(app, "usera-s-organization/pipeline123")
+			require.NoError(t, err)
+			pipeline.Set("published", true)
+			require.NoError(t, app.Save(pipeline))
+		}
 
 		runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUserRecord.Id)
 		require.NoError(t, err)
@@ -655,6 +660,37 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			TestAppFactory:     setupReservedDeviceApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
 				requireStoredLog(t, app)
+			},
+		},
+		{
+			Name:   "store pipeline result answers only with the uploaded video",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(successBody),
+			Headers: map[string]string{
+				"Content-Type": successContentType,
+			},
+			ExpectedStatus:  200,
+			ExpectedContent: []string{`"status":"success"`},
+			TestAppFactory:  setupReservedDeviceApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				record, err := canonify.Resolve(app, "usera-s-organization/workflow123-run123")
+				require.NoError(t, err)
+				other, err := filesystem.NewFileFromBytes(
+					[]byte("other"),
+					"other-device_result_video.mp4",
+				)
+				require.NoError(t, err)
+				record.Set("video_results", []any{other})
+				require.NoError(t, app.Save(record))
+			},
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				var body struct {
+					ResultURLs []string `json:"result_urls"`
+				}
+				require.NoError(t, json.NewDecoder(res.Body).Decode(&body))
+				require.Len(t, body.ResultURLs, 1)
+				require.NotContains(t, body.ResultURLs[0], "other_device_result_video")
 			},
 		},
 		{
@@ -746,7 +782,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
-			Name:   "published runner owner can store result for published organization",
+			Name:   "published runner owner can store results of runs on its devices",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
 			Body:   bytes.NewReader(crossOrgRunnerBody),
@@ -760,7 +796,25 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"device":"userb-s-organization/public-runner/public-device"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				return setupPublicRunnerApp(t, true)
+				return setupPublicRunnerApp(t, true, true)
+			},
+		},
+		{
+			Name:   "published runner owner can store results for an organization that publishes nothing",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(crossOrgRunnerBody),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + runnerUserToken,
+				"Content-Type":  crossOrgRunnerContentType,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"device":"userb-s-organization/public-runner/public-device"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				return setupPublicRunnerApp(t, true, false)
 			},
 		},
 		{
@@ -779,7 +833,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`device did not run this pipeline result`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				return setupPublicRunnerApp(t, false)
+				return setupPublicRunnerApp(t, false, true)
 			},
 		},
 		{
@@ -1248,7 +1302,7 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 				"icon":             "logo.png",
 				"appId":            "com.example",
 				"developerWebsite": "https://example.com",
-				"description":      "desc",
+				"description":      "WalletWallet\ndesc",
 			},
 		}, nil
 	}
@@ -1276,9 +1330,17 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 	require.Equal(t, "google", payload["type"])
 	require.Equal(t, "Wallet", payload["name"])
 	require.Equal(t, "logo.png", payload["logo"])
+	require.Equal(t, "Wallet\ndesc", payload["description"])
 	require.Equal(t, "com.example", payload["google_app_id"])
 	require.Equal(t, "https://example.com", payload["playstore_url"])
 	require.Equal(t, orgID, payload["owner"])
+}
+
+func TestWithoutRepeatedTitle(t *testing.T) {
+	require.Equal(t, "Wallet\ndesc", withoutRepeatedTitle("WalletWallet\ndesc", "Wallet"))
+	require.Equal(t, "Wallet\ndesc", withoutRepeatedTitle("Wallet\ndesc", "Wallet"))
+	require.Equal(t, "Wallets Wallet", withoutRepeatedTitle("Wallets Wallet", "Wallet"))
+	require.Equal(t, "desc", withoutRepeatedTitle("desc", ""))
 }
 
 func setupWalletPipelineTestRecords(
@@ -1370,4 +1432,83 @@ func addWalletPipelineResultDevice(t testing.TB, app *tests.TestApp, deviceID st
 	require.NoError(t, err)
 	result.Set("devices", append(result.GetStringSlice("devices"), deviceID))
 	require.NoError(t, app.Save(result))
+}
+
+// uploadRequestEvent is a request carrying the given files under field.
+func uploadRequestEvent(
+	t testing.TB,
+	app core.App,
+	field string,
+	filenames ...string,
+) *core.RequestEvent {
+	t.Helper()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for _, filename := range filenames {
+		part, err := writer.CreateFormFile(field, filename)
+		require.NoError(t, err)
+		_, err = part.Write([]byte("content of " + filename))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+	req := httptest.NewRequest(http.MethodPost, "/", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	require.NoError(t, req.ParseMultipartForm(1<<20))
+	return &core.RequestEvent{
+		App:   app,
+		Event: router.Event{Request: req, Response: httptest.NewRecorder()},
+	}
+}
+
+func findWalletPipelineTestResult(t testing.TB, app core.App) *core.Record {
+	t.Helper()
+
+	result, err := app.FindFirstRecordByFilter(
+		"pipeline_results",
+		"workflow_id = 'workflow123' && run_id = 'run123'",
+	)
+	require.NoError(t, err)
+	return result
+}
+
+// Two uploads that each loaded the result before the other saved must both
+// keep their file.
+func TestSaveUploadedFileToRecordKeepsConcurrentUploads(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	app := setupWalletApp(t)
+	t.Cleanup(app.Cleanup)
+	setupWalletPipelineTestRecords(t, app, orgID)
+
+	firstHandlerRecord := findWalletPipelineTestResult(t, app)
+	secondHandlerRecord := findWalletPipelineTestResult(t, app)
+
+	_, firstURLs, apiErr := saveUploadedFileToRecord(
+		uploadRequestEvent(t, app, "result_video", "first.mp4"),
+		firstHandlerRecord,
+		"result_video",
+		"video_results",
+		"first_result_video",
+		false,
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, firstURLs, 1)
+
+	_, secondURLs, apiErr := saveUploadedFileToRecord(
+		uploadRequestEvent(t, app, "result_video", "second.mp4"),
+		secondHandlerRecord,
+		"result_video",
+		"video_results",
+		"second_result_video",
+		false,
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, secondURLs, 1)
+
+	stored := findWalletPipelineTestResult(t, app).GetStringSlice("video_results")
+	require.Len(t, stored, 2)
+	require.Contains(t, stored[0], "first_result_video")
+	require.Contains(t, stored[1], "second_result_video")
+	require.Contains(t, secondURLs[0], stored[1])
 }

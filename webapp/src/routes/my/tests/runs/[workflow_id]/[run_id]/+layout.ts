@@ -11,7 +11,7 @@ import { m, redirect } from '@/i18n';
 
 //
 
-export const load = async ({ params, fetch }) => {
+export const load = async ({ params, url, fetch }) => {
 	await checkAuthFlagAndUser({ fetch });
 
 	const organization = await getUserOrganization({ fetch });
@@ -19,7 +19,9 @@ export const load = async ({ params, fetch }) => {
 		error(403, { message: 'You are not authorized to access this page' });
 	}
 
-	const workflow = await _getWorkflow(params.workflow_id, params.run_id, { fetch });
+	// A pipeline's device work runs in its runner's namespace (`?namespace=runner-...`).
+	const namespace = url.searchParams.get('namespace');
+	const workflow = await _getWorkflow(params.workflow_id, params.run_id, { fetch, namespace });
 	if (workflow instanceof ClientResponseError) {
 		if (workflow.status === 401) redirect('/login');
 		// Another organization's run, e.g. opened from a notification or link
@@ -33,14 +35,19 @@ export const load = async ({ params, fetch }) => {
 
 	return {
 		organization,
-		workflow
+		workflow,
+		namespace
 	};
 };
 
 //
 
 /** Describes the run only; the page fetches the event history (tens of MB for large pipelines) incrementally. */
-export async function _getWorkflow(workflowId: string, runId: string, options = { fetch }) {
+export async function _getWorkflow(
+	workflowId: string,
+	runId: string,
+	options: { fetch?: typeof fetch; namespace?: string | null } = {}
+) {
 	const fetched = await fetchWorkflowExecution(workflowId, runId, options);
 	if (fetched instanceof Error) return fetched;
 

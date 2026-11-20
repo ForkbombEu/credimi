@@ -113,12 +113,12 @@ func trustedActionAuthorSettings(
 	return s
 }
 
-// runnerAgentNamespace returns the namespace runner's agent serves, or ""
-// while its agent is off or Credimi has not prepared the namespace yet
-// (mobilerunner.AgentNamespaceReady).
-func runnerAgentNamespace(runner *core.Record) string {
-	if !mobilerunner.AgentNamespaceReady(runner) {
+// runnerNamespace returns runner's namespace, or "" while the runner is
+// disabled or Credimi has not prepared the namespace yet
+// (mobilerunner.RunnerNamespaceReady).
+func runnerNamespace(runner *core.Record) string {
+	if !mobilerunner.RunnerNamespaceReady(runner) {
 		return ""
 	}
-	return mobilerunner.AgentNamespace(runner.Id)
+	return mobilerunner.RunnerNamespace(runner.Id)
 }

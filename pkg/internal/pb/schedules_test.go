@@ -6,8 +6,10 @@ package pb
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -389,6 +391,14 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	runnerRecord.Set("serial", "serial-1")
 	require.NoError(t, app.Save(runnerRecord))
 	createMobileDeviceRecordForDeleteTest(t, app, runnerRecord, "device-1")
+	deviceRecord, err := app.FindFirstRecordByFilter(
+		"mobile_devices",
+		"runner = {:runner}",
+		dbx.Params{"runner": runnerRecord.Id},
+	)
+	require.NoError(t, err)
+	deviceRecord.Set("serial", "device-serial-1")
+	require.NoError(t, app.Save(deviceRecord))
 
 	schedulesColl, err := app.FindCollectionByNameOrId("schedules")
 	require.NoError(t, err)
@@ -425,7 +435,15 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	require.Equal(t, displayName, status.DisplayName)
 	require.Equal(t, nextAction.UTC().Format(time.RFC3339), status.NextActionTime)
 	require.True(t, status.Paused)
-	require.NotEmpty(t, status.Runners)
+	// Any organization may read a schedule's devices: only display fields.
+	require.Len(t, status.Runners, 1)
+	require.ElementsMatch(
+		t,
+		[]string{"id", "name", "canonified_name", "type", "live_stream"},
+		slices.Collect(maps.Keys(status.Runners[0])),
+	)
+	require.Equal(t, deviceRecord.Id, status.Runners[0]["id"])
+	require.Equal(t, "device-1", status.Runners[0]["name"])
 }
 
 func TestDecodeScheduledEnqueueInput(t *testing.T) {

@@ -57,7 +57,14 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					workflow.RegisterOptions{Name: childOpenID.Name()},
 				)
 
-				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+				// The wallet templates call mobile-flow on this deployment.
+				sendsAppURL := mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+					payload, err := workflowengine.DecodePayload[activities.StepCIWorkflowActivityPayload](
+						input.Payload,
+					)
+					return err == nil && payload.Data["app_url"] == "https://test-app.com"
+				})
+				env.OnActivity(stepCI.Name(), mock.Anything, sendsAppURL).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"captures": map[string]any{

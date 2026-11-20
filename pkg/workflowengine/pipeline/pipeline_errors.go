@@ -170,7 +170,8 @@ func mergeStepFailureDetails(details map[string]any, stepID string) map[string]a
 func stepFailureCause(failure workflowengine.WorkflowError) string {
 	if summary := strings.TrimSpace(failure.Summary); summary != "" {
 		if failure.Code == errorcodes.PipelineInputError ||
-			failure.Code == errorcodes.ChildWorkflowExecutionError {
+			failure.Code == errorcodes.ChildWorkflowExecutionError ||
+			failure.Code == errorcodes.MobileAutomationStepError {
 			if message := strings.TrimSpace(failure.Message); message != "" && message != summary {
 				return fmt.Sprintf("%s: %s", summary, message)
 			}

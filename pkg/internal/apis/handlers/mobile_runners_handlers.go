@@ -95,7 +95,7 @@ var MobileRunnersPublicRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:        HandleListMobileRunners,
 			ResponseSchema: ListMobileRunnersPublicResponseSchema{},
 			Summary:        "List available mobile runners",
-			Description:    "Lists mobile runners visible to the caller, including health, devices, and, for online runners, runs_ahead: the runs on the runner's semaphore, running or waiting.",
+			Description:    "Lists mobile runners visible to the caller: the caller's own runners and published runners of other organizations, with health and, for online runners, runs_ahead (the runs on the runner's semaphore, running or waiting). url and devices are given only for the caller's own runners (every runner for superusers).",
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "view",
@@ -124,7 +124,7 @@ var MobileDevicesPublicRoutes = routing.RouteGroup{
 			Handler:        HandleListMobileDevices,
 			ResponseSchema: ListMobileDevicesPublicResponseSchema{},
 			Summary:        "List available mobile devices",
-			Description:    "Lists independently schedulable mobile devices visible to the caller, grouped by their hosting runner through runner context fields. Online devices report runs_ahead: the runs on the device's semaphore, running or waiting, that a new run waits for.",
+			Description:    "Lists independently schedulable mobile devices visible to the caller, grouped by their hosting runner through runner context fields. Online devices report runs_ahead: the runs on the device's semaphore, running or waiting, that a new run waits for. serial is given only for the caller's own devices (every device for superusers).",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
@@ -195,7 +195,6 @@ func enabledMobileRunnerRecords(records []*core.Record) []*core.Record {
 func HandleListMobileRunners() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		callerOrgID := ""
-		callerOrgPublished := false
 		if e.Auth == nil {
 			return apierror.New(
 				http.StatusUnauthorized,
@@ -215,10 +214,9 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 				)
 			}
 			callerOrgID = orgRecord.Id
-			callerOrgPublished = orgRecord.GetBool("published")
 		}
 
-		records, err := listMobileRunnerRecords(e.App, callerOrgID, callerOrgPublished)
+		records, err := listMobileRunnerRecords(e.App, callerOrgID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -267,12 +265,12 @@ func HandleListMobileRunners() func(*core.RequestEvent) error {
 
 func HandleListMobileDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		callerOrgID, callerOrgPublished, apiErr := mobileRunnerCatalogCaller(e)
+		callerOrgID, apiErr := mobileRunnerCatalogCaller(e)
 		if apiErr != nil {
 			return apiErr
 		}
 
-		runners, err := listMobileRunnerRecords(e.App, callerOrgID, callerOrgPublished)
+		runners, err := listMobileRunnerRecords(e.App, callerOrgID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -338,9 +336,9 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 	}
 }
 
-func mobileRunnerCatalogCaller(e *core.RequestEvent) (string, bool, *apierror.APIError) {
+func mobileRunnerCatalogCaller(e *core.RequestEvent) (string, *apierror.APIError) {
 	if e.Auth == nil {
-		return "", false, apierror.New(
+		return "", apierror.New(
 			http.StatusUnauthorized,
 			"auth",
 			"authentication_required",
@@ -348,18 +346,18 @@ func mobileRunnerCatalogCaller(e *core.RequestEvent) (string, bool, *apierror.AP
 		)
 	}
 	if isSuperuserAuth(e.Auth) {
-		return "", false, nil
+		return "", nil
 	}
 	orgRecord, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
 	if err != nil {
-		return "", false, apierror.New(
+		return "", apierror.New(
 			http.StatusInternalServerError,
 			"organization",
 			"failed_to_find_user_organization",
 			err.Error(),
 		)
 	}
-	return orgRecord.Id, orgRecord.GetBool("published"), nil
+	return orgRecord.Id, nil
 }
 
 func mobileDeviceListItem(
@@ -395,10 +393,14 @@ func mobileDeviceListItem(
 		RunnerName:  runner.GetString("name"),
 		Description: device.GetString("description"),
 		Type:        device.GetString("type"),
-		Serial:      device.GetString("serial"),
 		IsPublished: runner.GetBool("published"),
 		IsOwned:     callerOrgID != "" && device.GetString("owner") == callerOrgID,
 		IsOnline:    runnerOnline && device.GetBool("online"),
+	}
+	// Serials identify hardware: only the device's organization (and
+	// superusers, with an empty callerOrgID) see them.
+	if callerOrgID == "" || device.GetString("owner") == callerOrgID {
+		item.Serial = device.GetString("serial")
 	}
 	if item.IsOnline {
 		runsAhead, apiErr := mobileDeviceRunsAhead(ctx, deviceID)
@@ -410,24 +412,9 @@ func mobileDeviceListItem(
 	return item, nil
 }
 
-func listMobileRunnerRecords(
-	app core.App,
-	callerOrgID string,
-	callerOrgPublished bool,
-) ([]*core.Record, error) {
+func listMobileRunnerRecords(app core.App, callerOrgID string) ([]*core.Record, error) {
 	if callerOrgID == "" {
 		return app.FindRecordsByFilter("mobile_runners", "", "name", -1, 0)
-	}
-
-	if !callerOrgPublished {
-		return app.FindRecordsByFilter(
-			"mobile_runners",
-			"owner = {:owner} || (published = true && admin_managed = true)",
-			"name",
-			-1,
-			0,
-			dbx.Params{"owner": callerOrgID},
-		)
 	}
 
 	return app.FindRecordsByFilter(
@@ -479,9 +466,13 @@ func mobileRunnerListItem(
 	}
 
 	if includeDetails {
-		item.URL = runnerURL
 		item.Type = record.GetString("type")
-		item.Devices = devices
+		// The address and device details stay with the runner's organization
+		// (and superusers, with an empty callerOrgID).
+		if callerOrgID == "" || record.GetString("owner") == callerOrgID {
+			item.URL = runnerURL
+			item.Devices = devices
+		}
 	}
 
 	if includeDetails && online {

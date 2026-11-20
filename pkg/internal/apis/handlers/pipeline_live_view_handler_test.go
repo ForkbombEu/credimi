@@ -196,6 +196,17 @@ func createLiveViewDevice(
 	return deviceID, runner
 }
 
+// preparedLiveViewDevice is the setted_devices entry of an emulator the
+// pipeline has prepared.
+func preparedLiveViewDevice() map[string]any {
+	return map[string]any{
+		"serial": "emulator-5554",
+		"type":   "android_emulator",
+	}
+}
+
+// The runner looks the live view up by the pipeline run, which it later asks
+// Credimi about.
 func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 	// Set to prove Credimi never forwards an internal admin key to a runner.
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
@@ -204,10 +215,7 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
 	deviceID, runner := createLiveViewDevice(t, app, authRecord, server.URL, true)
 	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		deviceID: map[string]any{
-			"serial": "emulator-5554",
-			"type":   "android_emulator",
-		},
+		deviceID: preparedLiveViewDevice(),
 	})
 
 	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
@@ -589,7 +597,7 @@ func TestPipelineLiveViewNeverContactsTenantLoopbackRunner(t *testing.T) {
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
 	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, false)
 	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+		deviceID: preparedLiveViewDevice(),
 	})
 
 	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
@@ -609,7 +617,7 @@ func TestPipelineLiveViewRequiresRunnerCredentialSecret(t *testing.T) {
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
 	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+		deviceID: preparedLiveViewDevice(),
 	})
 
 	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
@@ -748,7 +756,7 @@ func TestPipelineLiveViewForwardsRunnerRefusals(t *testing.T) {
 			})
 			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 			stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-				deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+				deviceID: preparedLiveViewDevice(),
 			})
 
 			rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{

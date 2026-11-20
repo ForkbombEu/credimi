@@ -58,4 +58,26 @@ describe('stepDetailsHref', () => {
 		});
 		expect(stepDetailsHref(workflowStep)).toBe('/my/tests/runs/wf-check/check-run');
 	});
+
+	it('opens a runner-namespace step in its namespace', () => {
+		const workflowStep = step(9, {
+			kind: 'workflow',
+			execution: { workflowId: 'wf-step', runId: 'step-run' },
+			execution_namespace: 'runner-abc'
+		});
+		expect(stepDetailsHref(workflowStep)).toBe(
+			'/my/tests/runs/wf-step/step-run?namespace=runner-abc'
+		);
+	});
+
+	it('encodes the run and its runner namespace', () => {
+		const workflowStep = step(10, {
+			kind: 'workflow',
+			execution: { workflowId: 'wf/a b', runId: 'run#1' },
+			execution_namespace: 'runner-a&b'
+		});
+		expect(stepDetailsHref(workflowStep)).toBe(
+			'/my/tests/runs/wf%2Fa%20b/run%231?namespace=runner-a%26b'
+		);
+	});
 });

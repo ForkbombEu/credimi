@@ -56,7 +56,7 @@ func TestReportMobileDeviceSemaphoreDoneActivityNotFound(t *testing.T) {
 		}),
 	).Return(nil, &serviceerror.NotFound{}).Once()
 
-	activity := NewReportMobileDeviceSemaphoreDoneActivity()
+	activity := NewReportMobileDeviceSemaphoreDoneActivity(nil)
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: ReportMobileDeviceSemaphoreDoneInput{
 			OwnerNamespace: "owner-1",
@@ -98,7 +98,7 @@ func TestReportMobileDeviceSemaphoreDoneActivitySuccess(t *testing.T) {
 		}),
 	).Return(updateHandle, nil).Once()
 
-	activity := NewReportMobileDeviceSemaphoreDoneActivity()
+	activity := NewReportMobileDeviceSemaphoreDoneActivity(nil)
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: ReportMobileDeviceSemaphoreDoneInput{
 			OwnerNamespace: "owner-1",

@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/log"
@@ -27,15 +28,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	conformanceCheckStepUse = "conformance-check"
-
-	conformanceTemplateActivityChangeID = "credimi-2026-10-conformance-template-activity"
-	// conformanceCheckHookStepsChangeID gates resolving the catalog template for
-	// conformance-check steps in on_error/on_success hooks. Before it, hook steps
-	// kept their user-supplied with.config.template.
-	conformanceCheckHookStepsChangeID = "credimi-2026-10-conformance-check-hook-steps"
-)
+const conformanceCheckStepUse = "conformance-check"
 
 // conformanceTemplate holds everything ConformanceCheckSetupHook reads from disk
 // for one conformance check step.
@@ -54,13 +47,7 @@ func ConformanceCheckSetupHook(
 	_ log.Logger,
 ) error {
 	logger := workflow.GetLogger(ctx)
-
-	version := workflow.GetVersion(
-		ctx,
-		conformanceTemplateActivityChangeID,
-		workflow.DefaultVersion,
-		1,
-	)
+	tokens := &mobileFlowTokens{}
 
 	for i := range wfDef.Steps {
 		step := &wfDef.Steps[i].StepSpec
@@ -68,7 +55,7 @@ func ConformanceCheckSetupHook(
 			continue
 		}
 		logger.Info("ConformanceCheckHook: processing step", "step", step.ID)
-		if err := setupConformanceCheckStep(ctx, version, step, config); err != nil {
+		if err := setupConformanceCheckStep(ctx, step, config, tokens); err != nil {
 			return err
 		}
 	}
@@ -80,17 +67,9 @@ func ConformanceCheckSetupHook(
 	if len(hookSteps) == 0 {
 		return nil
 	}
-	if workflow.GetVersion(
-		ctx,
-		conformanceCheckHookStepsChangeID,
-		workflow.DefaultVersion,
-		1,
-	) == workflow.DefaultVersion {
-		return nil
-	}
 	for _, step := range hookSteps {
 		logger.Info("ConformanceCheckHook: processing hook step", "step", step.ID)
-		if err := setupConformanceCheckStep(ctx, version, step, config); err != nil {
+		if err := setupConformanceCheckStep(ctx, step, config, tokens); err != nil {
 			return err
 		}
 	}
@@ -120,9 +99,9 @@ func conformanceCheckHookSteps(steps []pipeline.StepDefinition) []*pipeline.Step
 // template, memo and default payload of its check_id.
 func setupConformanceCheckStep(
 	ctx workflow.Context,
-	version workflow.Version,
 	step *pipeline.StepSpec,
 	config map[string]any,
+	tokens *mobileFlowTokens,
 ) error {
 	rawPayload, err := DecodePayload(&pipeline.StepDefinition{StepSpec: *step})
 	if err != nil {
@@ -168,7 +147,7 @@ func setupConformanceCheckStep(
 		)
 	}
 
-	resolved, err := loadConformanceTemplate(ctx, version, payload.CheckID, step.ID)
+	resolved, err := loadConformanceTemplate(ctx, payload.CheckID, step.ID)
 	if err != nil {
 		return err
 	}
@@ -207,23 +186,64 @@ func setupConformanceCheckStep(
 	}
 
 	MergePayload(&defaultPayload, &step.With.Payload)
+	if parameters, ok := defaultPayload["parameters"].(map[string]any); ok {
+		if _, ok := parameters["action_id"]; ok {
+			token, err := tokens.get(ctx)
+			if err != nil {
+				return err
+			}
+			parameters["mobile_flow_token"] = token
+		}
+	}
 	step.With.Payload = defaultPayload
 	SetConfigValue(&step.With.Config, "template", resolved.Template)
 	return nil
 }
 
+// mobileFlowTokens signs the pipeline run's mobile flow token on first use
+// and reuses it for every later step.
+type mobileFlowTokens struct {
+	token string
+}
+
+// get returns the mobile flow token of the running pipeline, which wallet
+// conformance checks (steps with parameters.action_id) send to
+// POST /api/pipeline/mobile-flow.
+func (t *mobileFlowTokens) get(ctx workflow.Context) (string, error) {
+	if t.token != "" {
+		return t.token, nil
+	}
+	actCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 3},
+	})
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		actCtx,
+		activities.SignMobileFlowTokenActivityName,
+		workflowengine.ActivityInput{},
+	).Get(actCtx, &result); err != nil {
+		return "", err
+	}
+	token, ok := result.Output.(string)
+	if !ok || token == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return "", workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "invalid mobile flow token",
+		})
+	}
+	t.token = token
+	return token, nil
+}
+
 // loadConformanceTemplate resolves the check template through
-// ConformanceTemplateActivity on new runs, and inline for runs started before
-// the activity existed.
+// ConformanceTemplateActivity.
 func loadConformanceTemplate(
 	ctx workflow.Context,
-	version workflow.Version,
 	checkID, stepID string,
 ) (conformanceTemplate, error) {
-	if version == workflow.DefaultVersion {
-		return resolveConformanceTemplate(checkID, stepID)
-	}
-
 	actCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		StartToCloseTimeout: 30 * time.Second,
 		RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 3},

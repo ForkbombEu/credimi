@@ -20,8 +20,10 @@ export const WORKFLOW_STATUS_QUERY_PARAM = 'status';
 const WORKFLOW_LIST_API = '/api/list-workflows';
 const WORKFLOW_DETAILS_API = '/api/my/workflows';
 
-const workflowApi = (workflowId: string, runId: string) =>
-	`${WORKFLOW_DETAILS_API}/${workflowId}/runs/${runId}`;
+/** `namespace` names the runner namespace of a pipeline's device work. */
+const workflowApi = (workflowId: string, runId: string, namespace?: string | null) =>
+	`${WORKFLOW_DETAILS_API}/${workflowId}/runs/${runId}` +
+	(namespace ? `?${new URLSearchParams({ namespace })}` : '');
 
 //
 
@@ -63,10 +65,10 @@ export async function fetchWorkflows(
 export async function fetchWorkflowExecution(
 	workflowId: string,
 	runId: string,
-	options = { fetch }
+	options: { fetch?: typeof fetch; namespace?: string | null } = {}
 ): Promise<WorkflowRunDetails | Error> {
 	return tryPromise(async () => {
-		const data = await pb.send(workflowApi(workflowId, runId), {
+		const data = await pb.send(workflowApi(workflowId, runId, options.namespace), {
 			method: 'GET',
 			fetch: options.fetch
 		});

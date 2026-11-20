@@ -5,51 +5,23 @@
 package pb
 
 import (
-	"database/sql"
-	"errors"
 	"log"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
-	"github.com/pocketbase/dbx"
-	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
-
-type organizationPublicationCollection struct {
-	Collection  string
-	OwnerField  string
-	PublicField string
-}
 
 var (
 	ensureNamespaceReadyFn      = hooks.EnsureNamespaceReady
 	startWorkersByNamespaceFn   = hooks.StartAllWorkersByNamespace
 	ensureNamespaceAndWorkersFn = ensureNamespaceAndWorkers
-	startWorkerManagerFn        = hooks.StartWorkerManagerWorkflow
-	adminRunnerIDsFn            = hooks.WorkerManagerAdminRunnerIDs
 )
-
-var organizationPublicationCollections = []organizationPublicationCollection{
-	{Collection: "wallets", OwnerField: "owner", PublicField: "published"},
-	{Collection: "credential_issuers", OwnerField: "owner", PublicField: "published"},
-	{Collection: "verifiers", OwnerField: "owner", PublicField: "published"},
-	{Collection: "custom_checks", OwnerField: "owner", PublicField: "published"},
-	{Collection: "pipelines", OwnerField: "owner", PublicField: "published"},
-}
 
 const defaultMaxPipelinesInQueue = 1
 
 func HookOrganizations(app core.App) {
 	registerOrganizationNamespaceHooks(app)
-	registerOrganizationPublicationHooks(app)
-	registerOrganizationWorkerManagerPublicationHooks(app)
 	registerOrganizationProtectedFieldsHooks(app)
-}
-
-// RegisterOrganizationPublicationHooks is kept as a compatibility wrapper for tests.
-func RegisterOrganizationPublicationHooks(app core.App) {
-	registerOrganizationPublicationHooks(app)
 }
 
 func registerOrganizationNamespaceHooks(app core.App) {
@@ -64,11 +36,6 @@ func registerOrganizationNamespaceHooks(app core.App) {
 		orgName := e.Record.GetString("canonified_name")
 		if orgName != "" {
 			ensureNamespaceAndWorkersFn(e.App, orgName)
-			runnerIDs, err := adminRunnerIDsFn(e.App)
-			if err != nil {
-				return err
-			}
-			startWorkerManagerFn(orgName, "", runnerIDs)
 		}
 
 		return e.Next()
@@ -85,73 +52,8 @@ func registerOrganizationNamespaceHooks(app core.App) {
 		go hooks.StopAllWorkersByNamespace(oldName)
 
 		ensureNamespaceAndWorkersFn(e.App, newName)
-		runnerIDs, err := adminRunnerIDsFn(e.App)
-		if err != nil {
-			return err
-		}
-		startWorkerManagerFn(newName, oldName, runnerIDs)
 		log.Printf("Moved workers from namespace %s to %s", oldName, newName)
 		return e.Next()
-	})
-}
-
-func registerOrganizationPublicationHooks(app core.App) {
-	for _, collection := range organizationPublicationCollections {
-		app.OnRecordAfterCreateSuccess(collection.Collection).
-			BindFunc(func(e *core.RecordEvent) error {
-				if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
-					return err
-				}
-
-				return e.Next()
-			})
-
-		app.OnRecordAfterUpdateSuccess(collection.Collection).
-			BindFunc(func(e *core.RecordEvent) error {
-				if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
-					return err
-				}
-
-				return e.Next()
-			})
-
-		app.OnRecordAfterDeleteSuccess(collection.Collection).
-			BindFunc(func(e *core.RecordEvent) error {
-				if err := syncOrganizationPublishedForRecord(e.App, e.Record); err != nil {
-					return err
-				}
-
-				return e.Next()
-			})
-	}
-
-	app.OnRecordUpdate("organizations").BindFunc(func(e *core.RecordEvent) error {
-		if !e.Record.Original().GetBool("published") {
-			return e.Next()
-		}
-
-		if e.Record.GetBool("published") {
-			return e.Next()
-		}
-
-		hasPublicEntities, err := organizationHasPublicEntities(e.App, e.Record.Id)
-		if err != nil {
-			return err
-		}
-
-		if !hasPublicEntities {
-			return e.Next()
-		}
-
-		return apis.NewBadRequestError(
-			"Organization cannot be unpublished while it owns public records.",
-			validation.Errors{
-				"organization": validation.NewError(
-					"validation_organization_public_entities",
-					"unpublish all public records owned by this organization first",
-				),
-			},
-		)
 	})
 }
 
@@ -170,114 +72,8 @@ func registerOrganizationProtectedFieldsHooks(app core.App) {
 			e.Record.Set("max_pipelines_in_queue", original.GetInt("max_pipelines_in_queue"))
 		}
 
-		if e.Record.GetBool("published") != original.GetBool("published") {
-			e.Record.Set("published", original.GetBool("published"))
-		}
-
 		return e.Next()
 	})
-}
-
-func registerOrganizationWorkerManagerPublicationHooks(app core.App) {
-	app.OnRecordAfterUpdateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Original().GetBool("published") || !e.Record.GetBool("published") {
-			return e.Next()
-		}
-
-		namespace := e.Record.GetString("canonified_name")
-		if namespace == "" {
-			return e.Next()
-		}
-
-		runnerIDs, err := hooks.WorkerManagerPublishedNonAdminRunnerIDs(e.App)
-		if err != nil {
-			return err
-		}
-
-		startWorkerManagerFn(namespace, "", runnerIDs)
-		return e.Next()
-	})
-}
-
-func syncOrganizationPublishedForRecord(app core.App, record *core.Record) error {
-	collection := organizationPublicationCollectionByName(record.Collection())
-	if collection == nil {
-		return nil
-	}
-
-	ownerID := record.GetString(collection.OwnerField)
-	if ownerID != "" {
-		if err := syncOrganizationPublished(app, ownerID); err != nil {
-			return err
-		}
-	}
-
-	original := record.Original()
-	if original == nil {
-		return nil
-	}
-
-	originalOwnerID := original.GetString(collection.OwnerField)
-	if originalOwnerID == "" || originalOwnerID == ownerID {
-		return nil
-	}
-
-	return syncOrganizationPublished(app, originalOwnerID)
-}
-
-func syncOrganizationPublished(app core.App, ownerID string) error {
-	org, err := app.FindRecordById("organizations", ownerID)
-	if err != nil {
-		return err
-	}
-
-	hasPublicEntities, err := organizationHasPublicEntities(app, ownerID)
-	if err != nil {
-		return err
-	}
-
-	if org.GetBool("published") == hasPublicEntities {
-		return nil
-	}
-
-	org.Set("published", hasPublicEntities)
-	return app.Save(org)
-}
-
-func organizationHasPublicEntities(app core.App, ownerID string) (bool, error) {
-	for _, collection := range organizationPublicationCollections {
-		_, err := app.FindFirstRecordByFilter(
-			collection.Collection,
-			collection.OwnerField+"={:owner} && "+collection.PublicField+"=true",
-			dbx.Params{"owner": ownerID},
-		)
-		if err == nil {
-			return true, nil
-		}
-		if errors.Is(err, sql.ErrNoRows) {
-			continue
-		}
-
-		return false, err
-	}
-
-	return false, nil
-}
-
-func organizationPublicationCollectionByName(
-	collection *core.Collection,
-) *organizationPublicationCollection {
-	if collection == nil {
-		return nil
-	}
-
-	for i := range organizationPublicationCollections {
-		if organizationPublicationCollections[i].Collection == collection.Name {
-			return &organizationPublicationCollections[i]
-		}
-	}
-
-	return nil
 }
 
 // ensureNamespaceAndWorkers ensures the given namespace exists in Temporal,

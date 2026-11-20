@@ -8,6 +8,7 @@ package workflows
 import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -64,7 +65,7 @@ type MobileWorkflowOutput struct {
 }
 
 func (MobileAutomationWorkflow) Name() string {
-	return "Run a mobile automation workflow"
+	return mobiledevice.StepWorkflowName
 }
 
 func (w *MobileAutomationWorkflow) Workflow(

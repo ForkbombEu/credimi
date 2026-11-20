@@ -246,7 +246,7 @@ credimi-temporal-admin-tools provides administrative tools for managing the Temp
 
 credimi-temporal-ui is a user interface for managing and observing workflows in the Temporal service. It provides a visual representation of workflows, their statuses, and debugging tools, making workflow management more intuitive for administrators and developers.
 
-A second, read-only instance (`temporal_ui_embedded`) is embedded in Credimi run pages. It publishes no port: Credimi serves it under `/temporal-ui` and lets each user read only their organization's namespace.
+A second, read-only instance (`temporal_ui_embedded`) is embedded in Credimi run pages. It publishes no port: Credimi serves it under `/temporal-ui` and lets each user read only their organization's namespace, plus the device workflows their pipelines ran in a runner's namespace (`runner-<record id>`).
 
 ::: tip RESOURCES
 [Documentation](https://docs.temporal.io/web-ui)

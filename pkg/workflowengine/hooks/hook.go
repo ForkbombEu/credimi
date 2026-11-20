@@ -24,17 +24,18 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
+	nexuspb "go.temporal.io/api/nexus/v1"
 	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -62,22 +63,6 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		if err != nil {
 			log.Fatalf("Failed to fetch namespaces: %v", err)
 		}
-		orgRecords, err := workerManagerOrgRecordsFn(app)
-		if err != nil {
-			log.Fatalf("Failed to fetch organization records: %v", err)
-		}
-		adminRunnerIDs, err := adminRunnerIDsFn(app)
-		if err != nil {
-			log.Fatalf("Failed to fetch admin-managed runner IDs: %v", err)
-		}
-		publishedRunnerIDs, err := publishedRunnerIDsFn(app)
-		if err != nil {
-			log.Fatalf("Failed to fetch published runner IDs: %v", err)
-		}
-		publishedByNamespace := make(map[string]bool, len(orgRecords))
-		for _, org := range orgRecords {
-			publishedByNamespace[org.GetString("canonified_name")] = org.GetBool("published")
-		}
 
 		log.Printf("[WorkersHook] Ensuring %d namespace(s) are ready...", len(namespaces))
 
@@ -87,23 +72,15 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			}
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go startAllWorkersByNamespace(se.App, ns)
-
-			// Tenant runners never serve default: their Temporal tokens grant
-			// organization namespaces only.
-			runnerIDs := adminRunnerIDs
-			if publishedByNamespace[ns] {
-				runnerIDs = combineWorkerManagerRunnerIDs(adminRunnerIDs, publishedRunnerIDs)
-			}
-			startWorkerManagerWorkflow(ns, "", runnerIDs)
 		}
 
-		agentRunnerIDs, err := runnerAgentIDsFn(app)
+		runnerIDs, err := runnerNamespaceIDsFn(app)
 		if err != nil {
-			log.Printf("[WorkersHook] Failed to list runners with an enabled agent: %v", err)
+			log.Printf("[WorkersHook] Failed to list enabled runners: %v", err)
 		}
 		// Before serving: a heartbeat answered meanwhile would lack the
-		// namespace of a runner not marked ready yet and stop its agent.
-		prepareRunnerAgentNamespaces(se.App, agentRunnerIDs)
+		// namespace of a runner not marked ready yet.
+		prepareRunnerNamespaces(se.App, runnerIDs)
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
 		return se.Next()
@@ -278,17 +255,6 @@ func defaultWorkers(app core.App) []workerConfig {
 			}, activities.CredimiActivities(app)...),
 		},
 		{
-			TaskQueue: workflows.WorkerManagerTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				workflows.NewWorkerManagerWorkflow(),
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewHTTPActivity(),
-				activities.NewOpenIDNetLogsActivity(),
-				activities.NewMobileRunnerHTTPActivity(app),
-			},
-		},
-		{
 			TaskQueue: workflows.MobileDeviceSemaphoreTaskQueue,
 			Workflows: []workflowengine.Workflow{
 				workflows.NewMobileDeviceSemaphoreWorkflow(),
@@ -329,50 +295,42 @@ func defaultWorkers(app core.App) []workerConfig {
 }
 
 var (
-	getTemporalClient          = temporalclient.GetTemporalClientWithNamespace
-	newNamespaceClientFn       = temporalclient.NewNamespaceClient
-	newWorkerFn                = worker.New
-	sleepFn                    = time.Sleep
-	sleepWithContextFn         = sleepWithContext
-	nowFn                      = time.Now
-	startWorkerFn              = startWorker
-	startPipelineWorkerFn      = startPipelineWorker
-	fetchNamespacesFn          = FetchNamespaces
-	workerManagerOrgRecordsFn  = workerManagerAllOrganizationRecords
-	adminRunnerIDsFn           = WorkerManagerAdminRunnerIDs
-	publishedRunnerIDsFn       = WorkerManagerPublishedNonAdminRunnerIDs
-	runnerAgentIDsFn           = RunnerAgentIDs
-	ensureRunnerAgentNamespace = EnsureRunnerAgentNamespace
-	ensureNamespaceReadyFn     = EnsureNamespaceReady
-	addSearchAttributesFn      = addSearchAttributes
-	startAllWorkersByNamespace = StartAllWorkersByNamespace
-	startWorkerManagerWorkflow = StartWorkerManagerWorkflow
-	shutdownTemporalClientsFn  = temporalclient.ShutdownClients
-	workerManagerStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		w := workflows.NewWorkerManagerWorkflow()
-		return w.Start(namespace, input)
-	}
-	workerManagerTemporalClient        = temporalclient.GetTemporalClientWithNamespace
-	workerManagerWaitForWorkflowResult = workflowengine.WaitForWorkflowResult
-	executeWorkerManagerWorkflowFn     = executeWorkerManagerWorkflow
+	getTemporalClient                        = temporalclient.GetTemporalClientWithNamespace
+	newNamespaceClientFn                     = temporalclient.NewNamespaceClient
+	newWorkerFn                              = worker.New
+	sleepFn                                  = time.Sleep
+	sleepWithContextFn                       = sleepWithContext
+	nowFn                                    = time.Now
+	startWorkerFn                            = startWorker
+	startPipelineWorkerFn                    = startPipelineWorker
+	startRunnerNamespaceWorkerFn appWorkerFn = startRunnerNamespaceWorker
+	ensureRunnerNexusEndpointFn              = ensureRunnerNexusEndpoint
+	fetchNamespacesFn                        = FetchNamespaces
+	runnerNamespaceIDsFn                     = RunnerNamespaceIDs
+	ensureRunnerNamespace                    = EnsureRunnerNamespace
+	ensureNamespaceReadyFn                   = EnsureNamespaceReady
+	addSearchAttributesFn                    = addSearchAttributes
+	startAllWorkersByNamespace               = StartAllWorkersByNamespace
+	shutdownTemporalClientsFn                = temporalclient.ShutdownClients
 )
 
-// runnerAgentPrepareTimeout bounds how long startup waits for one runner
-// agent namespace, as EnsureNamespaceReady bounds its own retries.
-var runnerAgentPrepareTimeout = 90 * time.Second
+// runnerNamespacePrepareTimeout bounds how long startup waits for one runner
+// namespace, as EnsureNamespaceReady bounds its own retries.
+var runnerNamespacePrepareTimeout = 90 * time.Second
 
 const (
-	// runnerAgentPrepareConcurrency bounds the runner agent namespaces
+	// mobileAutomationRegistryKey is the registry entry of mobile steps,
+	// which organization-namespace pipeline workers do not register.
+	mobileAutomationRegistryKey = "mobile-automation"
+	// runnerNamespacePrepareConcurrency bounds the runner namespaces
 	// prepared at once at startup.
-	runnerAgentPrepareConcurrency = 8
-	workerStartInitialBackoff     = time.Second
-	workerStartMaxBackoff         = 30 * time.Second
+	runnerNamespacePrepareConcurrency = 8
+	workerStartInitialBackoff         = time.Second
+	workerStartMaxBackoff             = 30 * time.Second
 	// workerStopTimeout lets in-flight activities finish when a worker stops.
 	workerStopTimeout = 20 * time.Second
 	// workerStopWait bounds how long a stop waits for a namespace's workers.
 	workerStopWait = 30 * time.Second
-	// workerManagerWaitTimeout bounds how long a worker-manager run is awaited.
-	workerManagerWaitTimeout = 5 * time.Minute
 )
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
@@ -388,6 +346,89 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
 		}
 
+		return w
+	})
+}
+
+// appWorkerFn starts one worker of a namespace's worker set with the
+// namespace's client; it calls wg.Done when the worker stops.
+type appWorkerFn func(ctx context.Context, app core.App, c client.Client, wg *sync.WaitGroup)
+
+// runnerNamespaceActivityNames are the only activities registered in a runner
+// namespace: the ones the device workflows and the action author session
+// schedule on PipelineTaskQueue. Each of them either checks that its device
+// or runner belongs to the namespace, or accepts only the action author
+// session's own workflows as callers.
+var runnerNamespaceActivityNames = []string{
+	activities.GetMobileDeviceActivityName,
+	activities.MobileRunnerHTTPActivityName,
+	activities.ReportMobileDeviceSemaphoreDoneActivityName,
+	activities.ResolveActionAuthorBuildActivityName,
+	activities.SaveAuthoredWalletActionActivityName,
+	activities.GenerateActionAuthorParametersActivityName,
+	activities.CheckActionAuthorProtocolOutcomeActivityName,
+	activities.ListActionAuthorWalletActionsActivityName,
+	activities.CheckActionAuthorPlanActivityName,
+	activities.ReadActionAuthorPipelineRunActivityName,
+	activities.ResolveActionAuthorReferenceActivityName,
+}
+
+// runnerNamespaceActivities returns the activities named in
+// runnerNamespaceActivityNames.
+func runnerNamespaceActivities(app core.App) []workflowengine.ExecutableActivity {
+	return []workflowengine.ExecutableActivity{
+		activities.NewGetMobileDeviceActivity(app),
+		activities.NewMobileRunnerHTTPActivity(app),
+		activities.NewReportMobileDeviceSemaphoreDoneActivity(app),
+		activities.NewResolveActionAuthorBuildActivity(app),
+		activities.NewSaveAuthoredWalletActionActivity(app),
+		activities.NewGenerateActionAuthorParametersActivity(app),
+		activities.NewCheckActionAuthorProtocolOutcomeActivity(app),
+		activities.NewListActionAuthorWalletActionsActivity(app),
+		activities.NewCheckActionAuthorPlanActivity(app),
+		activities.NewReadActionAuthorPipelineRunActivity(app),
+		activities.NewResolveActionAuthorReferenceActivity(app),
+	}
+}
+
+// registerRunnerNamespaceWorker registers on w everything a runner namespace
+// serves, and nothing else.
+func registerRunnerNamespaceWorker(w worker.Registry, app core.App) {
+	w.RegisterWorkflowWithOptions(
+		pipeline.PrepareDeviceWorkflow,
+		workflow.RegisterOptions{Name: mobiledevice.PrepareWorkflowName},
+	)
+	w.RegisterWorkflowWithOptions(
+		pipeline.CleanUpDeviceWorkflow,
+		workflow.RegisterOptions{Name: mobiledevice.CleanUpWorkflowName},
+	)
+	for _, wf := range []workflowengine.Workflow{
+		workflows.NewMobileAutomationWorkflow(),
+		authorsession.New(),
+	} {
+		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+	}
+	w.RegisterNexusService(pipeline.NewMobileDeviceService(app))
+	for _, act := range runnerNamespaceActivities(app) {
+		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+	}
+}
+
+// startRunnerNamespaceWorker runs the only worker of a runner namespace.
+func startRunnerNamespaceWorker(
+	ctx context.Context,
+	app core.App,
+	c client.Client,
+	wg *sync.WaitGroup,
+) {
+	defer wg.Done()
+	runWorkerWithRetry(ctx, pipeline.PipelineTaskQueue, func() worker.Worker {
+		w := newWorkerFn(
+			c,
+			pipeline.PipelineTaskQueue,
+			worker.Options{WorkerStopTimeout: workerStopTimeout},
+		)
+		registerRunnerNamespaceWorker(w, app)
 		return w
 	})
 }
@@ -432,7 +473,12 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 			activity.RegisterOptions{Name: githubPRCommentAct.Name()},
 		)
 
-		for _, step := range registry.Registry {
+		for key, step := range registry.Registry {
+			// Mobile steps run in runner namespaces only, whose worker
+			// registers their workflow (registerRunnerNamespaceWorker).
+			if key == mobileAutomationRegistryKey {
+				continue
+			}
 			switch step.Kind {
 			case registry.TaskActivity:
 				act := step.NewFunc(app).(workflowengine.ExecutableActivity)
@@ -579,14 +625,19 @@ func StartAllWorkersByNamespace(app core.App, namespace string) {
 	if namespace == "default" {
 		workers = defaultWorkers(app)
 	}
-	if err := startNamespaceWorkerSet(app, namespace, workers); err != nil {
+	if err := startNamespaceWorkerSet(app, namespace, workers, startPipelineWorkerFn); err != nil {
 		log.Print(err)
 	}
 }
 
 // startNamespaceWorkerSet replaces the namespace's worker set with workers
-// plus the pipeline worker.
-func startNamespaceWorkerSet(app core.App, namespace string, workers []workerConfig) error {
+// plus appWorkers, each started with the namespace's client.
+func startNamespaceWorkerSet(
+	app core.App,
+	namespace string,
+	workers []workerConfig,
+	appWorkers ...appWorkerFn,
+) error {
 	if _, ok := workerSets.Load(namespace); ok {
 		StopAllWorkersByNamespace(namespace)
 	}
@@ -609,8 +660,10 @@ func startNamespaceWorkerSet(app core.App, namespace string, workers []workerCon
 		go startWorkerFn(ctx, c, config, &wg)
 	}
 
-	wg.Add(1)
-	go startPipelineWorkerFn(ctx, app, c, &wg)
+	for _, start := range appWorkers {
+		wg.Add(1)
+		go start(ctx, app, c, &wg)
+	}
 
 	go func() {
 		wg.Wait()
@@ -620,12 +673,12 @@ func startNamespaceWorkerSet(app core.App, namespace string, workers []workerCon
 	return nil
 }
 
-// RunnerAgentIDs lists the record IDs of the runners whose agent is enabled
-// and that are not disabled.
-func RunnerAgentIDs(app core.App) ([]string, error) {
+// RunnerNamespaceIDs lists the record IDs of the runners that are not
+// disabled.
+func RunnerNamespaceIDs(app core.App) ([]string, error) {
 	runners, err := app.FindRecordsByFilter(
 		"mobile_runners",
-		"agent_enabled = true && disabled = false",
+		"disabled = false",
 		"",
 		0,
 		0,
@@ -640,14 +693,14 @@ func RunnerAgentIDs(app core.App) ([]string, error) {
 	return ids, nil
 }
 
-// prepareRunnerAgentNamespaces prepares the agent namespaces of runnerIDs,
-// runnerAgentPrepareConcurrency at a time, waiting at most
-// runnerAgentPrepareTimeout for each. A preparation still running then goes
+// prepareRunnerNamespaces prepares the namespaces of runnerIDs,
+// runnerNamespacePrepareConcurrency at a time, waiting at most
+// runnerNamespacePrepareTimeout for each. A preparation still running then goes
 // on in the background; a failed one is logged and retried on the runner's
 // next update.
-func prepareRunnerAgentNamespaces(app core.App, runnerIDs []string) {
-	ensure, timeout := ensureRunnerAgentNamespace, runnerAgentPrepareTimeout
-	slots := make(chan struct{}, runnerAgentPrepareConcurrency)
+func prepareRunnerNamespaces(app core.App, runnerIDs []string) {
+	ensure, timeout := ensureRunnerNamespace, runnerNamespacePrepareTimeout
+	slots := make(chan struct{}, runnerNamespacePrepareConcurrency)
 	var wg sync.WaitGroup
 	for _, runnerID := range runnerIDs {
 		slots <- struct{}{}
@@ -666,8 +719,8 @@ func prepareRunnerAgentNamespaces(app core.App, runnerIDs []string) {
 			case <-done:
 			case <-timer.C:
 				log.Printf(
-					"[WorkersHook] runner agent namespace %s still preparing after %s, continuing in background",
-					mobilerunner.AgentNamespace(runnerID),
+					"[WorkersHook] runner namespace %s still preparing after %s, continuing in background",
+					mobilerunner.RunnerNamespace(runnerID),
 					timeout,
 				)
 			}
@@ -676,128 +729,134 @@ func prepareRunnerAgentNamespaces(app core.App, runnerIDs []string) {
 	wg.Wait()
 }
 
-// runnerAgentLocks serializes the preparation and the stop of each runner's
-// agent namespace, so an enable and a disable of the same runner can't
+// runnerLocks serializes the preparation and the stop of each runner's
+// namespace, so an enable and a disable of the same runner can't
 // interleave. The entry of a runner found deleted is removed while held.
-var runnerAgentLocks sync.Map // runner record ID -> *sync.Mutex
+var runnerLocks sync.Map // runner record ID -> *sync.Mutex
 
-// ensuringRunnerAgentNamespaces holds the IDs of the runners whose agent
-// namespace preparation is queued or running, so repeated triggers (every
+// ensuringRunnerNamespaces holds the IDs of the runners whose namespace
+// preparation is queued or running, so repeated triggers (every
 // heartbeat saves the runner) don't pile up behind a slow or failing one.
-var ensuringRunnerAgentNamespaces sync.Map // runner record ID -> struct{}
+var ensuringRunnerNamespaces sync.Map // runner record ID -> struct{}
 
-// lockRunnerAgent locks the runner's agent namespace and returns the held
-// mutex. A mutex removed from runnerAgentLocks while waiting for it is
+// lockRunner locks the runner's namespace and returns the held
+// mutex. A mutex removed from runnerLocks while waiting for it is
 // dropped for the current one.
-func lockRunnerAgent(runnerID string) *sync.Mutex {
+func lockRunner(runnerID string) *sync.Mutex {
 	for {
-		value, _ := runnerAgentLocks.LoadOrStore(runnerID, &sync.Mutex{})
+		value, _ := runnerLocks.LoadOrStore(runnerID, &sync.Mutex{})
 		mu := value.(*sync.Mutex)
 		mu.Lock()
-		if current, ok := runnerAgentLocks.Load(runnerID); ok && current == mu {
+		if current, ok := runnerLocks.Load(runnerID); ok && current == mu {
 			return mu
 		}
 		mu.Unlock()
 	}
 }
 
-// agentEnabledRunner reads the runner with record ID runnerID and reports
-// whether its agent is enabled and it is not disabled. A runner that can't be
-// read counts as off; one that no longer exists also gets its entry in
-// runnerAgentLocks, whose mutex mu the caller holds, removed.
-func agentEnabledRunner(app core.App, runnerID string, mu *sync.Mutex) (*core.Record, bool) {
+// namespaceEnabledRunner reads the runner with record ID runnerID and reports
+// whether it is not disabled (mobilerunner.NamespaceEnabled). A runner that
+// can't be read counts as off; one that no longer exists also gets its entry
+// in runnerLocks, whose mutex mu the caller holds, removed.
+func namespaceEnabledRunner(app core.App, runnerID string, mu *sync.Mutex) (*core.Record, bool) {
 	runner, err := app.FindRecordById("mobile_runners", runnerID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			runnerAgentLocks.CompareAndDelete(runnerID, mu)
+			runnerLocks.CompareAndDelete(runnerID, mu)
 		} else {
 			log.Printf("[WorkersHook] failed to read runner %s: %v", runnerID, err)
 		}
 		return nil, false
 	}
-	return runner, mobilerunner.AgentEnabled(runner)
+	return runner, mobilerunner.NamespaceEnabled(runner)
 }
 
-// StartRunnerAgentWorkers starts the worker set of a runner agent namespace:
-// the pipeline worker alone, which registers the action author session
-// workflow and every activity the session schedules on its task queue.
-func StartRunnerAgentWorkers(app core.App, namespace string) error {
-	return startNamespaceWorkerSet(app, namespace, nil)
+// StartRunnerNamespaceWorkers starts the worker set of a runner namespace:
+// one worker on PipelineTaskQueue that hosts the workflows of the runner's
+// devices (Prepare a mobile device, Clean up a mobile device, the mobile
+// automation step workflow and the action author session), the
+// mobiledevice Nexus service the pipeline calls them through, and the
+// activities those workflows schedule on PipelineTaskQueue.
+func StartRunnerNamespaceWorkers(app core.App, namespace string) error {
+	return startNamespaceWorkerSet(app, namespace, nil, startRunnerNamespaceWorkerFn)
 }
 
-// EnsureRunnerAgentNamespace prepares the agent namespace of the runner with
-// record ID runnerID while its agent is enabled and it is not disabled:
-// registers it with Credimi's search attributes and starts its workers, then,
-// if the stored runner still has its agent on, marks it served by this process
-// and ready on the record (mobilerunner.MarkAgentNamespaceReady); otherwise
-// it stops the workers again. A namespace already served only gets its record
-// flag restored. Calls for one runner run one at a time, with
-// StopRunnerAgentWorkers; a call while another for the same runner is queued
-// or running returns at once.
-func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
+// EnsureRunnerNamespace prepares the namespace of the runner with record ID
+// runnerID while it is not disabled: registers it with Credimi's search
+// attributes and starts its workers, then, if the stored runner is still not
+// disabled, marks it served by this process and ready on the record
+// (mobilerunner.MarkRunnerNamespaceReady); otherwise it stops the workers
+// again. A namespace already served only gets its record flag restored. Calls
+// for one runner run one at a time, with StopRunnerNamespaceWorkers; a call
+// while another for the same runner is queued or running returns at once.
+func EnsureRunnerNamespace(app core.App, runnerID string) {
 	if TemporalWorkersDisabled() {
 		return
 	}
-	if _, ensuring := ensuringRunnerAgentNamespaces.LoadOrStore(runnerID, struct{}{}); ensuring {
+	if _, ensuring := ensuringRunnerNamespaces.LoadOrStore(runnerID, struct{}{}); ensuring {
 		return
 	}
-	defer ensuringRunnerAgentNamespaces.Delete(runnerID)
-	mu := lockRunnerAgent(runnerID)
+	defer ensuringRunnerNamespaces.Delete(runnerID)
+	mu := lockRunner(runnerID)
 	defer mu.Unlock()
 
-	runner, enabled := agentEnabledRunner(app, runnerID, mu)
+	runner, enabled := namespaceEnabledRunner(app, runnerID, mu)
 	if !enabled {
 		return
 	}
-	if mobilerunner.AgentNamespaceServed(runnerID) {
+	if mobilerunner.RunnerNamespaceServed(runnerID) {
 		// A save of a runner read before the namespace was marked ready
 		// writes the flag back to false.
-		if !runner.GetBool(mobilerunner.AgentNamespaceReadyField) {
-			if err := mobilerunner.MarkAgentNamespaceReady(app, runnerID); err != nil {
+		if !runner.GetBool(mobilerunner.RunnerNamespaceReadyField) {
+			if err := mobilerunner.MarkRunnerNamespaceReady(app, runnerID); err != nil {
 				log.Printf("[WorkersHook] %v", err)
 			}
 		}
 		return
 	}
 
-	namespace := mobilerunner.AgentNamespace(runnerID)
+	namespace := mobilerunner.RunnerNamespace(runnerID)
 	if err := ensureNamespaceReadyFn(namespace); err != nil {
-		log.Printf("[WorkersHook] runner agent namespace %s not ready: %v", namespace, err)
+		log.Printf("[WorkersHook] runner namespace %s not ready: %v", namespace, err)
 		return
 	}
-	if err := StartRunnerAgentWorkers(app, namespace); err != nil {
-		log.Printf("[WorkersHook] runner agent namespace %s not ready: %v", namespace, err)
+	if err := ensureRunnerNexusEndpointFn(namespace); err != nil {
+		log.Printf("[WorkersHook] runner namespace %s not ready: %v", namespace, err)
 		return
 	}
-	if _, enabled := agentEnabledRunner(app, runnerID, mu); !enabled {
+	if err := StartRunnerNamespaceWorkers(app, namespace); err != nil {
+		log.Printf("[WorkersHook] runner namespace %s not ready: %v", namespace, err)
+		return
+	}
+	if _, enabled := namespaceEnabledRunner(app, runnerID, mu); !enabled {
 		log.Printf(
-			"[WorkersHook] runner agent namespace %s turned off while preparing it",
+			"[WorkersHook] runner namespace %s turned off while preparing it",
 			namespace,
 		)
 		StopAllWorkersByNamespace(namespace)
 		return
 	}
-	mobilerunner.SetAgentNamespaceServed(runnerID, true)
-	if err := mobilerunner.MarkAgentNamespaceReady(app, runnerID); err != nil {
+	mobilerunner.SetRunnerNamespaceServed(runnerID, true)
+	if err := mobilerunner.MarkRunnerNamespaceReady(app, runnerID); err != nil {
 		log.Printf("[WorkersHook] %v", err)
 	}
 }
 
-// StopRunnerAgentWorkers stops the workers of the agent namespace of the
-// runner with record ID runnerID unless the stored runner has its agent on
-// again. The record update that turned the agent off or disabled the runner
-// already cleared its readiness. The namespace stays in Temporal; its
-// histories expire by retention. Calls for one runner run one at a time, with
-// EnsureRunnerAgentNamespace, and are never skipped.
-func StopRunnerAgentWorkers(app core.App, runnerID string) {
-	mu := lockRunnerAgent(runnerID)
+// StopRunnerNamespaceWorkers stops the workers of the namespace of the runner
+// with record ID runnerID unless the stored runner is enabled again. The
+// record update that disabled the runner already cleared its readiness. The
+// namespace stays in Temporal; its histories expire by retention. Calls for
+// one runner run one at a time, with EnsureRunnerNamespace, and are never
+// skipped.
+func StopRunnerNamespaceWorkers(app core.App, runnerID string) {
+	mu := lockRunner(runnerID)
 	defer mu.Unlock()
 
-	if _, enabled := agentEnabledRunner(app, runnerID, mu); enabled {
+	if _, enabled := namespaceEnabledRunner(app, runnerID, mu); enabled {
 		return
 	}
-	mobilerunner.SetAgentNamespaceServed(runnerID, false)
-	StopAllWorkersByNamespace(mobilerunner.AgentNamespace(runnerID))
+	mobilerunner.SetRunnerNamespaceServed(runnerID, false)
+	StopAllWorkersByNamespace(mobilerunner.RunnerNamespace(runnerID))
 }
 
 // StopAllWorkersByNamespace cancels the namespace's workers and waits up to
@@ -948,75 +1007,101 @@ func addSearchAttributes(ctx context.Context, namespace string) error {
 	return err
 }
 
-func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerIDs []string) {
-	if TemporalWorkersDisabled() {
-		log.Printf(
-			"[WorkerManagerWorkflow] Skipping for namespace %s (%s is set)",
-			namespace,
-			TemporalWorkersDisabledEnv,
-		)
-		return
+// findNexusEndpoint returns the Nexus endpoint named name, or nil.
+func findNexusEndpoint(
+	ctx context.Context,
+	operator operatorservice.OperatorServiceClient,
+	name string,
+) (*nexuspb.Endpoint, error) {
+	resp, err := operator.ListNexusEndpoints(ctx, &operatorservice.ListNexusEndpointsRequest{
+		Name: name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list Nexus endpoint %s: %w", name, err)
 	}
-
-	go func() {
-		if err := executeWorkerManagerWorkflowFn(
-			namespace,
-			oldNamespace,
-			runnerIDs,
-		); err != nil {
-			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
-		} else {
-			log.Printf("[WorkerManagerWorkflow] Successfully started for namespace %s", namespace)
+	for _, endpoint := range resp.GetEndpoints() {
+		if endpoint.GetSpec().GetName() == name {
+			return endpoint, nil
 		}
-	}()
+	}
+	return nil, nil
 }
 
-func executeWorkerManagerWorkflow(
-	namespace,
-	oldNamespace string,
-	runnerIDs []string,
-) error {
-	ao := &workflow.ActivityOptions{
-		ScheduleToCloseTimeout: time.Minute,
-		StartToCloseTimeout:    30 * time.Second,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    time.Second,
-			BackoffCoefficient: 1.0,
-			MaximumInterval:    time.Minute,
-			MaximumAttempts:    5,
+// runnerNexusEndpointSpec is the Nexus endpoint of a runner namespace: named
+// after the namespace, it targets the namespace's PipelineTaskQueue.
+func runnerNexusEndpointSpec(namespace string) *nexuspb.EndpointSpec {
+	return &nexuspb.EndpointSpec{
+		Name: namespace,
+		Target: &nexuspb.EndpointTarget{
+			Variant: &nexuspb.EndpointTarget_Worker_{
+				Worker: &nexuspb.EndpointTarget_Worker{
+					Namespace: namespace,
+					TaskQueue: pipeline.PipelineTaskQueue,
+				},
+			},
 		},
 	}
+}
 
-	input := workflowengine.WorkflowInput{
-		Payload: workflows.WorkerManagerWorkflowPayload{
-			Namespace:    namespace,
-			OldNamespace: oldNamespace,
-			RunnerIDs:    uniqueWorkerManagerRunnerIDs(runnerIDs),
-		},
-		ActivityOptions: ao,
-	}
-
-	resStart, err := workerManagerStartWorkflow("default", input)
+// ensureRunnerNexusEndpoint creates the Nexus endpoint of the runner
+// namespace, or points an existing one with another target back at it.
+func ensureRunnerNexusEndpoint(namespace string) error {
+	c, err := getTemporalClient(namespace)
 	if err != nil {
-		return fmt.Errorf("failed to start workflow: %w", err)
+		return err
 	}
-
-	c, err := workerManagerTemporalClient("default")
-	if err != nil {
-		return fmt.Errorf("unable to create client: %w", err)
-	}
-
-	waitCtx, cancel := context.WithTimeout(context.Background(), workerManagerWaitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = workerManagerWaitForWorkflowResult(
-		waitCtx,
-		c,
-		resStart.WorkflowID,
-		resStart.WorkflowRunID,
-	)
+	operator := c.OperatorService()
+	spec := runnerNexusEndpointSpec(namespace)
+	existing, err := findNexusEndpoint(ctx, operator, namespace)
 	if err != nil {
-		return fmt.Errorf("failed to start mobile automation worker for organization: %w", err)
+		return err
 	}
+	if existing == nil {
+		if _, err := operator.CreateNexusEndpoint(ctx, &operatorservice.CreateNexusEndpointRequest{
+			Spec: spec,
+		}); err != nil {
+			return fmt.Errorf("create Nexus endpoint %s: %w", namespace, err)
+		}
+		return nil
+	}
+	worker := existing.GetSpec().GetTarget().GetWorker()
+	if worker.GetNamespace() == namespace && worker.GetTaskQueue() == pipeline.PipelineTaskQueue {
+		return nil
+	}
+	if _, err := operator.UpdateNexusEndpoint(ctx, &operatorservice.UpdateNexusEndpointRequest{
+		Id:      existing.GetId(),
+		Version: existing.GetVersion(),
+		Spec:    spec,
+	}); err != nil {
+		return fmt.Errorf("update Nexus endpoint %s: %w", namespace, err)
+	}
+	return nil
+}
 
+// DeleteRunnerNexusEndpoint deletes the Nexus endpoint of the runner with
+// record ID runnerID. An endpoint that does not exist is not an error.
+func DeleteRunnerNexusEndpoint(runnerID string) error {
+	namespace := mobilerunner.RunnerNamespace(runnerID)
+	c, err := getTemporalClient(namespace)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	operator := c.OperatorService()
+	existing, err := findNexusEndpoint(ctx, operator, namespace)
+	if err != nil || existing == nil {
+		return err
+	}
+	_, err = operator.DeleteNexusEndpoint(ctx, &operatorservice.DeleteNexusEndpointRequest{
+		Id:      existing.GetId(),
+		Version: existing.GetVersion(),
+	})
+	var notFound *serviceerror.NotFound
+	if err != nil && !errors.As(err, &notFound) {
+		return fmt.Errorf("delete Nexus endpoint %s: %w", namespace, err)
+	}
 	return nil
 }

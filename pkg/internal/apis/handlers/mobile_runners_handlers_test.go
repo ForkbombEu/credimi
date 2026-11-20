@@ -227,7 +227,6 @@ func TestListMobileRunners(t *testing.T) {
 		require.NoError(t, err)
 		userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 		require.NoError(t, err)
-		setOrganizationPublished(t, app, userOrgID, true)
 		otherOrg := createOtherWalletAPKOrganization(t, app)
 
 		createMobileRunnerRecord(t, app, userOrgID, "owned-offline", "offline-runner", false)
@@ -297,6 +296,7 @@ func TestListMobileRunners(t *testing.T) {
 		require.Equal(t, []MobileRunnerHealthDevice{
 			{Serial: "ABC123", State: "device", Model: "Pixel_8"},
 		}, response.Runners[0].Devices)
+		require.NotEmpty(t, response.Runners[0].URL)
 
 		require.Equal(t, "usera-s-organization/owned-offline", response.Runners[1].Path)
 		require.True(t, response.Runners[1].IsOwned)
@@ -308,6 +308,11 @@ func TestListMobileRunners(t *testing.T) {
 		require.Equal(t, "online", response.Runners[2].HealthStatus)
 		require.NotNil(t, response.Runners[2].RunsAhead)
 		require.Equal(t, 1, *response.Runners[2].RunsAhead)
+		// Another organization's published runner: no address, no device details.
+		require.Empty(t, response.Runners[2].URL)
+		require.Empty(t, response.Runners[2].Devices)
+		require.NotContains(t, raw["runners"][2], "url")
+		require.NotContains(t, raw["runners"][2], "devices")
 	})
 
 	t.Run("admin key sees every runner", func(t *testing.T) {
@@ -368,7 +373,6 @@ func TestListMobileRunners(t *testing.T) {
 			require.NoError(t, err)
 			userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 			require.NoError(t, err)
-			setOrganizationPublished(t, app, userOrgID, true)
 			otherOrg := createOtherWalletAPKOrganization(t, app)
 
 			createMobileRunnerRecord(
@@ -448,81 +452,6 @@ func TestListMobileRunners(t *testing.T) {
 				response.Runners[0].Path,
 				response.Runners[1].Path,
 				response.Runners[2].Path,
-			})
-		},
-	)
-
-	t.Run(
-		"unpublished normal user organization sees owned and published admin-managed runners",
-		func(t *testing.T) {
-			app := setupMobileRunnerApp(t)
-			defer app.Cleanup()
-
-			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-			require.NoError(t, err)
-			userOrgID, err := pbutils.GetUserOrganizationID(app, user.Id)
-			require.NoError(t, err)
-			setOrganizationPublished(t, app, userOrgID, false)
-			otherOrg := createOtherWalletAPKOrganization(t, app)
-
-			createMobileRunnerRecord(
-				t,
-				app,
-				userOrgID,
-				"owned-private",
-				"http://127.0.0.1:1",
-				false,
-			)
-			createMobileRunnerRecord(
-				t,
-				app,
-				otherOrg.Id,
-				"other-published",
-				"http://127.0.0.1:1",
-				true,
-			)
-			createMobileRunnerRecord(
-				t,
-				app,
-				otherOrg.Id,
-				"admin-published",
-				"http://127.0.0.1:1",
-				true,
-			)
-			setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
-
-			originalHealth := checkMobileRunnerHealth
-			checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
-				return false, nil, nil
-			}
-			t.Cleanup(func() {
-				checkMobileRunnerHealth = originalHealth
-			})
-
-			req := httptest.NewRequest(http.MethodGet, "/api/mobile-runners", nil)
-			rec := httptest.NewRecorder()
-			event := &core.RequestEvent{
-				App:  app,
-				Auth: user,
-				Event: router.Event{
-					Request:  req,
-					Response: rec,
-				},
-			}
-
-			err = HandleListMobileRunners()(event)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, rec.Code)
-
-			var response ListMobileRunnersPublicResponseSchema
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-			require.Len(t, response.Runners, 2)
-			require.ElementsMatch(t, []string{
-				"usera-s-organization/owned-private",
-				"other-org/admin-published",
-			}, []string{
-				response.Runners[0].Path,
-				response.Runners[1].Path,
 			})
 		},
 	)
@@ -619,6 +548,19 @@ func TestListMobileDevices(t *testing.T) {
 	device.Set("online", true)
 	require.NoError(t, app.Save(device))
 	markRunnerHeartbeat(t, app, runner, time.Now())
+	otherOrg := createOtherWalletAPKOrganization(t, app)
+	createMobileRunnerRecord(t, app, otherOrg.Id, "shared-host", "https://shared.example", true)
+	sharedRunner, err := canonify.Resolve(app, "/other-org/shared-host")
+	require.NoError(t, err)
+	sharedDevice := core.NewRecord(devices)
+	sharedDevice.Set("owner", otherOrg.Id)
+	sharedDevice.Set("runner", sharedRunner.Id)
+	sharedDevice.Set("name", "pixel-9")
+	sharedDevice.Set("type", "android_phone")
+	sharedDevice.Set("serial", "XYZ789")
+	sharedDevice.Set("online", true)
+	require.NoError(t, app.Save(sharedDevice))
+	markRunnerHeartbeat(t, app, sharedRunner, time.Now())
 	originalHealth := checkMobileRunnerHealth
 	checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 		t.Fatal("the device selector must not probe runners")
@@ -628,8 +570,7 @@ func TestListMobileDevices(t *testing.T) {
 
 	originalQuery := queryMobileDeviceSemaphoreState
 	queryMobileDeviceSemaphoreState = func(_ context.Context, deviceID string) (workflows.MobileDeviceSemaphoreStateView, error) {
-		require.Equal(t, "usera-s-organization/device-host/pixel-8", deviceID)
-		// One run holds the device and two wait: three runs ahead.
+		// One run holds each device and two wait: three runs ahead.
 		return workflows.MobileDeviceSemaphoreStateView{
 			DeviceID:  deviceID,
 			SlotsUsed: 1,
@@ -650,8 +591,17 @@ func TestListMobileDevices(t *testing.T) {
 
 	var response ListMobileDevicesPublicResponseSchema
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-	require.Len(t, response.Devices, 1)
-	item := response.Devices[0]
+	require.Len(t, response.Devices, 2)
+	items := make(map[string]MobileDeviceListItem, len(response.Devices))
+	for _, item := range response.Devices {
+		items[item.Path] = item
+	}
+	shared, ok := items["other-org/shared-host/pixel-9"]
+	require.True(t, ok)
+	require.False(t, shared.IsOwned)
+	require.Empty(t, shared.Serial, "another organization's device serial is hidden")
+	item, ok := items["usera-s-organization/device-host/pixel-8"]
+	require.True(t, ok)
 	require.Equal(t, "usera-s-organization/device-host/pixel-8", item.Path)
 	require.Equal(t, "usera-s-organization/device-host", item.RunnerID)
 	require.Equal(t, "device-host", item.RunnerName)
@@ -946,20 +896,6 @@ func createMobileRunnerRecord(
 	require.NoError(t, app.Save(record))
 }
 
-func setOrganizationPublished(
-	t testing.TB,
-	app *tests.TestApp,
-	orgID string,
-	published bool,
-) {
-	t.Helper()
-
-	org, err := app.FindRecordById("organizations", orgID)
-	require.NoError(t, err)
-	org.Set("published", published)
-	require.NoError(t, app.Save(org))
-}
-
 func setMobileRunnerAdminManaged(
 	t testing.TB,
 	app *tests.TestApp,
@@ -1192,9 +1128,9 @@ func TestUpsertMobileRunner(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "lab device", record.GetString("description"))
 		require.Equal(t, "https://runner.example.trycloudflare.com", record.GetString("ip"))
-		// Tenants cannot publish runners: the requested flag is ignored.
-		require.False(t, record.GetBool("published"))
-		require.Equal(t, false, body["published"])
+		// Owners publish their runners.
+		require.True(t, record.GetBool("published"))
+		require.Equal(t, true, body["published"])
 	})
 
 	t.Run("runner_id update keeps the same record", func(t *testing.T) {
@@ -1502,9 +1438,10 @@ func TestUpsertMobileRunnerIssuesRunnerCredential(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	// An admin-managed runner serves every namespace and skips the tenant
-	// destination policy: members of its owner organization must neither
-	// repoint it nor learn the credential Credimi presents to it.
+	// An admin-managed runner is operator infrastructure used by every
+	// organization and skips the tenant destination policy: members of its
+	// owner organization must neither repoint it nor learn the credential
+	// Credimi presents to it.
 	t.Run("admin-managed runner is out of reach of its organization", func(t *testing.T) {
 		app := setupMobileRunnerApp(t)
 		defer app.Cleanup()

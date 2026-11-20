@@ -10,7 +10,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,68 +88,54 @@ func tokenClaims(t *testing.T, event *core.RequestEvent) (string, []string) {
 }
 
 func TestHandleMobileRunnerTemporalToken(t *testing.T) {
-	t.Run("own non-published runner gets its organization only", func(t *testing.T) {
-		f := setupRegistrationFixture(t)
-		f.setRunnerField(t, "published", false)
-
-		event, err := f.requestTemporalToken(t, f.user, tokenTestRunnerID)
-		require.NoError(t, err)
-		sub, permissions := tokenClaims(t, event)
-		assert.Equal(t, "mobile-runner:"+tokenTestRunnerID, sub)
-		assert.Equal(t, []string{"usera-s-organization:write"}, permissions)
-	})
-
-	t.Run("runner with an enabled agent also gets its agent namespace", func(t *testing.T) {
-		f := setupRegistrationFixture(t)
-		f.setRunnerField(t, "published", false)
-		f.setRunnerField(t, "agent_enabled", true)
-		record, err := canonify.Resolve(f.app, "/"+tokenTestRunnerID)
-		require.NoError(t, err)
-
-		event, err := f.requestTemporalToken(t, f.user, tokenTestRunnerID)
-		require.NoError(t, err)
-		_, permissions := tokenClaims(t, event)
-		assert.Equal(
-			t,
-			[]string{"runner-" + record.Id + ":write", "usera-s-organization:write"},
-			permissions,
-		)
-	})
-
-	t.Run("published runner gets published organizations but not default", func(t *testing.T) {
-		f := setupRegistrationFixture(t)
-		f.setRunnerField(t, "published", true)
-		setOrganizationPublished(t, f.app, f.otherOrg, true)
-
-		event, err := f.requestTemporalToken(t, f.user, tokenTestRunnerID)
-		require.NoError(t, err)
-		_, permissions := tokenClaims(t, event)
-		assert.Contains(t, permissions, "usera-s-organization:write")
-		assert.Contains(t, permissions, orgNamespace(t, f, f.otherOrg)+":write")
-		assert.NotContains(t, permissions, "default:write")
-		assert.IsNonDecreasing(t, permissions)
-	})
-
-	t.Run("superuser gets default and every organization for an admin-managed runner",
-		func(t *testing.T) {
+	runnerKinds := []struct {
+		name    string
+		prepare func(t *testing.T, f registrationFixture)
+		auth    func(f registrationFixture) *core.Record
+	}{
+		{
+			name: "own non-published runner",
+			prepare: func(t *testing.T, f registrationFixture) {
+				f.setRunnerField(t, "published", false)
+			},
+			auth: func(f registrationFixture) *core.Record { return f.user },
+		},
+		{
+			name: "runner with an enabled agent",
+			prepare: func(t *testing.T, f registrationFixture) {
+				f.setRunnerField(t, "agent_enabled", true)
+			},
+			auth: func(f registrationFixture) *core.Record { return f.user },
+		},
+		{
+			name: "published runner",
+			prepare: func(t *testing.T, f registrationFixture) {
+				f.setRunnerField(t, "published", true)
+			},
+			auth: func(f registrationFixture) *core.Record { return f.user },
+		},
+		{
+			name: "admin-managed runner, as a superuser",
+			prepare: func(t *testing.T, f registrationFixture) {
+				setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
+			},
+			auth: func(f registrationFixture) *core.Record { return f.superuser },
+		},
+	}
+	for _, tc := range runnerKinds {
+		t.Run(tc.name+" gets its runner namespace only", func(t *testing.T) {
 			f := setupRegistrationFixture(t)
-			setMobileRunnerAdminManaged(t, f.app, tokenTestRunnerID, true)
-
-			event, err := f.requestTemporalToken(t, f.superuser, tokenTestRunnerID)
+			tc.prepare(t, f)
+			record, err := canonify.Resolve(f.app, "/"+tokenTestRunnerID)
 			require.NoError(t, err)
-			_, permissions := tokenClaims(t, event)
 
-			orgs, err := f.app.FindAllRecords("organizations")
+			event, err := f.requestTemporalToken(t, tc.auth(f), tokenTestRunnerID)
 			require.NoError(t, err)
-			want := []string{"default:write"}
-			for _, org := range orgs {
-				if ns := org.GetString("canonified_name"); ns != "" {
-					want = append(want, ns+":write")
-				}
-			}
-			assert.ElementsMatch(t, want, permissions)
-			assert.IsIncreasing(t, permissions)
+			sub, permissions := tokenClaims(t, event)
+			assert.Equal(t, "mobile-runner:"+tokenTestRunnerID, sub)
+			assert.Equal(t, []string{"runner-" + record.Id + ":write"}, permissions)
 		})
+	}
 
 	errorCases := []struct {
 		name       string
@@ -226,29 +211,8 @@ func TestHandleMobileRunnerTemporalToken(t *testing.T) {
 	}
 }
 
-func TestHandleMobileRunnerTemporalTokenReservedNamespace(t *testing.T) {
-	f := setupRegistrationFixture(t)
-	f.setRunnerField(t, "published", false)
-	// A legacy organization holding a reserved namespace; the canonify update
-	// hook would rewrite a normal save, so write the column directly.
-	_, err := f.app.DB().
-		NewQuery("UPDATE organizations SET canonified_name='default' WHERE id={:id}").
-		Bind(dbx.Params{"id": f.orgID}).
-		Execute()
-	require.NoError(t, err)
-
-	_, err = f.requestTemporalToken(t, f.user, "default/lab-runner")
-	requireRegistrationAPIError(
-		t,
-		err,
-		http.StatusConflict,
-		"organizations",
-		"organization_namespace_reserved",
-	)
-}
-
 func TestHandleMobileRunnerTemporalTokenAgentScope(t *testing.T) {
-	t.Run("agent scope grants only the agent namespace", func(t *testing.T) {
+	t.Run("agent scope grants only the runner namespace", func(t *testing.T) {
 		f := setupRegistrationFixture(t)
 		f.setRunnerField(t, "published", true)
 		f.setRunnerField(t, "agent_enabled", true)

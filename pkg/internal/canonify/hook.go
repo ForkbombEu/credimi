@@ -18,7 +18,7 @@ const RunnerNamespacePrefix = "runner-"
 
 // Organizations become Temporal namespaces. They never take Credimi's shared
 // namespace (default), a name in Temporal's own space (temporal-*, which
-// includes the system namespace temporal-system) or a runner agent namespace
+// includes the system namespace temporal-system) or a runner namespace
 // (runner-*).
 var reservedNamespacePrefixes = []string{"temporal-", RunnerNamespacePrefix}
 

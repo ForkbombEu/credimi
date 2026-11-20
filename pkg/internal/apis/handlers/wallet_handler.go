@@ -209,6 +209,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			homeURL = getStringFromMap(metadata, "sellerUrl")
 			appstoreURL = req.URL
 		}
+		description = withoutRepeatedTitle(description, name)
 
 		return e.JSON(http.StatusOK, map[string]any{
 			"type":          storeType,
@@ -223,6 +224,15 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			"owner":         organization,
 		})
 	}
+}
+
+// withoutRepeatedTitle drops one copy of a title that a store description repeats
+// at its start, as some Play Store listings do ("TitleTitle\n...").
+func withoutRepeatedTitle(description, title string) string {
+	if title == "" || !strings.HasPrefix(description, title+title) {
+		return description
+	}
+	return strings.TrimPrefix(description, title)
 }
 
 type WalletInstallerMD5OrETagRequest struct {
@@ -618,20 +628,16 @@ func authorizePipelineResultDeviceStoreAccess(
 		return nil
 	}
 
-	return authorizePipelineResultOwnerAccess(
-		e,
-		resultRecord.GetString("owner"),
-		func() (*core.Record, *apierror.APIError) { return device, nil },
-	)
+	return authorizePipelineResultOwnerAccess(e, resultRecord.GetString("owner"), device)
 }
 
 // authorizePipelineResultOwnerAccess allows members of the result owner
-// organization, or owners of a published runner whose device is resolved
-// by resolveDevice when the result owner organization is published.
+// organization, and owners of a published runner hosting device to store
+// results of a run whose devices list that device.
 func authorizePipelineResultOwnerAccess(
 	e *core.RequestEvent,
 	ownerID string,
-	resolveDevice func() (*core.Record, *apierror.APIError),
+	device *core.Record,
 ) *apierror.APIError {
 	if ownerID == "" {
 		return apierror.New(
@@ -655,16 +661,7 @@ func authorizePipelineResultOwnerAccess(
 		return nil
 	}
 
-	allowed, apiErr := publishedDeviceCanStoreForPublishedOrganization(
-		e.App,
-		userOrgID,
-		ownerID,
-		resolveDevice,
-	)
-	if apiErr != nil {
-		return apiErr
-	}
-	if allowed {
+	if publishedRunnerOwnsDevice(e.App, userOrgID, device) {
 		return nil
 	}
 
@@ -693,38 +690,17 @@ func resolvePipelineResultDevice(
 	return device, nil
 }
 
-func publishedDeviceCanStoreForPublishedOrganization(
-	app core.App,
-	deviceOwnerID string,
-	resultOwnerID string,
-	resolveDevice func() (*core.Record, *apierror.APIError),
-) (bool, *apierror.APIError) {
-	ownerOrg, err := app.FindRecordById("organizations", resultOwnerID)
-	if err != nil {
-		return false, apierror.New(
-			http.StatusInternalServerError,
-			"organization",
-			"failed to get result owner organization",
-			err.Error(),
-		)
-	}
-	if !ownerOrg.GetBool("published") {
-		return false, nil
-	}
-
-	device, apiErr := resolveDevice()
-	if apiErr != nil {
-		return false, apiErr
-	}
+// publishedRunnerOwnsDevice reports whether device belongs to a published
+// runner owned by deviceOwnerID.
+func publishedRunnerOwnsDevice(app core.App, deviceOwnerID string, device *core.Record) bool {
 	if device.Collection() == nil || device.Collection().Name != mobileDevicesCollection {
-		return false, nil
+		return false
 	}
 	runner, err := app.FindRecordById("mobile_runners", device.GetString("runner"))
-	if err == nil && runner.GetString("owner") == deviceOwnerID {
-		return runner.GetBool("published"), nil
+	if err != nil {
+		return false
 	}
-
-	return false, nil
+	return runner.GetString("owner") == deviceOwnerID && runner.GetBool("published")
 }
 
 // authorizeWalletInstallerAccess lets the internal admin and members of the
@@ -771,6 +747,9 @@ func isInternalAdminPrincipal(auth *core.Record) bool {
 	return auth.Collection().Name == "_superusers"
 }
 
+// saveUploadedFileToRecord appends the uploaded form file to recordField and
+// returns the URLs of the files this upload stored, never of the files other
+// devices or earlier uploads stored.
 func saveUploadedFileToRecord(
 	e *core.RequestEvent,
 	record *core.Record,
@@ -874,20 +853,23 @@ func saveUploadedFileToRecord(
 		)
 	}
 
-	existing := record.GetStringSlice(recordField)
-
-	values := make([]any, 0, len(existing)+1)
-
-	for _, name := range existing {
-		values = append(values, name)
+	// Append to a record reloaded under the per-record lock: concurrent uploads
+	// to the same result would otherwise overwrite the field from a stale copy.
+	unlock := lockPipelineResult(record.Id)
+	defer unlock()
+	fresh, err := e.App.FindRecordById("pipeline_results", record.Id)
+	if err != nil {
+		os.Remove(absPath)
+		return "", nil, apierror.New(
+			http.StatusInternalServerError,
+			"pipeline_results",
+			"failed to save record with uploaded file",
+			err.Error(),
+		)
 	}
-
-	// add new file
-	values = append(values, f)
-
-	record.Set(recordField, values)
-
-	if err := e.App.Save(record); err != nil {
+	before := fresh.GetStringSlice(recordField)
+	fresh.Set(recordField+"+", f)
+	if err := e.App.Save(fresh); err != nil {
 		os.Remove(absPath)
 		return "", nil, apierror.New(
 			http.StatusInternalServerError,
@@ -897,15 +879,15 @@ func saveUploadedFileToRecord(
 		)
 	}
 
-	names := record.GetStringSlice(recordField)
-	urls := make([]string, 0, len(names))
+	newNames := fresh.GetStringSlice(recordField)[len(before):]
+	urls := make([]string, 0, len(newNames))
 
-	for _, fn := range names {
+	for _, fn := range newNames {
 		url := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
 			"api", "files", "pipeline_results",
-			record.Id,
-			record.GetString(recordField),
+			fresh.Id,
+			fresh.GetString(recordField),
 			fn,
 		)
 		urls = append(urls, url)

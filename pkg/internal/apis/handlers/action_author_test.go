@@ -108,6 +108,12 @@ func setupActionAuthorApp(t testing.TB) *tests.TestApp {
 		createAuthoringRunner(t, app, foreignOrg.Id, "foreign-admin-runner", true),
 		"android_emulator",
 	)
+	// Credimi prepared the namespaces of the enabled fixture runners.
+	for _, name := range []string{"admin-runner", "tenant-runner", "foreign-admin-runner"} {
+		runner, err := app.FindFirstRecordByData("mobile_runners", "name", name)
+		require.NoError(t, err)
+		require.NoError(t, mobilerunner.MarkRunnerNamespaceReady(app, runner.Id))
+	}
 	return app
 }
 
@@ -159,12 +165,12 @@ func createAuthoringDevice(
 	require.NoError(t, app.Save(device))
 }
 
-// authoringAgentNamespace is the agent namespace of the fixture runner name.
-func authoringAgentNamespace(t testing.TB, app core.App, name string) string {
+// authoringRunnerNamespace is the runner namespace of the fixture runner name.
+func authoringRunnerNamespace(t testing.TB, app core.App, name string) string {
 	t.Helper()
 	runner, err := app.FindFirstRecordByData("mobile_runners", "name", name)
 	require.NoError(t, err)
-	return mobilerunner.AgentNamespace(runner.Id)
+	return mobilerunner.RunnerNamespace(runner.Id)
 }
 
 func authoringToken(t *testing.T, user string) string {
@@ -452,11 +458,11 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, json.Unmarshal(body, &response))
 				// Credimi signs the ticket it enqueues for the ticket's
-				// session workflow in the runner's agent namespace, for the
+				// session workflow in the runner's namespace, for the
 				// caller's organization; the start activity signs the
 				// session, so the ticket has no grant.
 				require.NotContains(t, enqueued.ActionAuthor, "grant")
-				runnerNamespace = authoringAgentNamespace(t, app, path.Base(runner))
+				runnerNamespace = authoringRunnerNamespace(t, app, path.Base(runner))
 				ticketGrant, _ := enqueued.ActionAuthor["ticket_grant"].(string)
 				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 				require.NoError(t, err)
@@ -717,10 +723,10 @@ func TestActionAuthorStartRequiresRunningAgent(t *testing.T) {
 			ExpectedContent: tc.expected,
 			TestAppFactory:  setupActionAuthorApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-				// The agent is described in the runner's agent namespace.
+				// The agent is described in the runner's namespace.
 				require.Equal(
 					t,
-					authoringAgentNamespace(t, app, "admin-runner"),
+					authoringRunnerNamespace(t, app, "admin-runner"),
 					namespaces[0],
 					tc.name,
 				)
@@ -768,7 +774,7 @@ func TestActionAuthorStartRefusesRunnerWithoutAgent(t *testing.T) {
 			return app
 		},
 	}).Test(t)
-	// The agent namespace exists only for enabled agents: Temporal is not asked.
+	// An agent that is not enabled is unavailable: Temporal is not asked.
 	require.Empty(t, described)
 	require.Empty(t, enqueued.TicketID)
 }
@@ -900,8 +906,8 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 				require.NoError(t, json.Unmarshal(body, &response))
-				adminNamespace = authoringAgentNamespace(t, app, "admin-runner")
-				tenantNamespace = authoringAgentNamespace(t, app, "tenant-runner")
+				adminNamespace = authoringRunnerNamespace(t, app, "admin-runner")
+				tenantNamespace = authoringRunnerNamespace(t, app, "tenant-runner")
 			},
 		}).Test(t)
 
@@ -913,7 +919,7 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 		if tc.clientErr != nil {
 			require.Empty(t, describes, tc.name)
 		} else {
-			// Once per runner in its agent namespace, however many devices it has.
+			// Once per runner in its namespace, however many devices it has.
 			require.Equal(t, map[string][]string{
 				authoringAdminRunner + "-ActionAuthor":  {adminNamespace},
 				authoringTenantRunner + "-ActionAuthor": {tenantNamespace},
@@ -928,7 +934,7 @@ type namespacedClient struct {
 	namespace string
 }
 
-func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
+func TestActionAuthorDevicesChecksRunnersInParallel(t *testing.T) {
 	token := authoringToken(t, "userA")
 
 	const checkDuration = 200 * time.Millisecond

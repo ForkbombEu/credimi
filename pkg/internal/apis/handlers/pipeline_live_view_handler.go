@@ -152,17 +152,20 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		streams := make([]PipelineLiveViewStream, 0, len(deviceIDs))
 		var firstErr *apierror.APIError
 		for _, deviceID := range deviceIDs {
+			// The runner asks Credimi whether this workflow still runs
+			// (GET /api/mobile-runner/lifecycle/live-view).
+			request := runnerLiveViewRequest{
+				Namespace:     workflowNamespace,
+				WorkflowID:    workflowID,
+				RunID:         runID,
+				RunIdentifier: runIdentifier,
+			}
 			stream, apiErr := openPipelineDeviceLiveView(
 				ctx,
 				e.App,
 				deviceID,
 				devices[deviceID],
-				runnerLiveViewRequest{
-					Namespace:     workflowNamespace,
-					WorkflowID:    workflowID,
-					RunID:         runID,
-					RunIdentifier: runIdentifier,
-				},
+				request,
 			)
 			if apiErr != nil {
 				if explicit {

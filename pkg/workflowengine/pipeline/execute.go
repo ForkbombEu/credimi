@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -17,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
@@ -148,26 +150,18 @@ func ExecuteStep(
 
 			return nil, appErr
 		}
-		taskqueue := PipelineTaskQueue
-		if step.CustomTaskQueue {
-			configuredTaskQueue, ok := s.With.Config["taskqueue"].(string)
-			if !ok || strings.TrimSpace(configuredTaskQueue) == "" {
-				errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-				return nil, workflowengine.NewNonRetryableAppError(
-					workflowengine.WorkflowError{
-						Code:    errCode.Code,
-						Summary: errCode.Description,
-						Message: fmt.Sprintf("missing or invalid taskqueue for step %s", s.ID),
-					},
-				)
-			}
-			taskqueue = configuredTaskQueue
-		}
 		w := step.NewFunc(nil).(workflowengine.Workflow)
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
 			Config:          workflowengine.MergeTelemetryConfig(ctx, s.With.Config),
 			ActivityOptions: &ao,
+		}
+
+		if err := ensureStepInputSize(s.ID, input); err != nil {
+			return nil, err
+		}
+		if s.Use == mobileAutomationStepUse {
+			return runMobileStep(ctx, s, input)
 		}
 
 		var memo map[string]any
@@ -176,25 +170,19 @@ func ExecuteStep(
 		var result workflowengine.WorkflowResult
 		opts := workflow.ChildWorkflowOptions{
 			WorkflowID:        taskWorkflowID(ctx, s.ID),
-			TaskQueue:         taskqueue,
+			TaskQueue:         PipelineTaskQueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 			Memo:              memo,
 			StaticSummary:     summaryLine(s.ID),
 		}
 		ctxChild := workflow.WithChildOptions(ctx, opts)
-		if err := ensureStepInputSize(s.ID, input); err != nil {
-			return nil, err
-		}
 		err = workflow.ExecuteChildWorkflow(
 			ctxChild,
 			w.Name(),
 			input,
 		).Get(ctxChild, &result)
 		if err != nil {
-			if out := failedTaskWorkflowOutput(ctx, err); out != nil {
-				return out, err
-			}
-			return result, err
+			return failedTaskWorkflowOutput(err), err
 		}
 		return result.Output, nil
 	}
@@ -202,9 +190,70 @@ func ExecuteStep(
 	return nil, nil
 }
 
+// runMobileStep runs a mobile-automation step's workflow in the runner
+// namespace of its device, through the Run step operation of the runner's
+// Nexus endpoint.
+func runMobileStep(
+	ctx workflow.Context,
+	s *pipeline.StepDefinition,
+	input workflowengine.WorkflowInput,
+) (any, error) {
+	namespace, _ := s.With.Config[runnerNamespaceConfigKey].(string)
+	if strings.TrimSpace(namespace) == "" {
+		return nil, missingMobileStepConfig(s.ID, runnerNamespaceConfigKey)
+	}
+	pipelineRun, err := workflowengine.DecodePayload[mobiledevice.PipelineRun](
+		s.With.Config[pipelineRunConfigKey],
+	)
+	if err != nil || pipelineRun.WorkflowID == "" {
+		return nil, missingMobileStepConfig(s.ID, pipelineRunConfigKey)
+	}
+	executionTimeout, err := time.ParseDuration(
+		workflowengine.AsString(s.With.Config[pipelineExecutionTimeoutConfigKey]),
+	)
+	if err != nil {
+		return nil, missingMobileStepConfig(s.ID, pipelineExecutionTimeoutConfigKey)
+	}
+	var result workflowengine.WorkflowResult
+	err = workflow.NewNexusClient(namespace, mobiledevice.ServiceName).ExecuteOperation(
+		ctx,
+		mobiledevice.RunStepOperationName,
+		mobiledevice.RunStepInput{
+			WorkflowID:       taskWorkflowID(ctx, s.ID),
+			ExecutionTimeout: executionTimeout,
+			Pipeline:         pipelineRun,
+			// The runner owner reads this input, so only what the step workflow needs is sent.
+			Input: workflowengine.WorkflowInput{
+				Payload:         input.Payload,
+				Config:          selectConfigKeys(input.Config, runnerStepConfigKeys),
+				ActivityOptions: input.ActivityOptions,
+			},
+		},
+		workflow.NexusOperationOptions{
+			ScheduleToCloseTimeout: executionTimeout,
+			ScheduleToStartTimeout: deviceOperationScheduleToStart,
+			Summary:                summaryLine(s.ID),
+		},
+	).Get(ctx, &result)
+	if err != nil {
+		return failedTaskWorkflowOutput(err), err
+	}
+	return result.Output, nil
+}
+
+// missingMobileStepConfig fails a mobile step whose setup did not set key.
+func missingMobileStepConfig(stepID, key string) error {
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+	return workflowengine.NewNonRetryableAppError(workflowengine.WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: fmt.Sprintf("missing %s for step %s", key, stepID),
+	})
+}
+
 // taskWorkflowID is the workflow ID of a task workflow step: the running workflow's ID and
 // the step ID, plus the attempt inside a Linked Steps Workflow, whose attempts would
-// otherwise reuse one child workflow ID.
+// otherwise reuse one workflow ID.
 func taskWorkflowID(ctx workflow.Context, stepID string) string {
 	info := workflow.GetInfo(ctx)
 	id := fmt.Sprintf("%s-%s", info.WorkflowExecution.ID, canonify.CanonifyPlain(stepID))
@@ -230,21 +279,14 @@ func Execute(
 	return ExecuteStep(s.ID, s.Use, with, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
 }
 
-// failedTaskWorkflowChangeID gates the output a failed task workflow step keeps: runs that
-// started before it store the zero WorkflowResult, as they did when they were scheduled.
-const failedTaskWorkflowChangeID = "credimi-2026-10-failed-task-workflow-output"
-
-// failedTaskWorkflowOutput returns the output a failed task workflow reported in its failure
-// Details.output, such as the screenshots a failed mobile flow took, so a step that failed
-// still exposes the evidence it produced. It is nil when the failure carries none.
-func failedTaskWorkflowOutput(ctx workflow.Context, err error) map[string]any {
-	out := workflowengine.ExtractOutputFromError(err)
-	if out == nil ||
-		workflow.GetVersion(ctx, failedTaskWorkflowChangeID, workflow.DefaultVersion, 1) ==
-			workflow.DefaultVersion {
-		return nil
+// failedTaskWorkflowOutput returns what a step keeps when its task workflow
+// failed: the output it reported in its failure Details.output, such as the
+// screenshots a failed mobile flow took, or the zero WorkflowResult.
+func failedTaskWorkflowOutput(err error) any {
+	if out := workflowengine.ExtractOutputFromError(err); out != nil {
+		return out
 	}
-	return out
+	return workflowengine.WorkflowResult{}
 }
 
 // maxStepInputBytes keeps a step's scheduling command below the 4 MiB gRPC message limit
@@ -327,6 +369,25 @@ func selectConfigKeys(cfg map[string]any, keys []string) map[string]any {
 		}
 	}
 	return selected
+}
+
+// runnerStepConfigKeys are the config keys the mobile step workflow reads in
+// its runner namespace (workflows/mobile.go, BuildWorkflow, the step memo and
+// the telemetry the runner activity forwards). Nothing else of the pipeline
+// config, such as semaphore tickets, user_mail or github_pr_comment, may reach
+// that namespace's history: its runner owner can read it.
+var runnerStepConfigKeys = []string{
+	workflowengine.AppURLConfigKey,
+	"taskqueue",
+	mobileExternalInstallConfigKey,
+	"run_identifier",
+	"runner_id",
+	workflowengine.StepIDConfigKey,
+	"memo",
+	workflowengine.TelemetryRootWorkflowIDKey,
+	workflowengine.TelemetryRootRunIDKey,
+	workflowengine.TelemetryParentWorkflowIDKey,
+	workflowengine.TelemetryParentRunIDKey,
 }
 
 func ExecuteOnError(

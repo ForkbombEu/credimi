@@ -41,11 +41,14 @@ type MobileRunnerHTTPActivityPayload struct {
 	ExpectedStatus int               `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
 }
 
+// MobileRunnerHTTPActivityName calls a mobile runner's HTTP API.
+const MobileRunnerHTTPActivityName = "Make an HTTP request to a mobile runner"
+
 // NewMobileRunnerHTTPActivity returns the activity; callers that only need its
 // Name may pass a nil app.
 func NewMobileRunnerHTTPActivity(app core.App) *MobileRunnerHTTPActivity {
 	return &MobileRunnerHTTPActivity{
-		BaseActivity: workflowengine.BaseActivity{Name: "Make an HTTP request to a mobile runner"},
+		BaseActivity: workflowengine.BaseActivity{Name: MobileRunnerHTTPActivityName},
 		app:          app,
 	}
 }
@@ -70,6 +73,13 @@ func (a *MobileRunnerHTTPActivity) Execute(
 			return result, a.NewCodedError(errorcodes.RecordNotFound, false, err)
 		}
 		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
+	}
+	if err := requireRunnerNamespaceOfCaller(
+		ctx,
+		&a.BaseActivity,
+		mobilerunner.RunnerNamespace(runner.Id),
+	); err != nil {
+		return result, err
 	}
 	runnerURL := mobilerunner.RunnerURL(runner)
 	if runnerURL == "" {

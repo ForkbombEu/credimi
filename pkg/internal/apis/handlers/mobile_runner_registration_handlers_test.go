@@ -740,6 +740,90 @@ func TestUpsertMobileRunnerRejectsIdentityChanges(t *testing.T) {
 	}
 }
 
+// A runner token opens only the runner's own namespace, so its organization's
+// owners, and superusers, may publish it; members register it but cannot.
+func TestUpsertMobileRunnerPublished(t *testing.T) {
+	cases := []struct {
+		name         string
+		prepare      func(t *testing.T, f registrationFixture)
+		auth         func(f registrationFixture) *core.Record
+		organization string
+		wantStored   bool
+	}{
+		{
+			name:       "owner key stores it",
+			auth:       func(f registrationFixture) *core.Record { return f.user },
+			wantStored: true,
+		},
+		{
+			name:         "internal admin key stores it",
+			auth:         func(f registrationFixture) *core.Record { return f.superuser },
+			organization: "usera-s-organization",
+			wantStored:   true,
+		},
+		{
+			name: "member key leaves it unchanged",
+			prepare: func(t *testing.T, f registrationFixture) {
+				memberRole, err := f.app.FindFirstRecordByData("orgRoles", "name", "member")
+				require.NoError(t, err)
+				authorization, err := f.app.FindFirstRecordByData(
+					"orgAuthorizations",
+					"user",
+					f.user.Id,
+				)
+				require.NoError(t, err)
+				authorization.Set("role", memberRole.Id)
+				require.NoError(t, f.app.Save(authorization))
+			},
+			auth:       func(f registrationFixture) *core.Record { return f.user },
+			wantStored: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := setupRegistrationFixture(t)
+			if tc.prepare != nil {
+				tc.prepare(t, f)
+			}
+			upsert := func(published bool) map[string]any {
+				t.Helper()
+				event := performMobileRunnerRequest(
+					t,
+					f.app,
+					tc.auth(f),
+					"/api/mobile-runner",
+					UpsertMobileRunnerRequest{
+						RunnerID:     "usera-s-organization/lab-runner",
+						Organization: tc.organization,
+						Name:         "Lab Runner",
+						IP:           "https://lab.example",
+						Published:    &published,
+					},
+				)
+				// runners authenticate with Credimi-Api-Key alone
+				event.Request.Header.Set(APIKeyHeaderName, "runner-key")
+				require.NoError(t, HandleUpsertMobileRunner()(event))
+				recorder := responseRecorder(t, event)
+				require.Equal(t, http.StatusOK, recorder.Code)
+				return decodeJSONBody(t, recorder)
+			}
+			stored := func() bool {
+				t.Helper()
+				runner, err := canonify.Resolve(f.app, "/usera-s-organization/lab-runner")
+				require.NoError(t, err)
+				return runner.GetBool("published")
+			}
+
+			require.Equal(t, tc.wantStored, upsert(true)["published"])
+			require.Equal(t, tc.wantStored, stored())
+			if tc.wantStored {
+				require.Equal(t, false, upsert(false)["published"])
+				require.False(t, stored())
+			}
+		})
+	}
+}
+
 func TestCanonifyPreviewError(t *testing.T) {
 	cases := []struct {
 		name       string

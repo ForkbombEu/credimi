@@ -61,10 +61,29 @@ func TestBuildPipelineFailureSummaryIncludesPipelineInputContext(t *testing.T) {
 func TestBuildPipelineFailureSummaryIncludesChildWorkflowContext(t *testing.T) {
 	summary := buildPipelineFailureSummary([]pipelineStepFailure{
 		{
-			StepID: "obtain-pid-sdjwt",
+			StepID: "openid4vp-wallet-check",
 			Failure: workflowengine.WorkflowError{
 				Code:    errorcodes.ChildWorkflowExecutionError,
 				Summary: "Failed to execute child workflow",
+				Message: "conformance suite reported failed test modules",
+			},
+		},
+	})
+
+	require.Equal(
+		t,
+		"Pipeline failed: 1 step failed; openid4vp-wallet-check failed with CRE230 Failed to execute child workflow: conformance suite reported failed test modules",
+		summary,
+	)
+}
+
+func TestBuildPipelineFailureSummaryIncludesMobileStepContext(t *testing.T) {
+	summary := buildPipelineFailureSummary([]pipelineStepFailure{
+		{
+			StepID: "obtain-pid-sdjwt",
+			Failure: workflowengine.WorkflowError{
+				Code:    errorcodes.MobileAutomationStepError,
+				Summary: "Mobile automation step failed",
 				Message: "Maestro flow failed while opening the credential offer",
 			},
 		},
@@ -72,7 +91,7 @@ func TestBuildPipelineFailureSummaryIncludesChildWorkflowContext(t *testing.T) {
 
 	require.Equal(
 		t,
-		"Pipeline failed: 1 step failed; obtain-pid-sdjwt failed with CRE230 Failed to execute child workflow: Maestro flow failed while opening the credential offer",
+		"Pipeline failed: 1 step failed; obtain-pid-sdjwt failed with CRE315 Mobile automation step failed: Maestro flow failed while opening the credential offer",
 		summary,
 	)
 }

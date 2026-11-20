@@ -14,6 +14,7 @@ env:
   workflow_id: [[.workflow_id]]
   run_id: [[.run_id]]
   action_id: [[.action_id | toString]]
+  mobile_flow_token: [[.mobile_flow_token]]
 
 tests:
   OPENID4VCI_WALLET:
@@ -35,13 +36,14 @@ tests:
               jsonpath: $.deeplink
       - name: Extract config from wallet
         http:
-          url: https://credimi.io/api/pipeline/mobile-flow
+          url: "[[.app_url]]/api/pipeline/mobile-flow"
           method: POST
           json:
             workflow_id: ${{ env.workflow_id }}
             run_id: ${{ env.run_id }}
             organization_id: ${{ env.organization_id }}
             action_id: ${{ env.action_id }}
+            mobile_flow_token: ${{ env.mobile_flow_token }}
             action_parameters:
               deeplink: ${{ captures.fake_deeplink }}
           check:

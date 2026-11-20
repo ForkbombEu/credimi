@@ -15,12 +15,24 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-// TestPipelineWorkflowReplaysMainHistory replays the history of a one-step
-// mobile-automation pipeline recorded with origin/main (testdata/replay), so a
-// change of the pipeline's command sequence fails here instead of breaking
-// pipelines that are running during a deploy.
-func TestPipelineWorkflowReplaysMainHistory(t *testing.T) {
-	file, err := os.Open("testdata/replay/mobile_pipeline_main.json")
+const (
+	replayPipelineWorkflowID = "Pipeline-nexus-one-step-9ec80428-2eeb-4cec-a9b4-8bf6aba3add2"
+	replayPipelineRunID      = "01a1f41c-51c1-7dbf-8360-2a3fc34c0ede"
+)
+
+// replayHistory replays a recorded history (testdata/replay) of a one-step
+// mobile-automation pipeline run, so a change of the workflow's command
+// sequence fails here instead of breaking runs that are open during a deploy.
+// Workflow IDs of the run's activities derive from its own ID, so the replay
+// runs under the recorded execution.
+func replayHistory(
+	t *testing.T,
+	path string,
+	register func(worker.WorkflowReplayer),
+	execution workflow.Execution,
+) {
+	t.Helper()
+	file, err := os.Open(path)
 	require.NoError(t, err)
 	defer file.Close()
 	history, err := client.HistoryFromJSON(file, client.HistoryJSONOptions{})
@@ -31,22 +43,25 @@ func TestPipelineWorkflowReplaysMainHistory(t *testing.T) {
 		DataConverter: temporalcrypto.NewDataConverter(make([]byte, 32)),
 	})
 	require.NoError(t, err)
-	pipelineWf := NewPipelineWorkflow()
-	replayer.RegisterWorkflowWithOptions(
-		pipelineWf.Workflow,
-		workflow.RegisterOptions{Name: pipelineWf.Name()},
-	)
-
-	// Step child workflow IDs derive from the pipeline's own ID, so the
-	// replay runs under the recorded execution.
+	register(replayer)
 	require.NoError(t, replayer.ReplayWorkflowHistoryWithOptions(
 		nil,
 		history,
-		worker.ReplayWorkflowHistoryOptions{
-			OriginalExecution: workflow.Execution{
-				ID:    "Pipeline-b5-replay-settings-5e02e573-8165-4a50-ad6b-47156f99d143",
-				RunID: "01a19bf3-8e59-7960-a4c1-ed64d18554a5",
-			},
-		},
+		worker.ReplayWorkflowHistoryOptions{OriginalExecution: execution},
 	))
+}
+
+func TestPipelineWorkflowReplaysMainHistory(t *testing.T) {
+	replayHistory(
+		t,
+		"testdata/replay/mobile_pipeline_main.json",
+		func(replayer worker.WorkflowReplayer) {
+			pipelineWf := NewPipelineWorkflow()
+			replayer.RegisterWorkflowWithOptions(
+				pipelineWf.Workflow,
+				workflow.RegisterOptions{Name: pipelineWf.Name()},
+			)
+		},
+		workflow.Execution{ID: replayPipelineWorkflowID, RunID: replayPipelineRunID},
+	)
 }

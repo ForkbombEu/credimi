@@ -6,6 +6,7 @@ package workflows
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
@@ -298,6 +299,8 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		}
 		stepCIPayload.Data = parameters
 		stepCIPayload.Data["test"] = payload.TestName
+		// The wallet templates call this deployment's mobile-flow endpoint.
+		stepCIPayload.Data["app_url"] = strings.TrimRight(appURL, "/")
 		cfg.Secrets = map[string]any{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		}

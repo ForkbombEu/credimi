@@ -32,6 +32,7 @@ func TestClassify(t *testing.T) {
 		{name: "prefix only redirects home", path: "/temporal-ui", want: routeHome},
 		{name: "prefix slash redirects home", path: "/temporal-ui/", want: routeHome},
 		{name: "static asset", path: "/temporal-ui/_app/immutable/x.js", want: routeProxy},
+		{name: "markdown render", path: "/temporal-ui/render", want: routeProxy},
 		{name: "favicon", path: "/temporal-ui/favicon.png", want: routePage},
 		{
 			name: "own namespace page",
@@ -89,9 +90,149 @@ func TestClassify(t *testing.T) {
 		{name: "sso", path: "/temporal-ui/auth/sso", want: routeForbidden},
 		{name: "prefix lookalike", path: "/temporal-uix/api/v1/namespaces", want: routeForbidden},
 	}
+	notOwned := func(string, string, string) bool {
+		t.Fatal("ownership checked for an organization namespace path")
+		return false
+	}
+	notUsed := func(string) bool {
+		t.Fatal("runner use checked for an organization namespace path")
+		return false
+	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, classify(tc.path, ns))
+			require.Equal(t, tc.want, classify(tc.path, nil, ns, notOwned, notUsed))
+		})
+	}
+}
+
+func TestClassifyRunnerNamespace(t *testing.T) {
+	const ns = "acme"
+	const runnerNS = "runner-abc"
+	owned := func(namespace, workflowID, runID string) bool {
+		return namespace == runnerNS && workflowID == "pipeline-1-step" &&
+			(runID == "run-1" || runID == "")
+	}
+	uses := func(namespace string) bool { return namespace == runnerNS }
+	cases := []struct {
+		name  string
+		path  string
+		query url.Values
+		want  routeKind
+	}{
+		{
+			name: "owned run page",
+			path: "/temporal-ui/namespaces/runner-abc/workflows/pipeline-1-step/run-1/history",
+			want: routePage,
+		},
+		{
+			name: "unowned run page redirects home",
+			path: "/temporal-ui/namespaces/runner-abc/workflows/other/run-1/history",
+			want: routeHome,
+		},
+		{
+			name: "owned run in another runner namespace redirects home",
+			path: "/temporal-ui/namespaces/runner-xyz/workflows/pipeline-1-step/run-1",
+			want: routeHome,
+		},
+		{
+			name: "runner workflow list redirects home",
+			path: "/temporal-ui/namespaces/runner-abc/workflows",
+			want: routeHome,
+		},
+		{
+			name: "runner page without run redirects home",
+			path: "/temporal-ui/namespaces/runner-abc/workflows/pipeline-1-step/",
+			want: routeHome,
+		},
+		{
+			name: "describe runner namespace",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc",
+			want: routeProxy,
+		},
+		{
+			name: "describe a runner namespace the organization never used",
+			path: "/temporal-ui/api/v1/namespaces/runner-xyz",
+			want: routeForbidden,
+		},
+		{
+			name:  "owned workflow",
+			path:  "/temporal-ui/api/v1/namespaces/runner-abc/workflows/pipeline-1-step",
+			query: url.Values{"execution.run_id": {"run-1"}},
+			want:  routeProxy,
+		},
+		{
+			name:  "owned workflow history, camel case run",
+			path:  "/temporal-ui/api/v1/namespaces/runner-abc/workflows/pipeline-1-step/history",
+			query: url.Values{"execution.runId": {"run-1"}},
+			want:  routeProxy,
+		},
+		{
+			name: "owned workflow latest run",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc/workflows/pipeline-1-step/history",
+			want: routeProxy,
+		},
+		{
+			name:  "unowned run of an owned workflow",
+			path:  "/temporal-ui/api/v1/namespaces/runner-abc/workflows/pipeline-1-step",
+			query: url.Values{"execution.run_id": {"run-2"}},
+			want:  routeForbidden,
+		},
+		{
+			name: "two runs named",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc/workflows/pipeline-1-step",
+			query: url.Values{
+				"execution.run_id": {"run-1"},
+				"execution.runId":  {"run-2"},
+			},
+			want: routeForbidden,
+		},
+		{
+			name: "unowned workflow",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc/workflows/other/history",
+			want: routeForbidden,
+		},
+		{
+			name: "runner workflow list",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc/workflows",
+			want: routeForbidden,
+		},
+		{
+			name: "runner search attributes",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc/search-attributes",
+			want: routeProxy,
+		},
+		{
+			name: "runner pipeline task queue",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc/task-queues/PipelineTaskQueue",
+			want: routeProxy,
+		},
+		{
+			name: "runner device task queue",
+			path: "/temporal-ui/api/v1/namespaces/runner-abc/task-queues/q",
+			want: routeForbidden,
+		},
+		{
+			name:  "runner pipeline task queue worker count",
+			path:  "/temporal-ui/api/v1/namespaces/runner-abc/worker-count",
+			query: url.Values{"query": {`TaskQueue="PipelineTaskQueue"`}},
+			want:  routeProxy,
+		},
+		{
+			name:  "runner worker count of another task queue",
+			path:  "/temporal-ui/api/v1/namespaces/runner-abc/worker-count",
+			query: url.Values{"query": {`TaskQueue="q"`}},
+			want:  routeForbidden,
+		},
+		{
+			name:  "worker count of a runner the organization never used",
+			path:  "/temporal-ui/api/v1/namespaces/runner-xyz/worker-count",
+			query: url.Values{"query": {`TaskQueue="PipelineTaskQueue"`}},
+			want:  routeForbidden,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, classify(tc.path, tc.query, ns, owned, uses))
 		})
 	}
 }
@@ -257,5 +398,41 @@ func TestHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Contains(t, rec.Body.String(), embedHead+"</head>")
+	})
+
+	t.Run("forwards the sandboxed markdown render unchanged", func(t *testing.T) {
+		rec, err := serve(http.MethodGet, "/temporal-ui/render?content=step", authCookie)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.NotContains(t, rec.Body.String(), embedHead)
+	})
+
+	t.Run("serves only owned runner namespace runs", func(t *testing.T) {
+		calls = nil
+		rec, err := serve(
+			http.MethodGet,
+			"/temporal-ui/namespaces/runner-abc/workflows/unowned-step/run-1/history",
+			authCookie,
+		)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusFound, rec.Code)
+		require.Equal(
+			t,
+			"/temporal-ui/namespaces/"+namespace+"/workflows",
+			rec.Header().Get("Location"),
+		)
+
+		_, err = serve(
+			http.MethodGet,
+			"/temporal-ui/api/v1/namespaces/runner-abc/workflows/unowned-step/history"+
+				"?execution.runId=run-1",
+			authCookie,
+		)
+		requireStatus(t, err, http.StatusForbidden)
+
+		// No pipeline run of the caller's organization used runner abc.
+		_, err = serve(http.MethodGet, "/temporal-ui/api/v1/namespaces/runner-abc", authCookie)
+		requireStatus(t, err, http.StatusForbidden)
+		require.Empty(t, calls)
 	})
 }

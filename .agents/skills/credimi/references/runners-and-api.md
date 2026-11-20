@@ -13,10 +13,10 @@ Verified against source. Where `AGENTS.md` or the manual pages disagree with the
 
 Flags:
 
-- `disabled` — administratively hidden from every catalog surface and from worker starts.
+- `disabled` — administratively hidden from every catalog surface; its runner namespace's workers are stopped (its Nexus endpoint is kept until the record is deleted).
 - `online` — durable liveness, driven by heartbeats (runner posts every 30s) and a background monitor.
-- `published` — visible to other orgs; non-published callers see `owner = me OR (published AND admin_managed)`, published callers see `owner = me OR published`.
-- `admin_managed` — set when a superuser creates the runner; such runners serve **every** namespace, non-admin runners only published orgs.
+- `published` — visible to and usable by every other organization: callers see `owner = me OR published`. Only superusers, the internal admin key and owners of the runner's organization may set it through `POST /api/mobile-runner`; a member's value is ignored.
+- `admin_managed` — set when a superuser or the internal admin key registers the runner; admin-managed runners are operator infrastructure used by every organization (exempt from the tenant destination policy). Every runner's device work runs only in its own Temporal namespace `runner-<record id>`.
 
 Liveness env vars: `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL` (default `60s`, governs whether a runner counts as recently alive for selectors), `MOBILE_RUNNER_LIFECYCLE_HEARTBEAT_TIMEOUT` (default `1h`, marks stale runners offline and pauses their device semaphores), plus `MOBILE_RUNNER_LIFECYCLE_MONITOR_INTERVAL` (30s) and `MOBILE_RUNNER_LIFECYCLE_SHUTDOWN_AFTER` (7d).
 
@@ -44,10 +44,9 @@ All of it goes through the `mobile-runner-http-request` activity, except the `/h
 | POST   | `{runner_url}/credimi/installer-action`      | `{version_identifier, platform, device_identifier}`                                     | expected 200, 300s timeout; returns `installer_path`, `version_id`; skipped for `installed_from_external_source`     |
 | POST   | `{runner_url}/credimi/pipeline-result`       | `{video_path, last_frame_path, run_identifier, device_identifier, platform, log_path?}` | expected 200, 300s; returns `result_video_urls` / `screenshot_urls`                                                  |
 | POST   | `{runner_url}/credimi/execution-screenshots` | `{run_identifier, device_identifier, step_id, screenshot_paths[]}`                      | expected 200, 300s; returns `screenshot_urls[]`                                                                      |
-| POST   | `{runner_url}/credimi/live-view`             | `{device_identifier, serial, namespace, workflow_id, run_id}`                           | **called directly**, not via the activity; header `Credimi-Api-Key`; expected `{path: "/live/<token>"}`, 15s timeout |
-| POST   | `{runner_url}/worker/{namespace}`            | `{old_namespace}`                                                                       | worker-manager start; expected **202** (idempotent — "already running" is fine)                                      |
+| POST   | `{runner_url}/credimi/live-view`             | `{device_identifier, serial, namespace, workflow_id, run_id, run_identifier}`           | **called directly**, not via the activity; header `Credimi-Api-Key`; expected `{path: "/live/<token>"}`, 15s timeout |
 
-The worker manager receives runner identifiers (`runner_ids`) in its workflow payload: the starters compute them in-process (`pkg/workflowengine/hooks/worker_manager_runners.go`), keeping only runners eligible for worker start and skipping (with a log line) runners whose identifier cannot be built. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
+Pipeline device work runs in the runner's namespace `runner-<record id>` through the Temporal Nexus service `mobile-device` (operations `Prepare a mobile device`, `Run a mobile automation step`, `Clean up a mobile device`) served there by Credimi's own worker on `PipelineTaskQueue`; Credimi never asks a runner to start workers. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
 
 ## Live view
 
@@ -57,6 +56,7 @@ The worker manager receives runner identifiers (`runner_ids`) in its workflow pa
 - Response `{streams: [{device_id, device_name, url}]}` where `url` is `{runner_url}/live/<token>`.
 - Error mapping: transport failure → `503 device runner is offline`; runner `503` → `503 live view is unavailable on the device runner`; runner `400` → `422 runner refused live view`; runner `401`/`403` → `502 runner refused live view` (runner credential mismatch: the runner must re-register with this Credimi instance); other non-2xx → `502` forwarding the runner's `message`; a missing or malformed `/live/` path → `502 invalid live view address`.
 - Credimi authenticates to the runner with the runner's own credential (`mobilerunner.Credential`, derived from `CREDIMI_RUNNER_CREDENTIAL_SECRET`), never with an internal admin key.
+- The runner receives the pipeline run in its organization namespace (`namespace`, `workflow_id`, `run_id`), or an action author session in the runner namespace, and asks Credimi whether it still runs: `GET /api/mobile-runner/lifecycle/live-view?runner_id=&namespace=&workflow_id=&run_id=` (internal-or-auth; runner managers only, as `/temporal-token`: `403 runner_owner_role_required`, `admin_managed_runner` or `runner_disabled`) → `{running: bool}`, true only for a running action author session in the runner's own namespace or a running `Dynamic Pipeline Workflow` whose `pipeline_results` row lists a device of that runner; `503 temporal_unavailable` on Temporal failure.
 
 ## Auth
 
@@ -78,7 +78,7 @@ The worker manager receives runner identifiers (`runner_ids`) in its workflow pa
 
 **Canonify.** `POST /api/canonify/identifier/validate`, `GET /api/canonify/identifier/get` (P; return only records the caller's view rules allow, 404 otherwise, with enrich-based field hiding such as credential `secrets`). Temporal workers do not call Credimi over HTTP: they use typed activities with direct database access (`activities.CredimiActivities(app)` in `pkg/workflowengine/activities/credimi_activities.go`). `Resolve a Credimi record` (`credimi_records.go`; `{canonified_name, collection, owner_namespace}`, `collection` one of `pipelines`/`custom_checks`/`wallet_actions`) returns a published record of any org or an unpublished record of the owner org — scoped because outputs land in the org-readable run history.
 
-**Templates / organizations.** `POST /api/clone-record` (P), `POST /api/template/placeholders` (U), `GET /api/organizations/my`, `GET /api/organizations/visible-namespaces` (U), `GET /api/organizations/namespaces` (I).
+**Templates / organizations.** `POST /api/clone-record` (P), `POST /api/template/placeholders` (U), `GET /api/organizations/my`.
 
 **Catalog.** `POST /api/conformance-catalog/rebuild` (I); `GET /api/collections/conformance_checks/records[/{id}]` and `GET /api/collections/conformance_suites/records[/{id}]` (P, writes rejected).
 
@@ -94,13 +94,13 @@ The worker manager receives runner identifiers (`runner_ids`) in its workflow pa
 
 **Pipelines (user).** `POST /api/pipeline/queue`, `POST /api/pipeline/run-wallet-apk`, `/run-issuer`, `/run-verifier`, `GET|DELETE /api/pipeline/queue/{ticket}`, `GET /api/pipeline/list-executions[/{id}]`, `GET /api/pipeline/executions/{id}/{workflow_id}/{run_id}`, `POST /api/pipeline/live-view` (U); `POST /api/pipeline/execute` (group auth excluded; effectively public, `http-request` steps only).
 
-**Pipelines (internal).** `/api/pipeline/store-step-screenshots`, `/mobile-flow`, `/scoreboard/aggregate/start`, `DELETE /scoreboard/aggregate/schedule/{schedule_id}`, `POST|DELETE /retention/schedule` — internal-admin, except `store-step-screenshots` (internal-or-auth) and `mobile-flow`, which currently has **no auth middleware** (flagged as a likely oversight). Pipeline results, evidence, reports, scoreboard and retention file deletion are written in-process by activities (see the conformance reference).
+**Pipelines (internal).** `/api/pipeline/store-step-screenshots`, `/mobile-flow`, `/scoreboard/aggregate/start`, `DELETE /scoreboard/aggregate/schedule/{schedule_id}`, `POST|DELETE /retention/schedule` — internal-admin, except `store-step-screenshots` (internal-or-auth) and `mobile-flow`, which has **no auth middleware** but requires `mobile_flow_token`, signed by the `Sign a mobile flow token` activity for exactly that pipeline run (missing: `400`; not signed for that `organization_id`/`workflow_id`/`run_id`: `403 invalid mobile flow token`, checked before any lookup), then binds the call to the pipeline's organization: `organization_id` must name an organization (`404 organization not found`), the action must be owned by it or published (`404 wallet action not found`), and the step workflow starts in the device's runner namespace (`409 device is not prepared` without one). Pipeline results, evidence, reports, scoreboard and retention file deletion are written in-process by activities (see the conformance reference).
 
 **Workflows.** `GET /api/my/workflows/{workflowId}/runs/{runId}`, `POST /api/my/workflows/{workflowId}/runs/{runId}/cancel`, `GET /api/list-workflows` (U; non-pipeline trees only).
 
 **Schedules.** `POST /api/my/schedules/start`, `GET /api/my/schedules`, `POST /api/my/schedules/{scheduleId}/{cancel,pause,resume}` (U).
 
-**Runners / devices.** `GET /api/mobile-runners`, `GET /api/mobile-devices` (internal-or-auth); registration and lifecycle routes (`/api/mobile-runner[...]`, `POST|DELETE /api/mobile-device`, `/api/mobile-device/{preview-id,reconcile}`, `…/lifecycle/{resume,heartbeat,pause}`) are internal-or-auth. Workers look devices up with the `Get a mobile device` and `Validate mobile device access` activities (`credimi_mobile_devices.go`).
+**Runners / devices.** `GET /api/mobile-runners`, `GET /api/mobile-devices` (internal-or-auth); runner items carry `url` and device details, and device items `serial`, only for the caller's own runners and devices (everything for superusers), and the `mobile_runners`/`mobile_devices` collection API shows records only to their organization. Registration and lifecycle routes (`/api/mobile-runner[...]`, `POST|DELETE /api/mobile-device`, `/api/mobile-device/{preview-id,reconcile}`, `…/lifecycle/{resume,heartbeat,pause}`, `GET …/lifecycle/{work,live-view}`) are internal-or-auth. Workers look devices up with the `Get a mobile device` and `Validate mobile device access` activities (`credimi_mobile_devices.go`).
 
 **Web push.** `GET /api/web-push/vapid-public-key` (P). Pipeline completion pushes are sent by the `Send pipeline completion notification` activity.
 

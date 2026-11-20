@@ -80,9 +80,9 @@ type MobileRunnerLifecycleResponse struct {
 	ShutdownAfterSeconds    int    `json:"shutdown_after_seconds"`
 	// RunnerCredential is the key Credimi currently presents to this runner.
 	RunnerCredential string `json:"runner_credential"`
-	// AgentNamespace is the Temporal namespace the runner's action author
-	// serves; absent until Credimi has prepared it for an enabled agent.
-	AgentNamespace string `json:"agent_namespace,omitempty"`
+	// RunnerNamespace is the runner's Temporal namespace; absent until
+	// Credimi has prepared it for a runner that is not disabled.
+	RunnerNamespace string `json:"runner_namespace,omitempty"`
 }
 
 // MobileRunnerWorkResponse lists the active semaphore tickets of every device
@@ -134,6 +134,15 @@ var MobileRunnerLifecycleRoutes = routing.RouteGroup{
 				middlewares.RequireInternalAdminOrAuth(),
 			},
 		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/live-view",
+			Handler:        HandleMobileRunnerLifecycleLiveView,
+			ResponseSchema: MobileRunnerLiveViewStatusResponse{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminOrAuth(),
+			},
+		},
 	},
 }
 
@@ -170,8 +179,6 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		// The response's agent namespace follows the settings just stored.
-		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if !online {
 				continue
@@ -244,8 +251,6 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		// The response's agent namespace follows the settings just stored.
-		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if online {
 				if err := ensureRunQueueSemaphoreWorkflow(
@@ -645,15 +650,16 @@ func lifecycleResponse(
 		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),
 		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 		RunnerCredential:        credential,
-		AgentNamespace:          runnerAgentNamespace(runner),
+		RunnerNamespace:         runnerNamespace(runner),
 	})
 }
 
 // mobileRunnerCredential returns the credential Credimi presents to runner;
 // runners learn it from registration and lifecycle responses. An
-// admin-managed runner serves every namespace, so its credential goes only to
-// superusers and the internal admin key it registers with, never to the
-// members of the organization that owns the record; they get an empty value.
+// admin-managed runner is operator infrastructure used by every organization,
+// so its credential goes only to superusers and the internal admin key it
+// registers with, never to the members of the organization that owns the
+// record; they get an empty value.
 func mobileRunnerCredential(auth *core.Record, runner *core.Record) (string, *apierror.APIError) {
 	if runner.GetBool("admin_managed") && !isSuperuserAuth(auth) {
 		return "", nil
@@ -688,8 +694,9 @@ func lifecycleUpdateID(action, runnerID, requestID string) string {
 
 // HandleMobileRunnerLifecycleWork returns the running and queued semaphore
 // tickets of every device of a runner, redacting other organizations' runs.
-// Like the runner credential, the work of an admin-managed runner, which
-// serves every namespace, goes only to superusers and the internal admin key.
+// Like the runner credential, the work of an admin-managed runner, operator
+// infrastructure used by every organization, goes only to superusers and the
+// internal admin key.
 func HandleMobileRunnerLifecycleWork() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		runner, runnerID, apiErr := resolveLifecycleRunner(

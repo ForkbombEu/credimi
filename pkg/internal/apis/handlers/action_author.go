@@ -64,7 +64,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorDevices,
 			OperationID:    "actionAuthor.listDevices",
 			Summary:        "List devices available for authoring",
-			Description:    "List the Android devices and iOS simulators the caller's organization can author on: devices of its own enabled runners, and of enabled runners of other organizations that offer the agent to other organizations (`agent_others_daily_tokens` above 0) and are shared with the caller's organization as for pipelines (`mobilerunner.SharedWith`: published, and admin-managed unless the caller's organization is published), with the authoring platform each device implies. namespace is the caller's organization namespace, where every session runs. agent_available reports whether the runner's action author polled its task queue in that namespace in the last two minutes (false when Temporal is unreachable); only devices with is_online and agent_available can start a session. Sorted by runner name, then device name. A caller without an organization gets an empty list.",
+			Description:    "List the Android devices and iOS simulators the caller's organization can author on: devices of its own enabled runners, and of enabled runners of other organizations that offer the agent to other organizations (`agent_others_daily_tokens` above 0) and are shared with the caller's organization as for pipelines (`mobilerunner.SharedWith`: published), with the authoring platform each device implies. Every session runs in its runner's namespace, runner-<runner record id>. agent_available reports whether the runner's action author polled its task queue there in the last two minutes (false when Temporal is unreachable); only devices with is_online and agent_available can start a session. Sorted by runner name, then device name. A caller without an organization gets an empty list.",
 			ResponseSchema: ActionAuthorDevicesResponse{},
 		},
 		{
@@ -73,7 +73,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the caller's organization namespace. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of a wallet of the caller's organization or a published wallet of another organization (downloadable versions only), or, on an Android device only, organization/wallet for its wallet installed from the Play Store at session start (the device needs the Play Store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. Saved actions are owned by the caller's organization. The iOS simulator has no App Store: organization/wallet on an iOS simulator answers 400 invalid_request before anything is queued. An unpublished wallet of another organization, or a non-downloadable version of one, answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the caller's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. The runner owner sets two daily limits of model tokens (UTC day) in the runner's configuration: one for sessions of the runner's own organization (0: no limit) and one shared by every other organization (0: the agent is not offered to them). A start after the day's tokens of the caller's pool reach its limit answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the device runner's namespace, runner-<runner record id>. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of a wallet of the caller's organization or a published wallet of another organization (downloadable versions only), or, on an Android device only, organization/wallet for its wallet installed from the Play Store at session start (the device needs the Play Store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. Saved actions are owned by the caller's organization. The iOS simulator has no App Store: organization/wallet on an iOS simulator answers 400 invalid_request before anything is queued. An unpublished wallet of another organization, or a non-downloadable version of one, answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the runner's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. The runner owner sets two daily limits of model tokens (UTC day) in the runner's configuration: one for sessions of the runner's own organization (0: no limit) and one shared by every other organization (0: the agent is not offered to them). A start after the day's tokens of the caller's pool reach its limit answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -84,7 +84,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSessions,
 			OperationID:    "actionAuthor.listSessions",
 			Summary:        "List a wallet's recent authoring sessions",
-			Description:    "List the ten latest authoring sessions the caller started in their organization namespace on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
+			Description:    "List the ten latest authoring sessions the caller started for their organization on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
 			ResponseSchema: ActionAuthorSessionsResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -100,7 +100,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSession,
 			OperationID:    "actionAuthor.getSession",
 			Summary:        "Read an authoring session",
-			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started for their organization, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
@@ -137,7 +137,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorReview,
 			OperationID:    "actionAuthor.reviewActions",
 			Summary:        "Decide on the actions of an authoring session's review",
-			Description:    "Deliver the human decisions on the pending review tool_id of the agent workflow author_workflow_id, one per action key: accept, refuse, or change with a comment saying what to change. Only the user who started the session can review it; a namespace of an organization the caller is not a member of, or a workflow that is not the agent of a running session, answers 404 session_not_found. A key that does not match a<number> or is given twice, a change without a comment, or an accept of an action whose plan starts from a candidate of the same review that is not accepted answers 400 invalid_request, and nothing is sent. Each decision's plan is the action's plan as the review shows it, its candidate prerequisites unresolved; Credimi checks it again and binds the approval to it: for an accept, a missing or invalid plan answers 400 invalid_request; a refusal or change never reads the plan. Each accept carries a Credimi-signed approval of its candidate_sha256, of its plan's hash (plan_sha256) and of its key that the save activity verifies (valid for 30 minutes); the agent cannot save without it, nor with another plan or key, nor save a key twice. The save resolves candidate prerequisites to the actions this session saved for them. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
+			Description:    "Deliver the human decisions on the pending review tool_id of the agent workflow author_workflow_id, one per action key: accept, refuse, or change with a comment saying what to change. Only the user who started the session can review it; a session another user or organization started, or a workflow that is not the agent of a running session, answers 404 session_not_found. A key that does not match a<number> or is given twice, a change without a comment, or an accept of an action whose plan starts from a candidate of the same review that is not accepted answers 400 invalid_request, and nothing is sent. Each decision's plan is the action's plan as the review shows it, its candidate prerequisites unresolved; Credimi checks it again and binds the approval to it: for an accept, a missing or invalid plan answers 400 invalid_request; a refusal or change never reads the plan. Each accept carries a Credimi-signed approval of its candidate_sha256, of its plan's hash (plan_sha256) and of its key that the save activity verifies (valid for 30 minutes); the agent cannot save without it, nor with another plan or key, nor save a key twice. The save resolves candidate prerequisites to the actions this session saved for them. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
 			RequestSchema:  ActionAuthorReviewRequest{},
 			ResponseSchema: ActionAuthorReviewResponse{},
 		},
@@ -214,7 +214,7 @@ type ActionAuthorDevicesResponse struct {
 // other organizations that offer the agent to other organizations
 // (agent_others_daily_tokens above 0) and are shared with the caller's
 // organization as for pipelines (mobilerunner.SharedWith). Every session runs
-// in its runner's agent namespace (mobilerunner.AgentNamespace).
+// in its runner's namespace (mobilerunner.RunnerNamespace).
 func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {
@@ -228,7 +228,7 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 		if err != nil {
 			return e.JSON(http.StatusOK, response)
 		}
-		listed, err := listMobileRunnerRecords(e.App, org.Id, org.GetBool("published"))
+		listed, err := listMobileRunnerRecords(e.App, org.Id)
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("list authoring runners: %w", err))
 		}
@@ -386,7 +386,7 @@ func authoringAPIError(e *core.RequestEvent, err error) *apierror.APIError {
 	}
 }
 
-// HandleActionAuthorStart queues a session, in the runner's agent namespace
+// HandleActionAuthorStart queues a session, in the runner's namespace
 // for the caller's organization, on a device of a runner that offers the agent to the caller's
 // organization.
 func HandleActionAuthorStart() func(*core.RequestEvent) error {
@@ -447,7 +447,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			return mobileDeviceRunnerOfflineError(deviceID)
 		}
 		orgNamespace := org.GetString("canonified_name")
-		runnerNamespace := mobilerunner.AgentNamespace(runner.Id)
+		runnerNamespace := mobilerunner.RunnerNamespace(runner.Id)
 		selection, err := actionauthor.Select(e.App, orgNamespace, actionauthor.BuildRequest{
 			Actor:                   actor,
 			WalletVersionIdentifier: input.WalletVersionIdentifier,
@@ -1116,7 +1116,7 @@ func queryActionAuthorChat(
 
 // HandleActionAuthorSessions lists the latest sessions of a wallet that the
 // caller started for their organization: Temporal lists them by search
-// attributes in the ready agent namespaces of the runners that offer the
+// attributes in the ready runner namespaces of the runners that offer the
 // caller's organization the agent, and each listed session is kept only when
 // the listed ID has a trusted run of the caller's. Search attributes are
 // written by whoever starts a workflow, so the newest listed IDs are read
@@ -1138,7 +1138,7 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, actionauthor.ErrForbidden)
 		}
-		listed, err := listMobileRunnerRecords(e.App, org.Id, org.GetBool("published"))
+		listed, err := listMobileRunnerRecords(e.App, org.Id)
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("list authoring runners: %w", err))
 		}
@@ -1155,10 +1155,11 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 		namespaces, failed := 0, 0
 		for _, runner := range enabledMobileRunnerRecords(listed) {
 			if !actionAuthorRunnerOffered(runner, org.Id) ||
-				!mobilerunner.AgentNamespaceReady(runner) {
+				!mobilerunner.AgentEnabled(runner) ||
+				!mobilerunner.RunnerNamespaceReady(runner) {
 				continue
 			}
-			namespace := mobilerunner.AgentNamespace(runner.Id)
+			namespace := mobilerunner.RunnerNamespace(runner.Id)
 			namespaces++
 			listed, err := listRunnerActionAuthorSessions(e, namespace, query)
 			if err != nil {
@@ -1234,7 +1235,7 @@ func newestSessionRuns(
 }
 
 // listRunnerActionAuthorSessions returns the first page of the sessions query
-// lists in a runner's agent namespace. A namespace without a client, not
+// lists in a runner's namespace. A namespace without a client, not
 // registered or without the search attributes yet is skipped; other list
 // failures are returned.
 func listRunnerActionAuthorSessions(

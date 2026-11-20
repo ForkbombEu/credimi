@@ -67,11 +67,12 @@ func TestGetMobileDeviceActivity(t *testing.T) {
 			name:       "device with a runner port",
 			identifier: deviceID,
 			want: map[string]any{
-				"device_id":  deviceID,
-				"runner_id":  canonify.NormalizePath(runnerPath),
-				"type":       "android_emulator",
-				"serial":     "Device One-serial",
-				"runner_url": "http://runner.test:8050",
+				"device_id":        deviceID,
+				"runner_id":        canonify.NormalizePath(runnerPath),
+				"type":             "android_emulator",
+				"serial":           "Device One-serial",
+				"runner_url":       "http://runner.test:8050",
+				"runner_namespace": "runner-" + runner.Id,
 			},
 		},
 		{

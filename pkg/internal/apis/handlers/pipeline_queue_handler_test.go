@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -83,6 +84,7 @@ func createPipelineQueueMobileRunner(
 	record.Set("ip", "https://runner.example.test")
 	record.Set("type", "android_phone")
 	record.Set("published", published)
+	record.Set(mobilerunner.RunnerNamespaceReadyField, true)
 	require.NoError(t, app.Save(record))
 
 	deviceColl, err := app.FindCollectionByNameOrId("mobile_devices")
@@ -332,8 +334,8 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 	}
 }
 
-// Runs must honour the same sharing rule as the runner catalog: an unpublished
-// organization only borrows admin-managed published runners.
+// Runs must honour the same sharing rule as the runner catalog: every
+// organization may use another organization's published runners.
 func TestPipelineQueueEnqueueForeignRunnerSharing(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
@@ -351,33 +353,33 @@ func TestPipelineQueueEnqueueForeignRunnerSharing(t *testing.T) {
 	cases := []struct {
 		name           string
 		yaml           string
-		orgPublished   bool
+		runnerPrivate  bool
 		runnerAdmin    bool
 		expectedStatus int
 		expected       string
 	}{
 		{
-			name:           "unpublished org cannot use published non-admin runner",
+			name:           "any org can use a published tenant runner",
 			yaml:           foreignYaml,
-			expectedStatus: http.StatusForbidden,
-			expected:       "device_id is not accessible",
+			expectedStatus: http.StatusOK,
+			expected:       `"status":"queued"`,
 		},
 		{
-			name:           "unpublished org can use published admin-managed runner",
+			name:           "any org can use a published admin-managed runner",
 			yaml:           foreignYaml,
 			runnerAdmin:    true,
 			expectedStatus: http.StatusOK,
 			expected:       `"status":"queued"`,
 		},
 		{
-			name:           "published org can use published non-admin runner",
+			name:           "org cannot use another org's private runner",
 			yaml:           foreignYaml,
-			orgPublished:   true,
-			expectedStatus: http.StatusOK,
-			expected:       `"status":"queued"`,
+			runnerPrivate:  true,
+			expectedStatus: http.StatusForbidden,
+			expected:       "device_id is not accessible",
 		},
 		{
-			name:           "unpublished org can use its own private runner",
+			name:           "org can use its own private runner",
 			yaml:           ownYaml,
 			expectedStatus: http.StatusOK,
 			expected:       `"status":"queued"`,
@@ -406,9 +408,14 @@ func TestPipelineQueueEnqueueForeignRunnerSharing(t *testing.T) {
 				otherOrg.Set("name", "Other Org")
 				otherOrg.Set("canonified_name", "other-org")
 				require.NoError(t, app.Save(otherOrg))
-				createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Shared Runner", true)
+				createPipelineQueueMobileRunner(
+					t,
+					app,
+					otherOrg.Id,
+					"Shared Runner",
+					!tc.runnerPrivate,
+				)
 				setMobileRunnerAdminManaged(t, app, "other-org/shared-runner", tc.runnerAdmin)
-				setOrganizationPublished(t, app, orgID, tc.orgPublished)
 				return app
 			},
 		}
@@ -536,6 +543,48 @@ func TestPipelineQueueEnqueueRejectsUnreachableRunner(t *testing.T) {
 		ExpectedContent: []string{"device runner is offline"},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+		},
+	}
+
+	scenario.Test(t)
+
+	require.Empty(t, stub.enqueueRequests)
+}
+
+// A reachable runner whose namespace Credimi has not prepared cannot run the
+// device work of a pipeline yet.
+func TestPipelineQueueEnqueueRejectsRunnerWithoutReadyNamespace(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n"
+	scenario := tests.ApiScenario{
+		Name:   "enqueue rejects a device whose runner namespace is not ready",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/queue",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"yaml":                validYaml,
+		}),
+		ExpectedStatus:  http.StatusServiceUnavailable,
+		ExpectedContent: []string{"device runner is not ready"},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+			runner, err := app.FindFirstRecordByData("mobile_runners", "name", "runner-1")
+			require.NoError(t, err)
+			runner.Set(mobilerunner.RunnerNamespaceReadyField, false)
+			require.NoError(t, app.Save(runner))
+			return app
 		},
 	}
 

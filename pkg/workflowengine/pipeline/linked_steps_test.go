@@ -19,7 +19,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
+	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -341,7 +343,10 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		attempt int32
-		deleted []activities.DeletePipelineStepScreenshotsInput
+		// operationFails makes the Run step operation handler fail before it
+		// starts the step workflow.
+		operationFails bool
+		deleted        []activities.DeletePipelineStepScreenshotsInput
 	}{
 		{
 			name:    "attempt before the last",
@@ -351,27 +356,63 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 			},
 		},
 		{name: "last attempt", attempt: 2},
+		{
+			name:           "operation handler fails",
+			attempt:        1,
+			operationFails: true,
+			deleted: []activities.DeletePipelineStepScreenshotsInput{
+				{RunIdentifier: "ns/run", FileNames: []string{"s_abc.png"}},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
+			failure := workflowengine.WorkflowError{
+				Code:    "CRE201",
+				Summary: "Maestro flow failed",
+				Details: map[string]any{"output": map[string]any{
+					"flow_output": map[string]any{
+						"maestro_screenshot_urls": []any{
+							"https://x/api/files/pipeline_results/r/s_abc.png",
+						},
+					},
+				}},
+			}
 			registerFailingWorkflow(
 				t,
 				env,
 				mobileAutomationStepUse,
 				"fake-mobile-automation",
-				workflowengine.WorkflowError{
-					Code:    "CRE201",
-					Summary: "Maestro flow failed",
-					Details: map[string]any{"output": map[string]any{
-						"flow_output": map[string]any{
-							"maestro_screenshot_urls": []any{
-								"https://x/api/files/pipeline_results/r/s_abc.png",
-							},
-						},
-					}},
-				},
+				failure,
 			)
+			if tc.operationFails {
+				service := nexus.NewService(mobiledevice.ServiceName)
+				require.NoError(t, service.Register(nexus.NewSyncOperation(
+					mobiledevice.RunStepOperationName,
+					func(
+						context.Context,
+						mobiledevice.RunStepInput,
+						nexus.StartOperationOptions,
+					) (workflowengine.WorkflowResult, error) {
+						return workflowengine.WorkflowResult{}, workflowengine.NewNonRetryableAppError(
+							failure,
+						)
+					},
+				)))
+				env.RegisterNexusService(service)
+			} else {
+				// The step workflow runs in the runner namespace, behind the Run
+				// step operation.
+				registerRunStepOperation(
+					env,
+					func(workflow.Context, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+						return workflowengine.WorkflowResult{}, workflowengine.NewNonRetryableAppError(
+							failure,
+						)
+					},
+				)
+			}
 			var deleted []activities.DeletePipelineStepScreenshotsInput
 			env.RegisterActivityWithOptions(
 				func(
@@ -400,9 +441,18 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 
 			env.ExecuteWorkflow("linked-steps-run", LinkedStepsWorkflowInput{
 				Steps: []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{
-					ID:   "wallet",
-					Use:  mobileAutomationStepUse,
-					With: pipeline.StepInputs{Config: map[string]any{"run_identifier": "ns/run"}},
+					ID:  "wallet",
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Config: map[string]any{
+						"run_identifier":                  "ns/run",
+						runnerNamespaceConfigKey:          "runner-abc",
+						pipelineExecutionTimeoutConfigKey: "1h0m0s",
+						pipelineRunConfigKey: map[string]any{
+							"namespace":   "ns",
+							"workflow_id": "pipeline-wf",
+							"run_id":      "run",
+						},
+					}},
 				}}},
 				PipelineConfig: map[string]any{},
 				ActivityOptions: workflow.ActivityOptions{
@@ -411,7 +461,11 @@ func TestLinkedStepsDeleteScreenshotsOfRetriedAttempts(t *testing.T) {
 				MaximumAttempts: 2,
 			}, tc.attempt)
 
-			require.Error(t, env.GetWorkflowError())
+			err := env.GetWorkflowError()
+			require.Error(t, err)
+			var appErr *temporal.ApplicationError
+			require.ErrorAs(t, err, &appErr)
+			require.False(t, appErr.NonRetryable(), "the block must be retried")
 			require.Equal(t, tc.deleted, deleted)
 		})
 	}
@@ -423,6 +477,13 @@ func TestLinkedBlockRetryable(t *testing.T) {
 	require.False(t, linkedBlockRetryable(
 		temporal.NewNonRetryableApplicationError("input", "CRE228", nil),
 	))
+}
+
+// TestLinkedBlockRetryableNexusOperation retries a block whose mobile step operation failed.
+func TestLinkedBlockRetryableNexusOperation(t *testing.T) {
+	require.True(t, linkedBlockRetryable(&temporal.NexusOperationError{
+		Cause: temporal.NewNonRetryableApplicationError("boom", "x", nil),
+	}))
 }
 
 // TestTaskWorkflowIDFitsTemporalLimit reproduces a step of a linked block in a long FCAF

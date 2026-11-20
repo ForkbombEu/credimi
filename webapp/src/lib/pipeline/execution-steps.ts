@@ -31,6 +31,8 @@ export type ExecutionStep = {
 	history_event: { workflow_id: string; run_id: string; event_id: number };
 	/** The child workflow run of workflow and block steps. */
 	execution?: ExecutionRef;
+	/** The runner namespace `execution` ran in; absent for the organization's namespace. */
+	execution_namespace?: string;
 	has_logs?: boolean;
 	has_qr?: boolean;
 	/** Block steps: started steps in the block's latest run. */
@@ -68,19 +70,29 @@ export function visibleSteps(steps: ExecutionStep[], showAll: boolean): Executio
 }
 
 /**
- * Workflow and block steps open their own run page; activity steps open the run that ran
- * them at the event that started them.
+ * The run page of a workflow run; `namespace` names the runner namespace it ran in, absent for
+ * the organization's namespace.
+ */
+function runPageHref(workflowId: string, runId: string, namespace?: string): string {
+	const runPage = resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+		workflow_id: encodeURIComponent(workflowId),
+		run_id: encodeURIComponent(runId)
+	});
+	return namespace ? `${runPage}?${new URLSearchParams({ namespace })}` : runPage;
+}
+
+/**
+ * Workflow and block steps open their own run page (in their runner namespace for a pipeline's
+ * device work); activity steps open the run that ran them at the event that started them.
  */
 export function stepDetailsHref(step: ExecutionStep): string {
 	if (step.kind !== 'activity' && step.execution) {
-		return resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-			workflow_id: step.execution.workflowId,
-			run_id: step.execution.runId
-		});
+		return runPageHref(
+			step.execution.workflowId,
+			step.execution.runId,
+			step.execution_namespace
+		);
 	}
-	const runPage = resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-		workflow_id: step.history_event.workflow_id,
-		run_id: step.history_event.run_id
-	});
+	const runPage = runPageHref(step.history_event.workflow_id, step.history_event.run_id);
 	return `${runPage}?event=${step.history_event.event_id}`;
 }

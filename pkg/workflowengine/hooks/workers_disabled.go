@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// TemporalWorkersDisabledEnv disables Temporal namespace creation, worker registration
-// and worker-manager workflow starts when set to a truthy value (1, true, yes).
+// TemporalWorkersDisabledEnv disables Temporal namespace creation and worker
+// registration when set to a truthy value (1, true, yes).
 // Intended for faster local API/UI boots that do not need pipelines or workflows.
 const TemporalWorkersDisabledEnv = "CREDIMI_TEMPORAL_WORKERS_DISABLED"
 

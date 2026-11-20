@@ -12,6 +12,7 @@ import (
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevice"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
@@ -152,6 +153,63 @@ func TestLoadStepsListsStartedMainSteps(t *testing.T) {
 			ChildRunID:      "check-run",
 			FailureMessage:  "check failed",
 		},
+	}, steps)
+}
+
+func TestLoadStepsListsRunStepOperations(t *testing.T) {
+	def := &pipelineinternal.WorkflowDefinition{
+		Name: "history",
+		Steps: []pipelineinternal.StepDefinition{
+			{StepSpec: pipelineinternal.StepSpec{ID: "login", Use: "mobile-automation"}},
+			{StepSpec: pipelineinternal.StepSpec{ID: "pay", Use: "mobile-automation"}},
+			{StepSpec: pipelineinternal.StepSpec{ID: "slow", Use: "mobile-automation"}},
+			{StepSpec: pipelineinternal.StepSpec{ID: "stopped", Use: "mobile-automation"}},
+		},
+	}
+	events := make([]*historypb.HistoryEvent, 0, 32)
+	events = append(events, at(startedEvent(t, def), 0))
+	// Prepare and Clean up run the device, not a step.
+	for _, event := range deviceOperationEvents(t, 2, "login") {
+		events = append(events, at(event, 1))
+	}
+	events = append(events,
+		at(runStepScheduledEvent(t, 8, "login"), 3),
+		at(nexusStartedEvent(9, 8, "wf-1-login", "login-run"), 4),
+		at(nexusCompletedEvent(t, 10, 8, workflowengine.WorkflowResult{}), 6),
+		at(runStepScheduledEvent(t, 11, "pay"), 7),
+		at(nexusStartedEvent(12, 11, "wf-1-pay", "pay-run"), 8),
+		at(nexusFailedEvent(13, 11, errors.New("pay failed")), 9),
+		at(runStepScheduledEvent(t, 14, "slow"), 10),
+		at(nexusTimedOutEvent(15, 14), 11),
+		at(runStepScheduledEvent(t, 16, "stopped"), 12),
+		at(nexusCanceledEvent(17, 16), 13),
+	)
+
+	steps, err := LoadSteps(context.Background(), mockHistory(events), "wf-1", "run-1")
+	require.NoError(t, err)
+	mobileStep := func(id, status string, eventID int64, start, end int) Step {
+		return Step{
+			ID:              id,
+			Kind:            StepKindWorkflow,
+			TypeName:        mobiledevice.StepWorkflowName,
+			Status:          status,
+			StartTime:       secondsAfterBase(start),
+			EndTime:         secondsAfterBase(end),
+			EventID:         eventID,
+			ChildWorkflowID: "wf-1-" + id,
+			Namespace:       testRunnerNamespace,
+		}
+	}
+	login := mobileStep("login", "Completed", 8, 3, 6)
+	login.ChildRunID = "login-run"
+	pay := mobileStep("pay", "Failed", 11, 7, 9)
+	pay.ChildRunID = "pay-run"
+	pay.FailureMessage = "pay failed"
+	require.Equal(t, []Step{
+		login,
+		pay,
+		mobileStep("slow", "TimedOut", 14, 10, 11),
+		mobileStep("stopped", "Canceled", 16, 12, 13),
 	}, steps)
 }
 
