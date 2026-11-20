@@ -454,7 +454,7 @@ Runner host list shape:
   `serial` only for the caller's devices.
 - The `mobile_runners` and `mobile_devices` collection API shows records only to their organization (`pb_migrations/1794900400_restrict_mobile_runner_reads.js`); other organizations reach published runners only through the two lists above.
 - Pipeline YAML uses `device_id` and `global_device_id` only.
-- Schedules (`POST /api/my/schedules/start`, with an optional `global_device_id`) check access to the pipeline's devices at creation, and the schedule status (`__schedule_status__.runners`) lists only the devices' display fields: `id`, `name`, `canonified_name`, `type`, `live_stream`.
+- Schedules (`POST /api/my/schedules/start`, with an optional `global_device_id`) check access at creation to the devices the scheduled run will use: the YAML's own devices and its `runtime.global_device_id`, else the request's `global_device_id`. The schedule status (`__schedule_status__.runners`) lists only the devices' display fields: `id`, `name`, `canonified_name`, `type`, `live_stream`.
 
 Internal lookup:
 

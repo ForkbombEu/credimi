@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/temporalid"
@@ -152,7 +153,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
-		deviceInfo, err := pipeline.ParsePipelineDeviceInfo(rec.GetString("yaml"))
+		wfDef, err := pipelineinternal.ParseWorkflow(rec.GetString("yaml"))
 		if err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -161,7 +162,16 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		deviceIDs := pipeline.DeviceIDsWithGlobal(deviceInfo, req.GlobalDeviceID)
+		// Check the devices the scheduled run will use: its YAML global device
+		// wins over the one sent with the schedule.
+		globalDeviceID := workflows.ScheduledGlobalDeviceID(
+			wfDef.Runtime.GlobalDeviceID,
+			req.GlobalDeviceID,
+		)
+		deviceIDs := pipeline.DeviceIDsWithGlobal(
+			pipeline.DeviceInfoFromDefinition(wfDef),
+			globalDeviceID,
+		)
 		if apiErr := validatePipelineRunnerAccess(e.App, orgID, deviceIDs); apiErr != nil {
 			return apiErr
 		}
