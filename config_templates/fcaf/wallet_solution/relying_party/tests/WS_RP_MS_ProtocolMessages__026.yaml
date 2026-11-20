@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__026
-title: FCAF WS_RP_MS_ProtocolMessages__026
+title: Return invalid_transaction_data for a non-array transaction_data credential_ids.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__026.md
 suite:
@@ -11,25 +11,33 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.1, 8.5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.transaction-data-non-array
 evidence:
   request_object: { from: pipeline.dcql.transaction-data-non-array.outputs.request_object }
+  dcql_exchange:
+    from: pipeline.dcql.transaction-data-non-array.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.transaction-data-non-array.outputs.visual_evidence
+# The source's precondition ("Applicable only if tested in combination with a
+# specific transaction data type") constrains the request, not the Wallet: the
+# delivered entry uses the concrete `payment` type, so it applies. The
+# request-shape assertion proves that defect was delivered, and OpenID4VP 8.5
+# answers a credential_ids that is not a non-empty array of strings with
+# invalid_transaction_data, which the capture must record.
 assertions:
 - id: ws_rp_ms_protocolmessages__026_non_array_credential_ids
   validator: oid4vp.transaction_data_credential_ids_non_array
   input: evidence.request_object
-# The delivered entry uses type payment, which the reference Wallet does not
-# support, so its rejection could not be attributed to credential_ids.
-- id: ws_rp_ms_protocolmessages__026_requires_a_supported_type
-  validator: fcaf.not_applicable
-  input: evidence.request_object
+- id: ws_rp_ms_protocolmessages__026_returns_invalid_transaction_data
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
   params:
-    reason: >-
-      the source applies only in combination with a transaction data type the
-      Wallet supports; the reference Wallet declares no supported
-      transaction-data type, so the credential_ids defect cannot be isolated
-      from an unsupported type
+    mode: transaction_data_error_required
+- id: ws_rp_ms_protocolmessages__026_visual_evidence_stored
+  validator: evidence.screenshot_named
+  input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

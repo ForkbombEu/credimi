@@ -11,9 +11,15 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.4'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.protocol-messages-136
+# The source's Expected result 3 says only "it will return an error response",
+# but OpenID4VP 8.4 requires an error for transaction_data a Wallet does not
+# support and 8.5 names that error invalid_transaction_data, so the exact code
+# is the normative expectation. The entry's only defect is its unsupported
+# type (type and credential_ids are otherwise valid), and the rejection action
+# fails if the Wallet reaches consent instead.
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-136.outputs.dcql_exchange
@@ -26,7 +32,8 @@ assertions:
   params:
     mode: transaction_data_error_required
 - id: ws_rp_ms_protocolmessages__136_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__159
-title: FCAF WS_RP_MS_ProtocolMessages__159
+title: Return invalid_transaction_data for transaction_data credential_ids the Wallet does not hold.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__159.md
 suite:
@@ -11,25 +11,36 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.1, 8.5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-# The transaction_data entry references unavailable_cred, an optional query of
-# the same request for a credential type no Wallet holds. As for 158, a Wallet
-# that does not support the entry's type must answer invalid_transaction_data
-# too, so a missing error fails either way.
+# The delivered entry references unavailable_cred, an optional query of the same
+# request for a credential type no Wallet holds, and its OpenID4VP members are
+# otherwise valid, so that reference is the request's only defect. The source
+# requires the error code invalid_transaction_data and no presentation; the
+# error_description is optional (OpenID4VP 8.5), so the test cannot tell which
+# check produced the code. A Wallet that processes no transaction data type
+# answers the same code for the unsupported type: the source lacks a
+# "Wallet supports the transaction data type" precondition (filed in
+# pkg/fcaf/TEST-AUTHOR-FEEDBACK.md), so the code alone decides the verdict.
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-159.outputs.dcql_exchange
+  request_object:
+    from: pipeline.dcql.protocol-messages-159.outputs.request_object
   visual_evidence:
     from: pipeline.dcql.protocol-messages-159.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__159_dcql_protocol_valid
+- id: ws_rp_ms_protocolmessages__159_delivered_entry_references_a_requested_credential
+  validator: oid4vp.transaction_data_credential_ids_match_dcql
+  input: evidence.request_object
+- id: ws_rp_ms_protocolmessages__159_returns_invalid_transaction_data
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
     mode: transaction_data_error_required
 - id: ws_rp_ms_protocolmessages__159_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

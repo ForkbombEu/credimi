@@ -41,7 +41,8 @@ assertions:
     mode: transaction_data_error_required
     not_applicable_when_wallet_supports_transaction_data: true
 - id: ws_rp_ms_protocolmessages__017_visual_evidence_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

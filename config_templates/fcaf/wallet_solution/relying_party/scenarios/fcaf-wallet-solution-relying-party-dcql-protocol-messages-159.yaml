@@ -65,6 +65,12 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
+- id: fetch-signed-request-object
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}/request
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -74,5 +80,6 @@ steps:
     pipeline_outputs:
       pipeline.dcql.protocol-messages-159:
         output:
+          request_object: ${{ fetch-signed-request-object.outputs.body }}
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
