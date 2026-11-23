@@ -312,6 +312,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"plan":             map[string]any{"slot": "install-app"},
 							"replaces":         "usera-s-organization/authoring-handler-wallet/install",
 							"error":            "save failed: try again",
+							"note":             "Wallet findings: dcql-1 failed: no match",
 							// The agent's starts_from is ignored: the plan says it.
 							"starts_from": []any{"a7"},
 						},
@@ -436,6 +437,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					Plan:            map[string]any{"slot": "install-app"},
 					Replaces:        "usera-s-organization/authoring-handler-wallet/install",
 					Error:           "save failed: try again",
+					Note:            "Wallet findings: dcql-1 failed: no match",
 					StartsFrom:      []string{},
 					StartsFromNames: map[string]string{},
 					UsedBy:          2,

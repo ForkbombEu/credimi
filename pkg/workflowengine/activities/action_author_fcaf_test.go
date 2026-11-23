@@ -184,6 +184,7 @@ func TestDescribeActionAuthorFCAFRole(t *testing.T) {
 	require.Equal(t, rejected.Role.SHA256(), rejected.RoleSHA256)
 	require.Equal(t, []string{"fcaf-reset-and-onboard", "fcaf-issue-pid"}, rejected.StartsFrom)
 	require.Nil(t, rejected.Plan)
+	require.Equal(t, "com.android.chrome", rejected.BrowserAppID)
 	require.NotEmpty(t, rejected.Fixtures)
 	require.LessOrEqual(t, len(rejected.Fixtures), fcafDescribeFixtures)
 	first := rejected.Fixtures[0]

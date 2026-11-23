@@ -49,6 +49,10 @@ export type ReviewAction = {
 	replaces: string;
 	/** Why the previous Accept of this action did not save, empty when none. */
 	error: string;
+	/** The agent's note on the action (wallet findings, why the wallet cannot do the role). */
+	note?: string;
+	/** FCAF wallet profile saved with the action; an accept binds it. */
+	profile?: Record<string, unknown>;
 	/** Candidate keys among the prerequisites of the action's plan. */
 	starts_from: string[];
 	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
@@ -129,6 +133,8 @@ export type ReviewDecisionItem = {
 	/** What to change, only for a change decision. */
 	comment: string;
 	plan: Record<string, unknown> | null;
+	/** The FCAF profile the review showed, only for an accepted FCAF action. */
+	profile?: Record<string, unknown>;
 };
 
 /** POST /api/action-author/reviews: the decisions on every action of a review. */

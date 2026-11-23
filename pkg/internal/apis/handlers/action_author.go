@@ -707,6 +707,9 @@ type ActionAuthorReviewAction struct {
 	Replaces string `json:"replaces"`
 	// Error is why the previous accept of this action did not save, empty when none.
 	Error string `json:"error"`
+	// Note is the agent's note on the action (wallet findings, or why the
+	// wallet cannot do an FCAF role), empty when none.
+	Note string `json:"note,omitempty"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
 	// Profile is the FCAF profile the agent saves with the action (wallet UI
@@ -1066,6 +1069,7 @@ func actionAuthorPendingReview(
 			CandidateSHA256: text("candidate_sha256"),
 			Replaces:        text("replaces"),
 			Error:           text("error"),
+			Note:            text("note"),
 			Plan:            plan,
 			Profile:         profile,
 			StartsFrom:      planCandidates(plan),

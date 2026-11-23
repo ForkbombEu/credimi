@@ -1124,6 +1124,8 @@
 	"Review_replaces": "Sustituye la action existente {action}. Se conservan su registro y las pipelines que la usan.",
 	"Review_used_by": "Usada por {count} pipelines: ejecutarán el código corregido después de guardar.",
 	"Review_previous_save_failed": "El último guardado falló",
+	"Review_agent_note": "Nota del agente",
+	"Review_wallet_profile": "Perfil del wallet",
 	"Chat_transcript": "Transcripción del chat",
 	"Transcript_empty": "No hay mensajes en este chat.",
 	"Transcript_unavailable": "Parte del chat no está disponible.",

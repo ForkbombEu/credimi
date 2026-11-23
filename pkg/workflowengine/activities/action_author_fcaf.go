@@ -156,6 +156,9 @@ type DescribeActionAuthorFCAFRoleOutput struct {
 	Plan        *actionauthor.Spec                 `json:"plan"`
 	Fixtures    []FCAFFixtureOption                `json:"fixtures"`
 	PIDIssuance map[string]actionauthor.SourceSpec `json:"pid_issuance"`
+	// BrowserAppID is the browser package a role that uses the browser may
+	// target, as Save allows it.
+	BrowserAppID string `json:"browser_app_id"`
 }
 
 // FCAFFixtureOption is a fixture of an FCAF scenario that exercises the role,
@@ -242,6 +245,8 @@ func describeFCAFRole(
 		Rules:       nonNil(scope.Contract.Rules),
 		Fixtures:    []FCAFFixtureOption{},
 		PIDIssuance: map[string]actionauthor.SourceSpec{},
+		// The browser package Save allows for roles that use the browser.
+		BrowserAppID: scope.Contract.Reference.AppIDs[walletroles.AppBrowser],
 	}
 	// The PID issuances the generator injects, one per PID format.
 	issuances, err := scope.Contract.Fixtures(

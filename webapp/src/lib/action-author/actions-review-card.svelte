@@ -108,7 +108,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					candidate_sha256: action.candidate_sha256,
 					decision,
 					comment: decision === 'change' ? choice.comment.trim() : '',
-					plan: action.plan
+					plan: action.plan,
+					...(decision === 'accept' && action.profile ? { profile: action.profile } : {})
 				};
 			})
 		});
@@ -173,6 +174,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Alert>
 				{/if}
 
+				{#if action.note}
+					<Alert>
+						<p class="font-bold">{m.Review_agent_note()}</p>
+						<p class="break-words whitespace-pre-wrap">{action.note}</p>
+					</Alert>
+				{/if}
+
 				<div class="space-y-1">
 					<p class="font-medium">{m.Accepted_YAML()}</p>
 					<pre
@@ -189,6 +197,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</details>
 				{:else}
 					<p>{m.Review_no_plan()}</p>
+				{/if}
+
+				{#if action.profile}
+					<details class="space-y-1">
+						<summary class="cursor-pointer font-medium"
+							>{m.Review_wallet_profile()}</summary
+						>
+						<pre
+							class="mt-1 max-h-[40dvh] overflow-auto rounded-md border bg-slate-50 p-2 font-mono text-xs"
+							aria-label={m.Review_wallet_profile()}>{JSON.stringify(
+								action.profile,
+								null,
+								2
+							)}</pre>
+					</details>
 				{/if}
 
 				{#if planPresent && verified === false}

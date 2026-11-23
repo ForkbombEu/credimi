@@ -1123,6 +1123,8 @@ components:
           type: string
         name:
           type: string
+        note:
+          type: string
         plan:
           additionalProperties: {}
           nullable: true
