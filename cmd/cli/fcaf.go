@@ -726,10 +726,14 @@ func syncFCAFWalletAction(
 	action fcafWalletActionRef,
 	code string,
 ) error {
+	// Actions are unique per wallet, not per organization: another wallet of
+	// the organization (e.g. one the action author wrote FCAF actions for)
+	// holds actions of the same names.
 	records, err := fcafListRecords(ctx, token, "wallet_actions",
 		fmt.Sprintf(
-			`owner="%s" && name="%s"`,
+			`owner="%s" && wallet="%s" && name="%s"`,
 			pocketBaseFilterString(orgID),
+			pocketBaseFilterString(walletID),
 			pocketBaseFilterString(action.Name),
 		),
 	)

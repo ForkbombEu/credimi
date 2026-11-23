@@ -98,6 +98,11 @@ func TestSyncFCAFWalletActionSyncsTags(t *testing.T) {
 				t,
 				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.Method == http.MethodGet {
+						require.Equal(
+							t,
+							`owner="org-id" && wallet="wallet-id" && name="action"`,
+							r.URL.Query().Get("filter"),
+						)
 						require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
 							"items": test.records,
 						}))
