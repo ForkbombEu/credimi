@@ -396,7 +396,7 @@ var strictChecks = []string{
 // ScreenshotConditions returns, for every screenshot a Maestro flow stores,
 // the condition of each takeScreenshot command of that name.
 func ScreenshotConditions(code string) (map[string][]ScreenshotCondition, error) {
-	commands, err := flowCommands(code)
+	commands, err := flowCommandList(code)
 	if err != nil {
 		return nil, err
 	}
@@ -409,10 +409,24 @@ func ScreenshotConditions(code string) (map[string][]ScreenshotCondition, error)
 // flowCommands returns the command list of a Maestro flow: the second YAML
 // document, after the header.
 func flowCommands(code string) ([]any, error) {
+	list, err := flowCommandList(code)
+	if err != nil {
+		return nil, err
+	}
+	var commands []any
+	if err := list.Decode(&commands); err != nil {
+		return nil, fmt.Errorf("parse Maestro flow: %w", err)
+	}
+	return commands, nil
+}
+
+// flowCommandList returns the YAML sequence node of a Maestro flow's
+// commands: the second YAML document, after the header.
+func flowCommandList(code string) (*yaml.Node, error) {
 	decoder := yaml.NewDecoder(strings.NewReader(code))
-	var documents []any
+	var documents []*yaml.Node
 	for {
-		var document any
+		var document yaml.Node
 		err := decoder.Decode(&document)
 		if errors.Is(err, io.EOF) {
 			break
@@ -420,36 +434,104 @@ func flowCommands(code string) ([]any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse Maestro flow: %w", err)
 		}
-		documents = append(documents, document)
+		documents = append(documents, &document)
 	}
 	if len(documents) < 2 {
 		return nil, errors.New("the Maestro flow has no command list after its header")
 	}
-	commands, ok := documents[1].([]any)
-	if !ok {
+	commands := resolveNode(documents[1])
+	if commands == nil || commands.Kind != yaml.SequenceNode {
 		return nil, errors.New("the Maestro flow's commands are not a list")
 	}
 	return commands, nil
 }
 
+// resolveNode unwraps document and alias nodes; nil for an empty document.
+func resolveNode(node *yaml.Node) *yaml.Node {
+	for node != nil {
+		switch node.Kind {
+		case yaml.DocumentNode:
+			if len(node.Content) == 0 {
+				return nil
+			}
+			node = node.Content[0]
+		case yaml.AliasNode:
+			node = node.Alias
+		default:
+			return node
+		}
+	}
+	return nil
+}
+
+// mappingValue returns the value of key in a mapping node, or nil.
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			return resolveNode(node.Content[index+1])
+		}
+	}
+	return nil
+}
+
+// nestedCommands returns the commands list of a runFlow, retry or repeat.
+func nestedCommands(options *yaml.Node) *yaml.Node {
+	commands := mappingValue(options, "commands")
+	if commands == nil || commands.Kind != yaml.SequenceNode {
+		return nil
+	}
+	return commands
+}
+
+// isPlainFalse reports whether node is the unquoted YAML boolean false.
+func isPlainFalse(node *yaml.Node) bool {
+	return node.Kind == yaml.ScalarNode && node.Tag == "!!bool" && node.Style == 0 &&
+		node.Value == "false"
+}
+
+// isString reports whether node is a YAML string scalar.
+func isString(node *yaml.Node) bool {
+	return node != nil && node.Kind == yaml.ScalarNode && node.Tag == "!!str"
+}
+
+// strictCheckHolds reports whether a strict check's options make it
+// non-optional: no options mapping, no optional key, or optional: false
+// written as the plain boolean.
+func strictCheckHolds(options *yaml.Node) bool {
+	if options == nil || options.Kind != yaml.MappingNode {
+		return true
+	}
+	optional := mappingValue(options, "optional")
+	return optional == nil || isPlainFalse(optional)
+}
+
 func walkScreenshots(
-	commands []any,
+	commands *yaml.Node,
 	strict *bool,
 	inWhen bool,
 	conditions map[string][]ScreenshotCondition,
 ) {
-	for _, raw := range commands {
-		command, ok := raw.(map[string]any)
-		if !ok {
+	if commands == nil {
+		return
+	}
+	for _, raw := range commands.Content {
+		command := resolveNode(raw)
+		if command == nil || command.Kind != yaml.MappingNode {
 			continue
 		}
-		for key, value := range command {
+		for index := 0; index+1 < len(command.Content); index += 2 {
+			key := command.Content[index].Value
+			value := resolveNode(command.Content[index+1])
 			switch {
 			case key == "takeScreenshot":
-				name, isName := value.(string)
-				if !isName {
-					options, _ := value.(map[string]any)
-					name, _ = options["path"].(string)
+				name := ""
+				if isString(value) {
+					name = value.Value
+				} else if path := mappingValue(value, "path"); isString(path) {
+					name = path.Value
 				}
 				condition := ScreenshotUnconditional
 				switch {
@@ -460,21 +542,22 @@ func walkScreenshots(
 				}
 				conditions[name] = append(conditions[name], condition)
 			case key == "runFlow":
-				options, _ := value.(map[string]any)
-				nested, _ := options["commands"].([]any)
-				if _, conditional := options["when"]; conditional {
+				nested := nestedCommands(value)
+				if mappingValue(value, "when") != nil {
 					branch := *strict
 					walkScreenshots(nested, &branch, true, conditions)
 					continue
 				}
 				walkScreenshots(nested, strict, inWhen, conditions)
-			case key == "retry" || key == "repeat":
-				options, _ := value.(map[string]any)
-				nested, _ := options["commands"].([]any)
-				walkScreenshots(nested, strict, inWhen, conditions)
+			case key == "retry":
+				walkScreenshots(nestedCommands(value), strict, inWhen, conditions)
+			case key == "repeat":
+				// A repeat body may never run, so its checks prove nothing
+				// for later commands.
+				body := *strict
+				walkScreenshots(nestedCommands(value), &body, inWhen, conditions)
 			case slices.Contains(strictChecks, key):
-				options, _ := value.(map[string]any)
-				if !inWhen && options["optional"] != true {
+				if !inWhen && strictCheckHolds(value) {
 					*strict = true
 				}
 			}

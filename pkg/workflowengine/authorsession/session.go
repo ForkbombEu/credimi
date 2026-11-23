@@ -258,9 +258,10 @@ func (w *Workflow) ExecuteWorkflow(
 	prepared = device
 	// onRelease frees the device while the agent keeps running; the deferred
 	// release then has nothing left to do. Clearing settedDevices ends the
-	// session's live view (the device query reports no device).
+	// session's live view (the device query reports no device). Only an FCAF
+	// session releases early: a chat session drains and ignores the signal.
 	onRelease := func() {
-		if released {
+		if released || session.Mode != actionauthor.SessionModeFCAF {
 			return
 		}
 		released = true

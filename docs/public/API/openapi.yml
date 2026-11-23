@@ -1101,6 +1101,9 @@ components:
             $ref: '#/components/schemas/HandlersActionAuthorReviewAction'
           nullable: true
           type: array
+        profile:
+          additionalProperties: {}
+          type: object
         tool_id:
           type: string
       type: object
@@ -1128,9 +1131,6 @@ components:
         plan:
           additionalProperties: {}
           nullable: true
-          type: object
-        profile:
-          additionalProperties: {}
           type: object
         replaces:
           type: string

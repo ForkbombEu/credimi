@@ -1349,9 +1349,20 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 		{
 			name: "profile over 8 KiB",
 			edit: func(in *SaveRequest) {
-				in.FCAFProfile = map[string]any{"notes": strings.Repeat("x", 8192)}
+				notes := make([]any, 20)
+				for index := range notes {
+					notes[index] = strings.Repeat("€", 300)
+				}
+				in.FCAFProfile = map[string]any{"notes": notes}
 			},
 			message: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+		{
+			name: "profile off the schema",
+			edit: func(in *SaveRequest) {
+				in.FCAFProfile = map[string]any{"pin": "12"}
+			},
+			message: "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters}",
 		},
 		{
 			name: "profile of a chat plan",
@@ -1415,6 +1426,47 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, record.GetString("tags"))
 	assert.Empty(t, savedProvenance(record).FCAFRole)
+}
+
+func TestCheckFCAFProfile(t *testing.T) {
+	const role = "fcaf-reset-and-onboard"
+	const schema = "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters}"
+	manyNotes := make([]any, 21)
+	for index := range manyNotes {
+		manyNotes[index] = "note"
+	}
+	accepted := []map[string]any{
+		nil,
+		{},
+		{"pin": "1234"},
+		{"pin": "12345678"},
+		{"notes": []any{}},
+		{"notes": []any{"a", strings.Repeat("x", 300)}},
+		{"pin": "123456", "notes": manyNotes[:20]},
+	}
+	for _, profile := range accepted {
+		assert.NoError(t, CheckFCAFProfile(profile, role), "%v", profile)
+	}
+	refused := map[string]map[string]any{
+		"unknown key":       {"pin": "1234", "wallet": "x"},
+		"short pin":         {"pin": "123"},
+		"long pin":          {"pin": "123456789"},
+		"pin with letters":  {"pin": "12a4"},
+		"pin with newline":  {"pin": "1234\n"},
+		"numeric pin":       {"pin": float64(1234)},
+		"notes not a list":  {"notes": "a note"},
+		"too many notes":    {"notes": manyNotes},
+		"empty note":        {"notes": []any{""}},
+		"long note":         {"notes": []any{strings.Repeat("x", 301)}},
+		"note not a string": {"notes": []any{float64(1)}},
+	}
+	for name, profile := range refused {
+		t.Run(name, func(t *testing.T) {
+			err := CheckFCAFProfile(profile, role)
+			require.ErrorIs(t, err, ErrInvalid)
+			assert.ErrorContains(t, err, schema)
+		})
+	}
 }
 
 // Save checks the resolved starting actions of an FCAF action against the

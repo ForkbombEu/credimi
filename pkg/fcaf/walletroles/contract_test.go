@@ -248,6 +248,43 @@ func TestScreenshotConditions(t *testing.T) {
 			commands: "- \"stopApp\"\n- takeScreenshot: stopped\n",
 			want:     map[string][]ScreenshotCondition{"stopped": {ScreenshotUnconditional}},
 		},
+		{
+			name: "strict check inside repeat does not gate later screenshots",
+			commands: `- repeat:
+    times: 2
+    commands:
+      - assertVisible: Done
+- takeScreenshot: after
+`,
+			want: map[string][]ScreenshotCondition{"after": {ScreenshotUnconditional}},
+		},
+		{
+			name: "optional yes does not gate",
+			commands: `- assertVisible:
+    text: Done
+    optional: yes
+- takeScreenshot: after
+`,
+			want: map[string][]ScreenshotCondition{"after": {ScreenshotUnconditional}},
+		},
+		{
+			name: "quoted optional false does not gate",
+			commands: `- assertVisible:
+    text: Done
+    optional: "false"
+- takeScreenshot: after
+`,
+			want: map[string][]ScreenshotCondition{"after": {ScreenshotUnconditional}},
+		},
+		{
+			name: "plain optional false gates",
+			commands: `- assertVisible:
+    text: Done
+    optional: false
+- takeScreenshot: after
+`,
+			want: map[string][]ScreenshotCondition{"after": {ScreenshotGated}},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			got, err := ScreenshotConditions("appId: org.example.wallet\n---\n" + testCase.commands)

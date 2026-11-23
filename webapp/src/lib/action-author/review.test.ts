@@ -11,6 +11,7 @@ import {
 	canAccept,
 	canSend,
 	decidedActions,
+	reviewDecisions,
 	startingName,
 	type Choices
 } from './review';
@@ -153,5 +154,31 @@ describe('canSend', () => {
 				a2: { decision: 'accept', comment: '' }
 			})
 		).toBe(true);
+	});
+});
+
+describe('reviewDecisions', () => {
+	const profile = { pin: '123456' };
+	const fcaf = action({ key: 'a1', plan: { slot: 'onboarding', fcaf_role: 'fcaf-reset' } });
+	const chat = action({ key: 'a2', plan: { slot: 'onboarding' } });
+	const refused = action({ key: 'a3', plan: { slot: 'onboarding', fcaf_role: 'fcaf-x' } });
+	const choices: Choices = {
+		a1: { decision: 'accept', comment: '' },
+		a2: { decision: 'accept', comment: '' },
+		a3: { decision: 'refuse', comment: '' }
+	};
+
+	it('sends the review profile with every accepted FCAF action only', () => {
+		const decisions = reviewDecisions({ actions: [fcaf, chat, refused], profile }, choices);
+		expect(decisions.map((decision) => decision.profile)).toEqual([
+			profile,
+			undefined,
+			undefined
+		]);
+	});
+
+	it('sends no profile when the review has none', () => {
+		const decisions = reviewDecisions({ actions: [fcaf] }, choices);
+		expect(decisions[0]).not.toHaveProperty('profile');
 	});
 });

@@ -51,8 +51,6 @@ export type ReviewAction = {
 	error: string;
 	/** The agent's note on the action (wallet findings, why the wallet cannot do the role). */
 	note?: string;
-	/** FCAF wallet profile saved with the action; an accept binds it. */
-	profile?: Record<string, unknown>;
 	/** Candidate keys among the prerequisites of the action's plan. */
 	starts_from: string[];
 	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
@@ -64,6 +62,8 @@ export type ReviewAction = {
 /** The review waiting for the user's decisions, one action per tab. */
 export type PendingReview = {
 	tool_id: string;
+	/** FCAF wallet profile saved with every FCAF action of the review; an accept binds it. */
+	profile?: Record<string, unknown>;
 	actions: ReviewAction[];
 };
 

@@ -26,8 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		blockedBy,
 		canAccept,
 		canSend,
-		decidedActions,
 		hasPlan,
+		reviewDecisions,
 		startingName,
 		type Choices
 	} from './review';
@@ -46,6 +46,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// but equal review object, which must not reset the choices.
 	const actions = untrack(() => review.actions);
 	const toolId = untrack(() => review.tool_id);
+	// The FCAF profile the agent saves with every action of the review; an accept binds it.
+	const profile = untrack(() => review.profile);
 
 	let choices = $state<Choices>(
 		Object.fromEntries(actions.map((action) => [action.key, { decision: null, comment: '' }]))
@@ -99,19 +101,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const res = await sendReview({
 			author_workflow_id: session.chat_workflow_id,
 			tool_id: toolId,
-			decisions: decidedActions(actions, choices).map((action) => {
-				const choice = choices[action.key];
-				const decision = choice.decision as Decision;
-				return {
-					key: action.key,
-					name: action.name,
-					candidate_sha256: action.candidate_sha256,
-					decision,
-					comment: decision === 'change' ? choice.comment.trim() : '',
-					plan: action.plan,
-					...(decision === 'accept' && action.profile ? { profile: action.profile } : {})
-				};
-			})
+			decisions: reviewDecisions({ actions, profile }, choices)
 		});
 		submitting = false;
 		if (res.isOk) {
@@ -132,6 +122,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<h3 class="font-semibold">{m.Review_actions_title()}</h3>
 	<p class="break-words">{m.Review_actions_details({ build })}</p>
+
+	{#if profile}
+		<section class="space-y-1" aria-label={m.Review_wallet_profile()}>
+			<h4 class="font-medium">{m.Review_wallet_profile()}</h4>
+			<pre
+				class="max-h-[40dvh] overflow-auto rounded-md border bg-slate-50 p-2 font-mono text-xs">{JSON.stringify(
+					profile,
+					null,
+					2
+				)}</pre>
+		</section>
+	{/if}
 
 	<Tabs.Root bind:value={selected} class="w-full">
 		<Tabs.List class="flex h-auto w-full flex-wrap">
@@ -197,21 +199,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</details>
 				{:else}
 					<p>{m.Review_no_plan()}</p>
-				{/if}
-
-				{#if action.profile}
-					<details class="space-y-1">
-						<summary class="cursor-pointer font-medium"
-							>{m.Review_wallet_profile()}</summary
-						>
-						<pre
-							class="mt-1 max-h-[40dvh] overflow-auto rounded-md border bg-slate-50 p-2 font-mono text-xs"
-							aria-label={m.Review_wallet_profile()}>{JSON.stringify(
-								action.profile,
-								null,
-								2
-							)}</pre>
-					</details>
 				{/if}
 
 				{#if planPresent && verified === false}

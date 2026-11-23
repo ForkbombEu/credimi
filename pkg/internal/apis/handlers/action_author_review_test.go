@@ -500,7 +500,7 @@ func TestActionAuthorReviewBindsTheFCAFProfile(t *testing.T) {
 	user, err := getUserRecordFromName("userA")
 	require.NoError(t, err)
 	plan := actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"}
-	profile := map[string]any{"pin": "123456", "notes": "fresh test wallet"}
+	profile := map[string]any{"pin": "123456", "notes": []any{"fresh test wallet"}}
 	oversized := map[string]any{"notes": strings.Repeat("x", 8192)}
 	for _, tc := range []struct {
 		name     string
@@ -515,6 +515,12 @@ func TestActionAuthorReviewBindsTheFCAFProfile(t *testing.T) {
 			profile:  oversized,
 			status:   http.StatusBadRequest,
 			expected: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+		{
+			name:     "profile off the schema",
+			profile:  map[string]any{"pin": "123456", "wallet": "x"},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_profile: must be {pin: 4-8 digits",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

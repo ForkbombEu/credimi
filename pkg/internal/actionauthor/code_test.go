@@ -659,6 +659,10 @@ func TestFCAFAppIDs(t *testing.T) {
 		}, fcafTestPackages))
 	assert.Equal(t, []string{"eu.europa.ec.euidi", "com.android.chrome"},
 		FCAFAppIDs(walletroles.Role{HeaderApp: walletroles.AppBrowser}, fcafTestPackages))
+	// A wallet without a browser package does not allow an empty app id.
+	assert.Equal(t, []string{"eu.europa.ec.euidi"},
+		FCAFAppIDs(walletroles.Role{HeaderApp: walletroles.AppBrowser},
+			map[walletroles.App]string{walletroles.AppWallet: "eu.europa.ec.euidi"}))
 }
 
 // TestValidateCodeAcceptsFCAFReferences checks every relying-party reference

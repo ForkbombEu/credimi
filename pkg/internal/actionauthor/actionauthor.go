@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -531,8 +532,19 @@ func CodeSHA256(code string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-// CheckFCAFProfile refuses a profile for an action without an FCAF role and a
-// profile whose JSON encoding exceeds 8 KiB.
+// fcafProfilePIN is the shape of an FCAF profile's PIN.
+var fcafProfilePIN = regexp.MustCompile(`^[0-9]{4,8}$`)
+
+// Bounds of an FCAF profile's notes.
+const (
+	maxFCAFProfileNotes     = 20
+	maxFCAFProfileNoteRunes = 300
+)
+
+// CheckFCAFProfile refuses a profile for an action without an FCAF role, a
+// profile whose JSON encoding exceeds 8 KiB, and one off the profile schema:
+// an optional pin of 4-8 digits and optional notes, at most 20 strings of
+// 1-300 characters, and nothing else.
 func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
 	if profile == nil {
 		return nil
@@ -541,7 +553,47 @@ func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
 	if fcafRole == "" || err != nil || len(encoded) > maxFCAFProfileBytes {
 		return fmt.Errorf("%w: fcaf_profile is only for FCAF actions, at most 8 KiB", ErrInvalid)
 	}
+	if !validFCAFProfile(profile) {
+		return fmt.Errorf(
+			"%w: fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters}",
+			ErrInvalid,
+		)
+	}
 	return nil
+}
+
+func validFCAFProfile(profile map[string]any) bool {
+	for key, value := range profile {
+		switch key {
+		case "pin":
+			pin, ok := value.(string)
+			if !ok || !fcafProfilePIN.MatchString(pin) {
+				return false
+			}
+		case "notes":
+			if !validFCAFProfileNotes(value) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func validFCAFProfileNotes(value any) bool {
+	notes, ok := value.([]any)
+	if !ok || len(notes) > maxFCAFProfileNotes {
+		return false
+	}
+	for _, raw := range notes {
+		note, ok := raw.(string)
+		length := utf8.RuneCountInString(note)
+		if !ok || length < 1 || length > maxFCAFProfileNoteRunes {
+			return false
+		}
+	}
+	return true
 }
 
 // validateAcceptedAction checks the accepted candidate and its code; for an

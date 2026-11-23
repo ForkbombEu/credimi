@@ -302,6 +302,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 				"tool_name": "review_wallet_actions",
 				"tool_input": map[string]any{
 					"author_workflow_id": authoringSessionChat,
+					"profile":            map[string]any{"pin": "123456"},
 					"actions": []any{
 						map[string]any{
 							"key":              "a1",
@@ -313,6 +314,8 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"replaces":         "usera-s-organization/authoring-handler-wallet/install",
 							"error":            "save failed: try again",
 							"note":             "Wallet findings: dcql-1 failed: no match",
+							// A per-action profile is ignored: the review carries one.
+							"profile": map[string]any{"pin": "000000"},
 							// The agent's starts_from is ignored: the plan says it.
 							"starts_from": []any{"a7"},
 						},
@@ -334,6 +337,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							},
 							"replaces":    "",
 							"error":       "",
+							"note":        strings.Repeat("é", 2001),
 							"starts_from": []any{},
 						},
 					},
@@ -426,7 +430,8 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		ChatRunning:             true,
 		ClosesAt:                "2026-01-02T04:00:00Z",
 		PendingReview: &ActionAuthorPendingReview{
-			ToolID: "tool-1",
+			ToolID:  "tool-1",
+			Profile: map[string]any{"pin": "123456"},
 			Actions: []ActionAuthorReviewAction{
 				{
 					Key:             "a1",
@@ -457,6 +462,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							map[string]any{"candidate": "a5"},
 						},
 					},
+					Note:       strings.Repeat("é", 2000),
 					StartsFrom: []string{"a1", "a3", "a4", "a5"},
 					StartsFromNames: map[string]string{
 						"a1": "install",

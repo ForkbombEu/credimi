@@ -146,12 +146,18 @@ type FCAFCodeScope struct {
 
 // FCAFAppIDs returns the apps an FCAF role's action may target: the wallet
 // package, plus the browser package when the role's header or launches name
-// the browser.
+// the browser. An empty package is left out.
 func FCAFAppIDs(role walletroles.Role, packages map[walletroles.App]string) []string {
-	ids := []string{packages[walletroles.AppWallet]}
+	apps := []walletroles.App{walletroles.AppWallet}
 	if role.HeaderApp == walletroles.AppBrowser ||
 		slices.Contains(role.LaunchApps, walletroles.AppBrowser) {
-		ids = append(ids, packages[walletroles.AppBrowser])
+		apps = append(apps, walletroles.AppBrowser)
+	}
+	ids := []string{}
+	for _, app := range apps {
+		if id := packages[app]; id != "" {
+			ids = append(ids, id)
+		}
 	}
 	return ids
 }

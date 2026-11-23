@@ -692,7 +692,10 @@ type ActionAuthorSessionResponse struct {
 // ActionAuthorPendingReview is the review waiting for the caller's
 // decisions: one action per candidate key, in key order.
 type ActionAuthorPendingReview struct {
-	ToolID  string                     `json:"tool_id"`
+	ToolID string `json:"tool_id"`
+	// Profile is the FCAF profile the agent saves with every action of an
+	// FCAF review (wallet UI notes, never secrets); an accept binds it.
+	Profile map[string]any             `json:"profile,omitempty"`
 	Actions []ActionAuthorReviewAction `json:"actions"`
 }
 
@@ -712,9 +715,6 @@ type ActionAuthorReviewAction struct {
 	Note string `json:"note,omitempty"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
-	// Profile is the FCAF profile the agent saves with the action (wallet UI
-	// notes, never secrets); an accept binds it.
-	Profile map[string]any `json:"profile,omitempty"`
 	// StartsFrom lists the candidate keys among the plan's prerequisites.
 	StartsFrom []string `json:"starts_from"`
 	// StartsFromNames names each key of StartsFrom: the review's action of
@@ -1045,7 +1045,12 @@ func actionAuthorPendingReview(
 	if err != nil {
 		e.App.Logger().Warn("action author pending review organization", "error", err)
 	}
-	review := &ActionAuthorPendingReview{ToolID: toolID, Actions: []ActionAuthorReviewAction{}}
+	profile, _ := input["profile"].(map[string]any)
+	review := &ActionAuthorPendingReview{
+		ToolID:  toolID,
+		Profile: profile,
+		Actions: []ActionAuthorReviewAction{},
+	}
 	names := map[string]string{}
 	items, _ := input["actions"].([]any)
 	for _, item := range items {
@@ -1060,7 +1065,6 @@ func actionAuthorPendingReview(
 			return value
 		}
 		plan, _ := fields["plan"].(map[string]any)
-		profile, _ := fields["profile"].(map[string]any)
 		action := ActionAuthorReviewAction{
 			Key:             key,
 			Name:            text("name"),
@@ -1069,9 +1073,8 @@ func actionAuthorPendingReview(
 			CandidateSHA256: text("candidate_sha256"),
 			Replaces:        text("replaces"),
 			Error:           text("error"),
-			Note:            text("note"),
+			Note:            truncateRunes(text("note"), actionAuthorNoteRunes),
 			Plan:            plan,
-			Profile:         profile,
 			StartsFrom:      planCandidates(plan),
 			StartsFromNames: map[string]string{},
 		}
@@ -1095,6 +1098,21 @@ func actionAuthorPendingReview(
 		}
 	}
 	return review
+}
+
+// actionAuthorNoteRunes bounds the agent's note on a review action.
+const actionAuthorNoteRunes = 2000
+
+// truncateRunes keeps the first limit runes of text.
+func truncateRunes(text string, limit int) string {
+	count := 0
+	for index := range text {
+		if count == limit {
+			return text[:index]
+		}
+		count++
+	}
+	return text
 }
 
 // planCandidates lists the candidate keys among plan's prerequisites, in
