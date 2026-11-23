@@ -319,7 +319,7 @@ roles:
     summary: Opens a presentation request, denies consent on the consent screen and records the screen the wallet returns to.
     suites: [wallet_solution/relying_party]
     outcome: tolerant
-    fails_when: never on the outcome; the Verifier's capture of the denial decides
+    fails_when: the consent screen never appears; the denial itself never fails the step, the Verifier's capture of it decides
     parameters: [deeplink]
     header_app: wallet
     launch_apps: [wallet]
