@@ -486,10 +486,11 @@ func nestedCommands(options *yaml.Node) *yaml.Node {
 	return commands
 }
 
-// isPlainFalse reports whether node is the unquoted YAML boolean false.
+// isPlainFalse reports whether node is the unquoted YAML boolean false, with or without an
+// explicit !!bool tag (the Python validator cannot tell the two apart).
 func isPlainFalse(node *yaml.Node) bool {
-	return node.Kind == yaml.ScalarNode && node.Tag == "!!bool" && node.Style == 0 &&
-		node.Value == "false"
+	return node.Kind == yaml.ScalarNode && node.Tag == "!!bool" &&
+		node.Style&^yaml.TaggedStyle == 0 && node.Value == "false"
 }
 
 // isString reports whether node is a YAML string scalar.

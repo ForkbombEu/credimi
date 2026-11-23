@@ -285,6 +285,15 @@ func TestScreenshotConditions(t *testing.T) {
 `,
 			want: map[string][]ScreenshotCondition{"after": {ScreenshotGated}},
 		},
+		{
+			name: "tagged optional false gates",
+			commands: `- assertVisible:
+    text: Done
+    optional: !!bool false
+- takeScreenshot: after
+`,
+			want: map[string][]ScreenshotCondition{"after": {ScreenshotGated}},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			got, err := ScreenshotConditions("appId: org.example.wallet\n---\n" + testCase.commands)
