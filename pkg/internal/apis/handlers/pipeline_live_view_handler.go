@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -263,6 +264,33 @@ func runningPipelineDevices(
 		)
 	}
 
+	devices, err := queryMobileDevices(ctx, temporalClient, workflowID, runID)
+	if errors.Is(err, errMobileDevicesUnreadable) {
+		return nil, "", apierror.New(
+			http.StatusInternalServerError,
+			"device_id",
+			"failed to read initialized pipeline devices",
+			"Could not read the devices of this pipeline execution.",
+		)
+	}
+	if err != nil {
+		return nil, "", liveViewDevicesNotReady()
+	}
+
+	return devices, workflowType, nil
+}
+
+// errMobileDevicesUnreadable marks a device query answer that does not decode.
+var errMobileDevicesUnreadable = errors.New("unreadable mobile devices")
+
+// queryMobileDevices reads the setted_devices entries, keyed by device ID, that
+// a pipeline run or an action author session reports through
+// pipeline.PipelineMobileDevicesQuery.
+func queryMobileDevices(
+	ctx context.Context,
+	temporalClient client.Client,
+	workflowID, runID string,
+) (map[string]map[string]any, error) {
 	encoded, err := temporalClient.QueryWorkflow(
 		ctx,
 		workflowID,
@@ -270,16 +298,11 @@ func runningPipelineDevices(
 		pipeline.PipelineMobileDevicesQuery,
 	)
 	if err != nil {
-		return nil, "", liveViewDevicesNotReady()
+		return nil, err
 	}
 	var raw map[string]any
 	if err := encoded.Get(&raw); err != nil {
-		return nil, "", apierror.New(
-			http.StatusInternalServerError,
-			"device_id",
-			"failed to read initialized pipeline devices",
-			"Could not read the devices of this pipeline execution.",
-		)
+		return nil, fmt.Errorf("%w: %w", errMobileDevicesUnreadable, err)
 	}
 
 	devices := make(map[string]map[string]any, len(raw))
@@ -288,8 +311,35 @@ func runningPipelineDevices(
 			devices[id] = device
 		}
 	}
+	return devices, nil
+}
 
-	return devices, workflowType, nil
+// actionAuthorSessionHoldsDevice reports whether the run runID of the action
+// author session workflowID still holds a device of the runner with record ID
+// runnerID: the session clears its devices when it releases them
+// (ReleaseDeviceSignal). A run that is not found holds none; a device Credimi
+// no longer resolves is not the runner's.
+func actionAuthorSessionHoldsDevice(
+	ctx context.Context,
+	app core.App,
+	temporalClient client.Client,
+	workflowID, runID, runnerID string,
+) (bool, error) {
+	devices, err := queryMobileDevices(ctx, temporalClient, workflowID, runID)
+	if err != nil {
+		var notFound *serviceerror.NotFound
+		if errors.As(err, &notFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	for deviceID := range devices {
+		_, runner, err := mobilerunner.ResolveDevice(app, deviceID)
+		if err == nil && runner.Id == runnerID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func selectLiveViewDevices(

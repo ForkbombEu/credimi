@@ -29,9 +29,10 @@ type MobileRunnerLiveViewStatusResponse struct {
 
 // HandleMobileRunnerLifecycleLiveView answers whether a live view a runner
 // serves still belongs to a running workflow that uses this runner: an action
-// author session in the runner's own namespace, or a pipeline run of an
-// organization whose pipeline_results row lists one of the runner's devices.
-// Anything else, a missing workflow included, is not running. Only the
+// author session in the runner's own namespace that still holds one of the
+// runner's devices (the session's release clears them), or a pipeline run of
+// an organization whose pipeline_results row lists one of the runner's
+// devices. Anything else, a missing workflow included, is not running. Only the
 // runner's managers ask (authorizeRunnerManager): owners of its organization,
 // and superusers or the internal admin key for an admin-managed runner.
 func HandleMobileRunnerLifecycleLiveView() func(*core.RequestEvent) error {
@@ -77,7 +78,26 @@ func HandleMobileRunnerLifecycleLiveView() func(*core.RequestEvent) error {
 		if err != nil {
 			return temporalUnavailableError()
 		}
-		if running && wantType != activities.ActionAuthorSessionWorkflowName {
+		if !running {
+			return e.JSON(http.StatusOK, MobileRunnerLiveViewStatusResponse{})
+		}
+		if wantType == activities.ActionAuthorSessionWorkflowName {
+			c, err := mobileRunnerLifecycleTemporalClient(namespace)
+			if err != nil {
+				return temporalUnavailableError()
+			}
+			running, err = actionAuthorSessionHoldsDevice(
+				e.Request.Context(),
+				e.App,
+				c,
+				workflowID,
+				runID,
+				runner.Id,
+			)
+			if err != nil {
+				return temporalUnavailableError()
+			}
+		} else {
 			running, err = pipelineRunUsesRunner(e.App, workflowID, runID, runner.Id)
 			if err != nil {
 				return apierror.New(

@@ -43,6 +43,8 @@ type reviewStub struct {
 	result       map[string]any
 	session      actionauthor.BuildRequest
 	organization string
+	// mode is the session's mode; fcaf authors the relying-party suite.
+	mode string
 }
 
 // stubActionAuthorReview answers the session lookup with an Android session
@@ -80,11 +82,16 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 		require.Equal(t, stub.namespaces[len(stub.namespaces)-1], namespace)
 		require.Equal(t, reviewAuthorWorkflow, authorWorkflowID)
 		require.Empty(t, authorRunID)
-		return activities.ActionAuthorSessionRef{
+		ref := activities.ActionAuthorSessionRef{
 			Namespace:    namespace,
 			Organization: stub.organization,
 			Session:      stub.session,
-		}, lookupErr
+			Mode:         stub.mode,
+		}
+		if stub.mode == actionauthor.SessionModeFCAF {
+			ref.FCAFSuite = actionauthor.FCAFRelyingPartySuite
+		}
+		return ref, lookupErr
 	}
 	updateActionAuthorWorkflow = func(
 		_ context.Context,
@@ -370,6 +377,19 @@ func TestActionAuthorReviewDecisions(t *testing.T) {
 			expected: []string{`"session_not_found"`},
 		},
 		{
+			name: "profile on a chat action",
+			body: func() string {
+				decision := reviewDecision("a1", reviewSHA1, "accept", onboarding, "")
+				decision.Profile = map[string]any{"pin": "123456"}
+				return reviewBody(t, decision)
+			}(),
+			status: http.StatusBadRequest,
+			expected: []string{
+				`"invalid_request"`,
+				"profile: only FCAF actions carry a profile",
+			},
+		},
+		{
 			name:      "update rejected",
 			updateErr: temporal.NewApplicationError("unknown tool id", "ValueError"),
 			body:      reviewBody(t, reviewDecision("a1", reviewSHA1, "refuse", onboarding, "")),
@@ -472,6 +492,68 @@ func TestActionAuthorReviewRejectsSessionsTheCallerCannotReview(t *testing.T) {
 			TestAppFactory:  setupActionAuthorApp,
 		}).Test(t)
 		require.Empty(t, stub.workflowID, tc.name)
+	}
+}
+
+// An accept of an FCAF action binds the profile the review showed.
+func TestActionAuthorReviewBindsTheFCAFProfile(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	plan := actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"}
+	profile := map[string]any{"pin": "123456", "notes": "fresh test wallet"}
+	oversized := map[string]any{"notes": strings.Repeat("x", 8192)}
+	for _, tc := range []struct {
+		name     string
+		profile  map[string]any
+		status   int
+		expected string
+	}{
+		{name: "with a profile", profile: profile, status: http.StatusOK},
+		{name: "without a profile", status: http.StatusOK},
+		{
+			name:     "profile over 8 KiB",
+			profile:  oversized,
+			status:   http.StatusBadRequest,
+			expected: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode = actionauthor.SessionModeFCAF
+			decision := reviewDecision("a1", reviewSHA1, "accept", plan, "")
+			decision.Profile = tc.profile
+			expected := []string{`"decision":"accept"`}
+			if tc.expected != "" {
+				expected = []string{`"invalid_request"`, tc.expected}
+			}
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body:   strings.NewReader(reviewBody(t, decision)),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: expected,
+				TestAppFactory:  setupActionAuthorApp,
+				AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+					if tc.status != http.StatusOK {
+						require.Empty(t, stub.workflowID)
+						return
+					}
+					decisions := deliveredDecisions(t, stub)
+					require.Len(t, decisions, 1)
+					requireApproval(t, app, decisions[0], reviewSHA1, plan, user.Id)
+					token, _ := decisions[0]["approval"].(string)
+					approval, err := actionauthor.VerifyApproval(
+						app, token, reviewAuthorWorkflow, reviewSHA1, time.Now(),
+					)
+					require.NoError(t, err)
+					require.Equal(t, actionauthor.ProfileSHA256(tc.profile), approval.ProfileSHA256)
+				},
+			}).Test(t)
+		})
 	}
 }
 

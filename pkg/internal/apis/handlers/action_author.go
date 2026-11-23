@@ -676,7 +676,8 @@ type ActionAuthorSessionResponse struct {
 	RunnerName  string `json:"runner_name"`
 	RunnerOwner string `json:"runner_owner"`
 	Model       string `json:"model"`
-	// LiveView reports a running session on an Android device that streams its screen.
+	// LiveView reports a running session on an Android device that streams its
+	// screen and that the session still holds (its release ends the live view).
 	LiveView bool `json:"live_view"`
 	// ChatReady reports that the agent chat has started its first turn; it
 	// stays true once the chat or the session ended.
@@ -708,6 +709,9 @@ type ActionAuthorReviewAction struct {
 	Error string `json:"error"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
+	// Profile is the FCAF profile the agent saves with the action (wallet UI
+	// notes, never secrets); an accept binds it.
+	Profile map[string]any `json:"profile,omitempty"`
 	// StartsFrom lists the candidate keys among the plan's prerequisites.
 	StartsFrom []string `json:"starts_from"`
 	// StartsFromNames names each key of StartsFrom: the review's action of
@@ -855,6 +859,19 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			response.LiveView = running &&
 				info.Session.Platform == actionauthor.PlatformAndroid &&
 				device.GetBool("live_stream")
+			if response.LiveView {
+				// The live view stops with the device release; a failed
+				// query only hides it.
+				held, err := actionAuthorSessionHoldsDevice(
+					e.Request.Context(),
+					e.App,
+					c,
+					info.SessionWorkflowID,
+					info.SessionRunID,
+					runner.Id,
+				)
+				response.LiveView = err == nil && held
+			}
 		}
 		readActionAuthorChat(e, c, response.ChatWorkflowID, running, &response)
 		return e.JSON(http.StatusOK, response)
@@ -1040,6 +1057,7 @@ func actionAuthorPendingReview(
 			return value
 		}
 		plan, _ := fields["plan"].(map[string]any)
+		profile, _ := fields["profile"].(map[string]any)
 		action := ActionAuthorReviewAction{
 			Key:             key,
 			Name:            text("name"),
@@ -1049,6 +1067,7 @@ func actionAuthorPendingReview(
 			Replaces:        text("replaces"),
 			Error:           text("error"),
 			Plan:            plan,
+			Profile:         profile,
 			StartsFrom:      planCandidates(plan),
 			StartsFromNames: map[string]string{},
 		}

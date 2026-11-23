@@ -531,6 +531,19 @@ func CodeSHA256(code string) string {
 	return hex.EncodeToString(digest[:])
 }
 
+// CheckFCAFProfile refuses a profile for an action without an FCAF role and a
+// profile whose JSON encoding exceeds 8 KiB.
+func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
+	if profile == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(profile)
+	if fcafRole == "" || err != nil || len(encoded) > maxFCAFProfileBytes {
+		return fmt.Errorf("%w: fcaf_profile is only for FCAF actions, at most 8 KiB", ErrInvalid)
+	}
+	return nil
+}
+
 // validateAcceptedAction checks the accepted candidate and its code; for an
 // FCAF plan it also checks the plan and code against the role, which it
 // returns, nil otherwise.
@@ -542,13 +555,8 @@ func validateAcceptedAction(in *SaveRequest, selection Selection) (*walletroles.
 	if !candidateKey.MatchString(in.BatchKey) {
 		return nil, fmt.Errorf("%w: batch_key must match a<number>", ErrInvalid)
 	}
-	if in.FCAFProfile != nil {
-		encoded, err := json.Marshal(in.FCAFProfile)
-		if in.Spec.FCAFRole == "" || err != nil || len(encoded) > maxFCAFProfileBytes {
-			return nil, fmt.Errorf(
-				"%w: fcaf_profile is only for FCAF actions, at most 8 KiB", ErrInvalid,
-			)
-		}
+	if err := CheckFCAFProfile(in.FCAFProfile, in.Spec.FCAFRole); err != nil {
+		return nil, err
 	}
 	scope := CodeScope{
 		AppIDs:     AllowedAppIDs(in.PackageID, in.Spec.Slot, selection.Platform),
@@ -570,7 +578,7 @@ func validateAcceptedAction(in *SaveRequest, selection Selection) (*walletroles.
 		if err != nil {
 			return nil, err
 		}
-		if strings.TrimSpace(in.Name) != checked.Name {
+		if in.Name != checked.Name {
 			return nil, fmt.Errorf(
 				"%w: an FCAF action is named after its role: %s", ErrInvalid, checked.Name,
 			)
@@ -607,11 +615,11 @@ func fcafProvenance(provenance *Provenance, in *SaveRequest, role walletroles.Ro
 	return nil
 }
 
-// setFCAFTags tags the record of an FCAF action with its suite; other
-// actions keep their tags.
-func setFCAFTags(record *core.Record, in *SaveRequest) {
-	if in.Spec.FCAFRole != "" {
-		record.Set("tags", fcafTags(in.FCAF.Suite))
+// setFCAFTags merges the FCAF tags of the role into the record's tags; other
+// actions (nil role) keep their tags.
+func setFCAFTags(record *core.Record, role *walletroles.Role) {
+	if role != nil {
+		record.Set("tags", mergeTags(record.GetString("tags"), fcafTags(*role)))
 	}
 }
 
@@ -807,7 +815,7 @@ func Save(
 			return fmt.Errorf("%w: selected version changed", ErrConflict)
 		}
 		if in.Spec.Replaces != nil {
-			receipt, err = replaceAction(tx, current, workflowID, runID, &in, provenance)
+			receipt, err = replaceAction(tx, current, workflowID, runID, &in, provenance, role)
 			return err
 		}
 		record, err := tx.FindFirstRecordByFilter(
@@ -851,7 +859,7 @@ func Save(
 		record.Set("code", in.Code)
 		record.Set("category", SlotCategory(in.Spec.Slot))
 		record.Set("authoring_provenance", provenance)
-		setFCAFTags(record, &in)
+		setFCAFTags(record, role)
 		if err := tx.Save(record); err != nil {
 			return fmt.Errorf("save authored action: %w", err)
 		}
@@ -888,6 +896,7 @@ func replaceAction(
 	workflowID, runID string,
 	in *SaveRequest,
 	provenance Provenance,
+	role *walletroles.Role,
 ) (Receipt, error) {
 	record, err := replaceTarget(tx, current, &in.Spec)
 	if err != nil {
@@ -935,7 +944,7 @@ func replaceAction(
 	record.Set("code", in.Code)
 	record.Set("category", SlotCategory(in.Spec.Slot))
 	record.Set("authoring_provenance", provenance)
-	setFCAFTags(record, in)
+	setFCAFTags(record, role)
 	if err := tx.Save(record); err != nil {
 		return Receipt{}, fmt.Errorf("replace authored action: %w", err)
 	}

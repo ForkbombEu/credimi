@@ -373,7 +373,7 @@ func (s *Spec) Normalize() error {
 			return invalidf("outcome: tolerant is only for FCAF roles")
 		}
 	default:
-		return invalidf("outcome: must be success, rejection or wait")
+		return invalidf("outcome: must be success, rejection, wait or tolerant")
 	}
 	if s.Outcome == OutcomeWait {
 		if s.WaitSeconds < 1 || s.WaitSeconds > MaxWaitSeconds {

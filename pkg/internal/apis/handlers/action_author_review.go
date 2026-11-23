@@ -39,13 +39,15 @@ type ActionAuthorReviewRequest struct {
 // accept, refuse or change (with a comment saying what to change). Plan is
 // the action's plan as the review shows it, with its candidate prerequisites
 // unresolved; Credimi checks it again and binds an accept's approval to it.
+// Profile is the FCAF profile the review showed, which an accept also binds.
 type ActionAuthorReviewDecision struct {
-	Key             string            `json:"key"              validate:"required"`
-	Name            string            `json:"name"             validate:"max=200"`
-	CandidateSHA256 string            `json:"candidate_sha256" validate:"required,len=64,hexadecimal"`
-	Decision        string            `json:"decision"         validate:"required,oneof=accept refuse change"`
-	Comment         string            `json:"comment"          validate:"max=2000"`
+	Key             string            `json:"key"               validate:"required"`
+	Name            string            `json:"name"              validate:"max=200"`
+	CandidateSHA256 string            `json:"candidate_sha256"  validate:"required,len=64,hexadecimal"`
+	Decision        string            `json:"decision"          validate:"required,oneof=accept refuse change"`
+	Comment         string            `json:"comment"           validate:"max=2000"`
 	Plan            actionauthor.Spec `json:"plan"`
+	Profile         map[string]any    `json:"profile,omitempty"`
 }
 
 // ActionAuthorReviewResponse confirms the decisions the agent received.
@@ -262,8 +264,9 @@ func checkReviewDecisions(decisions []ActionAuthorReviewDecision) error {
 	return nil
 }
 
-// signReviewApproval checks an accepted action's plan again for the session
-// and signs the caller's approval of its code and plan.
+// signReviewApproval checks an accepted action's plan and FCAF profile again
+// for the session and signs the caller's approval of its code, plan and
+// profile.
 func signReviewApproval(
 	e *core.RequestEvent,
 	ref activities.ActionAuthorSessionRef,
@@ -271,6 +274,14 @@ func signReviewApproval(
 	authorWorkflowID string,
 	decision ActionAuthorReviewDecision,
 ) (string, error) {
+	if len(decision.Profile) > 0 && decision.Plan.FCAFRole == "" {
+		return "", fmt.Errorf(
+			"%w: profile: only FCAF actions carry a profile", actionauthor.ErrInvalid,
+		)
+	}
+	if err := actionauthor.CheckFCAFProfile(decision.Profile, decision.Plan.FCAFRole); err != nil {
+		return "", err
+	}
 	selection, err := actionauthor.Select(e.App, ref.Organization, ref.Session)
 	if err != nil {
 		return "", err
@@ -290,6 +301,7 @@ func signReviewApproval(
 		ApprovedAt:       time.Now().Unix(),
 		PlanSHA256:       actionauthor.PlanSHA256(plan),
 		Key:              decision.Key,
+		ProfileSHA256:    actionauthor.ProfileSHA256(decision.Profile),
 	})
 }
 

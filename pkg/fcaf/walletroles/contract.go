@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -119,6 +120,11 @@ type Contract struct {
 	// ReferencePrefix is "<organization>/<wallet>/" of the reference
 	// manifest: the action_id prefix of the reference flows in scenarios.
 	ReferencePrefix string `yaml:"-" json:"-"`
+
+	// fixturesMu guards fixtureSuites, the scenarios Fixtures reads per
+	// (fcafRoot, suite).
+	fixturesMu    sync.Mutex
+	fixtureSuites map[suiteKey]*suiteScenarios
 }
 
 // SHA256 is the lowercase hex sha256 of the role's JSON encoding: every

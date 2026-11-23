@@ -13,6 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestProfileSHA256(t *testing.T) {
+	assert.Empty(t, ProfileSHA256(nil))
+	assert.Empty(t, ProfileSHA256(map[string]any{}))
+	// The sha256 of {"a":"2","b":"1"} whatever the map's insertion order.
+	got := ProfileSHA256(map[string]any{"b": "1", "a": "2"})
+	assert.Equal(t, CodeSHA256(`{"a":"2","b":"1"}`), got)
+	assert.Equal(t, got, ProfileSHA256(map[string]any{"a": "2", "b": "1"}))
+}
+
 func TestApprovalSignAndVerify(t *testing.T) {
 	app, _, _ := authoringFixture(t)
 	now := time.Unix(1_800_000_000, 0)

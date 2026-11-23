@@ -23,6 +23,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/pipelineexpr"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
@@ -281,7 +282,7 @@ func collectFCAFEvidenceLeaves(pipelineOutputs map[string]any) []fcafEvidenceLea
 	walk = func(source string, path []any, value any) {
 		switch typed := value.(type) {
 		case string:
-			if refs := pipelineinternal.ExpressionRefs(typed); len(refs) > 0 {
+			if refs := pipelineexpr.ExpressionRefs(typed); len(refs) > 0 {
 				leaves = append(leaves, fcafEvidenceLeaf{
 					source: source,
 					path:   slices.Clone(path),

@@ -22,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -338,6 +339,12 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 				},
 			},
 		}}}, nil)
+	// The session still holds its device, so its live view shows.
+	c.On("QueryWorkflow", mock.Anything, authoringSessionID, authoringSessionRun,
+		pipeline.PipelineMobileDevicesQuery).
+		Return(jsonEncodedValue{map[string]any{
+			authoringSessionDevice: map[string]any{"type": "android_emulator"},
+		}}, nil)
 	var response ActionAuthorSessionResponse
 	var orgLookups atomic.Int32
 	(&tests.ApiScenario{
@@ -605,6 +612,45 @@ func TestActionAuthorSessionReadsAClosedSessionWithoutItsChat(t *testing.T) {
 	require.False(t, response.ChatRunning)
 	require.False(t, response.LiveView)
 	require.Nil(t, response.PendingReview)
+}
+
+// A session that released its device (ReleaseDeviceSignal) reports no
+// devices, so its live view is gone while the chat still runs.
+func TestActionAuthorSessionHidesTheLiveViewAfterTheRelease(t *testing.T) {
+	c := &temporalmocks.Client{}
+	stubAuthoringSessionTemporal(t, c)
+	c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+		Return(nil, serviceerror.NewNotFound("no chat"))
+	c.On("QueryWorkflow", mock.Anything, authoringSessionID, authoringSessionRun,
+		pipeline.PipelineMobileDevicesQuery).
+		Return(jsonEncodedValue{map[string]any{}}, nil).Once()
+	var response ActionAuthorSessionResponse
+	(&tests.ApiScenario{
+		Name:            "released session",
+		Method:          http.MethodGet,
+		URL:             "/api/action-author/sessions/" + authoringSessionID,
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"status":"Running"`, `"live_view":false`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			device, err := app.FindFirstRecordByFilter(
+				"mobile_devices",
+				"name = 'android-emulator' && runner.name = 'admin-runner'",
+			)
+			require.NoError(t, err)
+			device.Set("live_stream", true)
+			require.NoError(t, app.Save(device))
+			runningAuthoringSession(app, t, c, enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING)
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			decodeBody(t, res, &response)
+		},
+	}).Test(t)
+
+	require.False(t, response.LiveView)
+	c.AssertExpectations(t)
 }
 
 // Another member of the organization gets the answer of a session that does not exist.

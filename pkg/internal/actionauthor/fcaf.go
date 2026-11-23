@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 	"slices"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/pocketbase/dbx"
@@ -43,6 +44,21 @@ func FCAFOutcome(o walletroles.Outcome) string {
 	}
 }
 
+// FCAFSuiteRole returns the role name of the scope's suite, ErrInvalid when
+// the contract has no such role or the suite does not run it.
+func FCAFSuiteRole(scope *FCAFScope, name string) (walletroles.Role, error) {
+	role, ok := scope.Contract.Role(name)
+	if !ok {
+		return walletroles.Role{}, invalidf("fcaf_role: %s is not an FCAF role", name)
+	}
+	if !slices.Contains(role.Suites, scope.Suite) {
+		return walletroles.Role{}, invalidf(
+			"fcaf_role: %s is not part of the %s suite", role.Name, scope.Suite,
+		)
+	}
+	return role, nil
+}
+
 // CheckFCAFPlan checks a normalized plan bound to an FCAF role against the
 // contract: its slot, outcome, wait, parameters, starting actions and
 // replaced action follow the role. Candidate prerequisites pass here; Save
@@ -51,14 +67,9 @@ func CheckFCAFPlan(scope *FCAFScope, spec *Spec) (walletroles.Role, error) {
 	if scope == nil {
 		return walletroles.Role{}, invalidf("fcaf_role: this session does not author FCAF actions")
 	}
-	role, ok := scope.Contract.Role(spec.FCAFRole)
-	if !ok {
-		return walletroles.Role{}, invalidf("fcaf_role: %s is not an FCAF role", spec.FCAFRole)
-	}
-	if !slices.Contains(role.Suites, scope.Suite) {
-		return walletroles.Role{}, invalidf(
-			"fcaf_role: %s is not part of the %s suite", role.Name, scope.Suite,
-		)
+	role, err := FCAFSuiteRole(scope, spec.FCAFRole)
+	if err != nil {
+		return walletroles.Role{}, err
 	}
 	if slot, _ := SlotForCategory(role.Category); spec.Slot != slot {
 		return walletroles.Role{}, invalidf(
@@ -193,18 +204,34 @@ func fcafSuiteRoles(scope *FCAFScope) []walletroles.Role {
 	return roles
 }
 
-// fcafSuiteTags are the wallet_actions tags of the FCAF suites.
-var fcafSuiteTags = map[string]string{
-	"wallet_solution/relying_party":        "ws_rp",
-	"wallet_solution/attestation_provider": "ws_ap",
+// fcafSuiteTags are the wallet_actions tags of the FCAF suites, in contract
+// suite order.
+var fcafSuiteTags = []struct{ suite, tag string }{
+	{"wallet_solution/relying_party", "ws_rp"},
+	{"wallet_solution/attestation_provider", "ws_ap"},
 }
 
-// suiteTag returns the short tag of an FCAF suite.
-func suiteTag(suite string) string {
-	return fcafSuiteTags[suite]
+// fcafTags returns the tags an action of the role is saved with: fcaf, then
+// the tag of each of the role's suites.
+func fcafTags(role walletroles.Role) []string {
+	tags := []string{"fcaf"}
+	for _, suite := range fcafSuiteTags {
+		if slices.Contains(role.Suites, suite.suite) {
+			tags = append(tags, suite.tag)
+		}
+	}
+	return tags
 }
 
-// fcafTags returns the tags FCAF actions of the suite are saved with.
-func fcafTags(suite string) string {
-	return "fcaf, " + suiteTag(suite)
+// mergeTags appends the tags missing from the comma-separated list tags,
+// keeping its items, trimmed and without duplicates, and joins them with ", ".
+func mergeTags(tags string, add []string) string {
+	merged := []string{}
+	for _, tag := range append(strings.Split(tags, ","), add...) {
+		tag = strings.TrimSpace(tag)
+		if tag != "" && !slices.Contains(merged, tag) {
+			merged = append(merged, tag)
+		}
+	}
+	return strings.Join(merged, ", ")
 }

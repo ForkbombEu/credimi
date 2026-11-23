@@ -29,6 +29,7 @@ import (
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
@@ -57,6 +58,10 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 		want       bool
 		wantStatus int
 		wantReason string
+		// held, for an action author session, is what its device query
+		// answers: "device" stands for a device of the runner.
+		held     map[string]any
+		queryErr error
 		// prepare changes the fixture before the request.
 		prepare func(t *testing.T, app *tests.TestApp, user *core.Record)
 	}{
@@ -91,11 +96,43 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 			workflowID: "pipeline-1",
 		},
 		{
-			name:       "running action author session in the runner namespace",
+			name:       "action author session holding a device of the runner",
 			namespace:  "runner",
 			workflowID: "ActionAuthorSession-x-1",
 			describe:   describe(activities.ActionAuthorSessionWorkflowName, running),
+			held:       map[string]any{"device": map[string]any{"type": "android_emulator"}},
 			want:       true,
+		},
+		{
+			name:       "action author session that released its device",
+			namespace:  "runner",
+			workflowID: "ActionAuthorSession-x-1",
+			describe:   describe(activities.ActionAuthorSessionWorkflowName, running),
+			held:       map[string]any{},
+		},
+		{
+			name:       "action author session holding a device Credimi does not know",
+			namespace:  "runner",
+			workflowID: "ActionAuthorSession-x-1",
+			describe:   describe(activities.ActionAuthorSessionWorkflowName, running),
+			held: map[string]any{
+				"usera-s-organization/other-runner/device": map[string]any{},
+			},
+		},
+		{
+			name:       "action author session whose query fails",
+			namespace:  "runner",
+			workflowID: "ActionAuthorSession-x-1",
+			describe:   describe(activities.ActionAuthorSessionWorkflowName, running),
+			queryErr:   errors.New("unavailable"),
+			wantStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:       "action author session whose run the query does not find",
+			namespace:  "runner",
+			workflowID: "ActionAuthorSession-x-1",
+			describe:   describe(activities.ActionAuthorSessionWorkflowName, running),
+			queryErr:   serviceerror.NewNotFound("missing"),
 		},
 		{
 			name:       "pipeline type in the runner namespace",
@@ -158,7 +195,7 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			app := setupMobileRunnerApp(t)
 			defer app.Cleanup()
-			user, _ := setupMobileRunnerWorkTest(t, app)
+			user, devicePaths := setupMobileRunnerWorkTest(t, app)
 			runner, err := canonify.Resolve(app, "/usera-s-organization/work-runner")
 			require.NoError(t, err)
 			orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
@@ -185,6 +222,26 @@ func TestHandleMobileRunnerLifecycleLiveView(t *testing.T) {
 				resp, describeErr := tc.describe()
 				mockClient.On("DescribeWorkflow", mock.Anything, tc.workflowID, "run-1").
 					Return(temporalclient.Description(resp), describeErr).Once()
+			}
+			if tc.held != nil || tc.queryErr != nil {
+				held := map[string]any{}
+				for id, value := range tc.held {
+					if id == "device" {
+						id = devicePaths[0]
+					}
+					held[id] = value
+				}
+				var answer converter.EncodedValue
+				if tc.queryErr == nil {
+					answer = pipelineMobileFlowEncodedValue{devices: held}
+				}
+				mockClient.On(
+					"QueryWorkflow",
+					mock.Anything,
+					tc.workflowID,
+					"run-1",
+					pipeline.PipelineMobileDevicesQuery,
+				).Return(answer, tc.queryErr).Once()
 			}
 			mobileRunnerLifecycleTemporalClient = func(ns string) (client.Client, error) {
 				require.NotNil(t, tc.describe, "unexpected Temporal client")

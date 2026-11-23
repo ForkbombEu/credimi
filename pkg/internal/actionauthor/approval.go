@@ -5,6 +5,9 @@
 package actionauthor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -34,6 +37,24 @@ type Approval struct {
 	PlanSHA256 string `json:"plan_sha256"`
 	// Key binds the approval to the candidate key the session saves it as.
 	Key string `json:"key"`
+	// ProfileSHA256 binds the approval to the FCAF profile the user saw
+	// (ProfileSHA256), empty without one.
+	ProfileSHA256 string `json:"profile_sha256,omitempty"`
+}
+
+// ProfileSHA256 hashes an FCAF profile: the lowercase hex sha256 of its JSON
+// encoding (encoding/json sorts map keys), "" for a nil or empty profile or
+// one that does not encode, which Save refuses.
+func ProfileSHA256(profile map[string]any) string {
+	if len(profile) == 0 {
+		return ""
+	}
+	encoded, err := json.Marshal(profile)
+	if err != nil {
+		return ""
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:])
 }
 
 // SignApproval returns the token base64url(json).base64url(hmac).

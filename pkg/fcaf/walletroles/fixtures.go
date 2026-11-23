@@ -13,10 +13,11 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
 	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
-	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/pipelineexpr"
 	"gopkg.in/yaml.v3"
 )
 
@@ -44,17 +45,17 @@ const (
 // FixtureRequest is the HTTP request that creates the session a role's
 // parameter opens.
 type FixtureRequest struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    any               `json:"body,omitempty"`
+	Method  string
+	URL     string
+	Headers map[string]string
+	Body    any
 }
 
 // FixtureFetch is a GET step that reads back the session the request created.
 type FixtureFetch struct {
-	StepID string `json:"step_id"`
+	StepID string
 	// URL contains ${session_id}.
-	URL string `json:"url"`
+	URL string
 }
 
 // Fixture is one way to exercise a role the way an FCAF scenario does: the
@@ -63,22 +64,22 @@ type FixtureFetch struct {
 type Fixture struct {
 	// ID is "<scenario base name>#<mobile step id>", or "pid-sd-jwt" /
 	// "pid-mdoc" for the injected issuance.
-	ID string `json:"id"`
+	ID string
 	// Scenario is the scenario file base name without .yaml; "" for PID
 	// fixtures.
-	Scenario     string `json:"scenario"`
-	MobileStepID string `json:"mobile_step_id"`
+	Scenario     string
+	MobileStepID string
 	// Standalone is set when the role's step is its scenario's first
 	// mobile-automation step.
-	Standalone bool `json:"standalone"`
+	Standalone bool
 	// PIDFormat is "sd-jwt", "mdoc" or "".
-	PIDFormat       string         `json:"pid_format"`
-	Parameter       string         `json:"parameter"`
-	Request         FixtureRequest `json:"request"`
-	ValuePath       string         `json:"value_path"`
-	Fetches         []FixtureFetch `json:"fetches"`
-	TestIDs         []string       `json:"test_ids"`
-	PipelineOutputs map[string]any `json:"-"`
+	PIDFormat       string
+	Parameter       string
+	Request         FixtureRequest
+	ValuePath       string
+	Fetches         []FixtureFetch
+	TestIDs         []string
+	PipelineOutputs map[string]any
 }
 
 var (
@@ -97,7 +98,7 @@ func PIDIssuance(format string) FixtureRequest {
 	}
 	return FixtureRequest{
 		Method:  "POST",
-		URL:     pipeline.DefaultVerifierURL + "/sessions",
+		URL:     pipelineexpr.DefaultVerifierURL + "/sessions",
 		Headers: map[string]string{"Content-Type": "application/json"},
 		Body: map[string]any{
 			"issuer_configuration_id":     PIDIssuerConfigurationID,
@@ -137,16 +138,77 @@ func OptionalizeExpressions(value any) any {
 	}
 }
 
-// fixtureScenario is an FCAF scenario file, decoded loosely.
-type fixtureScenario struct {
-	Runtime map[string]any   `yaml:"runtime"`
+// Scenario is an FCAF scenario file, decoded loosely.
+type Scenario struct {
+	Name    string           `yaml:"name"`
+	Runtime map[string]any   `yaml:"runtime,omitempty"`
 	Steps   []map[string]any `yaml:"steps"`
+}
+
+// LoadScenario reads the FCAF scenario at path, which must define a name and
+// steps.
+func LoadScenario(path string) (Scenario, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Scenario{}, fmt.Errorf("read FCAF scenario %s: %w", path, err)
+	}
+	var scenario Scenario
+	if err := yaml.Unmarshal(data, &scenario); err != nil {
+		return Scenario{}, fmt.Errorf("parse FCAF scenario %s: %w", path, err)
+	}
+	if strings.TrimSpace(scenario.Name) == "" || len(scenario.Steps) == 0 {
+		return Scenario{}, fmt.Errorf("FCAF scenario %s must define name and steps", path)
+	}
+	return scenario, nil
+}
+
+// ScenarioFixture returns the ${fixture.<key>} values of a scenario: the
+// defaults (pipelineexpr.FixtureDefaults), overridden by its runtime.fixture
+// strings, as pipeline.ApplyFixture substitutes them at run time.
+func ScenarioFixture(runtime map[string]any) map[string]string {
+	values := pipelineexpr.FixtureDefaults()
+	declared, _ := runtime["fixture"].(map[string]any)
+	for key, value := range declared {
+		if text, ok := value.(string); ok {
+			values[key] = text
+		}
+	}
+	return values
+}
+
+// SubstituteFixture replaces every ${fixture.<key>} token of s whose key
+// fixture holds by its value.
+func SubstituteFixture(s string, fixture map[string]string) string {
+	for key, value := range fixture {
+		s = strings.ReplaceAll(s, "${fixture."+key+"}", value)
+	}
+	return s
+}
+
+// suiteKey names the scenarios of a suite under an FCAF templates root.
+type suiteKey struct{ root, suite string }
+
+// suiteScenarios are the scenarios of a suite, parsed and with their fixture
+// values substituted, and the loader of the suite's tests.
+type suiteScenarios struct {
+	scenarios []fixtureScenario
+	tests     *testLoader
+}
+
+// fixtureScenario is a scenario's path and file base name without .yaml,
+// and its steps with their fixture values substituted, also by step id.
+type fixtureScenario struct {
+	path  string
+	name  string
+	steps []map[string]any
+	byID  map[string]map[string]any
 }
 
 // Fixtures returns the fixtures of a role in the scenarios of a suite under
 // fcafRoot: every step of a scenario that runs the role's reference action
 // with a parameter a self-contained POST request produces. Standalone
-// fixtures come first; file and step order is kept otherwise.
+// fixtures come first; file and step order is kept otherwise. The contract
+// reads the scenarios and tests of each (fcafRoot, suite) once.
 func (c *Contract) Fixtures(fcafRoot, suite, roleName string) ([]Fixture, error) {
 	role, ok := c.Role(roleName)
 	if !ok {
@@ -158,16 +220,13 @@ func (c *Contract) Fixtures(fcafRoot, suite, roleName string) ([]Fixture, error)
 	if len(role.Parameters) == 0 {
 		return []Fixture{}, nil
 	}
-	suiteRoot := filepath.Join(fcafRoot, filepath.FromSlash(suite))
-	paths, err := filepath.Glob(filepath.Join(suiteRoot, "scenarios", "*.yaml"))
+	loaded, err := c.suiteScenarios(fcafRoot, suite)
 	if err != nil {
-		return nil, fmt.Errorf("list FCAF scenarios of %s: %w", suite, err)
+		return nil, err
 	}
-	sort.Strings(paths)
-	loader := &testLoader{root: filepath.Join(suiteRoot, "tests")}
 	fixtures := []Fixture{}
-	for _, path := range paths {
-		found, err := c.scenarioFixtures(path, role, loader)
+	for _, scenario := range loaded.scenarios {
+		found, err := c.scenarioFixtures(scenario, role, loaded.tests)
 		if err != nil {
 			return nil, err
 		}
@@ -177,6 +236,58 @@ func (c *Contract) Fixtures(fcafRoot, suite, roleName string) ([]Fixture, error)
 		return fixtures[i].Standalone && !fixtures[j].Standalone
 	})
 	return fixtures, nil
+}
+
+// suiteScenarios returns the scenarios of the suite under fcafRoot, read on
+// first use; a failed read is not kept.
+func (c *Contract) suiteScenarios(fcafRoot, suite string) (*suiteScenarios, error) {
+	c.fixturesMu.Lock()
+	defer c.fixturesMu.Unlock()
+	key := suiteKey{root: fcafRoot, suite: suite}
+	if loaded, ok := c.fixtureSuites[key]; ok {
+		return loaded, nil
+	}
+	suiteRoot := filepath.Join(fcafRoot, filepath.FromSlash(suite))
+	paths, err := filepath.Glob(filepath.Join(suiteRoot, "scenarios", "*.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("list FCAF scenarios of %s: %w", suite, err)
+	}
+	sort.Strings(paths)
+	loaded := &suiteScenarios{
+		scenarios: make([]fixtureScenario, 0, len(paths)),
+		tests:     &testLoader{root: filepath.Join(suiteRoot, "tests")},
+	}
+	for _, path := range paths {
+		scenario, err := LoadScenario(path)
+		if err != nil {
+			return nil, err
+		}
+		loaded.scenarios = append(loaded.scenarios, substitutedScenario(path, scenario))
+	}
+	if c.fixtureSuites == nil {
+		c.fixtureSuites = map[suiteKey]*suiteScenarios{}
+	}
+	c.fixtureSuites[key] = loaded
+	return loaded, nil
+}
+
+// substitutedScenario substitutes the scenario's fixture values in its steps.
+func substitutedScenario(path string, scenario Scenario) fixtureScenario {
+	values := ScenarioFixture(scenario.Runtime)
+	parsed := fixtureScenario{
+		path:  path,
+		name:  strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+		steps: make([]map[string]any, len(scenario.Steps)),
+		byID:  make(map[string]map[string]any, len(scenario.Steps)),
+	}
+	for i, step := range scenario.Steps {
+		substituted, _ := substituteFixture(step, values).(map[string]any)
+		parsed.steps[i] = substituted
+		if id, _ := substituted["id"].(string); id != "" {
+			parsed.byID[id] = substituted
+		}
+	}
+	return parsed
 }
 
 func pidFixtures(role Role) []Fixture {
@@ -200,14 +311,18 @@ func pidFixtures(role Role) []Fixture {
 	return fixtures
 }
 
-// testLoader loads the suite's test definitions once, on first use.
+// testLoader loads the suite's test definitions once, on first use; a
+// failed load is tried again.
 type testLoader struct {
 	root   string
+	mu     sync.Mutex
 	tests  map[string]dsl.TestDefinition
 	loaded bool
 }
 
 func (l *testLoader) load() (map[string]dsl.TestDefinition, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.loaded {
 		return l.tests, nil
 	}
@@ -219,30 +334,15 @@ func (l *testLoader) load() (map[string]dsl.TestDefinition, error) {
 	return tests, nil
 }
 
-func (c *Contract) scenarioFixtures(path string, role Role, loader *testLoader) ([]Fixture, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read FCAF scenario %s: %w", path, err)
-	}
-	var scenario fixtureScenario
-	if err := yaml.Unmarshal(data, &scenario); err != nil {
-		return nil, fmt.Errorf("parse FCAF scenario %s: %w", path, err)
-	}
-	values := scenarioFixtureValues(scenario.Runtime)
-	steps := make([]map[string]any, len(scenario.Steps))
-	byID := make(map[string]map[string]any, len(scenario.Steps))
-	for i, step := range scenario.Steps {
-		substituted, _ := substituteFixture(step, values).(map[string]any)
-		steps[i] = substituted
-		if id, _ := substituted["id"].(string); id != "" {
-			byID[id] = substituted
-		}
-	}
-	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+func (c *Contract) scenarioFixtures(
+	scenario fixtureScenario,
+	role Role,
+	loader *testLoader,
+) ([]Fixture, error) {
 	actionID := c.ReferencePrefix + role.Name
 	var fixtures []Fixture
 	mobileSeen := false
-	for _, step := range steps {
+	for _, step := range scenario.steps {
 		use, _ := step["use"].(string)
 		if use != mobileAutomationUse {
 			continue
@@ -253,35 +353,19 @@ func (c *Contract) scenarioFixtures(path string, role Role, loader *testLoader) 
 		if id, _ := with["action_id"].(string); id != actionID {
 			continue
 		}
-		fixture, ok := stepFixture(step, role, byID, steps)
+		fixture, ok := stepFixture(step, role, scenario.byID, scenario.steps)
 		if !ok {
 			continue
 		}
-		fixture.ID = name + "#" + fixture.MobileStepID
-		fixture.Scenario = name
+		fixture.ID = scenario.name + "#" + fixture.MobileStepID
+		fixture.Scenario = scenario.name
 		fixture.Standalone = standalone
-		if err := scenarioTests(&fixture, steps, loader); err != nil {
-			return nil, fmt.Errorf("FCAF scenario %s: %w", path, err)
+		if err := scenarioTests(&fixture, scenario.steps, loader); err != nil {
+			return nil, fmt.Errorf("FCAF scenario %s: %w", scenario.path, err)
 		}
 		fixtures = append(fixtures, fixture)
 	}
 	return fixtures, nil
-}
-
-// scenarioFixtureValues are the ${fixture.<key>} values of a scenario: the
-// default services, overridden by its runtime.fixture strings.
-func scenarioFixtureValues(runtime map[string]any) map[string]string {
-	values := map[string]string{
-		"issuer_url":   pipeline.DefaultIssuerURL,
-		"verifier_url": pipeline.DefaultVerifierURL,
-	}
-	declared, _ := runtime["fixture"].(map[string]any)
-	for key, value := range declared {
-		if text, ok := value.(string); ok {
-			values[key] = text
-		}
-	}
-	return values
 }
 
 func substituteFixture(value any, values map[string]string) any {
@@ -299,10 +383,7 @@ func substituteFixture(value any, values map[string]string) any {
 		}
 		return out
 	case string:
-		for key, replacement := range values {
-			typed = strings.ReplaceAll(typed, "${fixture."+key+"}", replacement)
-		}
-		return typed
+		return SubstituteFixture(typed, values)
 	default:
 		return value
 	}
@@ -397,7 +478,7 @@ func sessionFetches(createID string, steps []map[string]any) []FixtureFetch {
 		if !strings.EqualFold(method, "GET") || strings.Count(url, "${{") != 1 {
 			continue
 		}
-		if refs := pipeline.ExpressionRefs(url); len(refs) != 1 || refs[0] != sessionRef {
+		if refs := pipelineexpr.ExpressionRefs(url); len(refs) != 1 || refs[0] != sessionRef {
 			continue
 		}
 		id, _ := step["id"].(string)
@@ -445,7 +526,7 @@ func scenarioTests(fixture *Fixture, steps []map[string]any, loader *testLoader)
 			continue
 		}
 		with, _ := step["with"].(map[string]any)
-		ids := stringList(with["test_ids"])
+		ids := StringList(with["test_ids"])
 		if id, _ := with["test_id"].(string); id != "" {
 			ids = append(ids, id)
 		}
@@ -514,7 +595,7 @@ func refsAllowed(value any, allowed map[string]struct{}) bool {
 			}
 		}
 	case string:
-		for _, ref := range pipeline.ExpressionRefs(typed) {
+		for _, ref := range pipelineexpr.ExpressionRefs(typed) {
 			stepID, _, _ := strings.Cut(ref, outputsMarker)
 			if _, ok := allowed[stepID]; !ok {
 				return false
@@ -524,7 +605,8 @@ func refsAllowed(value any, allowed map[string]struct{}) bool {
 	return true
 }
 
-func stringList(value any) []string {
+// StringList returns the non-empty strings of a decoded YAML or JSON list.
+func StringList(value any) []string {
 	items, _ := value.([]any)
 	out := make([]string, 0, len(items))
 	for _, item := range items {

@@ -1127,6 +1127,9 @@ components:
           additionalProperties: {}
           nullable: true
           type: object
+        profile:
+          additionalProperties: {}
+          type: object
         replaces:
           type: string
         starts_from:
@@ -1156,6 +1159,9 @@ components:
           type: string
         plan:
           $ref: '#/components/schemas/ActionauthorSpec'
+        profile:
+          additionalProperties: {}
+          type: object
       type: object
     HandlersActionAuthorReviewRequest:
       properties:

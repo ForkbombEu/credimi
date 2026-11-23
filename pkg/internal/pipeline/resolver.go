@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipelineexpr"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
@@ -44,16 +45,6 @@ var stepPayloadRawKeys = map[string][]string{
 	"fcaf-validation": {"pipeline_outputs"},
 }
 
-// ExpressionRefs returns the trimmed bodies of every ${{ ... }} expression in s.
-func ExpressionRefs(s string) []string {
-	matches := exprRegexp.FindAllStringSubmatch(s, -1)
-	refs := make([]string, 0, len(matches))
-	for _, match := range matches {
-		refs = append(refs, strings.TrimSpace(match[1]))
-	}
-	return refs
-}
-
 // AllStepOutputs in a ReferencedStepOutputs result means the whole outputs are referenced.
 const AllStepOutputs = "*"
 
@@ -78,7 +69,7 @@ func ReferencedStepOutputs(def *WorkflowDefinition, stepID string) []string {
 	walk = func(value any) {
 		switch typed := value.(type) {
 		case string:
-			for _, ref := range ExpressionRefs(typed) {
+			for _, ref := range pipelineexpr.ExpressionRefs(typed) {
 				initial, _, err := ParsePipeline(ref)
 				if err != nil {
 					continue
@@ -139,7 +130,7 @@ func collectStepRefs(inputs StepInputs, includeOptional bool) (map[string]struct
 	walk = func(value any) {
 		switch typed := value.(type) {
 		case string:
-			for _, ref := range ExpressionRefs(typed) {
+			for _, ref := range pipelineexpr.ExpressionRefs(typed) {
 				initial, functions, err := ParsePipeline(ref)
 				if err != nil ||
 					!includeOptional && len(functions) > 0 && functions[0] == "optional" {
@@ -173,12 +164,9 @@ func collectStepRefs(inputs StepInputs, includeOptional bool) (map[string]struct
 
 // helper to check if a string is exactly a single ${{ ... }} ref
 func isFullRef(s string) bool {
-	matches := exprRegexp.FindStringSubmatch(s)
+	matches := pipelineexpr.Pattern.FindStringSubmatch(s)
 	return matches != nil && strings.TrimSpace(s) == matches[0]
 }
-
-// Matches expressions like ${{ ... }}
-var exprRegexp = regexp.MustCompile(`\${{\s*([a-zA-Z0-9_\-\.\[\]\|\s\(\):,]+?)\s*}}`)
 
 // Matches expressions like () ... )
 var re = regexp.MustCompile(`^(\w+)\(([^)]*)\)$`)
@@ -368,13 +356,13 @@ func resolveRef(ref string, ctx map[string]any) (any, error) {
 func ResolveExpressions(val any, ctx map[string]any) (any, error) {
 	switch v := val.(type) {
 	case string:
-		matches := exprRegexp.FindStringSubmatch(v)
+		matches := pipelineexpr.Pattern.FindStringSubmatch(v)
 		if len(matches) == 2 && matches[0] == v {
 			inner := matches[1]
 			return resolveRef(inner, ctx)
 		}
-		return exprRegexp.ReplaceAllStringFunc(v, func(expr string) string {
-			matches := exprRegexp.FindStringSubmatch(expr)
+		return pipelineexpr.Pattern.ReplaceAllStringFunc(v, func(expr string) string {
+			matches := pipelineexpr.Pattern.FindStringSubmatch(expr)
 			if len(matches) < 2 {
 				return fmt.Sprintf("ERR(invalid expression: %s)", expr)
 			}

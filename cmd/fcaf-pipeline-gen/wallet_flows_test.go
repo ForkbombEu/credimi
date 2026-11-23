@@ -31,42 +31,42 @@ func TestWalletActionShareConsumption(t *testing.T) {
 	}{
 		{
 			name: "conditional consent share of a refused request",
-			with: actionID("fcaf-expect-request-rejected"),
+			with: actionID(roles, "fcaf-expect-request-rejected"),
 			want: 1,
 		},
 		{
 			name: "request observation never presents",
-			with: actionID("fcaf-observe-request"),
+			with: actionID(roles, "fcaf-observe-request"),
 			want: 0,
 		},
 		{
 			name: "conditional consent share of a no-match request",
-			with: actionID("fcaf-expect-no-matching-document"),
+			with: actionID(roles, "fcaf-expect-no-matching-document"),
 			want: 1,
 		},
 		{
 			name: "multi-line Share tap of a presentation that must complete",
-			with: actionID("fcaf-engagement-haip-vp"),
+			with: actionID(roles, "fcaf-engagement-haip-vp"),
 			want: 1,
 		},
 		{
 			name: "consent share of an accepted DC API request",
-			with: actionID("fcaf-dc-api-present"),
+			with: actionID(roles, "fcaf-dc-api-present"),
 			want: 1,
 		},
 		{
 			name: "DC API refusal never shares",
-			with: actionID("fcaf-dc-api-expect-rejected"),
+			with: actionID(roles, "fcaf-dc-api-expect-rejected"),
 			want: 0,
 		},
 		{
 			name: "credential refusal never presents",
-			with: actionID("fcaf-expect-credential-rejected"),
+			with: actionID(roles, "fcaf-expect-credential-rejected"),
 			want: 0,
 		},
 		{
 			name: "issuance never presents",
-			with: actionID("getcredential-generic-credential-without-authentication"),
+			with: actionID(roles, "getcredential-generic-credential-without-authentication"),
 			want: 0,
 		},
 		{
@@ -76,7 +76,7 @@ func TestWalletActionShareConsumption(t *testing.T) {
 		},
 		{
 			name:   "an action outside the contract is refused",
-			with:   actionID("not-a-role"),
+			with:   actionID(roles, "not-a-role"),
 			errMsg: "is not a role of fcaf-roles.yaml",
 		},
 		{
@@ -101,8 +101,8 @@ func TestWalletActionShareConsumption(t *testing.T) {
 }
 
 // actionID is the `with` of a step running a reference wallet action.
-func actionID(role string) map[string]any {
-	return map[string]any{"action_id": walletActionNamespace + role}
+func actionID(roles walletRoles, role string) map[string]any {
+	return map[string]any{"action_id": roles.prefix + role}
 }
 
 // testWalletRoles loads the repository's FCAF role contract.
@@ -177,7 +177,7 @@ func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
 		"id":  "offer-malformed-credential",
 		"use": mobileAutomationTask,
 		"with": map[string]any{
-			"action_id": walletActionNamespace + "fcaf-expect-credential-rejected",
+			"action_id": roles.prefix + "fcaf-expect-credential-rejected",
 		},
 	}
 	offerSession := map[string]any{"with": map[string]any{"body": map[string]any{
@@ -217,7 +217,7 @@ func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
 func TestPresentationsSpendTheirOwnCredentialType(t *testing.T) {
 	roles := testWalletRoles(t)
 	const degree = "urn:credimi:degree:1"
-	const issuanceActionID = walletActionNamespace +
+	issuanceActionID := roles.prefix +
 		"getcredential-generic-credential-without-authentication"
 	issueDegree := map[string]any{
 		"id":   "obtain-degree",

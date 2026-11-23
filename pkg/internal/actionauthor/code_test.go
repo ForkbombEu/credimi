@@ -810,6 +810,33 @@ func TestValidateCodeFCAF(t *testing.T) {
 			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
 		},
 		{
+			name: "clearState quoted true outside the reset role",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- launchApp:\n    clearState: \"true\"\n- openLink: ${deeplink}\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+		},
+		{
+			name: "clearState yes outside the reset role",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- launchApp:\n    clearState: yes\n- openLink: ${deeplink}\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+		},
+		{
+			name: "clearState on outside the reset role",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- launchApp:\n    clearState: on\n- openLink: ${deeplink}\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+		},
+		{
+			name: "clearState false outside the reset role",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- launchApp:\n    clearState: false\n- openLink: ${deeplink}\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+		},
+		{
 			name: "assertTrue on an expression",
 			role: "fcaf-expect-request-rejected",
 			code: header + "- openLink: ${deeplink}\n- assertTrue: \"${x}\"\n" +

@@ -257,12 +257,15 @@ func (w *Workflow) ExecuteWorkflow(
 	}
 	prepared = device
 	// onRelease frees the device while the agent keeps running; the deferred
-	// release then has nothing left to do.
+	// release then has nothing left to do. Clearing settedDevices ends the
+	// session's live view (the device query reports no device).
 	onRelease := func() {
 		if released {
 			return
 		}
 		released = true
+		// The release reports success because the device work ended
+		// normally; a later failure of the agent is not a device outcome.
 		releaseSessionDevice(releaseSessionDeviceInput{
 			ctx:       ctx,
 			logger:    logger,

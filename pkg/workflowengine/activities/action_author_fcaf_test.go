@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -237,7 +239,7 @@ func TestDescribeActionAuthorFCAFRole(t *testing.T) {
 func TestDescribeFCAFRolePlansPassTheContract(t *testing.T) {
 	scope := testFCAFScope(t)
 	for _, role := range scope.Contract.Roles {
-		if !strings.Contains(strings.Join(role.Suites, " "), scope.Suite) {
+		if !slices.Contains(role.Suites, scope.Suite) {
 			continue
 		}
 		t.Run(role.Name, func(t *testing.T) {
@@ -274,6 +276,9 @@ func TestCheckActionAuthorFCAFEvidence(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fetched.Store(r.Method + " " + r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/missing") {
+			w.WriteHeader(http.StatusNotFound)
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"session_id": "s1", "status": "created"})
 	}))
 	t.Cleanup(server.Close)
@@ -336,6 +341,18 @@ func TestCheckActionAuthorFCAFEvidence(t *testing.T) {
 			mutate: func(in *CheckActionAuthorFCAFEvidenceInput) { in.Captures = nil },
 			want:   "captures.session_id is required",
 		},
+		"session id outside its shape": {
+			mutate: func(in *CheckActionAuthorFCAFEvidenceInput) {
+				in.Captures = map[string]string{"session_id": "../x"}
+			},
+			want: "captures.session_id must be 1-128 letters, digits, '-' or '_'",
+		},
+		"fetch of a missing session": {
+			mutate: func(in *CheckActionAuthorFCAFEvidenceInput) {
+				in.Captures = map[string]string{"session_id": "missing"}
+			},
+			want: "answered HTTP 404",
+		},
 		"bad screenshot name": {
 			mutate: func(in *CheckActionAuthorFCAFEvidenceInput) { in.Screenshots = []string{"a b"} },
 			want:   `screenshots: "a b" is not a screenshot name`,
@@ -365,4 +382,74 @@ func TestCheckActionAuthorFCAFEvidence(t *testing.T) {
 			require.ErrorContains(t, err, tc.want)
 		})
 	}
+}
+
+// Save refuses an FCAF profile other than the one the user approved.
+func TestSaveAuthoredWalletActionBindsTheFCAFProfile(t *testing.T) {
+	setFCAFTestEnv(t)
+	app, session, namespace := authorSaveFixture(t)
+	build, err := actionauthor.Resolve(app, namespace, session)
+	require.NoError(t, err)
+	selection, err := actionauthor.Select(app, namespace, session)
+	require.NoError(t, err)
+	caller := authorTestCaller()
+	scope := testFCAFScope(t)
+	role := scope.Contract.Injected(walletroles.InjectedReset)
+	code := strings.ReplaceAll(
+		role.ReferenceCode,
+		scope.Contract.Reference.AppIDs[walletroles.AppWallet],
+		"eu.wallet",
+	)
+	plan := actionauthor.Spec{
+		Slot:     "onboarding",
+		Outcome:  actionauthor.OutcomeSuccess,
+		FCAFRole: role.Name,
+	}
+	normalized, err := SessionPlan(app, selection, plan, scope)
+	require.NoError(t, err)
+	profile := map[string]any{"pin": "123456"}
+	approval := func(profile map[string]any) string {
+		token, err := actionauthor.SignApproval(app, actionauthor.Approval{
+			AuthorWorkflowID: caller.WorkflowID,
+			CandidateSHA256:  actionauthor.CodeSHA256(code),
+			ApproverID:       session.ActorID,
+			ApprovedAt:       time.Now().Unix(),
+			PlanSHA256:       actionauthor.PlanSHA256(normalized),
+			Key:              "a1",
+			ProfileSHA256:    actionauthor.ProfileSHA256(profile),
+		})
+		require.NoError(t, err)
+		return token
+	}
+	payload := actionauthor.SaveRequest{
+		Name:            role.Name,
+		Code:            code,
+		CandidateSHA256: actionauthor.CodeSHA256(code),
+		InstallerSHA256: build.InstallerSHA256,
+		PackageID:       "eu.wallet",
+		ReplayCount:     1,
+		Spec:            plan,
+		BatchKey:        "a1",
+		FCAFProfile:     profile,
+	}
+	save := func(payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
+		return fcafSessionLookup(t, app, session).activity(t, app).
+			save(t.Context(), caller, payload)
+	}
+
+	for name, token := range map[string]string{
+		"no profile approved": approval(nil),
+		"another profile":     approval(map[string]any{"pin": "000000"}),
+	} {
+		refused := payload
+		refused.Approval = token
+		_, err := save(refused)
+		requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+		require.ErrorContains(t, err, "approval is for another profile", name)
+	}
+
+	payload.Approval = approval(profile)
+	receipt, err := save(payload)
+	require.NoError(t, err)
+	require.Equal(t, profile, receipt.Provenance.FCAFProfile)
 }

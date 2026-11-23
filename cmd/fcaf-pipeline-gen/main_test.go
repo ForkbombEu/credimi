@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -31,7 +32,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 
 	data, err := os.ReadFile(output)
 	require.NoError(t, err)
-	var definition pipelineDefinition
+	var definition walletroles.Scenario
 	require.NoError(t, yaml.Unmarshal(data, &definition))
 	require.NotContains(
 		t,
@@ -55,9 +56,9 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 617)
-	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__006")
-	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__013")
+	require.Len(t, walletroles.StringList(with["test_ids"]), 617)
+	require.Contains(t, walletroles.StringList(with["test_ids"]), "WS_RP_SM_RpIntegrity__006")
+	require.Contains(t, walletroles.StringList(with["test_ids"]), "WS_RP_SM_RpIntegrity__013")
 	for _, restricted := range []string{
 		"WS_RP_SM_SessionEncryption__002",
 		"WS_RP_SM_SessionEncryption__003",
@@ -67,7 +68,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	} {
 		require.Contains(
 			t,
-			stringSlice(with["test_ids"]),
+			walletroles.StringList(with["test_ids"]),
 			restricted,
 			"each response-encryption case needs its own verifier metadata scenario",
 		)
@@ -85,7 +86,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		t,
 		observedRequestWith["actions"],
 		map[string]any{
-			"id": walletActionNamespace + "fcaf-observe-request",
+			"id": testWalletRoles(t).prefix + "fcaf-observe-request",
 			"parameters": map[string]any{
 				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.deeplink }}",
 			},
@@ -95,7 +96,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		t,
 		observedRequestWith["actions"],
 		map[string]any{
-			"id": walletActionNamespace + "fcaf-issue-pid",
+			"id": testWalletRoles(t).prefix + "fcaf-issue-pid",
 			"parameters": map[string]any{
 				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}",
 			},
@@ -105,7 +106,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	reusedCredentialWith, _ := reusedCredential["with"].(map[string]any)
 	require.Equal(
 		t,
-		walletActionNamespace+"fcaf-expect-request-rejected",
+		testWalletRoles(t).prefix+"fcaf-expect-request-rejected",
 		reusedCredentialWith["action_id"],
 	)
 	require.NotContains(t, reusedCredentialWith, "actions")
@@ -141,7 +142,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			)
 			action, ok := actions[len(actions)-1].(map[string]any)
 			require.True(t, ok)
-			require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
+			require.Equal(t, testWalletRoles(t).prefix+"fcaf-expect-request-rejected", action["id"])
 			parameters, _ := action["parameters"].(map[string]any)
 			require.Equal(
 				t,
@@ -233,7 +234,7 @@ func TestGenerateAttestationProviderFCAFPipeline(t *testing.T) {
 
 	data, err := os.ReadFile(output)
 	require.NoError(t, err)
-	var definition pipelineDefinition
+	var definition walletroles.Scenario
 	require.NoError(t, yaml.Unmarshal(data, &definition))
 	require.Equal(t, "FCAF wallet attestation-provider complete validation", definition.Name)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
@@ -243,7 +244,7 @@ func TestGenerateAttestationProviderFCAFPipeline(t *testing.T) {
 	with, ok := validation["with"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, attestationProviderSuite, with["suite"])
-	testIDs := stringSlice(with["test_ids"])
+	testIDs := walletroles.StringList(with["test_ids"])
 	require.Len(t, testIDs, 59)
 	for _, id := range testIDs {
 		require.True(t, strings.HasPrefix(id, "WS_AP_"), id)
@@ -277,7 +278,7 @@ func TestGenerateDemoFCAFPipeline(t *testing.T) {
 
 	data, err := os.ReadFile(output)
 	require.NoError(t, err)
-	var definition pipelineDefinition
+	var definition walletroles.Scenario
 	require.NoError(t, yaml.Unmarshal(data, &definition))
 	require.Len(t, definition.Steps, 7)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
@@ -286,7 +287,7 @@ func TestGenerateDemoFCAFPipeline(t *testing.T) {
 	require.Equal(t, validationTask, validation["use"])
 	with, ok := validation["with"].(map[string]any)
 	require.True(t, ok)
-	selectedTestIDs := stringSlice(with["test_ids"])
+	selectedTestIDs := walletroles.StringList(with["test_ids"])
 	require.Len(t, selectedTestIDs, 46)
 	require.ElementsMatch(t, demoTestIDs, selectedTestIDs)
 	require.Len(t, with["pipeline_outputs"], 3)
@@ -314,7 +315,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 
 	data, err := os.ReadFile(output)
 	require.NoError(t, err)
-	var definition pipelineDefinition
+	var definition walletroles.Scenario
 	require.NoError(t, yaml.Unmarshal(data, &definition))
 	require.Len(t, definition.Steps, 149)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
@@ -335,38 +336,38 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.True(t, ok)
 	require.NotContains(
 		t,
-		stringSlice(with["test_ids"]),
+		walletroles.StringList(with["test_ids"]),
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 286)
+	require.Len(t, walletroles.StringList(with["test_ids"]), 286)
 	require.NotContains(
 		t,
-		stringSlice(with["test_ids"]),
+		walletroles.StringList(with["test_ids"]),
 		"WS_RP_SM_RpIntegrity__006",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
 	require.NotContains(
 		t,
-		stringSlice(with["test_ids"]),
+		walletroles.StringList(with["test_ids"]),
 		"WS_RP_SM_RpIntegrity__013",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
 	require.NotContains(
 		t,
-		stringSlice(with["test_ids"]),
+		walletroles.StringList(with["test_ids"]),
 		"WS_RP_SM_RpIntegrity__016",
 		"happy flow must omit tests without exact feasible evidence",
 	)
 	require.NotContains(
 		t,
-		stringSlice(with["test_ids"]),
+		walletroles.StringList(with["test_ids"]),
 		"WS_RP_SM_RpIntegrity__018",
 		"happy flow must omit tests without exact feasible evidence",
 	)
 	require.NotContains(
 		t,
-		stringSlice(with["test_ids"]),
+		walletroles.StringList(with["test_ids"]),
 		"WS_RP_SM_RpIntegrity__020",
 		"happy flow must omit tests without exact feasible evidence",
 	)
@@ -412,7 +413,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 	} {
 		data, err := os.ReadFile(filepath.Join(root, "pipelines", pipeline))
 		require.NoError(t, err)
-		var definition pipelineDefinition
+		var definition walletroles.Scenario
 		require.NoError(t, yaml.Unmarshal(data, &definition))
 
 		available := map[credentialFormat]int{}

@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,12 +25,6 @@ import (
 )
 
 const validationTask = "fcaf-validation"
-
-type pipelineDefinition struct {
-	Name    string           `yaml:"name"`
-	Runtime map[string]any   `yaml:"runtime,omitempty"`
-	Steps   []map[string]any `yaml:"steps"`
-}
 
 type aggregateDefinition struct {
 	Name    string           `yaml:"name"`
@@ -60,10 +55,7 @@ var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 // wallet action spends, whether it issues a credential (a credential offer the
 // Wallet must refuse counts too) and whether it is an absence probe come from
 // the role contract, fcaf-roles.yaml (walletRoles).
-const (
-	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
-	mobileAutomationTask  = "mobile-automation"
-)
+const mobileAutomationTask = "mobile-automation"
 
 // credentialFormat separates the credential instances the wallet holds: an
 // mdoc request cannot spend an SD-JWT VC instance, nor the other way round, and
@@ -402,12 +394,12 @@ func buildAggregate(
 	emitted := map[string]map[string]any{}
 
 	for _, path := range paths {
-		definition, err := loadPipeline(path)
+		definition, err := walletroles.LoadScenario(path)
 		if err != nil {
 			return err
 		}
 		prefix := scenarioPrefix(suite, path)
-		fixture := nestedMap(definition.Runtime, "fixture")
+		fixture := declaredFixture(definition.Runtime)
 		stepIDs, err := scenarioStepIDs(path, definition.Steps, prefix)
 		if err != nil {
 			return err
@@ -552,7 +544,7 @@ func pidIssuancesBefore(
 	source map[string]any,
 	consumed int,
 	available map[credentialFormat]int,
-	fixture map[string]any,
+	fixture map[string]string,
 	roles walletRoles,
 ) ([]map[string]any, []map[string]any, error) {
 	if issuesCredential(step, roles) {
@@ -621,7 +613,7 @@ func walletStepsBefore(
 	reset map[string]any,
 	emitted map[string]map[string]any,
 	available map[credentialFormat]int,
-	fixture map[string]any,
+	fixture map[string]string,
 	roles walletRoles,
 ) ([]map[string]any, error) {
 	consumed, err := credentialInstancesConsumed(step, roles)
@@ -772,21 +764,6 @@ func removeTestsWithoutAvailableEvidence(
 	return nil
 }
 
-func loadPipeline(path string) (pipelineDefinition, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return pipelineDefinition{}, fmt.Errorf("read FCAF scenario %s: %w", path, err)
-	}
-	var definition pipelineDefinition
-	if err := yaml.Unmarshal(data, &definition); err != nil {
-		return pipelineDefinition{}, fmt.Errorf("parse FCAF scenario %s: %w", path, err)
-	}
-	if strings.TrimSpace(definition.Name) == "" || len(definition.Steps) == 0 {
-		return pipelineDefinition{}, fmt.Errorf("FCAF scenario %s must define name and steps", path)
-	}
-	return definition, nil
-}
-
 // onboardingPrelude is the pipeline's first step. Its version_id makes the
 // runner install a fresh Wallet, and it is the only Wallet step without
 // continue_on_error, so a broken device stops the run before any scenario.
@@ -848,9 +825,10 @@ func probesAbsence(step map[string]any, roles walletRoles) bool {
 }
 
 // walletRoles is the FCAF role contract keyed by the action id generated
-// pipelines reference, walletActionNamespace + role name.
+// pipelines reference, the contract's ReferencePrefix + role name.
 type walletRoles struct {
 	byActionID       map[string]walletroles.Role
+	prefix           string
 	resetActionID    string
 	issuanceActionID string
 }
@@ -860,15 +838,15 @@ func loadWalletRoles(fcafRoot string) (walletRoles, error) {
 	if err != nil {
 		return walletRoles{}, err
 	}
+	prefix := contract.ReferencePrefix
 	roles := walletRoles{
-		byActionID: make(map[string]walletroles.Role, len(contract.Roles)),
-		resetActionID: walletActionNamespace +
-			contract.Injected(walletroles.InjectedReset).Name,
-		issuanceActionID: walletActionNamespace +
-			contract.Injected(walletroles.InjectedIssuance).Name,
+		byActionID:       make(map[string]walletroles.Role, len(contract.Roles)),
+		prefix:           prefix,
+		resetActionID:    prefix + contract.Injected(walletroles.InjectedReset).Name,
+		issuanceActionID: prefix + contract.Injected(walletroles.InjectedIssuance).Name,
 	}
 	for _, role := range contract.Roles {
-		roles.byActionID[walletActionNamespace+role.Name] = role
+		roles.byActionID[prefix+role.Name] = role
 	}
 	return roles, nil
 }
@@ -1141,22 +1119,27 @@ func credentialQueryFormat(credential map[string]any) credentialFormat {
 }
 
 // pidIssuance issues one fresh PID of the given format for the presentation
-// it precedes: an issuer session step, and the `actions` entry that accepts
-// its offer, which runs in the presentation's own flow.
+// it precedes: an issuer session step with the contract's PID issuance
+// request (walletroles.PIDIssuance) sent to the scenario's issuer, and the
+// `actions` entry that accepts its offer, which runs in the presentation's
+// own flow.
 func pidIssuance(
 	presentationID string,
 	index int,
 	format credentialFormat,
-	fixture map[string]any,
+	fixture map[string]string,
 	issuanceActionID string,
 ) (map[string]any, map[string]any) {
 	base := "${fixture.verifier_url}"
-	if _, declared := fixture["issuer_url"].(string); declared {
+	if _, declared := fixture["issuer_url"]; declared {
 		base = "${fixture.issuer_url}"
 	}
 	// Inserted steps miss the scenario rewrite; an unresolved token would fall
-	// back to pipeline.DefaultIssuerURL at run time instead of the scenario issuer.
-	base = rewriteString(base, nil, fixture)
+	// back to the default issuer at run time instead of the scenario issuer.
+	base = walletroles.SubstituteFixture(base, fixture)
+	request := walletroles.PIDIssuance(string(format))
+	// PIDIssuance's URL is a constant absolute URL; only its path is kept.
+	requestURL, _ := url.Parse(request.URL)
 	suffix := ""
 	if index > 0 {
 		suffix = fmt.Sprintf("-%d", index+1)
@@ -1167,14 +1150,11 @@ func pidIssuance(
 		"use":               "http-request",
 		"continue_on_error": true,
 		"with": map[string]any{
-			"method":          "POST",
-			"url":             base + "/sessions",
+			"method":          request.Method,
+			"url":             base + requestURL.Path,
 			"expected_status": 201,
-			"headers":         map[string]any{"Content-Type": "application/json"},
-			"body": map[string]any{
-				"issuer_configuration_id":     walletroles.PIDIssuerConfigurationID,
-				"credential_configuration_id": pidCredentialConfigID(format),
-			},
+			"headers":         request.Headers,
+			"body":            request.Body,
 		},
 	}
 	issuance := map[string]any{
@@ -1184,13 +1164,6 @@ func pidIssuance(
 		},
 	}
 	return session, issuance
-}
-
-func pidCredentialConfigID(format credentialFormat) string {
-	if format == formatMdoc {
-		return walletroles.PIDMdocConfigurationID
-	}
-	return walletroles.PIDSDJWTConfigurationID
 }
 
 func scenarioStepIDs(
@@ -1220,7 +1193,7 @@ func mergeValidationStep(
 	path string,
 	step map[string]any,
 	stepIDs map[string]string,
-	fixture map[string]any,
+	fixture map[string]string,
 	pipelineOutputs map[string]any,
 	testIDs map[string]struct{},
 	allowedTestIDs map[string]struct{},
@@ -1240,7 +1213,7 @@ func mergeValidationStep(
 		}
 		testIDs[id] = struct{}{}
 	}
-	for _, id := range stringSlice(with["test_ids"]) {
+	for _, id := range walletroles.StringList(with["test_ids"]) {
 		addTestID(id)
 	}
 	if id, _ := with["test_id"].(string); id != "" {
@@ -1267,7 +1240,7 @@ func mergeValidationStep(
 	return nil
 }
 
-func rewriteValue(value any, stepIDs map[string]string, fixture map[string]any) any {
+func rewriteValue(value any, stepIDs map[string]string, fixture map[string]string) any {
 	switch typed := value.(type) {
 	case map[string]any:
 		out := make(map[string]any, len(typed))
@@ -1293,7 +1266,7 @@ func rewriteValue(value any, stepIDs map[string]string, fixture map[string]any) 
 	}
 }
 
-func rewriteString(value string, stepIDs map[string]string, fixture map[string]any) string {
+func rewriteString(value string, stepIDs map[string]string, fixture map[string]string) string {
 	keys := make([]string, 0, len(stepIDs))
 	for key := range stepIDs {
 		keys = append(keys, key)
@@ -1305,14 +1278,21 @@ func rewriteString(value string, stepIDs map[string]string, fixture map[string]a
 			value = stepIDs[oldID]
 		}
 	}
-	for key, raw := range fixture {
-		replacement, ok := raw.(string)
-		if !ok {
-			continue
+	return walletroles.SubstituteFixture(value, fixture)
+}
+
+// declaredFixture returns the string values of a scenario's runtime.fixture.
+// The generated pipeline keeps the other ${fixture.<key>} tokens, which
+// pipeline.ApplyFixture fills with its defaults at run time.
+func declaredFixture(runtime map[string]any) map[string]string {
+	declared := nestedMap(runtime, "fixture")
+	fixture := make(map[string]string, len(declared))
+	for key, value := range declared {
+		if text, ok := value.(string); ok {
+			fixture[key] = text
 		}
-		value = strings.ReplaceAll(value, "${fixture."+key+"}", replacement)
 	}
-	return value
+	return fixture
 }
 
 func nestedMap(values map[string]any, key string) map[string]any {
@@ -1321,23 +1301,6 @@ func nestedMap(values map[string]any, key string) map[string]any {
 	}
 	value, _ := values[key].(map[string]any)
 	return value
-}
-
-func stringSlice(value any) []string {
-	switch typed := value.(type) {
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if text, ok := item.(string); ok {
-				out = append(out, text)
-			}
-		}
-		return out
-	case []string:
-		return typed
-	default:
-		return nil
-	}
 }
 
 func scenarioPrefix(suite string, path string) string {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -71,11 +72,33 @@ func FCAFScope(ref ActionAuthorSessionRef) (*actionauthor.FCAFScope, error) {
 	if ref.Mode != actionauthor.SessionModeFCAF {
 		return nil, nil
 	}
-	contract, err := walletroles.Load(fcafTemplatesRoot())
+	contract, err := loadFCAFContract()
 	if err != nil {
 		return nil, err
 	}
 	return &actionauthor.FCAFScope{Contract: contract, Suite: ref.FCAFSuite}, nil
+}
+
+// fcafContract is the role contract, loaded once per process; it also keeps
+// the scenarios its Fixtures read.
+var fcafContract struct {
+	mu       sync.Mutex
+	contract *walletroles.Contract
+}
+
+// loadFCAFContract returns the role contract, loading it on first use. A
+// failed load is not kept, so the next call tries again.
+func loadFCAFContract() (*walletroles.Contract, error) {
+	fcafContract.mu.Lock()
+	defer fcafContract.mu.Unlock()
+	if fcafContract.contract == nil {
+		contract, err := walletroles.Load(fcafTemplatesRoot())
+		if err != nil {
+			return nil, err
+		}
+		fcafContract.contract = contract
+	}
+	return fcafContract.contract, nil
 }
 
 // ListActionAuthorWalletActionsInput optionally filters by category.

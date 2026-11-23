@@ -8,10 +8,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
@@ -46,7 +44,8 @@ const (
 	fcafEvidenceNoTests = "no_tests"
 )
 
-var fcafScreenshotName = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+// fcafSessionID bounds the protocol session ID an evidence check fetches.
+var fcafSessionID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 // fcafSession reauthorizes the caller's session and returns its selection
 // and FCAF scope, refusing a chat session.
@@ -232,7 +231,7 @@ func describeFCAFRole(
 	scope *actionauthor.FCAFScope,
 	name string,
 ) (DescribeActionAuthorFCAFRoleOutput, error) {
-	role, err := suiteRole(scope, name)
+	role, err := actionauthor.FCAFSuiteRole(scope, name)
 	if err != nil {
 		return DescribeActionAuthorFCAFRoleOutput{}, err
 	}
@@ -244,11 +243,20 @@ func describeFCAFRole(
 		Fixtures:    []FCAFFixtureOption{},
 		PIDIssuance: map[string]actionauthor.SourceSpec{},
 	}
-	for _, format := range []string{"sd-jwt", "mdoc"} {
-		output.PIDIssuance[format] = actionauthor.SourceSpec{
+	// The PID issuances the generator injects, one per PID format.
+	issuances, err := scope.Contract.Fixtures(
+		fcafTemplatesRoot(),
+		scope.Suite,
+		scope.Contract.Injected(walletroles.InjectedIssuance).Name,
+	)
+	if err != nil {
+		return DescribeActionAuthorFCAFRoleOutput{}, err
+	}
+	for _, issuance := range issuances {
+		output.PIDIssuance[issuance.PIDFormat] = actionauthor.SourceSpec{
 			Kind:      actionauthor.SourceHTTP,
-			Request:   httpSourceRequest(walletroles.PIDIssuance(format)),
-			ValuePath: "deeplink",
+			Request:   httpSourceRequest(issuance.Request),
+			ValuePath: issuance.ValuePath,
 		}
 	}
 	if len(role.Parameters) == 0 {
@@ -272,24 +280,6 @@ func describeFCAFRole(
 		})
 	}
 	return output, nil
-}
-
-// suiteRole returns the role name of the scope suite, ErrInvalid with the
-// messages of actionauthor.CheckFCAFPlan otherwise.
-func suiteRole(scope *actionauthor.FCAFScope, name string) (walletroles.Role, error) {
-	role, ok := scope.Contract.Role(name)
-	if !ok {
-		return walletroles.Role{}, fmt.Errorf(
-			"%w: fcaf_role: %s is not an FCAF role", actionauthor.ErrInvalid, name,
-		)
-	}
-	if !slices.Contains(role.Suites, scope.Suite) {
-		return walletroles.Role{}, fmt.Errorf(
-			"%w: fcaf_role: %s is not part of the %s suite",
-			actionauthor.ErrInvalid, role.Name, scope.Suite,
-		)
-	}
-	return role, nil
 }
 
 // fcafRolePlan is the plan of the role's action without parameters or
@@ -524,15 +514,27 @@ func checkEvidenceInput(
 		)
 	}
 	for _, name := range payload.Screenshots {
-		if !fcafScreenshotName.MatchString(name) {
+		if !actionauthor.ValidScreenshotName(name) {
 			return fmt.Errorf(
-				"%w: screenshots: %q is not a screenshot name (%s)",
-				actionauthor.ErrInvalid, name, fcafScreenshotName,
+				"%w: screenshots: %q is not a screenshot name "+
+					"(1-64 letters, digits, '-' or '_')",
+				actionauthor.ErrInvalid, name,
 			)
 		}
 	}
-	if len(fixture.Fetches) > 0 && payload.Captures["session_id"] == "" {
+	if len(fixture.Fetches) == 0 {
+		return nil
+	}
+	sessionID := payload.Captures["session_id"]
+	if sessionID == "" {
 		return fmt.Errorf("%w: captures.session_id is required", actionauthor.ErrInvalid)
+	}
+	// The session ID goes into the fetch URLs' path as is.
+	if !fcafSessionID.MatchString(sessionID) {
+		return fmt.Errorf(
+			"%w: captures.session_id must be 1-128 letters, digits, '-' or '_'",
+			actionauthor.ErrInvalid,
+		)
 	}
 	return nil
 }
@@ -546,15 +548,25 @@ func (a *CheckActionAuthorFCAFEvidenceActivity) evidenceContext(
 	payload CheckActionAuthorFCAFEvidenceInput,
 ) (map[string]any, error) {
 	dataCtx := make(map[string]any, len(fixture.Fetches)+1)
-	sessionID := url.PathEscape(payload.Captures["session_id"])
 	for _, fetch := range fixture.Fetches {
 		result, err := executeHTTPRequest(ctx, HTTPActivityPayload{
-			Method:  http.MethodGet,
-			URL:     strings.ReplaceAll(fetch.URL, "${session_id}", sessionID),
+			Method: http.MethodGet,
+			URL: strings.ReplaceAll(
+				fetch.URL, "${session_id}", payload.Captures["session_id"],
+			),
 			Headers: map[string]string{"Accept": "application/json"},
 		}, nil, &a.BaseActivity, sourceRedirectPolicy{next: a.transport}, actionAuthorStatusBodyLimit)
 		if err != nil {
 			return nil, fmt.Errorf("%w: fetch %s: %w", actionauthor.ErrInvalid, fetch.StepID, err)
+		}
+		response, _ := result.Output.(map[string]any)
+		if status, _ := response["status"].(int); status < 200 || status > 299 {
+			return nil, fmt.Errorf(
+				"%w: fetch %s answered HTTP %v",
+				actionauthor.ErrInvalid,
+				fetch.StepID,
+				response["status"],
+			)
 		}
 		dataCtx[fetch.StepID] = map[string]any{"outputs": result.Output}
 	}

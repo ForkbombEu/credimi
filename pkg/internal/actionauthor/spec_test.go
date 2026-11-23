@@ -71,7 +71,7 @@ func TestSpecNormalize(t *testing.T) {
 		{
 			name:    "unknown outcome",
 			edit:    func(s *Spec) { s.Outcome = "maybe" },
-			message: "outcome: must be success, rejection or wait",
+			message: "outcome: must be success, rejection, wait or tolerant",
 		},
 		{
 			name:    "tolerant without fcaf_role",

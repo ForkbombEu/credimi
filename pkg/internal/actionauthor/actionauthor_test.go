@@ -1385,15 +1385,15 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	require.NoError(t, err)
 	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
 	require.NoError(t, err)
-	assert.Equal(t, "fcaf, ws_rp", record.GetString("tags"))
+	assert.Equal(t, "fcaf, ws_rp, ws_ap", record.GetString("tags"))
 	provenance := savedProvenance(record)
 	assert.Equal(t, role.Name, provenance.FCAFRole)
 	assert.Equal(t, role.SHA256(), provenance.FCAFRoleSHA256)
 	assert.Equal(t, map[string]any{"pin": "123456"}, provenance.FCAFProfile)
 	assert.Equal(t, provenance, receipt.Provenance)
 
-	// A replacing save writes the tags again.
-	record.Set("tags", "")
+	// A replacing save merges the FCAF tags into the record's own.
+	record.Set("tags", "mine")
 	require.NoError(t, app.Save(record))
 	path, err := walletActionPath(app, record)
 	require.NoError(t, err)
@@ -1405,7 +1405,7 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	assert.True(t, replaced.Replaced)
 	record, err = app.FindRecordById("wallet_actions", receipt.RecordID)
 	require.NoError(t, err)
-	assert.Equal(t, "fcaf, ws_rp", record.GetString("tags"))
+	assert.Equal(t, "mine, fcaf, ws_rp, ws_ap", record.GetString("tags"))
 
 	// Chat plans write no tags.
 	chat, err := Save(app, namespace, "workflow-3", "run-3",
@@ -1415,6 +1415,47 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, record.GetString("tags"))
 	assert.Empty(t, savedProvenance(record).FCAFRole)
+}
+
+// Save checks the resolved starting actions of an FCAF action against the
+// contract: a candidate that resolves to another action is refused.
+func TestAuthoringSaveFCAFActionChecksItsResolvedStarts(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	scope := fcafTestScope(t)
+	role, ok := scope.Contract.Role("getcredential-generic-credential-without-authentication")
+	require.True(t, ok)
+	slot, ok := SlotForCategory(role.Category)
+	require.True(t, ok)
+
+	// The session saved a1, a chat onboarding action, not the reset role.
+	saved, err := Save(app, namespace, "workflow", "run",
+		acceptedRequest(request, build.InstallerSHA256), testApproval)
+	require.NoError(t, err)
+
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = role.Name
+	in.Code = role.ReferenceCode
+	in.CandidateSHA256 = CodeSHA256(in.Code)
+	in.BatchKey = "a2"
+	in.Spec = Spec{
+		Slot:          slot,
+		Outcome:       FCAFOutcome(role.Outcome),
+		Prerequisites: []PrerequisiteSpec{{Candidate: "a1"}},
+		Parameters:    deeplinkParameter(),
+		FCAFRole:      role.Name,
+	}
+	in.FCAF = scope
+	in.Candidates = map[string]string{"a1": saved.RecordID}
+	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(
+		t,
+		err,
+		"an FCAF getcredential-generic-credential-without-authentication action "+
+			"starts from [fcaf-reset-and-onboard]",
+	)
 }
 
 func TestFCAFCoverage(t *testing.T) {

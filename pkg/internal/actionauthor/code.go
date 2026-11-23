@@ -84,6 +84,12 @@ var (
 	codeScreenshot = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
+// ValidScreenshotName reports whether name is a takeScreenshot name an
+// action may use: 1-64 letters, digits, '-' or '_'.
+func ValidScreenshotName(name string) bool {
+	return codeScreenshot.MatchString(name)
+}
+
 // PlayStoreAppID is the store app an Android install-app action may target
 // besides the wallet.
 const PlayStoreAppID = "com.android.vending"
@@ -384,8 +390,8 @@ func (v *codeValidator) command(name string, arg *yaml.Node, where string) {
 	switch name {
 	case "launchApp", "setPermissions", "stopApp":
 		if name == "launchApp" && v.fcaf != nil && arg != nil && arg.Kind == yaml.MappingNode &&
-			codeIsTrue(codeLookup(arg, "clearState")) &&
-			v.fcaf.Role.Injected != walletroles.InjectedReset {
+			v.fcaf.Role.Injected != walletroles.InjectedReset &&
+			!codeKeepsState(codeLookup(arg, "clearState")) {
 			v.add(where + ": only the FCAF reset role clears the app state")
 		}
 		target := arg
@@ -927,8 +933,13 @@ func codeIsDeliberateFailure(arg *yaml.Node) bool {
 	return codeLookup(arg, "condition") != nil
 }
 
-// codeIsTrue reports whether a node is the boolean true.
-func codeIsTrue(node *yaml.Node) bool {
-	return node != nil && node.Kind == yaml.ScalarNode && node.Tag == "!!bool" &&
-		strings.EqualFold(node.Value, "true")
+// codeKeepsState reports whether a launchApp clearState value keeps the app
+// state: absent, or the plain scalar `false`. Any other value, YAML 1.1
+// forms such as `yes` or `on` and quoted strings included, may clear it.
+func codeKeepsState(node *yaml.Node) bool {
+	if node == nil {
+		return true
+	}
+	value, ok := codePlainScalar(node, "!!bool")
+	return ok && value == "false"
 }

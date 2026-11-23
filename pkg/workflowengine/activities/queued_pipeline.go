@@ -362,8 +362,9 @@ func (a *StartQueuedPipelineActivity) Execute(
 }
 
 // actionAuthorSessionExecutionTimeout bounds a session: its agent child has a
-// 2h timeout, plus device preparation and cleanup. An FCAF session's agent
-// has 8h (fcafActionAuthorSessionExecutionTimeout).
+// 2h timeout, plus device preparation and cleanup.
+// fcafActionAuthorSessionExecutionTimeout bounds an FCAF session, whose agent
+// child has 8h (authorsession.fcafAuthorExecutionTimeout).
 const (
 	actionAuthorSessionExecutionTimeout     = 3 * time.Hour
 	fcafActionAuthorSessionExecutionTimeout = 9 * time.Hour
