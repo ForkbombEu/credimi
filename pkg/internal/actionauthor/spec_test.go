@@ -74,6 +74,20 @@ func TestSpecNormalize(t *testing.T) {
 			message: "outcome: must be success, rejection or wait",
 		},
 		{
+			name:    "tolerant without fcaf_role",
+			edit:    func(s *Spec) { s.Outcome = OutcomeTolerant },
+			message: "outcome: tolerant is only for FCAF roles",
+		},
+		{
+			name: "tolerant FCAF role",
+			edit: func(s *Spec) { s.Outcome = OutcomeTolerant; s.FCAFRole = " fcaf-observe-request " },
+		},
+		{
+			name:    "fcaf_role not a role name",
+			edit:    func(s *Spec) { s.FCAFRole = "FCAF Role" },
+			message: "fcaf_role: must be an FCAF role name",
+		},
+		{
 			name:    "onboarding rejection",
 			edit:    func(s *Spec) { *s = Spec{Slot: "onboarding", Outcome: OutcomeRejection} },
 			message: "outcome: the onboarding slot has no rejection outcome",

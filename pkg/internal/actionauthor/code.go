@@ -13,7 +13,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"gopkg.in/yaml.v3"
 )
 
@@ -119,18 +121,39 @@ func StoreLinks(slot, platform, packageID, storeURL string) []string {
 // Parameters the session parameter names it may reference as `${name}`, and
 // StoreLinks the store pages it may open. WaitSeconds is the wait of a wait
 // action (0 for any other action): its last command must wait that long
-// instead of asserting an outcome.
+// instead of asserting an outcome. FCAF, set for an action implementing an
+// FCAF role, applies the role contract instead of the final assertion rule.
 type CodeScope struct {
 	AppIDs      []string
 	Parameters  []string
 	StoreLinks  []string
 	WaitSeconds int
+	FCAF        *FCAFCodeScope
+}
+
+// FCAFCodeScope is the FCAF role an action implements and the package of
+// each app it drives: the wallet under test, and the contract's browser.
+type FCAFCodeScope struct {
+	Role     walletroles.Role
+	Packages map[walletroles.App]string
+}
+
+// FCAFAppIDs returns the apps an FCAF role's action may target: the wallet
+// package, plus the browser package when the role's header or launches name
+// the browser.
+func FCAFAppIDs(role walletroles.Role, packages map[walletroles.App]string) []string {
+	ids := []string{packages[walletroles.AppWallet]}
+	if role.HeaderApp == walletroles.AppBrowser ||
+		slices.Contains(role.LaunchApps, walletroles.AppBrowser) {
+		ids = append(ids, packages[walletroles.AppBrowser])
+	}
+	return ids
 }
 
 // ValidateCode returns every reason a Maestro action cannot be accepted, once
 // each and in discovery order; an empty result means the action is valid.
 func ValidateCode(code string, scope CodeScope) []string {
-	parameters, waitSeconds := scope.Parameters, scope.WaitSeconds
+	parameters := scope.Parameters
 	docs, err := codeDocuments(code)
 	if err != nil {
 		return []string{fmt.Sprintf("invalid YAML: %v", err)}
@@ -142,7 +165,12 @@ func ValidateCode(code string, scope CodeScope) []string {
 		return []string{fmt.Sprintf(
 			"expected two YAML documents (header, `---`, command list), found %d", len(docs))}
 	}
-	v := codeValidator{appIDs: scope.AppIDs, parameters: parameters, storeLinks: scope.StoreLinks}
+	v := codeValidator{
+		appIDs:     scope.AppIDs,
+		parameters: parameters,
+		storeLinks: scope.StoreLinks,
+		fcaf:       scope.FCAF,
+	}
 	header, commands := docs[0], docs[1]
 	if header == nil || header.Kind != yaml.MappingNode {
 		v.add("the first document must be the header mapping (appId, ...)")
@@ -172,12 +200,23 @@ func ValidateCode(code string, scope CodeScope) []string {
 	}
 
 	v.header(header)
+	if scope.FCAF != nil {
+		v.fcafHeader(header, scope.FCAF)
+	}
 
 	v.walk(commands, "commands", v.command)
 	for _, problem := range codeForeignIDs(commands, scope.AppIDs) {
 		v.add(problem)
 	}
 
+	v.final(code, commands, scope)
+	return v.problems
+}
+
+// final checks how the action ends: the outcome assertion of a chat action,
+// the wait of a wait action, and the contract screenshots of an FCAF role.
+func (v *codeValidator) final(code string, commands *yaml.Node, scope CodeScope) {
+	waitSeconds := scope.WaitSeconds
 	var lastName string
 	var lastArg *yaml.Node
 	if commands != nil {
@@ -188,11 +227,18 @@ func ValidateCode(code string, scope CodeScope) []string {
 		}
 	}
 	switch {
+	case scope.FCAF != nil:
+		// FCAF roles end as their contract says; only a wait role's wait is checked.
+		if scope.FCAF.Role.Outcome == walletroles.OutcomeWait &&
+			!codeIsWait(lastName, lastArg, waitSeconds) {
+			v.add(codeWaitProblem(waitSeconds))
+		}
+		if commands != nil {
+			v.fcafScreenshots(code, scope.FCAF.Role)
+		}
 	case waitSeconds > 0:
 		if !codeIsWait(lastName, lastArg, waitSeconds) {
-			v.add(fmt.Sprintf("the last command other than takeScreenshot must wait %d s: "+
-				"extendedWaitUntil with visible: <text>, optional: true and timeout: %d",
-				waitSeconds, waitSeconds*1000))
+			v.add(codeWaitProblem(waitSeconds))
 		}
 	case !codeIsOutcomeAssertion(lastName, lastArg):
 		v.add("the last command other than takeScreenshot must assert the outcome: " +
@@ -209,7 +255,13 @@ func ValidateCode(code string, scope CodeScope) []string {
 				"already reached before its last interaction; assert the screen the outcome shows")
 		}
 	}
-	return v.problems
+}
+
+// codeWaitProblem refuses a wait action whose last command does not wait.
+func codeWaitProblem(waitSeconds int) string {
+	return fmt.Sprintf("the last command other than takeScreenshot must wait %d s: "+
+		"extendedWaitUntil with visible: <text>, optional: true and timeout: %d",
+		waitSeconds, waitSeconds*1000)
 }
 
 // codeValidator collects deduplicated problems for one action.
@@ -217,6 +269,7 @@ type codeValidator struct {
 	appIDs     []string
 	parameters []string
 	storeLinks []string
+	fcaf       *FCAFCodeScope
 	problems   []string
 }
 
@@ -317,12 +370,24 @@ func (v *codeValidator) walk(
 }
 
 func (v *codeValidator) command(name string, arg *yaml.Node, where string) {
-	if !codeAllowedCommands[name] {
+	if v.fcaf != nil && name == "assertTrue" {
+		if !codeIsDeliberateFailure(arg) {
+			v.add(where + `: assertTrue may only fail the flow on purpose: ` +
+				`assertTrue: {condition: "false"}`)
+		}
+		return
+	}
+	if !codeAllowedCommands[name] && (v.fcaf == nil || name != "stopApp") {
 		v.add(fmt.Sprintf("%s: command `%s` is not allowed", where, name))
 		return
 	}
 	switch name {
-	case "launchApp", "setPermissions":
+	case "launchApp", "setPermissions", "stopApp":
+		if name == "launchApp" && v.fcaf != nil && arg != nil && arg.Kind == yaml.MappingNode &&
+			codeIsTrue(codeLookup(arg, "clearState")) &&
+			v.fcaf.Role.Injected != walletroles.InjectedReset {
+			v.add(where + ": only the FCAF reset role clears the app state")
+		}
 		target := arg
 		if arg != nil && arg.Kind == yaml.MappingNode {
 			target = codeLookup(arg, "appId")
@@ -747,4 +812,123 @@ func codeExpected(ids []string) string {
 		return "'" + ids[0] + "'"
 	}
 	return "one of " + codeList(ids)
+}
+
+// fcafHeader requires the header appId of an FCAF action to be the package
+// of the role's header app.
+func (v *codeValidator) fcafHeader(header *yaml.Node, scope *FCAFCodeScope) {
+	if header == nil {
+		return
+	}
+	appID := codeLookup(header, "appId")
+	want := scope.Packages[scope.Role.HeaderApp]
+	if codeIsString(appID) && appID.Value != want {
+		v.add(fmt.Sprintf("header appId must be '%s' for the FCAF role %s, found '%s'",
+			want, scope.Role.Name, appID.Value))
+	}
+}
+
+// fcafScreenshotPhrases says where each contract screenshot condition is taken.
+var fcafScreenshotPhrases = map[walletroles.ScreenshotCondition]string{
+	walletroles.ScreenshotGated: "after a check that proves %s: a non-optional assertion " +
+		"before it, outside any runFlow when",
+	walletroles.ScreenshotWhileScreen:   "inside runFlow when: visible, while %s is shown",
+	walletroles.ScreenshotUnconditional: "at top level, before any non-optional check",
+}
+
+// fcafScreenshots checks the screenshots of an FCAF action against its role:
+// a silent role takes none, another role stores at least one unless it
+// waits, every contract screenshot is stored under its condition, and the
+// other names fit the role's diagnostic name budget.
+func (v *codeValidator) fcafScreenshots(code string, role walletroles.Role) {
+	conditions, err := walletroles.ScreenshotConditions(code)
+	if err != nil {
+		return
+	}
+	if role.Silent {
+		if len(conditions) > 0 {
+			v.add(fmt.Sprintf("the FCAF role %s takes no screenshot", role.Name))
+		}
+		return
+	}
+	if role.Outcome != walletroles.OutcomeWait && len(conditions) == 0 {
+		v.add(fmt.Sprintf(
+			"the FCAF role %s must store at least one screenshot of the screen it reached",
+			role.Name,
+		))
+	}
+	contract := make(map[string]bool, len(role.Screenshots))
+	for _, shot := range role.Screenshots {
+		contract[shot.Name] = true
+		recorded, ok := conditions[shot.Name]
+		if !ok {
+			v.add(fmt.Sprintf("the FCAF role %s must store the screenshot %s (%s: %s)",
+				role.Name, shot.Name, shot.When, shot.Screen))
+			continue
+		}
+		if slices.ContainsFunc(recorded, func(c walletroles.ScreenshotCondition) bool {
+			return c != shot.When
+		}) {
+			phrase := fcafScreenshotPhrases[shot.When]
+			if strings.Contains(phrase, "%s") {
+				phrase = fmt.Sprintf(phrase, shot.Screen)
+			}
+			v.add(fmt.Sprintf("screenshot %s must be taken %s", shot.Name, phrase))
+		}
+	}
+	names := make([]string, 0, len(conditions))
+	for name := range conditions {
+		if !contract[name] {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if utf8.RuneCountInString(name) > role.DiagnosticNameBudget {
+			v.add(fmt.Sprintf(
+				"screenshot %s is longer than %d characters, the room the FCAF pipeline step ids leave",
+				name,
+				role.DiagnosticNameBudget,
+			))
+		}
+	}
+}
+
+// codeIsDeliberateFailure reports whether an assertTrue argument always
+// fails: the scalar false, or a mapping of condition "false" and an optional
+// string label.
+func codeIsDeliberateFailure(arg *yaml.Node) bool {
+	if arg == nil {
+		return false
+	}
+	if arg.Kind == yaml.ScalarNode {
+		return arg.Value == "false"
+	}
+	if arg.Kind != yaml.MappingNode {
+		return false
+	}
+	for i := 0; i+1 < len(arg.Content); i += 2 {
+		key, value := codeResolve(arg.Content[i]), codeResolve(arg.Content[i+1])
+		switch {
+		case !codeIsString(key):
+			return false
+		case key.Value == "condition":
+			if !codeIsString(value) || value.Value != "false" {
+				return false
+			}
+		case key.Value == "label":
+			if !codeIsString(value) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return codeLookup(arg, "condition") != nil
+}
+
+// codeIsTrue reports whether a node is the boolean true.
+func codeIsTrue(node *yaml.Node) bool {
+	return node != nil && node.Kind == yaml.ScalarNode && node.Tag == "!!bool" &&
+		strings.EqualFold(node.Value, "true")
 }

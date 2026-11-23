@@ -39,22 +39,27 @@ const (
 	ReleaseDeviceActivityName = "action_author.release_device"
 	// StepID labels the prepared device in errors and run data.
 	StepID = "action-author"
+	// ReleaseDeviceSignal asks the session to clean and release its device
+	// while the agent keeps running (e.g. while the user reviews). A second
+	// signal is a no-op.
+	ReleaseDeviceSignal = "action_author_release_device"
 
-	authorWorkflowIDSuffix  = activities.ActionAuthorWorkflowIDSuffix
-	authorExecutionTimeout  = 2 * time.Hour
-	deviceTypeIOSSimulator  = "ios_simulator"
-	resultSuccess           = "success"
-	resultFailed            = "failed"
-	resultCanceled          = "canceled"
-	releaseStartToClose     = 2 * time.Minute
-	releaseScheduleToStart  = 30 * time.Second
-	releaseMaximumAttempts  = 3
-	cleanupStartToClose     = 10 * time.Minute
-	cleanupScheduleToClose  = 20 * time.Minute
-	cleanupHeartbeatTimeout = 30 * time.Second
-	cleanupMaximumAttempts  = 3
-	sessionOutputAuthorKey  = "author_workflow_id"
-	sessionOutputDeviceKey  = "device"
+	authorWorkflowIDSuffix     = activities.ActionAuthorWorkflowIDSuffix
+	authorExecutionTimeout     = 2 * time.Hour
+	fcafAuthorExecutionTimeout = 8 * time.Hour
+	deviceTypeIOSSimulator     = "ios_simulator"
+	resultSuccess              = "success"
+	resultFailed               = "failed"
+	resultCanceled             = "canceled"
+	releaseStartToClose        = 2 * time.Minute
+	releaseScheduleToStart     = 30 * time.Second
+	releaseMaximumAttempts     = 3
+	cleanupStartToClose        = 10 * time.Minute
+	cleanupScheduleToClose     = 20 * time.Minute
+	cleanupHeartbeatTimeout    = 30 * time.Second
+	cleanupMaximumAttempts     = 3
+	sessionOutputAuthorKey     = "author_workflow_id"
+	sessionOutputDeviceKey     = "device"
 	// authorReadySignal is sent by the Python agent once its workflow runs.
 	authorReadySignal = "action_author_ready"
 	// agentReadyTimeout bounds the wait for authorReadySignal.
@@ -84,6 +89,10 @@ type SessionInput struct {
 	// ticket) and checked by every Credimi activity the session and its
 	// agent call. The workflow never reads it.
 	Grant string `json:"grant,omitempty"`
+	// Mode is actionauthor.SessionModeFCAF for an FCAF authoring session,
+	// empty for chat; FCAFSuite is the suite an FCAF session authors.
+	Mode      string `json:"mode,omitempty"`
+	FCAFSuite string `json:"fcaf_suite,omitempty"`
 }
 
 // AuthoringBuild is the resolved build the agent authors against. Store
@@ -120,6 +129,8 @@ type AuthoringContext struct {
 	Platform                string          `json:"platform"`
 	Build                   AuthoringBuild  `json:"build"`
 	Device                  AuthoringDevice `json:"device"`
+	Mode                    string          `json:"mode,omitempty"`
+	FCAFSuite               string          `json:"fcaf_suite,omitempty"`
 }
 
 // Workflow is the "Action author session" workflow.
@@ -172,7 +183,11 @@ func (w *Workflow) ExecuteWorkflow(
 		"setted_devices": settedDevices,
 	}
 	var prepared mobiledevice.PreparedMobileDevice
+	released := false
 	defer func() {
+		if released {
+			return
+		}
 		releaseSessionDevice(releaseSessionDeviceInput{
 			ctx:       ctx,
 			logger:    logger,
@@ -206,6 +221,18 @@ func (w *Workflow) ExecuteWorkflow(
 			"device_id, platform and wallet_version_identifier are required",
 		)
 	}
+	switch session.Mode {
+	case "":
+	case actionauthor.SessionModeFCAF:
+		if session.FCAFSuite != actionauthor.FCAFRelyingPartySuite ||
+			session.Platform != actionauthor.PlatformAndroid {
+			return result, invalidSessionError(
+				"FCAF sessions run the relying-party suite on Android",
+			)
+		}
+	default:
+		return result, invalidSessionError("mode must be fcaf or empty")
+	}
 
 	build, err := resolveBuild(ctx, session)
 	if err != nil {
@@ -229,14 +256,37 @@ func (w *Workflow) ExecuteWorkflow(
 		return result, err
 	}
 	prepared = device
+	// onRelease frees the device while the agent keeps running; the deferred
+	// release then has nothing left to do.
+	onRelease := func() {
+		if released {
+			return
+		}
+		released = true
+		releaseSessionDevice(releaseSessionDeviceInput{
+			ctx:       ctx,
+			logger:    logger,
+			ao:        ao,
+			config:    input.Config,
+			runData:   runData,
+			prepared:  prepared,
+			execution: execution,
+			result:    resultSuccess,
+		})
+		clear(settedDevices)
+	}
 
 	authorWorkflowID := execution.ID + authorWorkflowIDSuffix
 	authorTaskQueue := prepared.RunnerID + AuthorTaskQueueSuffix
+	childTimeout := authorExecutionTimeout
+	if session.Mode == actionauthor.SessionModeFCAF {
+		childTimeout = fcafAuthorExecutionTimeout
+	}
 	childCtx, cancelChild := workflow.WithCancel(ctx)
 	childCtx = workflow.WithChildOptions(childCtx, workflow.ChildWorkflowOptions{
 		WorkflowID:               authorWorkflowID,
 		TaskQueue:                authorTaskQueue,
-		WorkflowExecutionTimeout: authorExecutionTimeout,
+		WorkflowExecutionTimeout: childTimeout,
 		ParentClosePolicy:        enumspb.PARENT_CLOSE_POLICY_TERMINATE,
 	})
 	child := workflow.ExecuteChildWorkflow(
@@ -246,7 +296,7 @@ func (w *Workflow) ExecuteWorkflow(
 		map[string]any{},
 		authoringContext(session, build, prepared),
 	)
-	ready, childErr := awaitAuthor(ctx, child)
+	ready, childErr := awaitAuthor(ctx, child, onRelease)
 	if !ready {
 		// Closing the session terminates the child; the deferred release
 		// frees the device now instead of after the child's timeout.
@@ -268,13 +318,15 @@ func (w *Workflow) ExecuteWorkflow(
 	return result, nil
 }
 
-// awaitAuthor waits for the agent's ready signal, then for the agent to end.
-// It reports ready false when neither the signal nor the agent's end arrives
-// within agentReadyTimeout: a runner without a polling agent worker must not
-// hold the device until the child's execution timeout.
+// awaitAuthor waits for the agent's ready signal, then for the agent to end,
+// calling onRelease when ReleaseDeviceSignal arrives meanwhile. It reports
+// ready false when neither the signal nor the agent's end arrives within
+// agentReadyTimeout: a runner without a polling agent worker must not hold
+// the device until the child's execution timeout.
 func awaitAuthor(
 	ctx workflow.Context,
 	child workflow.ChildWorkflowFuture,
+	onRelease func(),
 ) (ready bool, childErr error) {
 	timerCtx, cancelTimer := workflow.WithCancel(ctx)
 
@@ -303,8 +355,18 @@ func awaitAuthor(
 	// The agent is ready or ended: the timer must not stay pending (and fire)
 	// while the session waits up to the child's execution timeout.
 	cancelTimer()
-	if !ended {
-		childErr = child.Get(ctx, nil)
+	releaseSignal := workflow.GetSignalChannel(ctx, ReleaseDeviceSignal)
+	for !ended {
+		selector := workflow.NewSelector(ctx)
+		selector.AddFuture(child, func(f workflow.Future) {
+			ended = true
+			childErr = f.Get(ctx, nil)
+		})
+		selector.AddReceive(releaseSignal, func(c workflow.ReceiveChannel, _ bool) {
+			c.Receive(ctx, nil)
+			onRelease()
+		})
+		selector.Select(ctx)
 	}
 	return true, childErr
 }
@@ -361,6 +423,8 @@ func authoringContext(
 		WalletVersionIdentifier: session.WalletVersionIdentifier,
 		ActorID:                 session.ActorID,
 		Platform:                session.Platform,
+		Mode:                    session.Mode,
+		FCAFSuite:               session.FCAFSuite,
 		Build: AuthoringBuild{
 			WalletID:          build.WalletID,
 			VersionID:         build.VersionID,

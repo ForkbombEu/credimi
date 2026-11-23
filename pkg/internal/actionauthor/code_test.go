@@ -5,11 +5,14 @@
 package actionauthor
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -628,4 +631,248 @@ func TestValidateCodeMatchAll(t *testing.T) {
 			assert.Empty(t, ValidateCode(code, CodeScope{AppIDs: wallet}))
 		})
 	}
+}
+
+// fcafTestPackages are the reference wallet and browser packages.
+var fcafTestPackages = map[walletroles.App]string{
+	walletroles.AppWallet:  "eu.europa.ec.euidi",
+	walletroles.AppBrowser: "com.android.chrome",
+}
+
+// fcafRoleCodeScope is the code scope of an FCAF role of the reference wallet.
+func fcafRoleCodeScope(role walletroles.Role) CodeScope {
+	return CodeScope{
+		AppIDs:      FCAFAppIDs(role, fcafTestPackages),
+		Parameters:  role.Parameters,
+		WaitSeconds: role.WaitSeconds,
+		FCAF:        &FCAFCodeScope{Role: role, Packages: fcafTestPackages},
+	}
+}
+
+func TestFCAFAppIDs(t *testing.T) {
+	assert.Equal(t, []string{"eu.europa.ec.euidi"},
+		FCAFAppIDs(walletroles.Role{HeaderApp: walletroles.AppWallet}, fcafTestPackages))
+	assert.Equal(t, []string{"eu.europa.ec.euidi", "com.android.chrome"},
+		FCAFAppIDs(walletroles.Role{
+			HeaderApp:  walletroles.AppWallet,
+			LaunchApps: []walletroles.App{walletroles.AppBrowser},
+		}, fcafTestPackages))
+	assert.Equal(t, []string{"eu.europa.ec.euidi", "com.android.chrome"},
+		FCAFAppIDs(walletroles.Role{HeaderApp: walletroles.AppBrowser}, fcafTestPackages))
+}
+
+// TestValidateCodeAcceptsFCAFReferences checks every relying-party reference
+// flow: only decorative screenshot names longer than their role's budget are
+// refused, and the test lists those it tolerates.
+func TestValidateCodeAcceptsFCAFReferences(t *testing.T) {
+	tolerated := map[string][]string{
+		"fcaf-expect-credential-rejected":     {"credential-rejected"},
+		"fcaf-engagement-haip-vp":             {"fcaf-engagement-haip-vp-request"},
+		"fcaf-submit-request-object-by-value": {"fcaf-request-object-by-value-accepted"},
+		"fcaf-present-all-credentials": {
+			"fcaf-117-all-credentials-required-bundle",
+			"fcaf-117-all-credentials-shared",
+		},
+		"fcaf-present-allowed-claim-path-components": {
+			"fcaf-118-allowed-claim-path-components",
+			"fcaf-118-allowed-claim-path-components-shared",
+		},
+		"fcaf-present-two-credentials": {
+			"fcaf-main-interaction-039-shared",
+			"fcaf-main-interaction-039-two-credentials",
+		},
+		"fcaf-present-same-credential-multiple-queries": {
+			"fcaf-087-same-credential-multiple-queries",
+		},
+		"fcaf-user-authentication-failed": {
+			"fcaf-149-consent-screen-before-authentication",
+			"fcaf-149-user-authentication-failed",
+		},
+		"fcaf-exercise-http-error-redirect-response": {"http-error-redirect-wallet-error"},
+	}
+	scope := fcafTestScope(t)
+	for _, role := range fcafSuiteRoles(scope) {
+		t.Run(role.Name, func(t *testing.T) {
+			want := []string{}
+			for _, name := range tolerated[role.Name] {
+				want = append(want, fmt.Sprintf("screenshot %s is longer than %d characters, "+
+					"the room the FCAF pipeline step ids leave", name, role.DiagnosticNameBudget))
+			}
+			problems := ValidateCode(role.ReferenceCode, fcafRoleCodeScope(role))
+			assert.ElementsMatch(t, want, problems)
+		})
+	}
+}
+
+func TestValidateCodeFCAF(t *testing.T) {
+	scope := fcafTestScope(t)
+	const header = "appId: eu.europa.ec.euidi\n---\n"
+	cases := []struct {
+		name    string
+		role    string
+		code    string
+		want    []string
+		missing bool // want lists some of the problems only
+		// edit changes the contract role; no contract screenshot is unconditional yet.
+		edit func(*walletroles.Role)
+	}{
+		{
+			name: "no final assertion needed",
+			role: "fcaf-observe-request",
+			code: header + "- openLink: ${deeplink}\n- takeScreenshot: observed\n- tapOn: \"Close\"\n",
+		},
+		{
+			name: "reset clears the app state",
+			role: "fcaf-reset-and-onboard",
+			code: header + "- launchApp:\n    clearState: true\n- assertVisible: \"Home\"\n",
+		},
+		{
+			name: "deliberate failures and stopApp",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- stopApp\n- stopApp: eu.europa.ec.euidi\n- openLink: ${deeplink}\n" +
+				"- runFlow:\n    when:\n      visible: \"Share\"\n    commands:\n" +
+				"      - assertTrue:\n          condition: \"false\"\n          label: \"consent shown\"\n" +
+				"      - assertTrue: false\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+		},
+		{
+			name: "missing contract screenshot",
+			role: "fcaf-engagement-haip-vp",
+			code: header + "- openLink: ${deeplink}\n- assertVisible: \"Share\"\n" +
+				"- takeScreenshot: fcaf-engagement-haip-vp-invoked\n- tapOn: \"Share\"\n" +
+				"- assertVisible: \"shared\"\n",
+			want: []string{"the FCAF role fcaf-engagement-haip-vp must store the screenshot " +
+				"fcaf-engagement-haip-vp-shared (gated: the wallet's confirmation that the " +
+				"presentation was shared)"},
+		},
+		{
+			name: "gated screenshot before any check",
+			role: "fcaf-engagement-haip-vp",
+			code: header + "- openLink: ${deeplink}\n" +
+				"- takeScreenshot: fcaf-engagement-haip-vp-invoked\n- tapOn: \"Share\"\n" +
+				"- assertVisible: \"shared\"\n- takeScreenshot: fcaf-engagement-haip-vp-shared\n",
+			want: []string{"screenshot fcaf-engagement-haip-vp-invoked must be taken after a " +
+				"check that proves the consent screen offering Share for this request: a " +
+				"non-optional assertion before it, outside any runFlow when"},
+		},
+		{
+			name: "while-screen screenshot at top level",
+			role: "fcaf-expect-no-matching-document",
+			code: header + "- openLink: ${deeplink}\n- takeScreenshot: no-match-notice\n",
+			want: []string{"screenshot no-match-notice must be taken inside runFlow when: " +
+				"visible, while the wallet's notice that it holds no credential matching the " +
+				"request is shown"},
+		},
+		{
+			name: "unconditional screenshot after a check",
+			role: "fcaf-exercise-wallet-error",
+			code: header + "- openLink: ${deeplink}\n- assertVisible: \"Error\"\n" +
+				"- takeScreenshot: wallet-error\n",
+			edit: func(role *walletroles.Role) {
+				role.Screenshots[0].When = walletroles.ScreenshotUnconditional
+			},
+			want: []string{"screenshot wallet-error must be taken at top level, before any " +
+				"non-optional check"},
+		},
+		{
+			name: "silent role with a screenshot",
+			role: "fcaf-issue-pid",
+			code: header + "- openLink: ${deeplink}\n- assertVisible: \"Added\"\n- takeScreenshot: done\n",
+			want: []string{"the FCAF role fcaf-issue-pid takes no screenshot"},
+		},
+		{
+			name: "no screenshot",
+			role: "fcaf-observe-request",
+			code: header + "- openLink: ${deeplink}\n",
+			want: []string{"the FCAF role fcaf-observe-request must store at least one " +
+				"screenshot of the screen it reached"},
+		},
+		{
+			name: "diagnostic name over budget",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- openLink: ${deeplink}\n- takeScreenshot: launched-the-request\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{"screenshot launched-the-request is longer than 12 characters, " +
+				"the room the FCAF pipeline step ids leave"},
+		},
+		{
+			name: "wait role must wait",
+			role: "fcaf-wait-past-status-list-expiry",
+			code: header + "- assertVisible: \"Home\"\n",
+			want: []string{"the last command other than takeScreenshot must wait 240 s: " +
+				"extendedWaitUntil with visible: <text>, optional: true and timeout: 240000"},
+		},
+		{
+			name: "clearState outside the reset role",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- launchApp:\n    clearState: true\n- openLink: ${deeplink}\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+		},
+		{
+			name: "assertTrue on an expression",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- openLink: ${deeplink}\n- assertTrue: \"${x}\"\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{"commands[1]: assertTrue may only fail the flow on purpose: " +
+				"assertTrue: {condition: \"false\"}"},
+			missing: true,
+		},
+		{
+			name: "assertTrue with another key",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- openLink: ${deeplink}\n" +
+				"- assertTrue:\n    condition: \"false\"\n    optional: true\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{"commands[1]: assertTrue may only fail the flow on purpose: " +
+				"assertTrue: {condition: \"false\"}"},
+		},
+		{
+			name: "stopApp of another app",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- stopApp: com.android.chrome\n- openLink: ${deeplink}\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{
+				"commands[0]: stopApp targets 'com.android.chrome', not the app under test",
+			},
+		},
+		{
+			name: "browser header for a wallet role",
+			role: "fcaf-engagement-haip-vp",
+			code: "appId: com.android.chrome\n---\n- openLink: ${deeplink}\n" +
+				"- assertVisible: \"Share\"\n- takeScreenshot: fcaf-engagement-haip-vp-invoked\n" +
+				"- assertVisible: \"shared\"\n- takeScreenshot: fcaf-engagement-haip-vp-shared\n",
+			want: []string{"header appId must be 'eu.europa.ec.euidi' for the FCAF role " +
+				"fcaf-engagement-haip-vp, found 'com.android.chrome'"},
+			missing: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			role, ok := scope.Contract.Role(tc.role)
+			require.True(t, ok)
+			if tc.edit != nil {
+				role.Screenshots = append([]walletroles.Screenshot{}, role.Screenshots...)
+				tc.edit(&role)
+			}
+			problems := ValidateCode(tc.code, fcafRoleCodeScope(role))
+			if tc.missing {
+				assert.Subset(t, problems, tc.want)
+				return
+			}
+			if tc.want == nil {
+				tc.want = []string{}
+			}
+			assert.Equal(t, tc.want, append([]string{}, problems...))
+		})
+	}
+}
+
+func TestValidateCodeChatRefusesFCAFCommands(t *testing.T) {
+	code := "appId: com.example.wallet\n---\n- stopApp\n- assertTrue: false\n" +
+		"- assertVisible: \"Welcome\"\n"
+	assert.Equal(t, []string{
+		"commands[0]: command `stopApp` is not allowed",
+		"commands[1]: command `assertTrue` is not allowed",
+	}, ValidateCode(code, CodeScope{AppIDs: []string{codeTestWallet}}))
 }

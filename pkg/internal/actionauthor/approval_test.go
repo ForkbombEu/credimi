@@ -118,6 +118,8 @@ func TestSessionSignAndVerify(t *testing.T) {
 		"platform":  func(g *SessionGrant) { g.Platform = "ios" },
 		"wallet":    func(g *SessionGrant) { g.WalletVersionIdentifier = "org-a/wallet/v2" },
 		"actor":     func(g *SessionGrant) { g.ActorID = "user-2" },
+		"mode":      func(g *SessionGrant) { g.Mode = SessionModeFCAF },
+		"suite":     func(g *SessionGrant) { g.FCAFSuite = FCAFRelyingPartySuite },
 	}
 	for name, change := range changed {
 		t.Run(name, func(t *testing.T) {
@@ -135,6 +137,30 @@ func TestSessionSignAndVerify(t *testing.T) {
 			assert.ErrorContains(t, err, "action author session was not started by Credimi")
 		})
 	}
+}
+
+func TestFCAFSessionTokenIsNotAChatSession(t *testing.T) {
+	app, _, _ := authoringFixture(t)
+	grant := SessionGrant{
+		SessionWorkflowID:       "ActionAuthorSession-ticket",
+		Namespace:               "runner-abc",
+		Organization:            "org-a",
+		DeviceID:                "org-a/runner/pixel",
+		Platform:                "android",
+		WalletVersionIdentifier: "org-a/wallet/v1",
+		ActorID:                 "user-1",
+		Mode:                    SessionModeFCAF,
+		FCAFSuite:               FCAFRelyingPartySuite,
+	}
+	token, err := SignSession(app, grant)
+	require.NoError(t, err)
+	require.NoError(t, VerifySession(app, token, grant))
+
+	chat := grant
+	chat.Mode = ""
+	err = VerifySession(app, token, chat)
+	require.ErrorIs(t, err, ErrForbidden)
+	assert.ErrorContains(t, err, "action author session was not started by Credimi")
 }
 
 func TestTicketAndSessionTokensAreNotInterchangeable(t *testing.T) {

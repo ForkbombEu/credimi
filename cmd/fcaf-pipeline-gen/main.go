@@ -62,9 +62,6 @@ var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 // the role contract, fcaf-roles.yaml (walletRoles).
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
-	pidIssuerConfigID     = "eu-pid-device-bound"
-	pidSDJWTConfigID      = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
-	pidMdocConfigID       = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
 	mobileAutomationTask  = "mobile-automation"
 )
 
@@ -1175,7 +1172,7 @@ func pidIssuance(
 			"expected_status": 201,
 			"headers":         map[string]any{"Content-Type": "application/json"},
 			"body": map[string]any{
-				"issuer_configuration_id":     pidIssuerConfigID,
+				"issuer_configuration_id":     walletroles.PIDIssuerConfigurationID,
 				"credential_configuration_id": pidCredentialConfigID(format),
 			},
 		},
@@ -1191,9 +1188,9 @@ func pidIssuance(
 
 func pidCredentialConfigID(format credentialFormat) string {
 	if format == formatMdoc {
-		return pidMdocConfigID
+		return walletroles.PIDMdocConfigurationID
 	}
-	return pidSDJWTConfigID
+	return walletroles.PIDSDJWTConfigurationID
 }
 
 func scenarioStepIDs(
@@ -1253,7 +1250,7 @@ func mergeValidationStep(
 	if !ok || len(rawOutputs) == 0 {
 		return fmt.Errorf("FCAF validation step in %s has no pipeline_outputs", path)
 	}
-	rewritten := optionalizeExpressions(
+	rewritten := walletroles.OptionalizeExpressions(
 		rewriteValue(rawOutputs, stepIDs, fixture),
 	).(map[string]any)
 	for source, output := range rewritten {
@@ -1291,34 +1288,6 @@ func rewriteValue(value any, stepIDs map[string]string, fixture map[string]any) 
 		return out
 	case string:
 		return rewriteString(typed, stepIDs, fixture)
-	default:
-		return value
-	}
-}
-
-func optionalizeExpressions(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		out := make(map[string]any, len(typed))
-		for key, child := range typed {
-			out[key] = optionalizeExpressions(child)
-		}
-		return out
-	case []any:
-		out := make([]any, len(typed))
-		for index, child := range typed {
-			out[index] = optionalizeExpressions(child)
-		}
-		return out
-	case string:
-		trimmed := strings.TrimSpace(typed)
-		if strings.HasPrefix(trimmed, "${{") && strings.HasSuffix(trimmed, "}}") {
-			inner := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(trimmed, "${{"), "}}"))
-			if !strings.Contains(inner, "| optional") {
-				return "${{ " + inner + " | optional }}"
-			}
-		}
-		return typed
 	default:
 		return value
 	}

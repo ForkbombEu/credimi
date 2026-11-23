@@ -12,6 +12,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 )
 
+// SessionModeFCAF marks a session that authors the FCAF wallet actions of a
+// suite. An empty mode is a chat session.
+const SessionModeFCAF = "fcaf"
+
+// FCAFRelyingPartySuite is the only suite FCAF sessions author.
+const FCAFRelyingPartySuite = "wallet_solution/relying_party"
+
 var sessionIDPattern = regexp.MustCompile(
 	`^ActionAuthorSession-([a-z0-9]{15})-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`,
 )

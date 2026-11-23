@@ -205,12 +205,17 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
-	plan, err := SessionPlan(a.app, selection, payload.Spec)
+	scope, err := FCAFScope(ref)
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
+	plan, err := SessionPlan(a.app, selection, payload.Spec, scope)
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	payload.BuildRequest = session
 	payload.Spec = plan
+	payload.FCAF = scope
 	approval, err := actionauthor.VerifyApproval(
 		a.app,
 		payload.Approval,
@@ -358,6 +363,10 @@ type ActionAuthorSessionRef struct {
 	Organization string
 	Session      actionauthor.BuildRequest
 	DeviceID     string
+	// Mode is actionauthor.SessionModeFCAF for an FCAF authoring session,
+	// empty for chat; FCAFSuite is the suite an FCAF session authors.
+	Mode      string
+	FCAFSuite string
 }
 
 // LookupActionAuthorSession returns the running session whose ActionAuthor
@@ -409,6 +418,8 @@ type sessionStart struct {
 	Organization            string `json:"organization"`
 	TicketGrant             string `json:"ticket_grant"`
 	Grant                   string `json:"grant"`
+	Mode                    string `json:"mode"`
+	FCAFSuite               string `json:"fcaf_suite"`
 }
 
 // grant is what Credimi signs for the session workflowID in namespace that
@@ -422,6 +433,8 @@ func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGr
 		Platform:                s.Platform,
 		WalletVersionIdentifier: s.WalletVersionIdentifier,
 		ActorID:                 s.ActorID,
+		Mode:                    s.Mode,
+		FCAFSuite:               s.FCAFSuite,
 	}
 }
 
@@ -731,6 +744,8 @@ func readSessionStart(
 		Organization:      start.Organization,
 		Session:           session,
 		DeviceID:          start.DeviceID,
+		Mode:              start.Mode,
+		FCAFSuite:         start.FCAFSuite,
 	}, nil
 }
 

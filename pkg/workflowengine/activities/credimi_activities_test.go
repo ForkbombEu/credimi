@@ -34,6 +34,9 @@ func TestCredimiActivitiesRegistersEveryNameOnce(t *testing.T) {
 		CheckActionAuthorPlanActivityName,
 		ReadActionAuthorPipelineRunActivityName,
 		ResolveActionAuthorReferenceActivityName,
+		ListActionAuthorFCAFRolesActivityName,
+		DescribeActionAuthorFCAFRoleActivityName,
+		CheckActionAuthorFCAFEvidenceActivityName,
 		DeletePipelineStepScreenshotsActivityName,
 		SignMobileFlowTokenActivityName,
 	}, names)

@@ -407,6 +407,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		StartTime:               "2026-01-02T03:04:05Z",
 		WalletVersionIdentifier: authoringAndroidVersion,
 		Platform:                actionauthor.PlatformAndroid,
+		Mode:                    "chat",
 		DeviceID:                authoringSessionDevice,
 		DeviceName:              "android-emulator",
 		RunnerName:              "admin-runner",

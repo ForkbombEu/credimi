@@ -985,6 +985,8 @@ components:
       type: object
     ActionauthorSpec:
       properties:
+        fcaf_role:
+          type: string
         outcome:
           type: string
         parameters:
@@ -1222,6 +1224,8 @@ components:
           type: string
         live_view:
           type: boolean
+        mode:
+          type: string
         model:
           type: string
         pending_review:
@@ -1254,6 +1258,8 @@ components:
     HandlersActionAuthorStartRequest:
       properties:
         device_id:
+          type: string
+        mode:
           type: string
         wallet_version_identifier:
           type: string

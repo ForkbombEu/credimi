@@ -81,6 +81,10 @@ type SessionGrant struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
+	// Mode is SessionModeFCAF for an FCAF authoring session, empty for chat.
+	Mode string `json:"mode,omitempty"`
+	// FCAFSuite is the suite an FCAF session authors, empty for chat.
+	FCAFSuite string `json:"fcaf_suite,omitempty"`
 }
 
 // SignSession returns the token base64url(json).base64url(hmac) of g.

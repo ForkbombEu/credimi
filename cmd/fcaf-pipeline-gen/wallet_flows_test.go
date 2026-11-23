@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/stretchr/testify/require"
 )
 
@@ -180,7 +181,7 @@ func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
 		},
 	}
 	offerSession := map[string]any{"with": map[string]any{"body": map[string]any{
-		"credential_configuration_id": pidSDJWTConfigID,
+		"credential_configuration_id": walletroles.PIDSDJWTConfigurationID,
 	}}}
 	probeSession := map[string]any{"with": map[string]any{"body": map[string]any{
 		"presentation_request": map[string]any{"dcql_query": map[string]any{

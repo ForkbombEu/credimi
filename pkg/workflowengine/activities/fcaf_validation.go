@@ -402,11 +402,21 @@ func normalizeValidationTestIDs(payload FCAFValidationActivityInput) []string {
 	return ids
 }
 
-// resolveDefaultFCAFValidationCatalogRoot returns the suite's catalog directory,
-// looked up from the working directory and each of its parents so tests run
-// from a package directory find the repository templates.
+// resolveDefaultFCAFValidationCatalogRoot returns the suite's catalog directory.
 func resolveDefaultFCAFValidationCatalogRoot(suite string) string {
-	relative := filepath.Join(fcafValidationTemplatesRoot, filepath.FromSlash(suite))
+	return findTemplatesPath(filepath.Join(fcafValidationTemplatesRoot, filepath.FromSlash(suite)))
+}
+
+// fcafTemplatesRoot returns the FCAF templates root, which holds the role
+// contract and one catalog per suite.
+func fcafTemplatesRoot() string {
+	return findTemplatesPath(fcafValidationTemplatesRoot)
+}
+
+// findTemplatesPath returns relative, looked up from the working directory
+// and each of its parents so tests run from a package directory find the
+// repository templates.
+func findTemplatesPath(relative string) string {
 	if _, err := os.Stat(relative); err == nil {
 		return relative
 	}

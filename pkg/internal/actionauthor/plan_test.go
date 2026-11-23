@@ -5,6 +5,8 @@
 package actionauthor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -62,6 +64,13 @@ func TestPlanSHA256(t *testing.T) {
 		{Action: "tenant/wallet/onboarding", Candidate: "a1"},
 	}}
 	assert.NotEqual(t, PlanSHA256(candidate), PlanSHA256(resolved))
+
+	// A chat plan encodes no fcaf_role, so its hash is unchanged.
+	chat := sha256.Sum256([]byte(`{"slot":"onboarding","outcome":"success"}`))
+	assert.Equal(t, hex.EncodeToString(chat[:]),
+		PlanSHA256(Spec{Slot: "onboarding", Outcome: OutcomeSuccess}))
+	fcaf := Spec{Slot: "onboarding", Outcome: OutcomeSuccess, FCAFRole: "fcaf-reset-and-onboard"}
+	assert.NotEqual(t, hex.EncodeToString(chat[:]), PlanSHA256(fcaf))
 }
 
 func TestParameterInfosAndPlanSummary(t *testing.T) {
@@ -134,6 +143,17 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 		{Action: "tenant/wallet/onboarding", Name: "Onboarding"},
 		{Candidate: "a2"},
 	}, nil))
+
+	assert.Equal(t, []string{
+		"Category: verify-credential",
+		"FCAF role: fcaf-observe-request",
+		"Outcome: tolerant; the protocol evidence decides",
+		"Starts from: candidate a1",
+	}, PlanSummary(Spec{
+		Slot:     "verify-credential",
+		Outcome:  OutcomeTolerant,
+		FCAFRole: "fcaf-observe-request",
+	}, []ResolvedPrerequisite{{Candidate: "a1"}}, nil))
 }
 
 func TestPlanSummaryDescribesSourcesInFull(t *testing.T) {

@@ -304,6 +304,9 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 type ActionAuthorStartRequest struct {
 	DeviceID                string `json:"device_id"                 validate:"required"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
+	// Mode is "fcaf" for a session that authors the FCAF wallet actions of
+	// the relying-party suite; "chat" or empty starts a chat session.
+	Mode string `json:"mode" validate:"omitempty,oneof=chat fcaf"`
 }
 
 // ActionAuthorStartResponse identifies the queued session ticket.
@@ -441,6 +444,15 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 				"the action author supports Android devices and iOS simulators",
 			)
 		}
+		fcaf := input.Mode == actionauthor.SessionModeFCAF
+		if fcaf && platform != actionauthor.PlatformAndroid {
+			return apierror.New(
+				http.StatusUnprocessableEntity,
+				"action_author",
+				"fcaf_not_supported",
+				"FCAF sessions run on Android devices only",
+			)
+		}
 		// The device list hides disabled runners; starting on one answers as
 		// starting on an offline runner.
 		if runner.GetBool("disabled") {
@@ -479,6 +491,10 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Namespace:               runnerNamespace,
 			Organization:            orgNamespace,
 		}
+		if fcaf {
+			sessionInput.Mode = actionauthor.SessionModeFCAF
+			sessionInput.FCAFSuite = actionauthor.FCAFRelyingPartySuite
+		}
 		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
 			SessionWorkflowID:       actionauthor.SessionWorkflowID(runner.Id, ticketID),
 			Namespace:               sessionInput.Namespace,
@@ -487,6 +503,8 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                sessionInput.Platform,
 			WalletVersionIdentifier: sessionInput.WalletVersionIdentifier,
 			ActorID:                 sessionInput.ActorID,
+			Mode:                    sessionInput.Mode,
+			FCAFSuite:               sessionInput.FCAFSuite,
 		})
 		if err != nil {
 			return authoringAPIError(e, err)
@@ -651,11 +669,13 @@ type ActionAuthorSessionResponse struct {
 	CloseTime               string `json:"close_time,omitempty"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	Platform                string `json:"platform"`
-	DeviceID                string `json:"device_id"`
-	DeviceName              string `json:"device_name"`
-	RunnerName              string `json:"runner_name"`
-	RunnerOwner             string `json:"runner_owner"`
-	Model                   string `json:"model"`
+	// Mode is "fcaf" for an FCAF authoring session, else "chat".
+	Mode        string `json:"mode"`
+	DeviceID    string `json:"device_id"`
+	DeviceName  string `json:"device_name"`
+	RunnerName  string `json:"runner_name"`
+	RunnerOwner string `json:"runner_owner"`
+	Model       string `json:"model"`
 	// LiveView reports a running session on an Android device that streams its screen.
 	LiveView bool `json:"live_view"`
 	// ChatReady reports that the agent chat has started its first turn; it
@@ -816,6 +836,7 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			StartTime:               info.StartTime.UTC().Format(time.RFC3339),
 			WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
 			Platform:                info.Session.Platform,
+			Mode:                    actionAuthorSessionMode(info.Mode),
 			DeviceID:                info.DeviceID,
 		}
 		if !info.CloseTime.IsZero() {
@@ -838,6 +859,14 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 		readActionAuthorChat(e, c, response.ChatWorkflowID, running, &response)
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+// actionAuthorSessionMode names a session's mode, "chat" when it has none.
+func actionAuthorSessionMode(mode string) string {
+	if mode == "" {
+		return "chat"
+	}
+	return mode
 }
 
 // HandleActionAuthorSessionTranscript reads the transcript of the chat of a

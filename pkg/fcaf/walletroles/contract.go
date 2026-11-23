@@ -8,6 +8,9 @@ package walletroles
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -71,48 +74,77 @@ const (
 
 // Screenshot is a verdict screenshot FCAF tests read by name.
 type Screenshot struct {
-	Name   string              `yaml:"name"`
-	When   ScreenshotCondition `yaml:"when"`
-	Screen string              `yaml:"screen,omitempty"`
+	Name   string              `yaml:"name"             json:"name"`
+	When   ScreenshotCondition `yaml:"when"             json:"when"`
+	Screen string              `yaml:"screen,omitempty" json:"screen,omitempty"`
 }
 
 // Role is one wallet action the FCAF suites run.
 type Role struct {
-	Name                 string       `yaml:"name"`
-	Summary              string       `yaml:"summary"`
-	Suites               []string     `yaml:"suites"`
-	Outcome              Outcome      `yaml:"outcome"`
-	FailsWhen            string       `yaml:"fails_when"`
-	WaitSeconds          int          `yaml:"wait_seconds,omitempty"`
-	Parameters           []string     `yaml:"parameters"`
-	HeaderApp            App          `yaml:"header_app"`
-	LaunchApps           []App        `yaml:"launch_apps"`
-	Presents             int          `yaml:"presents"`
-	IssuesCredential     bool         `yaml:"issues_credential,omitempty"`
-	AbsenceProbe         bool         `yaml:"absence_probe,omitempty"`
-	Injected             Injection    `yaml:"injected,omitempty"`
-	Silent               bool         `yaml:"silent,omitempty"`
-	DiagnosticNameBudget int          `yaml:"diagnostic_name_budget"`
-	Screenshots          []Screenshot `yaml:"screenshots"`
+	Name                 string       `yaml:"name"                        json:"name"`
+	Summary              string       `yaml:"summary"                     json:"summary"`
+	Suites               []string     `yaml:"suites"                      json:"suites"`
+	Outcome              Outcome      `yaml:"outcome"                     json:"outcome"`
+	FailsWhen            string       `yaml:"fails_when"                  json:"fails_when"`
+	WaitSeconds          int          `yaml:"wait_seconds,omitempty"      json:"wait_seconds,omitempty"`
+	Parameters           []string     `yaml:"parameters"                  json:"parameters"`
+	HeaderApp            App          `yaml:"header_app"                  json:"header_app"`
+	LaunchApps           []App        `yaml:"launch_apps"                 json:"launch_apps"`
+	Presents             int          `yaml:"presents"                    json:"presents"`
+	IssuesCredential     bool         `yaml:"issues_credential,omitempty" json:"issues_credential,omitempty"`
+	AbsenceProbe         bool         `yaml:"absence_probe,omitempty"     json:"absence_probe,omitempty"`
+	Injected             Injection    `yaml:"injected,omitempty"          json:"injected,omitempty"`
+	Silent               bool         `yaml:"silent,omitempty"            json:"silent,omitempty"`
+	DiagnosticNameBudget int          `yaml:"diagnostic_name_budget"      json:"diagnostic_name_budget"`
+	Screenshots          []Screenshot `yaml:"screenshots"                 json:"screenshots"`
 	// Category is the wallet action category of the reference manifest.
-	Category string `yaml:"-"`
+	Category string `yaml:"-" json:"category"`
 	// ReferenceCode is the reference flow source.
-	ReferenceCode string `yaml:"-"`
+	ReferenceCode string `yaml:"-" json:"reference_code"`
 }
 
 // Reference names the reference wallet whose flows implement every role.
 type Reference struct {
 	// Manifest is relative to the FCAF templates root.
-	Manifest string         `yaml:"manifest"`
-	AppIDs   map[App]string `yaml:"app_ids"`
+	Manifest string         `yaml:"manifest" json:"manifest"`
+	AppIDs   map[App]string `yaml:"app_ids"  json:"app_ids"`
 }
 
 // Contract is the decoded fcaf-roles.yaml.
 type Contract struct {
-	Version   int       `yaml:"version"`
-	Reference Reference `yaml:"reference"`
-	Rules     []string  `yaml:"rules"`
-	Roles     []Role    `yaml:"roles"`
+	Version   int       `yaml:"version"   json:"version"`
+	Reference Reference `yaml:"reference" json:"reference"`
+	Rules     []string  `yaml:"rules"     json:"rules"`
+	Roles     []Role    `yaml:"roles"     json:"roles"`
+	// ReferencePrefix is "<organization>/<wallet>/" of the reference
+	// manifest: the action_id prefix of the reference flows in scenarios.
+	ReferencePrefix string `yaml:"-" json:"-"`
+}
+
+// SHA256 is the lowercase hex sha256 of the role's JSON encoding: every
+// field counts, so an edited contract entry or reference flow changes it.
+func (r Role) SHA256() string {
+	data, err := json.Marshal(r)
+	if err != nil {
+		// A Role holds only strings, ints, bools and slices of them.
+		panic(fmt.Sprintf("walletroles: encode role %s: %v", r.Name, err))
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+// StartsFrom returns the names of the roles a role's action starts from, in
+// order: none for onboarding, the reset for the others, and the reset then
+// the PID issuance for presentations, as the generator runs every scenario.
+func (c *Contract) StartsFrom(role Role) []string {
+	switch role.Category {
+	case "onboarding":
+		return []string{}
+	case "verify-credential":
+		return []string{c.Injected(InjectedReset).Name, c.Injected(InjectedIssuance).Name}
+	default:
+		return []string{c.Injected(InjectedReset).Name}
+	}
 }
 
 var (
@@ -312,11 +344,20 @@ func (c *Contract) loadReference(fcafRoot string) error {
 		File     string `yaml:"file"`
 	}
 	var manifest struct {
-		Actions []manifestAction `yaml:"actions"`
+		Organization string           `yaml:"organization"`
+		Wallet       string           `yaml:"wallet"`
+		Actions      []manifestAction `yaml:"actions"`
 	}
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
 		return fmt.Errorf("parse reference manifest %s: %w", manifestPath, err)
 	}
+	if manifest.Organization == "" || manifest.Wallet == "" {
+		return fmt.Errorf(
+			"reference manifest %s must name organization and wallet",
+			c.Reference.Manifest,
+		)
+	}
+	c.ReferencePrefix = manifest.Organization + "/" + manifest.Wallet + "/"
 	for index := range c.Roles {
 		role := &c.Roles[index]
 		entry := slices.IndexFunc(manifest.Actions, func(action manifestAction) bool {

@@ -362,8 +362,12 @@ func (a *StartQueuedPipelineActivity) Execute(
 }
 
 // actionAuthorSessionExecutionTimeout bounds a session: its agent child has a
-// 2h timeout, plus device preparation and cleanup.
-const actionAuthorSessionExecutionTimeout = 3 * time.Hour
+// 2h timeout, plus device preparation and cleanup. An FCAF session's agent
+// has 8h (fcafActionAuthorSessionExecutionTimeout).
+const (
+	actionAuthorSessionExecutionTimeout     = 3 * time.Hour
+	fcafActionAuthorSessionExecutionTimeout = 9 * time.Hour
+)
 
 // startActionAuthorSession starts the "Action author session" of a granted
 // action_author ticket in the runner's namespace the ticket names
@@ -438,11 +442,15 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	sessionInput["grant"] = grant
 
 	config := map[string]any{}
+	executionTimeout := actionAuthorSessionExecutionTimeout
+	if start.Mode == actionauthor.SessionModeFCAF {
+		executionTimeout = fcafActionAuthorSessionExecutionTimeout
+	}
 	applySemaphoreTicketMetadata(config, payload)
 	options := client.StartWorkflowOptions{
 		ID:                       sessionWorkflowID,
 		TaskQueue:                pipelineTaskQueue,
-		WorkflowExecutionTimeout: actionAuthorSessionExecutionTimeout,
+		WorkflowExecutionTimeout: executionTimeout,
 		WorkflowIDReusePolicy:    enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
 		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_FAIL,
 		TypedSearchAttributes: workflowengine.ActionAuthorSessionSearchAttributes(

@@ -126,6 +126,18 @@ func reviewDecision(
 	}
 }
 
+// tooManyReviewDecisions returns n refusals of distinct keys.
+func tooManyReviewDecisions(n int, plan actionauthor.Spec) []ActionAuthorReviewDecision {
+	decisions := make([]ActionAuthorReviewDecision, 0, n)
+	for i := range n {
+		decisions = append(
+			decisions,
+			reviewDecision(fmt.Sprintf("a%d", i+1), reviewSHA1, "refuse", plan, ""),
+		)
+	}
+	return decisions
+}
+
 // deliveredDecisions returns the decisions the stub delivered to the agent.
 func deliveredDecisions(t testing.TB, stub *reviewStub) []map[string]any {
 	t.Helper()
@@ -328,6 +340,12 @@ func TestActionAuthorReviewDecisions(t *testing.T) {
 		{
 			name:     "no decision",
 			body:     reviewBody(t),
+			status:   http.StatusBadRequest,
+			expected: []string{"Validation failed", "ActionAuthorReviewRequest.Decisions"},
+		},
+		{
+			name:     "more decisions than a suite",
+			body:     reviewBody(t, tooManyReviewDecisions(41, onboarding)...),
 			status:   http.StatusBadRequest,
 			expected: []string{"Validation failed", "ActionAuthorReviewRequest.Decisions"},
 		},

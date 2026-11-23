@@ -14,11 +14,13 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/pocketbase/dbx"
@@ -461,7 +463,14 @@ type SaveRequest struct {
 	Spec             Spec              `json:"plan"`
 	BatchKey         string            `json:"batch_key"`
 	Candidates       map[string]string `json:"candidates,omitempty"`
+	// FCAF is the FCAF scope of the session, set by the activity.
+	FCAF *FCAFScope `json:"-"`
+	// FCAFProfile is the agent's notes on the wallet, kept with an FCAF action.
+	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
 }
+
+// maxFCAFProfileBytes bounds the JSON encoding of an FCAF profile.
+const maxFCAFProfileBytes = 8192
 
 // ProvenanceParameter records a parameter's name and source kind, never its
 // values. Source is the record path of a credential_offer or
@@ -498,6 +507,12 @@ type Provenance struct {
 	ReplacedCodeSHA256 string `json:"replaced_code_sha256,omitempty"`
 	// BatchKey is the candidate key the session gave the action.
 	BatchKey string `json:"batch_key,omitempty"`
+	// FCAFRole is the FCAF role the action implements, and FCAFRoleSHA256
+	// the role's hash when the action was saved.
+	FCAFRole       string `json:"fcaf_role,omitempty"`
+	FCAFRoleSHA256 string `json:"fcaf_role_sha256,omitempty"`
+	// FCAFProfile is the agent's notes on the wallet, given with the save.
+	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
 }
 
 // Receipt describes the saved record and its validation provenance.
@@ -516,15 +531,26 @@ func CodeSHA256(code string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func validateAcceptedAction(in *SaveRequest, selection Selection) error {
+// validateAcceptedAction checks the accepted candidate and its code; for an
+// FCAF plan it also checks the plan and code against the role, which it
+// returns, nil otherwise.
+func validateAcceptedAction(in *SaveRequest, selection Selection) (*walletroles.Role, error) {
 	if _, ok := Slots[in.Spec.Slot]; !ok || strings.TrimSpace(in.Name) == "" ||
 		in.ReplayCount != 1 || in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
-		return fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
+		return nil, fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
 	}
 	if !candidateKey.MatchString(in.BatchKey) {
-		return fmt.Errorf("%w: batch_key must match a<number>", ErrInvalid)
+		return nil, fmt.Errorf("%w: batch_key must match a<number>", ErrInvalid)
 	}
-	problems := ValidateCode(in.Code, CodeScope{
+	if in.FCAFProfile != nil {
+		encoded, err := json.Marshal(in.FCAFProfile)
+		if in.Spec.FCAFRole == "" || err != nil || len(encoded) > maxFCAFProfileBytes {
+			return nil, fmt.Errorf(
+				"%w: fcaf_profile is only for FCAF actions, at most 8 KiB", ErrInvalid,
+			)
+		}
+	}
+	scope := CodeScope{
 		AppIDs:     AllowedAppIDs(in.PackageID, in.Spec.Slot, selection.Platform),
 		Parameters: ParameterNames(in.Spec.Parameters),
 		StoreLinks: StoreLinks(
@@ -534,11 +560,59 @@ func validateAcceptedAction(in *SaveRequest, selection Selection) error {
 			selection.StoreURL,
 		),
 		WaitSeconds: in.Spec.WaitSeconds,
-	})
-	if len(problems) > 0 {
-		return fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
 	}
+	var role *walletroles.Role
+	if in.Spec.FCAFRole != "" {
+		if in.FCAF == nil {
+			return nil, fmt.Errorf("%w: fcaf_role needs an FCAF session", ErrInvalid)
+		}
+		checked, err := CheckFCAFPlan(in.FCAF, &in.Spec)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(in.Name) != checked.Name {
+			return nil, fmt.Errorf(
+				"%w: an FCAF action is named after its role: %s", ErrInvalid, checked.Name,
+			)
+		}
+		role = &checked
+		packages := map[walletroles.App]string{
+			walletroles.AppWallet:  in.PackageID,
+			walletroles.AppBrowser: in.FCAF.Contract.Reference.AppIDs[walletroles.AppBrowser],
+		}
+		scope.AppIDs = FCAFAppIDs(checked, packages)
+		scope.StoreLinks = nil
+		scope.FCAF = &FCAFCodeScope{Role: checked, Packages: packages}
+	}
+	if problems := ValidateCode(in.Code, scope); len(problems) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
+	}
+	return role, nil
+}
+
+// fcafProvenance checks the resolved starting actions of an FCAF action
+// against its role and records the role in the provenance.
+func fcafProvenance(provenance *Provenance, in *SaveRequest, role walletroles.Role) error {
+	starts := in.FCAF.Contract.StartsFrom(role)
+	matches := len(provenance.Prerequisites) == len(starts)
+	for i := 0; matches && i < len(starts); i++ {
+		matches = path.Base(provenance.Prerequisites[i]) == starts[i]
+	}
+	if !matches {
+		return fmt.Errorf("%w: an FCAF %s action starts from %v", ErrInvalid, role.Name, starts)
+	}
+	provenance.FCAFRole = role.Name
+	provenance.FCAFRoleSHA256 = role.SHA256()
+	provenance.FCAFProfile = in.FCAFProfile
 	return nil
+}
+
+// setFCAFTags tags the record of an FCAF action with its suite; other
+// actions keep their tags.
+func setFCAFTags(record *core.Record, in *SaveRequest) {
+	if in.Spec.FCAFRole != "" {
+		record.Set("tags", fcafTags(in.FCAF.Suite))
+	}
 }
 
 // provenanceSpec records the session spec without parameter values.
@@ -580,16 +654,10 @@ func resolveCandidates(
 		if err != nil {
 			return err
 		}
-		path, err := canonify.BuildPath(
-			app,
-			record,
-			canonify.CanonifyPaths["wallet_actions"],
-			record.GetString("canonified_name"),
-		)
+		prerequisite.Action, err = walletActionPath(app, record)
 		if err != nil {
-			return fmt.Errorf("build wallet action path: %w", err)
+			return err
 		}
-		prerequisite.Action = path
 		resolved = true
 	}
 	if !resolved {
@@ -675,7 +743,8 @@ func Save(
 	if err := checkStoreSlot(in.Spec.Slot, selection); err != nil {
 		return receipt, err
 	}
-	if err := validateAcceptedAction(&in, selection); err != nil {
+	role, err := validateAcceptedAction(&in, selection)
+	if err != nil {
 		return receipt, err
 	}
 	if in.Spec.Replaces != nil && in.Spec.Replaces.CodeSHA256 == "" {
@@ -717,6 +786,11 @@ func Save(
 		return receipt, err
 	}
 	provenanceSpec(&provenance, in.Spec)
+	if role != nil {
+		if err := fcafProvenance(&provenance, &in, *role); err != nil {
+			return receipt, err
+		}
+	}
 	err = app.RunInTransaction(func(tx core.App) error {
 		// Recheck authorization and record binding inside the write transaction.
 		current, err := Select(tx, organization, in.BuildRequest)
@@ -777,6 +851,7 @@ func Save(
 		record.Set("code", in.Code)
 		record.Set("category", SlotCategory(in.Spec.Slot))
 		record.Set("authoring_provenance", provenance)
+		setFCAFTags(record, &in)
 		if err := tx.Save(record); err != nil {
 			return fmt.Errorf("save authored action: %w", err)
 		}
@@ -860,6 +935,7 @@ func replaceAction(
 	record.Set("code", in.Code)
 	record.Set("category", SlotCategory(in.Spec.Slot))
 	record.Set("authoring_provenance", provenance)
+	setFCAFTags(record, in)
 	if err := tx.Save(record); err != nil {
 		return Receipt{}, fmt.Errorf("replace authored action: %w", err)
 	}

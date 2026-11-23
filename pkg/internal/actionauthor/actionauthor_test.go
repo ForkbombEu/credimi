@@ -1296,3 +1296,198 @@ func TestPublicWalletOfAnotherOrganization(t *testing.T) {
 		})
 	}
 }
+
+// fcafResetRequest is an accepted save of the reference fcaf-reset-and-onboard
+// action in an FCAF session.
+func fcafResetRequest(
+	t *testing.T,
+	request BuildRequest,
+	digest string,
+	scope *FCAFScope,
+) SaveRequest {
+	t.Helper()
+	role, ok := scope.Contract.Role("fcaf-reset-and-onboard")
+	require.True(t, ok)
+	in := acceptedRequest(request, digest)
+	in.Name = role.Name
+	in.Code = role.ReferenceCode
+	in.CandidateSHA256 = CodeSHA256(in.Code)
+	in.Spec = Spec{Slot: "onboarding", Outcome: OutcomeSuccess, FCAFRole: role.Name}
+	in.FCAF = scope
+	in.FCAFProfile = map[string]any{"pin": "123456"}
+	return in
+}
+
+func TestAuthoringSaveFCAFAction(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	scope := fcafTestScope(t)
+	role, ok := scope.Contract.Role("fcaf-reset-and-onboard")
+	require.True(t, ok)
+
+	refused := []struct {
+		name    string
+		edit    func(*SaveRequest)
+		message string
+	}{
+		{
+			name:    "named otherwise",
+			edit:    func(in *SaveRequest) { in.Name = "Reset the wallet" },
+			message: "an FCAF action is named after its role: fcaf-reset-and-onboard",
+		},
+		{
+			name:    "chat session",
+			edit:    func(in *SaveRequest) { in.FCAF = nil },
+			message: "fcaf_role needs an FCAF session",
+		},
+		{
+			name:    "plan off the contract",
+			edit:    func(in *SaveRequest) { in.Spec.FCAFRole = "fcaf-engagement-haip-vp" },
+			message: "fcaf_role: fcaf-engagement-haip-vp is a verify-credential action",
+		},
+		{
+			name: "profile over 8 KiB",
+			edit: func(in *SaveRequest) {
+				in.FCAFProfile = map[string]any{"notes": strings.Repeat("x", 8192)}
+			},
+			message: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+		{
+			name: "profile of a chat plan",
+			edit: func(in *SaveRequest) {
+				*in = acceptedRequest(request, build.InstallerSHA256)
+				in.FCAFProfile = map[string]any{"pin": "123456"}
+			},
+			message: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+		{
+			name: "code off the contract",
+			edit: func(in *SaveRequest) {
+				in.Code += "- takeScreenshot: home\n"
+				in.CandidateSHA256 = CodeSHA256(in.Code)
+			},
+			message: "the FCAF role fcaf-reset-and-onboard takes no screenshot",
+		},
+	}
+	for _, tc := range refused {
+		t.Run(tc.name, func(t *testing.T) {
+			in := fcafResetRequest(t, request, build.InstallerSHA256, scope)
+			tc.edit(&in)
+			_, err := Save(app, namespace, "workflow", "run", in, testApproval)
+			require.ErrorIs(t, err, ErrInvalid)
+			assert.ErrorContains(t, err, tc.message)
+		})
+	}
+
+	in := fcafResetRequest(t, request, build.InstallerSHA256, scope)
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, "fcaf, ws_rp", record.GetString("tags"))
+	provenance := savedProvenance(record)
+	assert.Equal(t, role.Name, provenance.FCAFRole)
+	assert.Equal(t, role.SHA256(), provenance.FCAFRoleSHA256)
+	assert.Equal(t, map[string]any{"pin": "123456"}, provenance.FCAFProfile)
+	assert.Equal(t, provenance, receipt.Provenance)
+
+	// A replacing save writes the tags again.
+	record.Set("tags", "")
+	require.NoError(t, app.Save(record))
+	path, err := walletActionPath(app, record)
+	require.NoError(t, err)
+	replacing := fcafResetRequest(t, request, build.InstallerSHA256, scope)
+	replacing.BatchKey = "a2"
+	replacing.Spec.Replaces = &ReplaceSpec{Action: path, CodeSHA256: CodeSHA256(in.Code)}
+	replaced, err := Save(app, namespace, "workflow-2", "run-2", replacing, testApproval)
+	require.NoError(t, err)
+	assert.True(t, replaced.Replaced)
+	record, err = app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, "fcaf, ws_rp", record.GetString("tags"))
+
+	// Chat plans write no tags.
+	chat, err := Save(app, namespace, "workflow-3", "run-3",
+		acceptedRequest(request, build.InstallerSHA256), testApproval)
+	require.NoError(t, err)
+	record, err = app.FindRecordById("wallet_actions", chat.RecordID)
+	require.NoError(t, err)
+	assert.Empty(t, record.GetString("tags"))
+	assert.Empty(t, savedProvenance(record).FCAFRole)
+}
+
+func TestFCAFCoverage(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	scope := fcafTestScope(t)
+	statuses := func() (map[string]FCAFRoleCoverage, map[string]any) {
+		t.Helper()
+		coverage, profile, err := FCAFCoverage(app, selection, scope)
+		require.NoError(t, err)
+		require.Len(t, coverage, len(fcafSuiteRoles(scope)))
+		assert.Equal(t, "fcaf-reset-and-onboard", coverage[0].Role)
+		assert.Equal(t, "fcaf-issue-pid", coverage[1].Role)
+		byRole := map[string]FCAFRoleCoverage{}
+		for _, entry := range coverage {
+			byRole[entry.Role] = entry
+		}
+		return byRole, profile
+	}
+
+	coverage, profile := statuses()
+	assert.Nil(t, profile)
+	reset, issue := coverage["fcaf-reset-and-onboard"], coverage["fcaf-issue-pid"]
+	role, _ := scope.Contract.Role("fcaf-reset-and-onboard")
+	assert.Equal(t, FCAFRoleCoverage{
+		Role:       role.Name,
+		Summary:    role.Summary,
+		Outcome:    OutcomeSuccess,
+		Category:   "onboarding",
+		StartsFrom: []string{},
+		Status:     FCAFMissing,
+		RoleSHA256: role.SHA256(),
+	}, reset)
+	assert.Equal(t, FCAFMissing, issue.Status)
+	assert.Equal(t, []string{"fcaf-reset-and-onboard"}, issue.StartsFrom)
+	assert.Equal(t, []string{"fcaf-reset-and-onboard", "fcaf-issue-pid"},
+		coverage["fcaf-engagement-haip-vp"].StartsFrom)
+	assert.NotContains(t, coverage, "fcaf-engage-credential-offer")
+
+	receipt, err := Save(app, namespace, "workflow", "run",
+		fcafResetRequest(t, request, build.InstallerSHA256, scope), testApproval)
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	path, err := walletActionPath(app, record)
+	require.NoError(t, err)
+	coverage, profile = statuses()
+	assert.Equal(t, FCAFCurrent, coverage["fcaf-reset-and-onboard"].Status)
+	assert.Equal(t, path, coverage["fcaf-reset-and-onboard"].Action)
+	assert.Equal(t, map[string]any{"pin": "123456"}, profile)
+
+	provenance := savedProvenance(record)
+	provenance.FCAFRoleSHA256 = strings.Repeat("0", 64)
+	record.Set("authoring_provenance", provenance)
+	require.NoError(t, app.Save(record))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFStale, coverage["fcaf-reset-and-onboard"].Status)
+
+	_, issuePath := seedWalletAction(
+		t,
+		app,
+		selection.Organization.Id,
+		selection.Wallet,
+		"fcaf-issue-pid",
+		"get-credential-generic",
+		"appId: eu.europa.ec.euidi\n---\n- back\n",
+		false,
+	)
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFUnmanaged, coverage["fcaf-issue-pid"].Status)
+	assert.Equal(t, issuePath, coverage["fcaf-issue-pid"].Action)
+	assert.Equal(t, FCAFMissing, coverage["fcaf-engagement-haip-vp"].Status)
+}

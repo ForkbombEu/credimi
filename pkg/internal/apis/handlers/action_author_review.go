@@ -32,7 +32,7 @@ const actionAuthorReviewUpdate = "provide_callback_result"
 type ActionAuthorReviewRequest struct {
 	AuthorWorkflowID string                       `json:"author_workflow_id" validate:"required"`
 	ToolID           string                       `json:"tool_id"            validate:"required"`
-	Decisions        []ActionAuthorReviewDecision `json:"decisions"          validate:"required,min=1,max=10,dive"`
+	Decisions        []ActionAuthorReviewDecision `json:"decisions"          validate:"required,min=1,max=40,dive"`
 }
 
 // ActionAuthorReviewDecision is the decision on one action of the review:
@@ -275,7 +275,11 @@ func signReviewApproval(
 	if err != nil {
 		return "", err
 	}
-	plan, err := activities.SessionPlan(e.App, selection, decision.Plan)
+	scope, err := activities.FCAFScope(ref)
+	if err != nil {
+		return "", err
+	}
+	plan, err := activities.SessionPlan(e.App, selection, decision.Plan, scope)
 	if err != nil {
 		return "", err
 	}
