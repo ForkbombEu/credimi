@@ -11,9 +11,17 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.4'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.protocol-messages-135
+# The source requires the Wallet to display the transaction_data and to answer
+# with a presentation whose JWT payload carries transaction_data_hashes
+# referencing it. OpenID4VP 8.4 makes that representation transaction data type
+# specific, so it needs a type the Wallet accepts; the Wallet under test
+# declares none (its request_uri wallet_metadata carries none and its captures
+# answer transaction_data with invalid_transaction_data), so the presentation
+# the source expects cannot be produced. This is the Wallet-capability ground,
+# not a claim that the Wallet is conformant on 135.
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-135.outputs.dcql_exchange
@@ -24,9 +32,11 @@ assertions:
   params:
     reason: >-
       the source requires the Wallet to display the transaction_data and to
-      reference it from the presentation's transaction_data_hashes, which
-      needs a transaction_data type the Wallet supports; the reference Wallet
-      declares no supported transaction-data type, so that presentation cannot
-      be produced
+      submit a presentation whose JWT payload contains transaction_data_hashes
+      referencing it, and OpenID4VP Section 8.4 makes that representation
+      transaction data type specific; the Wallet under test declares no
+      transaction data type (its request_uri wallet_metadata carries none and
+      its captures answer transaction_data with invalid_transaction_data), so
+      the presentation cannot be produced
 verdict:
   pass_when: all_assertions_pass

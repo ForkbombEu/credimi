@@ -18,6 +18,8 @@ evidence:
     from: pipeline.wallet.protocol.request-object-by-value.outputs.request_object
   wallet_response:
     from: pipeline.wallet.protocol.request-object-by-value.outputs.wallet_response
+  encryption_evidence:
+    from: pipeline.wallet.protocol.request-object-by-value.outputs.encryption_evidence
   visual_evidence:
     from: pipeline.wallet.protocol.request-object-by-value.outputs.visual_evidence
 assertions:
@@ -29,6 +31,13 @@ assertions:
     input: evidence.wallet_response
     params:
       field: vp_token
+  # The source's payoff: the Wallet used the by-value client_metadata as the
+  # only metadata source, so the response JWE targets the jwks it delivered.
+  - id: wallet_response_is_encrypted_to_the_client_metadata_jwks
+    validator: oid4vp.response_encryption
+    input: evidence.encryption_evidence
+    params:
+      match_metadata_kid: true
   - id: successful_flow_has_visual_evidence
     validator: evidence.minimum_items
     input: evidence.visual_evidence

@@ -34,10 +34,12 @@ assertions:
     params:
       mode: credentials_match
   - id: alphanumeric_id_visual_evidence_is_stored
-    validator: evidence.non_empty
+    validator: evidence.screenshot_named
     input: evidence.alphanumeric_id_visual_evidence
+    params: { name: fcaf-engagement-haip-vp-shared }
   - id: special_character_id_visual_evidence_is_stored
-    validator: evidence.non_empty
+    validator: evidence.screenshot_named
     input: evidence.special_character_id_visual_evidence
+    params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

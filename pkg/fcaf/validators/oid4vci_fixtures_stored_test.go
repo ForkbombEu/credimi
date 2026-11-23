@@ -50,13 +50,15 @@ func TestOID4VCIFixturesStoredValidator(t *testing.T) {
 			wantStatus: StatusFail,
 		},
 		{
-			name: "a failed issuance step stores no screenshot",
+			// The issuer delivered the credential but the mobile step stored no
+			// screenshot, so the Wallet's storage is not evidenced either way.
+			name: "a failed issuance step that stores no screenshot is blocked",
 			value: []any{
 				entry("pid_default", "credential_issued", added),
 				entry("pid_person_b", "credential_issued"),
 			},
 			params:     params,
-			wantStatus: StatusFail,
+			wantStatus: StatusBlocked,
 		},
 		{
 			name: "a fixture offered but never fetched",

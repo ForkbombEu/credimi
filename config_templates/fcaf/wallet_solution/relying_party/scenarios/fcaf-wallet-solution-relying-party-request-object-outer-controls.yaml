@@ -29,7 +29,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-conflicting-nonce.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
 - id: fetch-conflicting-nonce
   use: http-request
   with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-conflicting-nonce.outputs.body.session_id }}", expected_status: 200 }

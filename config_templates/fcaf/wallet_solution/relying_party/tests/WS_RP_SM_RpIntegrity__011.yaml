@@ -22,6 +22,9 @@ evidence:
     from: pipeline.rp-integrity.verifier-attestation.outputs.untrusted_issuer_request_evidence
   visual_evidence:
     from: pipeline.rp-integrity.verifier-attestation.outputs.untrusted_issuer_visual_evidence
+# Source Expected result 4 pins exactly invalid_client, while OpenID4VP 5.9.3
+# only requires refusing the request and names no code; filed upstream
+# (TEST-AUTHOR-FEEDBACK.md Issue 35). The verdict stands.
 assertions:
 - id: delivered_attestation_names_an_untrusted_issuer
   validator: oid4vp.verifier_attestation_request
@@ -39,7 +42,8 @@ assertions:
   params:
     code: invalid_client
 - id: visual_evidence_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

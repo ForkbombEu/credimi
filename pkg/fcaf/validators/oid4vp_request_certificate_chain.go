@@ -5,6 +5,7 @@
 package validators
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
@@ -23,6 +24,12 @@ const (
 	// the request is otherwise valid, so the anchor inside x5c is the only
 	// thing a Wallet can object to (WS_RP_SM_RpIntegrity__025).
 	chainShapeTrustAnchorIncluded = "trust_anchor_included"
+	// chainShapeTrustAnchorExcluded is the deployed leaf alone (the default
+	// x5c): the chain is complete because its issuer is a trust anchor the
+	// Wallet already holds, so x5c must carry no self-signed certificate and
+	// must end with a certificate whose issuer names that anchor
+	// (WS_RP_SM_RpIntegrity__016/018/020).
+	chainShapeTrustAnchorExcluded = "trust_anchor_excluded"
 )
 
 // OID4VPRequestCertificateChainValidator proves which defect the delivered
@@ -44,6 +51,10 @@ func (OID4VPRequestCertificateChainValidator) ID() string {
 func (OID4VPRequestCertificateChainValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		Shape string `json:"shape"`
+		// IssuerCommonName names the trust anchor the delivered chain stops
+		// short of. It is only meaningful for trust_anchor_excluded, where the
+		// top-most delivered certificate must have been issued by it.
+		IssuerCommonName string `json:"issuer_common_name"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -52,12 +63,13 @@ func (OID4VPRequestCertificateChainValidator) Validate(_ context.Context, input 
 	case chainShapeSelfSignedLeaf,
 		chainShapeUntrustedRoot,
 		chainShapeIncomplete,
-		chainShapeTrustAnchorIncluded:
+		chainShapeTrustAnchorIncluded,
+		chainShapeTrustAnchorExcluded:
 	default:
 		return Result{
 			Status: StatusError,
-			Message: "shape must be self_signed_leaf, untrusted_root, incomplete " +
-				"or trust_anchor_included",
+			Message: "shape must be self_signed_leaf, untrusted_root, incomplete, " +
+				"trust_anchor_included or trust_anchor_excluded",
 		}
 	}
 
@@ -136,6 +148,80 @@ func (OID4VPRequestCertificateChainValidator) Validate(_ context.Context, input 
 				"delivered x5c is the leaf %q followed by its self-signed issuer %q",
 				chain[0].Subject.String(),
 				chain[1].Subject.String(),
+			),
+		}
+	case chainShapeTrustAnchorExcluded:
+		if len(chain) == 0 {
+			return Result{
+				Status:  StatusFail,
+				Message: "delivered x5c carries no certificate",
+			}
+		}
+		for index, certificate := range chain {
+			if isSelfSignedCertificate(certificate) {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"delivered x5c certificate %d is self-signed, "+
+							"so the trust anchor is included",
+						index,
+					),
+				}
+			}
+		}
+		for index := 0; index+1 < len(chain); index++ {
+			child, parent := chain[index], chain[index+1]
+			if !bytes.Equal(child.RawIssuer, parent.RawSubject) {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"delivered x5c certificate %d is not issued by certificate %d",
+						index,
+						index+1,
+					),
+				}
+			}
+			if err := parent.CheckSignature(
+				child.SignatureAlgorithm,
+				child.RawTBSCertificate,
+				child.Signature,
+			); err != nil {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"delivered x5c certificate %d is not signed by certificate %d: %v",
+						index,
+						index+1,
+						err,
+					),
+				}
+			}
+		}
+		// The chain stops short of its anchor, so the top-most delivered
+		// certificate must name the anchor in its issuer field. Without this
+		// check a leaf-only chain would pass no matter who issued it.
+		topIssuer := chain[len(chain)-1].Issuer.CommonName
+		if params.IssuerCommonName != "" && topIssuer != params.IssuerCommonName {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"delivered x5c top-most certificate is issued by %q, expected %q",
+					topIssuer,
+					params.IssuerCommonName,
+				),
+			}
+		}
+		issuer := topIssuer
+		if params.IssuerCommonName != "" {
+			issuer = params.IssuerCommonName
+		}
+		return Result{
+			Status: StatusPass,
+			Message: fmt.Sprintf(
+				"delivered x5c carries %d certificate(s) issued by %q "+
+					"without including the trust anchor.",
+				len(chain),
+				issuer,
 			),
 		}
 	default:

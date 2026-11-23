@@ -742,7 +742,11 @@ func (OID4VCIIssuedCredentialPresentedValidator) Validate(_ context.Context, inp
 				}
 				names, failure := screenshotFileNames(object["screenshots"])
 				if failure != nil {
-					return Result{Status: StatusFail, Message: message + ", but " + failure.Message}
+					status := StatusFail
+					if failure.Status == StatusBlocked {
+						status = StatusBlocked
+					}
+					return Result{Status: status, Message: message + ", but " + failure.Message}
 				}
 				if !screenshotNamed(names, params.InformedScreenshot) {
 					return Result{

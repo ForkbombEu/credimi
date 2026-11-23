@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__157
-title: Return invalid_transaction_data for a missing required field in a known type.
+title: Return invalid_transaction_data for a missing required field in a known transaction data type.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__157.md
 suite:
@@ -11,21 +11,46 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.1, 8.5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.protocol-messages-157
+# The source's precondition is "The Wallet has a known transaction data type,
+# where specific fields are marked as required", so a missing mandatory field is
+# detectable only against that definition. OpenID4VP 5.1 leaves type values and
+# their definitions to other specifications, this suite defines no type schema,
+# and the Wallet under test declares none. The request-shape assertions still
+# prove the delivered entry is well-formed on the OpenID4VP-defined members and
+# omits the type's mandatory member.
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages-157.outputs.dcql_exchange
+  request_object:
+    from: pipeline.dcql.protocol-messages-157.outputs.request_object
+  visual_evidence:
+    from: pipeline.dcql.protocol-messages-157.outputs.visual_evidence
 assertions:
+- id: ws_rp_ms_protocolmessages__157_delivered_entry_carries_transaction_data
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: transaction_data
+    present: true
+- id: ws_rp_ms_protocolmessages__157_delivered_entry_references_a_requested_credential
+  validator: oid4vp.transaction_data_credential_ids_match_dcql
+  input: evidence.request_object
 - id: ws_rp_ms_protocolmessages__157_missing_required_field_requires_a_known_type
   validator: fcaf.not_applicable
-  input: evidence.dcql_exchange
+  input: evidence.request_object
   params:
     reason: >-
-      the source's precondition is a Wallet that holds a known transaction_data
-      type marking specific fields as required, so that a missing mandatory
-      field is detectable; the reference Wallet declares no supported
-      transaction-data type
+      the source's precondition is "The Wallet has a known transaction data
+      type, where specific fields are marked as required", and OpenID4VP
+      Section 5.1 leaves transaction data type values out of scope; this suite
+      defines no type schema and the Wallet under test supports none (no
+      wallet-metadata parameter declares transaction data types, and its
+      18/11/2026 captures answer every structurally valid entry with
+      invalid_transaction_data for the unsupported type), so a missing
+      mandatory field cannot be delivered
+- id: ws_rp_ms_protocolmessages__157_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

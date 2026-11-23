@@ -20,13 +20,26 @@ evidence:
   visual_evidence:
     from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: direct_post_jwt_response_body_is_utf8_encoded
+- id: wallet_posts_the_direct_post_jwt_response
   validator: oid4vp.presentation_response_http
   input: evidence.capture_session
   params:
     method: POST
     require_response_parameter: true
-    form_utf8: true
+# The direct_post.jwt body carries a single `response` form parameter whose
+# value is the Wallet-generated compact JWE (base64url). The verifier supplies
+# no non-ASCII name or value that could reach the form, so a non-UTF-8 body
+# cannot be induced and the encoding check cannot discriminate.
+- id: direct_post_jwt_body_utf8_cannot_be_discriminated
+  validator: fcaf.skipped
+  input: evidence.capture_session
+  params:
+    reason: >-
+      the harness supplies no verifier-controlled non-ASCII value to the
+      direct_post.jwt body, whose only form parameter is the Wallet-generated
+      ASCII `response` holding a compact JWE (Capture rejects any caller-supplied
+      `state`), so a non-UTF-8 name or value cannot be delivered and the
+      source's encoding property is unobservable
 - id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

@@ -13,20 +13,34 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.baseline
+- ref: pipeline.dcql.verifier-info-all-credentials
 evidence:
+  request_object:
+    from: pipeline.dcql.verifier-info-all-credentials.outputs.request_object
   dcql_exchange:
-    from: pipeline.dcql.baseline.outputs.session
+    from: pipeline.dcql.verifier-info-all-credentials.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.dcql.verifier-info-all-credentials.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_devicebinding__006_verifier_info_attestation_unavailable
-  validator: fcaf.skipped
+# The request carries an attestation of a format no profile defines; its data is
+# opaque to the Wallet, which must inspect the type, ignore it, and continue.
+- id: request_object_carries_an_unrecognised_verifier_info_type
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params:
+    field: verifier_info
+    value:
+    - format: credimi-test-verifier-info
+      data:
+        purpose: all-dcql-credentials
+- id: wallet_ignored_the_unrecognised_type_and_presented
+  validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    reason: >-
-      needs a Verifier Info attestation of a type the active profile does not
-      define, plus evidence that the Wallet inspects the attestation type and
-      keeps processing the request; Capture delivers verifier_info verbatim but
-      signs and inspects none of its own, and the public verifier Request
-      Object carries no verifier_info attestation
+    mode: credentials_match
+- id: wallet_processing_has_visual_evidence
+  validator: evidence.screenshot_named
+  input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

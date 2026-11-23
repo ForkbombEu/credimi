@@ -49,6 +49,15 @@ tags:
     commands:
       - inputText: "12345"
       - tapOn: "6"
+# The screen after Share, or the error screen a Wallet that refused shows instead:
+# the optional wait and the screenshot come before the strict wait, so a step that
+# fails on the outcome still stores the screen it stopped on. `post-share` is 10
+# characters, the budget of the longest step id that binds this action.
+- extendedWaitUntil:
+    visible: ".*successfully shared.*|Oups! Something went wrong|The requested document is not available.*|invalid request|Presentation blocked"
+    timeout: 30000
+    optional: true
+- takeScreenshot: post-share
 - extendedWaitUntil:
     visible: ".*successfully shared.*"
     timeout: 30000

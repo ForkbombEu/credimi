@@ -57,7 +57,7 @@ steps:
 - id: present-missing-claim
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-missing-claim-presentation.outputs.body.deeplink }}
@@ -135,7 +135,7 @@ steps:
 - id: present-claim-and-missing
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-claim-and-missing-presentation.outputs.body.deeplink }}

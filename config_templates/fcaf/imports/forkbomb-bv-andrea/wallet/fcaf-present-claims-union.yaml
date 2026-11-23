@@ -4,12 +4,17 @@ tags:
   - fcaf
   - ws_rp
 ---
+# Every wait that can fail comes after a screenshot: the launch screen is stored
+# first, then the request screen, then the result screen, so a step that fails on
+# any of them still shows the screen the Wallet stopped on.
 - launchApp:
     stopApp: true
     clearState: false
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-014-launch
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -28,11 +33,13 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
+# Phase 1: a bounded, optional probe for the Wallet's reaction. A second
+# `Welcome back` lock screen counts as a reaction even though it says nothing yet
+# about the outcome.
 - extendedWaitUntil:
-    visible: "Welcome back|Data sharing request"
-    timeout: 100000
-- waitForAnimationToEnd:
-    timeout: 3000
+    visible: "Welcome back|Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 30000
+    optional: true
 - runFlow:
     when:
       visible: "Welcome back"
@@ -42,9 +49,15 @@ tags:
         timeout: 30000
     - inputText: "12345"
     - tapOn: "6"
+    - waitForAnimationToEnd:
+        timeout: 3000
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets the
+# whole window to render its request screen.
 - extendedWaitUntil:
-    visible: "Data sharing request"
+    visible: "Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
     timeout: 100000
+    optional: true
+- takeScreenshot: "fcaf-014-request-screen"
 - assertVisible:
     id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
 - assertVisible:
@@ -67,8 +80,15 @@ tags:
     timeout: 30000
 - inputText: "12345"
 - tapOn: "6"
+# The result screen, or the error screen a Wallet that refused ends on: the
+# optional wait and the screenshot come before the strict wait, so a step that
+# fails on the outcome still stores it.
+- extendedWaitUntil:
+    visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+    timeout: 30000
+    optional: true
+- takeScreenshot: "fcaf-014-claims-union-shared"
 - extendedWaitUntil:
     visible: ".*successfully shared.*"
     timeout: 30000
-- takeScreenshot: "fcaf-014-claims-union-shared"
 - tapOn: "Close"

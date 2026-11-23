@@ -4,12 +4,21 @@ tags:
   - fcaf
   - ws_rp
 ---
+# Every wait that can fail comes after a screenshot: the launch screen, the
+# request screen and the result screen are stored first, so a step that fails on
+# any of them still shows the screen the Wallet stopped on. The names added here
+# stay within 24 characters, the budget the longest step id that binds this
+# action leaves under PocketBase's 100-character cap on the snake-cased stem; the
+# two `fcaf-118-allowed-claim-path-components*` names predate that budget and are
+# truncated in that step.
 - launchApp:
     stopApp: true
     clearState: false
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Welcome, .*"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-118-launch
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -28,9 +37,13 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
+# Phase 1: a bounded, optional probe, because a second `Welcome back` lock screen
+# after openLink counts as a reaction even though it says nothing yet.
 - extendedWaitUntil:
-    visible: "Welcome back|Data sharing request"
-    timeout: 100000
+    visible: "Welcome back|Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-118-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -42,9 +55,13 @@ tags:
         timeout: 30000
     - inputText: "12345"
     - tapOn: "6"
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets the
+# whole window to render its request screen.
 - extendedWaitUntil:
-    visible: "Data sharing request"
+    visible: "Data sharing request|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
     timeout: 100000
+    optional: true
+- takeScreenshot: fcaf-118-request
 - assertVisible:
     id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
 - tapOn:
@@ -60,6 +77,7 @@ tags:
         id: "eu.europa.ec.euidi:id/request_screen_requested_document_1"
         retryTapIfNoChange: false
         waitToSettleTimeoutMs: 0
+- takeScreenshot: fcaf-118-selected
 - assertVisible: "Given Name"
 - takeScreenshot: "fcaf-118-allowed-claim-path-components"
 - assertVisible: "Nationalities"
@@ -72,6 +90,13 @@ tags:
     timeout: 30000
 - inputText: "12345"
 - tapOn: "6"
+# The result screen, or the error screen a Wallet that refused ends on: optional
+# wait, then the screenshot, then the strict wait.
+- extendedWaitUntil:
+    visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+    timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-118-result
 - extendedWaitUntil:
     visible: ".*successfully shared.*"
     timeout: 30000

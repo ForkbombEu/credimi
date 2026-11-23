@@ -14,39 +14,36 @@ normative_references:
   section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.wallet.metadata.signed-x509-hash
+# Capture's verifier leaf is issued directly by the trusted root "PID Issuer
+# CA 02", so the HAIP-conformant complete chain is the leaf alone: x5c carries
+# no trust anchor, and the Wallet resolves the root out of band. This is the
+# same request shape WS_RP_SM_RpIntegrity__025's fixture must reject once the
+# anchor is added to x5c, so the two sources stay consistent.
 evidence:
-  signed_request_object:
+  request_object:
     from: pipeline.wallet.metadata.signed-x509-hash.outputs.signed_request_object
-  capture_session:
+  session:
     from: pipeline.wallet.metadata.signed-x509-hash.outputs.capture_session
   visual_evidence:
     from: pipeline.wallet.metadata.signed-x509-hash.outputs.visual_evidence
 assertions:
+- id: delivered_x5c_is_the_leaf_without_the_trust_anchor
+  validator: oid4vp.request_certificate_chain
+  input: evidence.request_object
+  params: {shape: trust_anchor_excluded, issuer_common_name: PID Issuer CA 02}
 - id: signature_verifies_with_x509_leaf_key
   validator: jose.jws_signed_request
-  input: evidence.signed_request_object
+  input: evidence.request_object
 - id: client_id_matches_x509_leaf_hash
   validator: oid4vp.x509_hash_client_id
-  input: evidence.signed_request_object
+  input: evidence.request_object
 - id: wallet_processes_trusted_x509_hash_request
-  validator: oid4vp.session_event_count
-  input: evidence.capture_session
-  params: {type: vp_presentation_response_received, count: 1}
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: {mode: credentials_match}
 - id: wallet_processing_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
-- id: complete_trust_chain_precondition_is_unbuildable
-  validator: fcaf.skipped
-  input: evidence.signed_request_object
-  params:
-    reason: >-
-      the source's test scenario requires a Request Object whose x5c chain is
-      complete and leads to a trusted root; Capture delivers its deployed
-      verifier certificate as a single-element x5c (leaf only, probed
-      14/10/2026) and no Capture control builds a valid complete chain, so the
-      Wallet's chain validation cannot be exercised; the reference Wallet also
-      accepts a request whose chain ends in an untrusted root
-      (REFERENCE-WALLET-ISSUES.md RI-WALLET-019), so its acceptance does not
-      evidence chain validation
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

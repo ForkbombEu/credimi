@@ -6,7 +6,10 @@ tags:
   - request-object
   - by-value
 ---
-- stopApp
+# Every wait that can fail comes after a screenshot: the screen the link landed on,
+# the consent screen and the result screen are stored first, so a step that fails
+# on any of them still shows the screen the Wallet stopped on.
+- "stopApp"
 - openLink:
     link: "${deeplink}"
     autoVerify: false
@@ -14,8 +17,10 @@ tags:
 - waitForAnimationToEnd:
     timeout: 5000
 - extendedWaitUntil:
-    visible: "Welcome back|Share|Cancel|Close"
+    visible: "Welcome back|Share|Cancel|Close|Oups! Something went wrong|invalid request|Presentation blocked"
     timeout: 100000
+    optional: true
+- takeScreenshot: fcaf-by-value-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -27,6 +32,13 @@ tags:
           timeout: 30000
       - inputText: "12345"
       - tapOn: "6"
+# The consent screen, or whatever the Wallet shows instead: optional wait, then the
+# screenshot, then the strict `Share` wait.
+- extendedWaitUntil:
+    visible: "Share|Oups! Something went wrong|invalid request|Presentation blocked"
+    timeout: 100000
+    optional: true
+- takeScreenshot: fcaf-by-value-request
 - extendedWaitUntil:
     visible: "Share"
     timeout: 100000
@@ -39,8 +51,11 @@ tags:
     timeout: 30000
 - inputText: "12345"
 - tapOn: "6"
+# The result screen, or the error screen a Wallet that refused ends on: optional
+# wait, then the screenshot, then the strict assertion.
 - extendedWaitUntil:
-    visible: "Close"
+    visible: "Close|.*successfully shared.*|Oups! Something went wrong|invalid request"
     timeout: 30000
-- assertVisible: "Close"
+    optional: true
 - takeScreenshot: fcaf-request-object-by-value-accepted
+- assertVisible: "Close"

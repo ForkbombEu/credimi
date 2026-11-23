@@ -18,7 +18,19 @@ evidence:
     from: pipeline.dcql.claims-values-no-match.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.claims-values-no-match.outputs.visual_evidence
+  possession_exchange:
+    from: pipeline.dcql.claims-values-no-match.outputs.possession_exchange
 assertions:
+  # Precondition: a claim can be treated as absent for its value only if the
+  # Wallet holds the credential carrying a different value. The scenario shares
+  # that PID in a matching presentation first, so an empty Wallet cannot pass.
+  - id: wallet_holds_the_pid_whose_value_does_not_match
+    validator: dcql.response_satisfies_constraints
+    input: evidence.possession_exchange
+    params:
+      mode: claims_subset
+      forbidden_paths:
+        - [birthdate]
   - id: mismatching_value_is_not_matched
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange

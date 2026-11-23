@@ -561,6 +561,11 @@ func validateDCQLResponseMode(params dcqlModeParams, input Input) Result {
 				}
 			}
 		}
+		if params.Mode == "credentials_match" {
+			if result := validatePresentedCredentialFormats(credentials, response); result != nil {
+				return *result
+			}
+		}
 		if verdict, decided := verifierRejectedPresentation(root); decided {
 			return verdict
 		}
@@ -1303,6 +1308,188 @@ func validateCredentialFormatPresentation(
 			expectedFormat,
 			queryID,
 		),
+	}
+}
+
+// validatePresentedCredentialFormats checks every vp_token entry against the
+// format and meta of the credential query it answers. Presence of an entry per
+// query id is asserted before this runs (see the credentials_match branch), so
+// this is the matching half: OpenID4VP 1.0 §6.4 requires the Wallet to return a
+// credential of the requested format, and the query's format-specific `meta`
+// narrows that format (vct_values for dc+sd-jwt, doctype_value for mso_mdoc).
+// A response that carries a presentation of another format, or a credential
+// outside the query's vct/docType, does not satisfy the query even though the
+// query id is present.
+func validatePresentedCredentialFormats(
+	credentials []any,
+	response map[string]any,
+) *Result {
+	for _, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			// validateDCQLCredentialQueries already rejected this shape.
+			continue
+		}
+		id, _ := credential["id"].(string)
+		format, _ := credential["format"].(string)
+		meta, _ := normalizeJSONObject(credential["meta"])
+		presentations, _ := response[id].([]any)
+		for index, rawPresentation := range presentations {
+			token, ok := rawPresentation.(string)
+			if !ok || token == "" {
+				return &Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] is not a %s presentation",
+						id,
+						index,
+						format,
+					),
+				}
+			}
+			var failure *Result
+			switch format {
+			case "dc+sd-jwt":
+				failure = validateSDJWTCredentialMeta(id, index, token, meta)
+			case "mso_mdoc":
+				failure = validateMDocCredentialMeta(id, index, token, meta)
+			default:
+				return &Result{
+					Status: StatusError,
+					Message: fmt.Sprintf(
+						"credential query %q format %q cannot be verified",
+						id,
+						format,
+					),
+				}
+			}
+			if failure != nil {
+				return failure
+			}
+		}
+	}
+	return nil
+}
+
+// validateSDJWTCredentialMeta parses a dc+sd-jwt presentation and requires its
+// `vct` to be one of the query's meta.vct_values when that constraint is
+// present. A vct_values constraint is the query's statement of which credential
+// type it accepts, so a PID with another type must not satisfy it.
+func validateSDJWTCredentialMeta(
+	id string,
+	index int,
+	token string,
+	meta map[string]any,
+) *Result {
+	presentation, err := evidence.ParseSDJWTPresentation(token)
+	if err != nil {
+		return &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"vp_token[%q][%d] is not a valid dc+sd-jwt presentation: %v",
+				id,
+				index,
+				err,
+			),
+		}
+	}
+	allowed := stringValues(meta["vct_values"])
+	if len(allowed) == 0 {
+		return nil
+	}
+	vct, _ := presentation.Claims["vct"].(string)
+	if vct == "" {
+		vct, _ = presentation.IssuerPayload["vct"].(string)
+	}
+	for _, candidate := range allowed {
+		if vct == candidate {
+			return nil
+		}
+	}
+	return &Result{
+		Status: StatusFail,
+		Message: fmt.Sprintf(
+			"vp_token[%q][%d] is a dc+sd-jwt presentation with vct %q, "+
+				"but the credential query accepts %v",
+			id,
+			index,
+			vct,
+			allowed,
+		),
+	}
+}
+
+// validateMDocCredentialMeta parses an mso_mdoc presentation and requires the
+// docType of every presented document to equal the query's
+// meta.doctype_value, which is the query's statement of which document type it
+// accepts.
+func validateMDocCredentialMeta(
+	id string,
+	index int,
+	token string,
+	meta map[string]any,
+) *Result {
+	presentation, err := evidence.ParseMDocPresentation(token)
+	if err != nil {
+		return &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"vp_token[%q][%d] is not a valid mso_mdoc DeviceResponse: %v",
+				id,
+				index,
+				err,
+			),
+		}
+	}
+	doctype, _ := meta["doctype_value"].(string)
+	if doctype == "" {
+		return nil
+	}
+	if len(presentation.Documents) == 0 {
+		return &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"vp_token[%q][%d] DeviceResponse holds no document",
+				id,
+				index,
+			),
+		}
+	}
+	for _, document := range presentation.Documents {
+		if document.DocType != doctype {
+			return &Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"vp_token[%q][%d] presents docType %q, "+
+						"but the credential query accepts %q",
+					id,
+					index,
+					document.DocType,
+					doctype,
+				),
+			}
+		}
+	}
+	return nil
+}
+
+// stringValues returns the strings of a JSON string array, ignoring any member
+// that is not a string. Query validation already rejected those shapes; this is
+// only how the matching check reads an optional constraint.
+func stringValues(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return typed
+	case []any:
+		values := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if text, ok := item.(string); ok {
+				values = append(values, text)
+			}
+		}
+		return values
+	default:
+		return nil
 	}
 }
 
@@ -3398,10 +3585,23 @@ func validateClaimsValuesNoMatch(
 		}
 	}
 	if !isEmptyDCQLValue(responseValue) {
-		return Result{
-			Status:  StatusFail,
-			Message: "wallet returned a credential for mismatched claim values",
+		// The Wallet answered with a credential despite the query's value
+		// restriction. The fact under test is that it kept and shared the very
+		// credential the probe pinned and had to reject, not that a claim value
+		// differed: the probe's queries are otherwise satisfied by that
+		// credential, and saying "mismatched claim values" reads as if the query
+		// asked for a different value than the one it pinned.
+		message := "wallet returned a credential for mismatched claim values"
+		if len(expectedPath) > 0 {
+			message = fmt.Sprintf(
+				"wallet shared the credential pinned by the probe: the presented credential "+
+					"does not satisfy the value restriction on claims path %v (expected %v), "+
+					"so the wallet kept a credential it had to reject",
+				expectedPath,
+				expectedValue,
+			)
 		}
+		return Result{Status: StatusFail, Message: message}
 	}
 	return Result{
 		Status:  StatusPass,

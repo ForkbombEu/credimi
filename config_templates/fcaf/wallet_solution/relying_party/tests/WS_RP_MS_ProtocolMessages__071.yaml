@@ -38,7 +38,8 @@ assertions:
   params:
     mode: multiple_true
 - id: ws_rp_ms_protocolmessages__071_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

@@ -20,7 +20,21 @@ evidence:
     from: pipeline.interaction.pid-mdoc-element-and-missing.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.interaction.pid-mdoc-element-and-missing.outputs.visual_evidence
+  possession_exchange:
+    from: pipeline.interaction.pid-mdoc-two-elements.outputs.dcql_exchange
 assertions:
+# Precondition: one requested data element is present in the held mdoc
+# credential and the other is not. The scenario's two-element presentation
+# shares that PID and its CBOR discloses given_name, so an empty Wallet cannot
+# reach the probe with a pass.
+- id: wallet_holds_the_pid_mdoc_with_the_available_element
+  validator: dcql.response_satisfies_constraints
+  input: evidence.possession_exchange
+  params:
+    mode: mdoc_claim_path_presentation
+    expected_claim_path:
+    - eu.europa.ec.eudi.pid.1
+    - given_name
 - id: available_and_unavailable_mdoc_elements_are_requested_together
   validator: oid4vp.dcql_requested_claim_paths
   input: evidence.dcql_exchange
@@ -45,7 +59,8 @@ assertions:
   params:
     mode: request_rejected
 - id: mixed_mdoc_element_request_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 verdict:
   pass_when: all_assertions_pass

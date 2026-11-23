@@ -4,6 +4,10 @@ tags:
   - fcaf
   - ws_rp
 ---
+# Every wait that can fail comes after a screenshot, so a Wallet that refuses the
+# request (plain `direct_post` is not supported by the reference build) or stops on
+# an unexpected screen leaves the screen it stopped on as the step's evidence. The
+# strict waits and the final assertion still fail such a run.
 - "stopApp"
 - openLink:
     link: "${deeplink}"
@@ -12,8 +16,10 @@ tags:
 - waitForAnimationToEnd:
     timeout: 5000
 - extendedWaitUntil:
-    visible: "Welcome back|Share|Cancel|Close"
+    visible: "Welcome back|Share|Cancel|Close|Oups! Something went wrong|invalid request|Presentation blocked"
     timeout: 100000
+    optional: true
+- takeScreenshot: fcaf-supportive-open
 - waitForAnimationToEnd:
     timeout: 3000
 - runFlow:
@@ -25,26 +31,44 @@ tags:
         timeout: 30000
     - inputText: "12345"
     - tapOn: "6"
+# The consent screen, or whatever the Wallet shows instead: optional wait, then
+# the screenshot, then the strict `Share` assertion.
 - extendedWaitUntil:
-    visible: "Share"
+    visible: "Share|Oups! Something went wrong|invalid request|Presentation blocked"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-supportive-consent
+- assertVisible: "Share"
 - tapOn:
     text: "Share"
     enabled: true
+# The second-authentication screen, or the Wallet's error screen.
 - extendedWaitUntil:
-    visible: "verify your identity|PIN"
+    visible: "verify your identity|PIN|.*successfully shared.*|Oups! Something went wrong|invalid request"
     timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-supportive-auth
 - extendedWaitUntil:
     visible: "1"
     timeout: 30000
 - inputText: "12345"
 - tapOn: "6"
 - extendedWaitUntil:
+    visible: "Close|.*successfully shared.*|Oups! Something went wrong|invalid request"
+    timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-supportive-shared
+- extendedWaitUntil:
     visible: "Close"
     timeout: 30000
 - tapOn: "Close"
+# The Verifier's redirect landed on its page, or the Wallet never left its own
+# screen: the screenshot comes before the assertion that decides.
 - extendedWaitUntil:
-    visible: "Presentation complete"
+    visible: "Presentation complete|.*(did not complete|answered without a presentation|rejected the presentation|could not be submitted).*"
     timeout: 30000
-- assertVisible: "Presentation complete"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1000
 - takeScreenshot: "fcaf-supportive-redirect-uri-opened"
+- assertVisible: "Presentation complete"

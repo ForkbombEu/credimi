@@ -80,7 +80,7 @@ steps:
 - id: exercise-wallet
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-capture-session.outputs.body.deeplink }}
@@ -136,7 +136,6 @@ steps:
     - WS_RP_SM_DeviceBinding__003
     - WS_RP_SM_DeviceBinding__004
     - WS_RP_SM_DeviceBinding__005
-    - WS_RP_SM_DeviceBinding__006
     - WS_RP_SM_RpIntegrity_CryptographicSignature_002
     - WS_RP_SM_RpIntegrity_CryptographicSignature_003
     - WS_RP_SM_RpIntegrity_CryptographicSignature_004

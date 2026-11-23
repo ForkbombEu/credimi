@@ -17,9 +17,19 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.degree-index-selector.outputs.dcql_exchange
+  session_checks:
+    from: pipeline.dcql.degree-index-selector.outputs.session_checks
   visual_evidence:
     from: pipeline.dcql.degree-index-selector.outputs.visual_evidence
 assertions:
+# The source requires the presentation flow to proceed, so the Verifier must
+# accept the response, not merely observe a selection-shaped disclosure.
+- id: wallet_presentation_is_valid
+  validator: json.field_equals
+  input: evidence.session_checks
+  params:
+    field: presentation_valid
+    value: true
 - id: wallet_drops_the_array_without_the_requested_index
   validator: oid4vp.dcql_array_selector_filter
   input: evidence.dcql_exchange
@@ -35,7 +45,8 @@ assertions:
     - Bachelor of Science
     - Master of Science
 - id: wallet_completes_the_degree_presentation
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: fcaf-engagement-haip-vp-shared }
 verdict:
   pass_when: all_assertions_pass

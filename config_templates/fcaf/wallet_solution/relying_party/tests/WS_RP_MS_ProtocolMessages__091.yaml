@@ -114,26 +114,33 @@ assertions:
     expected_type: string
     valid: false
 - id: null_type_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.null_visual_evidence
+  params: { name: request-refused }
 - id: true_type_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.true_visual_evidence
+  params: { name: request-refused }
 - id: false_type_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.false_visual_evidence
+  params: { name: request-refused }
 - id: zero_type_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.zero_visual_evidence
+  params: { name: request-refused }
 - id: random_number_type_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.random_number_visual_evidence
+  params: { name: request-refused }
 - id: array_type_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.array_visual_evidence
+  params: { name: request-refused }
 - id: object_type_has_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.object_visual_evidence
+  params: { name: request-refused }
 - id: null_value_no_presentation_returned
   validator: oid4vp.no_presentation_returned
   input: evidence.null_value_session

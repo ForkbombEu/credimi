@@ -28,8 +28,9 @@ assertions:
   params:
     mode: empty_claims
 - id: ws_rp_ms_protocolmessages__083_visual_evidence
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: request-refused }
 - id: dcql_exchange_no_presentation_returned
   validator: oid4vp.no_presentation_returned
   input: evidence.dcql_exchange_session

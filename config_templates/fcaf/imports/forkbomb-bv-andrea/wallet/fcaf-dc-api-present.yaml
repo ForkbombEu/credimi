@@ -26,10 +26,12 @@ tags:
     link: "${presentation_url}"
     autoVerify: false
     browser: true
-# The two screenshots below record the page and the screen reached after the
-# button press. The flow still fails on any outcome but an accepted
-# presentation; these screenshots are what remains when it does, so a Wallet
-# the platform never offered is told apart from a page that never loaded.
+# The screenshots record the page, the screen reached after the button press,
+# Chrome's trust prompt or the platform picker, the Wallet's consent and result
+# screens, and finally the page's outcome. Every wait that can fail comes after
+# one of them, so a run that stalls still reports where it stopped, and a Wallet
+# the platform never offered is told apart from a page that never loaded. The
+# flow still fails on any outcome but an accepted presentation.
 - extendedWaitUntil:
     visible: "Present credential"
     timeout: 60000
@@ -37,22 +39,28 @@ tags:
 - takeScreenshot: dc-api-page
 - tapOn: "Present credential"
 - extendedWaitUntil:
-    visible: "Continue|Agree and continue|Welcome back|Share|Cancel|.*(did not complete|answered without a presentation|Presentation accepted).*"
+    visible: "Do you trust this site with your data?|Continue|Agree and continue|Welcome back|Share|Cancel|.*(did not complete|answered without a presentation|Presentation accepted).*"
     timeout: 120000
     optional: true
 - takeScreenshot: dc-api-after-present
-# Chrome asks once per origin whether the site may read the wallet.
+# Chrome asks once per origin whether the site may read the wallet. The wait
+# after the tap is optional and a screenshot follows it, so a dialog the tap did
+# not dismiss still leaves the screen it stopped on; the strict `Share` wait
+# below is what fails a run that never reached the Wallet.
 - runFlow:
     when:
-      visible: "Continue"
+      visible: "Do you trust this site with your data?|Continue"
     commands:
       - tapOn:
           text: "Continue"
           optional: true
       - extendedWaitUntil:
-          visible: "Agree and continue|Welcome back|Share|Cancel"
+          visible: "Agree and continue|Welcome back|Share|Cancel|Oups! Something went wrong|.*(did not complete|answered without a presentation|Presentation accepted).*"
           timeout: 60000
-# Platform credential picker listing the matching wallet documents.
+          optional: true
+      - takeScreenshot: dc-api-picker
+# Platform credential picker listing the matching wallet documents. Optional
+# wait and its own screenshot for the same reason.
 - runFlow:
     when:
       visible: "Agree and continue"
@@ -61,8 +69,10 @@ tags:
           text: "Agree and continue"
           optional: true
       - extendedWaitUntil:
-          visible: "Welcome back|Share|Cancel"
+          visible: "Welcome back|Share|Cancel|Oups! Something went wrong|.*(did not complete|answered without a presentation|Presentation accepted).*"
           timeout: 60000
+          optional: true
+      - takeScreenshot: dc-api-picker
 # The Wallet runs inside the credential-manager window, where hideKeyboard
 # leaves the Wallet, so the PIN is typed on the keypad.
 - runFlow:
@@ -75,15 +85,23 @@ tags:
       - inputText: "12345"
       - tapOn: "6"
 - extendedWaitUntil:
-    visible: "Share"
+    visible: "Share|Oups! Something went wrong|invalid request|.*(did not complete|answered without a presentation).*"
     timeout: 30000
+    optional: true
+- takeScreenshot: dc-api-wallet-consent
 - assertVisible: "Share"
 - tapOn:
     text: "Share"
     waitToSettleTimeoutMs: 1000
+# A Wallet may ask for a second PIN after Share or skip it, as in
+# fcaf-engagement-haip-vp; only the result screen is required. The wait is
+# optional and the screenshot follows it, so the screen after Share is stored
+# whichever screen the Wallet shows.
 - extendedWaitUntil:
-    visible: "PIN"
+    visible: "PIN|verify your identity|.*successfully shared.*|Oups! Something went wrong|invalid request"
     timeout: 30000
+    optional: true
+- takeScreenshot: dc-api-after-share
 - runFlow:
     when:
       visible: "PIN"
@@ -95,16 +113,41 @@ tags:
       - tapOn: "6"
 - waitForAnimationToEnd:
     timeout: 1000
+# The result screen, or the error screen a Wallet that refused ends on: the wait
+# is optional and the screenshot follows it, so the step fails on the strict
+# `successfully shared` wait only after the screen it stopped on is stored.
+- extendedWaitUntil:
+    visible: ".*successfully shared.*|Oups! Something went wrong|invalid request|.*(did not complete|answered without a presentation).*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: dc-api-wallet-result
 - extendedWaitUntil:
     visible: ".*successfully shared.*"
     timeout: 30000
-- tapOn: "View details"
-- takeScreenshot: dc-api-wallet-outcome
+# The details screen is optional: the source requires a completed presentation,
+# not a particular wording of the Wallet's result screen.
+- runFlow:
+    when:
+      visible: "View details"
+    commands:
+      - tapOn: "View details"
+      - waitForAnimationToEnd:
+          timeout: 1000
+      - takeScreenshot: dc-api-wallet-outcome
 # The Wallet hands the response back to Chrome only when its result screen
-# closes; until then the verifier has received nothing.
-- tapOn: "Close"
+# closes; until then the verifier has received nothing. The tap and the wait are
+# both optional and the screenshot comes before the assertion, so a page that
+# reported another outcome still stores that outcome.
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
 - extendedWaitUntil:
     visible: ".*(Presentation accepted|did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation).*"
     timeout: 120000
-- assertVisible: ".*Presentation accepted.*"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1000
 - takeScreenshot: dc-api-invocation-outcome
+- assertVisible: ".*Presentation accepted.*"

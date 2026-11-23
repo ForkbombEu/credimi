@@ -46,7 +46,7 @@ steps:
     - id: main-interaction-019-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-019-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -91,7 +91,7 @@ steps:
     - id: main-interaction-020-present-second-preferred-option
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-020-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -216,6 +216,47 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-026-create-presentation.outputs.body.session_id }}
+    # Possession control: 027's precondition needs a credential holding both
+    # requested claims (given_name and family_name), one with a non-matching
+    # value. This matching presentation shares that PID, so the probe below
+    # cannot pass on an empty Wallet. Because a Share spends the instance, the
+    # probe runs on the PID the generator issues for it.
+    - id: main-interaction-027-create-possession-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - given_name
+                        - path:
+                            - family_name
+                      format: dc+sd-jwt
+                      id: pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+            nonce: fcaf-ia-027-possession
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-027-present-possession
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ main-interaction-027-create-possession-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-027-fetch-possession
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-027-create-possession-presentation.outputs.body.session_id }}
     - id: main-interaction-027-create-presentation
       use: http-request
       with:
@@ -456,6 +497,44 @@ steps:
         parameters:
             deeplink: ${{ main-interaction-031-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
+    # Possession control: 031 needs a Wallet-held credential for the available
+    # option. 028/029/030's own presentations belong to other credential
+    # instances, so this scenario shares the PID 031 just issued; the combined-
+    # option probe then runs on the PID the generator re-issues for it.
+    - id: main-interaction-031-create-possession-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
+                      id: available_pid
+                      meta:
+                        vct_values:
+                            - urn:eudi:pid:1
+            nonce: fcaf-ia-031-possession
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: main-interaction-031-present-possession
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ main-interaction-031-create-possession-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: main-interaction-031-fetch-possession
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ main-interaction-031-create-possession-presentation.outputs.body.session_id }}
     - id: main-interaction-031-create-presentation
       use: http-request
       with:
@@ -573,6 +652,7 @@ steps:
                 output:
                     dcql_exchange: ${{ main-interaction-031-fetch-result.outputs.body }}
                     visual_evidence: ${{ main-interaction-031-present-combined-option.outputs.flow_output.maestro_screenshot_urls }}
+                    possession_exchange: ${{ main-interaction-031-fetch-possession.outputs.body }}
             pipeline.dcql.credential-sets-required-optional:
                 output:
                     dcql_exchange: ${{ main-interaction-029-fetch-result.outputs.body }}
@@ -601,6 +681,7 @@ steps:
                 output:
                     dcql_exchange: ${{ main-interaction-027-fetch-result.outputs.body }}
                     visual_evidence: ${{ main-interaction-027-exercise-no-match.outputs.flow_output.maestro_screenshot_urls }}
+                    possession_exchange: ${{ main-interaction-027-fetch-possession.outputs.body }}
         suite: wallet_solution/relying_party
         test_ids:
             - WS_RP_IA_MainInteraction__015

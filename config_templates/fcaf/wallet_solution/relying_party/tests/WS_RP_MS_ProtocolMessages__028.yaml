@@ -11,21 +11,31 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.transaction-data-matching-credential-ids
 evidence:
   request_object:
     from: pipeline.dcql.transaction-data-matching-credential-ids.outputs.request_object
+# Precondition 1 is "Wallet supports the transaction_data type; Authorization
+# Request includes a valid dcql_query". The request satisfies its half (a valid
+# query and one concrete transaction_data entry whose credential_ids match it),
+# but the Wallet under test advertises no transaction data type in its
+# request_uri wallet_metadata (OpenID4VP 10.1 defines no such parameter) and
+# answers every entry with invalid_transaction_data, so the Wallet's own
+# capabilities refute the precondition and the expected presentation cannot be
+# produced.
 assertions:
 - id: ws_rp_ms_protocolmessages__028_presentation_requires_a_supported_type
   validator: fcaf.not_applicable
   input: evidence.request_object
   params:
     reason: >-
-      the source's precondition is a Wallet that supports the transaction_data
-      type; the reference Wallet declares no supported transaction-data type,
-      so a transaction_data object whose credential_ids all match the
-      dcql_query cannot be put to it
+      the source's precondition is "Wallet supports the transaction_data type;
+      Authorization Request includes a valid dcql_query", and its expected
+      result is that the Wallet proceeds with the presentation flow; the
+      Wallet under test declares no transaction data type (its request_uri
+      wallet_metadata carries none and its captures answer transaction_data
+      with invalid_transaction_data), so the precondition does not hold
 verdict:
   pass_when: all_assertions_pass

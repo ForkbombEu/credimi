@@ -21,6 +21,12 @@ tags:
 # outcome comes from closing the picker, so the Wallet's refusal itself is
 # proven by this flow failing on a consent screen and by the
 # dc-api-wallet-outcome screenshot.
+#
+# Every wait that can fail comes after a screenshot: the page, the screen after
+# the button press, Chrome's trust prompt or the picker (`dc-api-picker`), the
+# Wallet's screen (`dc-api-wallet-outcome`) and the page's outcome
+# (`dc-api-invocation-outcome`) are stored first, so a run that stalls on any of
+# them still reports where it stopped.
 - launchApp:
     appId: com.android.chrome
     stopApp: true
@@ -36,19 +42,31 @@ tags:
 - extendedWaitUntil:
     visible: "Present credential"
     timeout: 60000
+    optional: true
+- takeScreenshot: dc-api-page
 - tapOn: "Present credential"
+# The trust prompt, the platform picker, the Wallet, or the page's own outcome.
+# The wait is optional and a screenshot follows it: whether the Wallet accepted
+# the request is this flow's evidence, so it must store the screen the run
+# stopped on instead of timing out with nothing.
 - extendedWaitUntil:
-    visible: "Continue|Agree and continue|Welcome back|Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
+    visible: "Do you trust this site with your data?|Continue|Agree and continue|Welcome back|Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
     timeout: 120000
+    optional: true
+- takeScreenshot: dc-api-after-present
 # Chrome asks once per origin whether the site may read the wallet.
 - runFlow:
     when:
-      visible: "Continue"
+      visible: "Do you trust this site with your data?|Continue"
     commands:
-      - tapOn: "Continue"
+      - tapOn:
+          text: "Continue"
+          optional: true
       - extendedWaitUntil:
           visible: "Agree and continue|Welcome back|Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation).*"
           timeout: 60000
+          optional: true
+      - takeScreenshot: dc-api-picker
 # Platform credential picker listing the matching wallet documents.
 - runFlow:
     when:
@@ -58,6 +76,8 @@ tags:
       - extendedWaitUntil:
           visible: "Welcome back|Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation).*"
           timeout: 60000
+          optional: true
+      - takeScreenshot: dc-api-picker
 # The Wallet runs inside the credential-manager window, where hideKeyboard
 # leaves the Wallet, so the PIN is typed on the keypad.
 - runFlow:
@@ -69,9 +89,13 @@ tags:
           timeout: 30000
       - inputText: "12345"
       - tapOn: "6"
+# A consent screen, or the error screen this flow's callers expect. The wait is
+# optional and the screenshot follows it, because that screenshot is what proves
+# the Wallet showed consent for a request it must refuse.
 - extendedWaitUntil:
     visible: "Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
     timeout: 60000
+    optional: true
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: dc-api-wallet-outcome
@@ -85,13 +109,20 @@ tags:
       - extendedWaitUntil:
           visible: "Agree and continue|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
           timeout: 30000
+          optional: true
       - runFlow:
           when:
             visible: "Agree and continue"
           commands:
             - tapOn: "Close"
+# Optional wait and screenshot before the assertions for the same reason: the page
+# reports the invocation's outcome only once the request ends.
 - extendedWaitUntil:
     visible: ".*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
     timeout: 120000
-- assertNotVisible: ".*Presentation accepted.*"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1000
 - takeScreenshot: dc-api-invocation-outcome
+- assertVisible: ".*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
+- assertNotVisible: ".*Presentation accepted.*"

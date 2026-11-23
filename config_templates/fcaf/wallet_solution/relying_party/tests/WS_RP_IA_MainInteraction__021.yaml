@@ -18,7 +18,19 @@ evidence:
     from: pipeline.dcql.claims-path-no-match.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.claims-path-no-match.outputs.visual_evidence
+  possession_exchange:
+    from: pipeline.dcql.claims-path-no-match.outputs.possession_exchange
 assertions:
+  # Precondition: the claim_sets options are unsatisfiable only for a Wallet
+  # that holds the credential they apply to. The scenario shares that PID in a
+  # matching presentation first, so an empty Wallet cannot pass the probe.
+  - id: wallet_holds_the_pid_under_test
+    validator: dcql.response_satisfies_constraints
+    input: evidence.possession_exchange
+    params:
+      mode: claims_subset
+      forbidden_paths:
+        - [birthdate]
   - id: no_unsatisfiable_claim_set_data_is_returned
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange

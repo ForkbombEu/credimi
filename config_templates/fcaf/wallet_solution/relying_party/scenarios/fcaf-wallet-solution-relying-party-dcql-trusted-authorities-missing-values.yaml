@@ -53,7 +53,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-missing-trusted-authorities-values.outputs.body.deeplink }}
 - id: fetch-missing-trusted-authorities-values
