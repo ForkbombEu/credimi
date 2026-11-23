@@ -399,7 +399,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 		"wallet_solution",
 		"relying_party",
 	)
-	actions, err := loadWalletActions(filepath.Join(root, "..", "..", "imports"))
+	roles, err := loadWalletRoles(filepath.Join(root, "..", ".."))
 	require.NoError(t, err)
 	injectedFor := regexp.MustCompile(`^(.+)-issue-pid(?:-[0-9]+)?$`)
 	pidSession := regexp.MustCompile(`^(.+)-issue-pid(?:-[0-9]+)?-session$`)
@@ -436,7 +436,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 				source := deeplinkSourceStep(action, earlier)
 				with, _ := action["with"].(map[string]any)
 				actionID, _ := with["action_id"].(string)
-				if actionID == resetActionID {
+				if actionID == roles.resetActionID {
 					require.Falsef(
 						t,
 						previousActionResets,
@@ -474,9 +474,9 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 					pipeline,
 					id,
 				)
-				if issuesCredential(action) {
+				if issuesCredential(action, roles) {
 					available[issuedCredentialFormat(source)]++
-					if actionID != injectedIssuanceActionID {
+					if actionID != roles.issuanceActionID {
 						continue
 					}
 					// An injected issuance accepts the offer of an issuer
@@ -511,7 +511,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 					}
 					continue
 				}
-				consumed, err := credentialInstancesConsumed(action, actions)
+				consumed, err := credentialInstancesConsumed(action, roles)
 				require.NoError(t, err)
 				shares += consumed
 				// A scenario-authored issuance may deliberately stay unspent, for
@@ -540,7 +540,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 					}
 				}
 				if consumed == 0 && opensPresentationRequest(action, source) {
-					if probesAbsence(action) {
+					if probesAbsence(action, roles) {
 						require.Falsef(
 							t,
 							slices.ContainsFunc(definition.Steps, func(other map[string]any) bool {
@@ -600,9 +600,7 @@ func walletStepActions(t *testing.T, step map[string]any) []map[string]any {
 		if id, ok := entry["id"]; ok {
 			action["action_id"] = id
 		}
-		if code, ok := entry["code"]; ok {
-			action["action_code"] = code
-		}
+		require.NotContains(t, entry, "code", "step %v", step["id"])
 		parameters := maps.Clone(shared)
 		if parameters == nil {
 			parameters = map[string]any{}

@@ -19,6 +19,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
 	"github.com/forkbombeu/credimi/pkg/fcaf/dsl"
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"gopkg.in/yaml.v3"
 )
 
@@ -55,38 +56,16 @@ var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 // needs the wallet to hold a PID of the requested format, which an earlier
 // issuance of the same scenario or one injected issuance provides. An absence
 // probe needs none: its request pins a value only a credential of its own
-// scenario carries, so no injected PID can match it. A credential offer the
-// Wallet must refuse counts as an issuance too (issuesCredential).
+// scenario carries, so no injected PID can match it. How many instances each
+// wallet action spends, whether it issues a credential (a credential offer the
+// Wallet must refuse counts too) and whether it is an absence probe come from
+// the role contract, fcaf-roles.yaml (walletRoles).
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
-	// issuanceActionID is the issuance scenarios author; its credential-added
-	// screenshot is possession evidence.
-	issuanceActionID = walletActionNamespace +
-		"getcredential-generic-credential-without-authentication"
-	// injectedIssuanceActionID is the same issuance without a screenshot, for
-	// the PIDs the generator injects: it runs inside a presentation step, whose
-	// screenshots must evidence the presentation alone.
-	injectedIssuanceActionID = walletActionNamespace + "fcaf-issue-pid"
-	resetActionID            = walletActionNamespace + "fcaf-reset-and-onboard"
-	absenceProbeActionID     = walletActionNamespace + "fcaf-expect-credential-absent"
-	// rejectedOfferActionID opens a credential offer the Wallet must refuse.
-	rejectedOfferActionID = walletActionNamespace + "fcaf-expect-credential-rejected"
 	pidIssuerConfigID     = "eu-pid-device-bound"
 	pidSDJWTConfigID      = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
 	pidMdocConfigID       = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
 	mobileAutomationTask  = "mobile-automation"
-)
-
-// shareTap counts the consent screen's Share action, which is the point at
-// which the wallet spends a credential instance. A flow that shares twice, such
-// as a scenario exercising two valid presentations in one step, spends two.
-// A Share reached only through a `when: visible "Requested data"` guard counts
-// too: the negative actions share whenever a tolerant Wallet shows the consent
-// screen, and an instance that is spent but modelled as unspent would leave a
-// later presentation of the same scenario running on an empty Wallet, whose
-// refusal or no-match evidence would then prove nothing.
-var shareTap = regexp.MustCompile(
-	`tapOn:\s*(?:"Share"|\{[^}\n]*text:\s*"Share"|\n\s*text:\s*"Share")`,
 )
 
 // credentialFormat separates the credential instances the wallet holds: an
@@ -409,13 +388,11 @@ func buildAggregate(
 	if noVideo != nil {
 		aggregate.Runtime["no_video"] = *noVideo
 	}
-	aggregate.Steps = append(aggregate.Steps, onboardingPrelude())
-	walletActions, err := loadWalletActions(
-		filepath.Join(filepath.Dir(paths[0]), "..", "..", "..", "imports"),
-	)
+	roles, err := loadWalletRoles(filepath.Join(filepath.Dir(paths[0]), "..", "..", ".."))
 	if err != nil {
 		return err
 	}
+	aggregate.Steps = append(aggregate.Steps, onboardingPrelude(roles))
 	pipelineOutputs := map[string]any{}
 	testIDs := map[string]struct{}{}
 	seenStepIDs := map[string]string{}
@@ -443,7 +420,7 @@ func buildAggregate(
 		var reset map[string]any
 		if drivesWallet(definition.Steps) {
 			if walletUsed {
-				reset = walletResetStep(prefix)
+				reset = walletResetStep(prefix, roles)
 				resetID, _ := reset["id"].(string)
 				if err := claimStepID(seenStepIDs, resetID, path); err != nil {
 					return err
@@ -486,7 +463,7 @@ func buildAggregate(
 				emitted,
 				pidAvailable,
 				fixture,
-				walletActions,
+				roles,
 			)
 			if err != nil {
 				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
@@ -579,8 +556,9 @@ func pidIssuancesBefore(
 	consumed int,
 	available map[credentialFormat]int,
 	fixture map[string]any,
+	roles walletRoles,
 ) ([]map[string]any, []map[string]any, error) {
-	if issuesCredential(step) {
+	if issuesCredential(step, roles) {
 		available[issuedCredentialFormat(source)]++
 	}
 	id, _ := step["id"].(string)
@@ -599,7 +577,13 @@ func pidIssuancesBefore(
 			}
 			return false
 		}
-		session, issuance := pidIssuance(id, len(issuances), format, fixture)
+		session, issuance := pidIssuance(
+			id,
+			len(issuances),
+			format,
+			fixture,
+			roles.issuanceActionID,
+		)
 		sessions = append(sessions, session)
 		issuances = append(issuances, issuance)
 		return true
@@ -618,7 +602,7 @@ func pidIssuancesBefore(
 			available[format] = 0
 		}
 	}
-	if consumed > 0 || !opensPresentationRequest(step, source) || probesAbsence(step) {
+	if consumed > 0 || !opensPresentationRequest(step, source) || probesAbsence(step, roles) {
 		return sessions, issuances, missing
 	}
 	for _, format := range presentedCredentialFormats(source, 1, available) {
@@ -641,9 +625,9 @@ func walletStepsBefore(
 	emitted map[string]map[string]any,
 	available map[credentialFormat]int,
 	fixture map[string]any,
-	actions map[string]string,
+	roles walletRoles,
 ) ([]map[string]any, error) {
-	consumed, err := credentialInstancesConsumed(step, actions)
+	consumed, err := credentialInstancesConsumed(step, roles)
 	if err != nil {
 		return nil, err
 	}
@@ -653,11 +637,12 @@ func walletStepsBefore(
 		consumed,
 		available,
 		fixture,
+		roles,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return injectWalletActions(step, reset, sessions, issuances, actions)
+	return injectWalletActions(step, reset, sessions, issuances, roles)
 }
 
 // injectWalletActions returns the steps to insert before a wallet step for
@@ -675,7 +660,7 @@ func injectWalletActions(
 	reset map[string]any,
 	sessions []map[string]any,
 	issuances []map[string]any,
-	actions map[string]string,
+	roles walletRoles,
 ) ([]map[string]any, error) {
 	if reset == nil && len(issuances) == 0 {
 		return sessions, nil
@@ -684,23 +669,18 @@ func injectWalletActions(
 		return nil, fmt.Errorf("a %q step cannot run wallet actions", use)
 	}
 	with, _ := step["with"].(map[string]any)
-	code, _ := with["action_code"].(string)
-	actionID, _ := with["action_id"].(string)
-	if code == "" {
-		stored, known := actions[actionID]
-		if !known {
-			return nil, fmt.Errorf("unknown wallet action %q", actionID)
-		}
-		code = stored
+	if code, _ := with["action_code"].(string); code != "" {
+		return nil, inlineActionCodeError()
 	}
-	stepApp, err := flowAppID(code)
+	actionID, _ := with["action_id"].(string)
+	stepRole, err := roles.role(actionID)
 	if err != nil {
 		return nil, err
 	}
 
 	before := make([]any, 0, len(issuances)+2)
 	if reset != nil {
-		before = append(before, map[string]any{"id": resetActionID})
+		before = append(before, map[string]any{"id": roles.resetActionID})
 	}
 	combinable := true
 	for _, issuance := range issuances {
@@ -708,25 +688,19 @@ func injectWalletActions(
 	}
 	for _, entry := range before {
 		id, _ := entry.(map[string]any)["id"].(string)
-		app, err := flowAppID(actions[id])
+		role, err := roles.role(id)
 		if err != nil {
-			return nil, fmt.Errorf("wallet action %q: %w", id, err)
+			return nil, err
 		}
-		combinable = combinable && app == stepApp
+		combinable = combinable && role.HeaderApp == stepRole.HeaderApp
 	}
 
 	if combinable {
-		own := map[string]any{}
-		if actionID != "" {
-			own["id"] = actionID
-		} else {
-			own["code"] = code
-		}
+		own := map[string]any{"id": actionID}
 		if parameters, ok := with["parameters"]; ok {
 			own["parameters"] = parameters
 		}
 		delete(with, "action_id")
-		delete(with, "action_code")
 		delete(with, "parameters")
 		with["actions"] = append(before, own)
 		return sessions, nil
@@ -744,7 +718,7 @@ func injectWalletActions(
 				"parameters": issuance["parameters"],
 			},
 		}
-		resetSteps, err := injectWalletActions(issue, reset, nil, nil, actions)
+		resetSteps, err := injectWalletActions(issue, reset, nil, nil, roles)
 		if err != nil {
 			return nil, err
 		}
@@ -757,20 +731,6 @@ func injectWalletActions(
 		steps = append(steps, reset)
 	}
 	return steps, nil
-}
-
-// flowAppID returns the appId of a Maestro flow's header.
-func flowAppID(code string) (string, error) {
-	var header struct {
-		AppID string `yaml:"appId"`
-	}
-	if err := yaml.NewDecoder(strings.NewReader(code)).Decode(&header); err != nil {
-		return "", fmt.Errorf("read Maestro flow header: %w", err)
-	}
-	if header.AppID == "" {
-		return "", fmt.Errorf("the Maestro flow header has no appId")
-	}
-	return header.AppID, nil
 }
 
 func removeTestsWithoutAvailableEvidence(
@@ -833,12 +793,12 @@ func loadPipeline(path string) (pipelineDefinition, error) {
 // onboardingPrelude is the pipeline's first step. Its version_id makes the
 // runner install a fresh Wallet, and it is the only Wallet step without
 // continue_on_error, so a broken device stops the run before any scenario.
-func onboardingPrelude() map[string]any {
+func onboardingPrelude(roles walletRoles) map[string]any {
 	return map[string]any{
 		"id":  "onboard-reference-wallet",
 		"use": mobileAutomationTask,
 		"with": map[string]any{
-			"action_id":  resetActionID,
+			"action_id":  roles.resetActionID,
 			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo",
 		},
 	}
@@ -858,13 +818,13 @@ func drivesWallet(steps []map[string]any) bool {
 // walletResetStep resets and onboards the wallet before a scenario, so its
 // presentations cannot select a credential an earlier scenario issued and left
 // unspent.
-func walletResetStep(prefix string) map[string]any {
+func walletResetStep(prefix string, roles walletRoles) map[string]any {
 	return map[string]any{
 		"id":                prefix + "-reset-wallet",
 		"use":               mobileAutomationTask,
 		"continue_on_error": true,
 		"with": map[string]any{
-			"action_id":  resetActionID,
+			"action_id":  roles.resetActionID,
 			"version_id": "installed_from_external_source",
 		},
 	}
@@ -885,50 +845,67 @@ func opensPresentationRequest(step map[string]any, source map[string]any) bool {
 // pinned to a value only a credential of its own scenario carries, which passes
 // only when the wallet offers nothing for it. Issuing a PID before it adds no
 // evidence, because no PID the generator issues can match the pinned value.
-func probesAbsence(step map[string]any) bool {
-	with, _ := step["with"].(map[string]any)
-	actionID, _ := with["action_id"].(string)
-	return actionID == absenceProbeActionID
+func probesAbsence(step map[string]any, roles walletRoles) bool {
+	role, known := roles.stepRole(step)
+	return known && role.AbsenceProbe
 }
 
-// loadWalletActions maps every declared wallet action identifier to its Maestro
-// flow source so the generator can tell a consuming presentation from one the
-// wallet is expected to refuse.
-func loadWalletActions(importsDir string) (map[string]string, error) {
-	catalogs, err := filepath.Glob(filepath.Join(importsDir, "*", "wallet-actions.yaml"))
+// walletRoles is the FCAF role contract keyed by the action id generated
+// pipelines reference, walletActionNamespace + role name.
+type walletRoles struct {
+	byActionID       map[string]walletroles.Role
+	resetActionID    string
+	issuanceActionID string
+}
+
+func loadWalletRoles(fcafRoot string) (walletRoles, error) {
+	contract, err := walletroles.Load(fcafRoot)
 	if err != nil {
-		return nil, fmt.Errorf("list wallet action catalogs: %w", err)
+		return walletRoles{}, err
 	}
-	actions := map[string]string{}
-	for _, catalogPath := range catalogs {
-		data, err := os.ReadFile(catalogPath)
-		if err != nil {
-			return nil, fmt.Errorf("read wallet action catalog %s: %w", catalogPath, err)
-		}
-		var declaration struct {
-			Organization string `yaml:"organization"`
-			Wallet       string `yaml:"wallet"`
-			Actions      []struct {
-				Name string `yaml:"name"`
-				File string `yaml:"file"`
-			} `yaml:"actions"`
-		}
-		if err := yaml.Unmarshal(data, &declaration); err != nil {
-			return nil, fmt.Errorf("parse wallet action catalog %s: %w", catalogPath, err)
-		}
-		for _, action := range declaration.Actions {
-			flow, err := os.ReadFile(filepath.Join(filepath.Dir(catalogPath), action.File))
-			if err != nil {
-				return nil, fmt.Errorf("read wallet action %s: %w", action.Name, err)
-			}
-			id := declaration.Organization + "/" + declaration.Wallet + "/" + action.Name
-			actions[id] = string(flow)
-		}
+	roles := walletRoles{
+		byActionID: make(map[string]walletroles.Role, len(contract.Roles)),
+		resetActionID: walletActionNamespace +
+			contract.Injected(walletroles.InjectedReset).Name,
+		issuanceActionID: walletActionNamespace +
+			contract.Injected(walletroles.InjectedIssuance).Name,
 	}
-	if len(actions) == 0 {
-		return nil, fmt.Errorf("no wallet actions declared under %s", importsDir)
+	for _, role := range contract.Roles {
+		roles.byActionID[walletActionNamespace+role.Name] = role
 	}
-	return actions, nil
+	return roles, nil
+}
+
+func (r walletRoles) role(actionID string) (walletroles.Role, error) {
+	role, known := r.byActionID[actionID]
+	if !known {
+		return walletroles.Role{}, fmt.Errorf(
+			"wallet action %q is not a role of %s",
+			actionID,
+			walletroles.FileName,
+		)
+	}
+	return role, nil
+}
+
+// stepRole returns the role a mobile step's action_id runs, if any.
+func (r walletRoles) stepRole(step map[string]any) (walletroles.Role, bool) {
+	if use, _ := step["use"].(string); use != mobileAutomationTask {
+		return walletroles.Role{}, false
+	}
+	with, _ := step["with"].(map[string]any)
+	actionID, _ := with["action_id"].(string)
+	role, known := r.byActionID[actionID]
+	return role, known
+}
+
+// inlineActionCodeError refuses a wallet step whose flow is not a contract
+// role: the generator can only reason about roles.
+func inlineActionCodeError() error {
+	return fmt.Errorf(
+		"inline action_code is not supported: store the flow as a role in %s",
+		walletroles.FileName,
+	)
 }
 
 // issuesCredential reports whether a step adds, or may add, a credential
@@ -936,40 +913,30 @@ func loadWalletActions(importsDir string) (map[string]string, error) {
 // credential offer the Wallet must refuse counts: the probe that follows it
 // targets exactly that credential, so a Wallet that kept it spends it there,
 // and a PID injected before the probe could never answer it.
-func issuesCredential(step map[string]any) bool {
-	if use, _ := step["use"].(string); use != mobileAutomationTask {
-		return false
-	}
-	with, _ := step["with"].(map[string]any)
-	actionID, _ := with["action_id"].(string)
-	return actionID == issuanceActionID ||
-		actionID == injectedIssuanceActionID ||
-		actionID == rejectedOfferActionID
+func issuesCredential(step map[string]any, roles walletRoles) bool {
+	role, known := roles.stepRole(step)
+	return known && role.IssuesCredential
 }
 
 // credentialInstancesConsumed reports how many credential instances a step
-// spends: one per Share it performs.
-func credentialInstancesConsumed(step map[string]any, actions map[string]string) (int, error) {
+// spends: one per Share its role performs.
+func credentialInstancesConsumed(step map[string]any, roles walletRoles) (int, error) {
 	if use, _ := step["use"].(string); use != mobileAutomationTask {
 		return 0, nil
 	}
 	with, _ := step["with"].(map[string]any)
+	if code, _ := with["action_code"].(string); code != "" {
+		return 0, inlineActionCodeError()
+	}
 	actionID, _ := with["action_id"].(string)
-	if actionID == issuanceActionID || actionID == injectedIssuanceActionID {
+	if actionID == "" {
 		return 0, nil
 	}
-	source, _ := with["action_code"].(string)
-	if source == "" {
-		if actionID == "" {
-			return 0, nil
-		}
-		flow, known := actions[actionID]
-		if !known {
-			return 0, fmt.Errorf("unknown wallet action %q", actionID)
-		}
-		source = flow
+	role, err := roles.role(actionID)
+	if err != nil {
+		return 0, err
 	}
-	return len(shareTap.FindAllString(source, -1)), nil
+	return role.Presents, nil
 }
 
 // deeplinkSourceStep returns the earlier step whose output a wallet step opens,
@@ -1184,6 +1151,7 @@ func pidIssuance(
 	index int,
 	format credentialFormat,
 	fixture map[string]any,
+	issuanceActionID string,
 ) (map[string]any, map[string]any) {
 	base := "${fixture.verifier_url}"
 	if _, declared := fixture["issuer_url"].(string); declared {
@@ -1213,7 +1181,7 @@ func pidIssuance(
 		},
 	}
 	issuance := map[string]any{
-		"id": injectedIssuanceActionID,
+		"id": issuanceActionID,
 		"parameters": map[string]any{
 			"deeplink": "${{ " + sessionID + ".outputs.body.deeplink }}",
 		},
