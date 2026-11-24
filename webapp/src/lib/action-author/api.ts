@@ -51,6 +51,8 @@ export type ReviewAction = {
 	error: string;
 	/** The agent's note on the action (wallet findings, why the wallet cannot do the role). */
 	note?: string;
+	/** The agent's verdict on an FCAF action: passed or unsupported; absent otherwise. */
+	fcaf_status?: 'passed' | 'unsupported';
 	/** Candidate keys among the prerequisites of the action's plan. */
 	starts_from: string[];
 	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
@@ -98,13 +100,16 @@ export type FcafRoleCoverage = {
 	status: FcafCoverageStatus;
 	action: string;
 	role_sha256: string;
+	/** The agent's verdict on the saved FCAF action, empty when not recorded or no action. */
+	result: '' | 'passed' | 'unsupported';
+	/** The agent's note on the saved action. */
+	note: string;
 };
 
 /** FCAF relying-party coverage of a wallet (GET /api/action-author/fcaf-coverage). */
 export type FcafCoverage = {
 	suite: string;
 	roles: FcafRoleCoverage[];
-	profile: Record<string, unknown> | null;
 	warnings: string[];
 };
 
@@ -167,6 +172,9 @@ export type StartedSession = { session_id: string; ticket_id: string; device_id:
 
 export type ApiFailure = { status: number; reason: string; message: string };
 
+/** The agent's verdict on an FCAF action, as the review showed it. */
+export type FcafResult = { status: 'passed' | 'unsupported'; note: string };
+
 export type Decision = 'accept' | 'refuse' | 'change';
 
 /** The user's decision on one action of a review. */
@@ -180,6 +188,8 @@ export type ReviewDecisionItem = {
 	plan: Record<string, unknown> | null;
 	/** The FCAF profile the review showed, only for an accepted FCAF action. */
 	profile?: Record<string, unknown>;
+	/** The agent's verdict the review showed, only for an accepted FCAF action. */
+	fcaf_result?: FcafResult;
 };
 
 /** POST /api/action-author/reviews: the decisions on every action of a review. */
@@ -322,4 +332,38 @@ export function endOnExit(sessionId: string, deviceId: string, queued: boolean):
 
 export function sendReview(request: ReviewRequest): Promise<Result<ReviewResponse, ApiFailure>> {
 	return call<ReviewResponse>('/reviews', { method: 'POST', body: request });
+}
+
+/**
+ * Sends the chat's first message through the session's chat proxy. request_id makes the
+ * harness's update ID msg-<session id>, so a repeated send never starts a second turn.
+ */
+export async function sendFirstMessage(
+	sessionId: string,
+	chatId: string,
+	text: string
+): Promise<Result<void, ApiFailure>> {
+	try {
+		const res = await fetch(`/action-author-ui/${encodeURIComponent(sessionId)}/api/messages`, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ session_id: chatId, message: text, request_id: sessionId })
+		});
+		if (res.ok) return ok(undefined);
+		let body: { error?: unknown; message?: unknown } | undefined;
+		try {
+			body = await res.json();
+		} catch {
+			body = undefined;
+		}
+		return err({
+			status: res.status,
+			reason: typeof body?.error === 'string' ? body.error : '',
+			message:
+				typeof body?.message === 'string' && body.message ? body.message : res.statusText
+		});
+	} catch (e) {
+		return err({ status: 0, reason: '', message: getExceptionMessage(e) });
+	}
 }

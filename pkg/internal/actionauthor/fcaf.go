@@ -119,7 +119,11 @@ type FCAFRoleCoverage struct {
 	StartsFrom []string `json:"starts_from"`
 	Status     string   `json:"status"` // "missing" | "current" | "stale" | "unmanaged"
 	Action     string   `json:"action"` // canonified path of the wallet's record, "" when missing
-	RoleSHA256 string   `json:"role_sha256"`
+	// Result is the agent's verdict on the saved FCAF action, "passed" or
+	// "unsupported"; "" when not recorded or no action.
+	Result     string `json:"result"`
+	Note       string `json:"note"` // the agent's note on the saved action
+	RoleSHA256 string `json:"role_sha256"`
 }
 
 // FCAFCoverage lists the roles of the session suite, the injected reset
@@ -177,6 +181,10 @@ func FCAFCoverage(
 				entry.Status = FCAFCurrent
 			default:
 				entry.Status = FCAFStale
+			}
+			if provenance.FCAFRole == role.Name && provenance.FCAFResult != nil {
+				entry.Result = provenance.FCAFResult.Status
+				entry.Note = provenance.FCAFResult.Note
 			}
 		}
 		coverage = append(coverage, entry)

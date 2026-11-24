@@ -436,8 +436,8 @@ func TestCheckActionAuthorFCAFEvidence(t *testing.T) {
 	}
 }
 
-// Save refuses an FCAF profile other than the one the user approved.
-func TestSaveAuthoredWalletActionBindsTheFCAFProfile(t *testing.T) {
+// Save refuses an FCAF profile or result other than the one the user approved.
+func TestSaveAuthoredWalletActionBindsTheFCAFProfileAndResult(t *testing.T) {
 	setFCAFTestEnv(t)
 	app, session, namespace := authorSaveFixture(t)
 	build, err := actionauthor.Resolve(app, namespace, session)
@@ -460,7 +460,11 @@ func TestSaveAuthoredWalletActionBindsTheFCAFProfile(t *testing.T) {
 	normalized, err := SessionPlan(app, selection, plan, scope)
 	require.NoError(t, err)
 	profile := map[string]any{"pin": "123456"}
-	approval := func(profile map[string]any) string {
+	result := &actionauthor.FCAFResult{
+		Status: actionauthor.FCAFResultUnsupported,
+		Note:   "no Deny button",
+	}
+	approval := func(profile map[string]any, result *actionauthor.FCAFResult) string {
 		token, err := actionauthor.SignApproval(app, actionauthor.Approval{
 			AuthorWorkflowID: caller.WorkflowID,
 			CandidateSHA256:  actionauthor.CodeSHA256(code),
@@ -469,6 +473,7 @@ func TestSaveAuthoredWalletActionBindsTheFCAFProfile(t *testing.T) {
 			PlanSHA256:       actionauthor.PlanSHA256(normalized),
 			Key:              "a1",
 			ProfileSHA256:    actionauthor.ProfileSHA256(profile),
+			ResultSHA256:     actionauthor.FCAFResultSHA256(result),
 		})
 		require.NoError(t, err)
 		return token
@@ -483,6 +488,7 @@ func TestSaveAuthoredWalletActionBindsTheFCAFProfile(t *testing.T) {
 		Spec:            plan,
 		BatchKey:        "a1",
 		FCAFProfile:     profile,
+		FCAFResult:      result,
 	}
 	save := func(payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
 		return fcafSessionLookup(t, app, session).activity(t, app).
@@ -490,8 +496,8 @@ func TestSaveAuthoredWalletActionBindsTheFCAFProfile(t *testing.T) {
 	}
 
 	for name, token := range map[string]string{
-		"no profile approved": approval(nil),
-		"another profile":     approval(map[string]any{"pin": "000000"}),
+		"no profile approved": approval(nil, result),
+		"another profile":     approval(map[string]any{"pin": "000000"}, result),
 	} {
 		refused := payload
 		refused.Approval = token
@@ -499,9 +505,22 @@ func TestSaveAuthoredWalletActionBindsTheFCAFProfile(t *testing.T) {
 		requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 		require.ErrorContains(t, err, "approval is for another profile", name)
 	}
+	for name, token := range map[string]string{
+		"no result approved": approval(profile, nil),
+		"another result": approval(profile, &actionauthor.FCAFResult{
+			Status: actionauthor.FCAFResultPassed, Note: "no Deny button",
+		}),
+	} {
+		refused := payload
+		refused.Approval = token
+		_, err := save(refused)
+		requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+		require.ErrorContains(t, err, "approval is for another result", name)
+	}
 
-	payload.Approval = approval(profile)
+	payload.Approval = approval(profile, result)
 	receipt, err := save(payload)
 	require.NoError(t, err)
 	require.Equal(t, profile, receipt.Provenance.FCAFProfile)
+	require.Equal(t, result, receipt.Provenance.FCAFResult)
 }

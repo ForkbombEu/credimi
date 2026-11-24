@@ -14,9 +14,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		endOnExit,
 		getReplayable,
 		getSession,
+		sendFirstMessage,
 		ticketOf,
 		type Session
 	} from '$lib/action-author/api';
+	import { fcafGuidance } from '$lib/action-author/fcaf';
 	import FcafProgress from '$lib/action-author/fcaf-progress.svelte';
 	import Transcript from '$lib/action-author/transcript.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
@@ -53,6 +55,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let queueCancellable = $state(false);
 	let stoppedMessage = $state('');
 	let pollError = $state('');
+	let firstMessageError = $state('');
+	// Whether the page sent the FCAF campaign's first message; plain, so the effect never reruns on it.
+	let firstMessageSent = false;
 	let pollNow = $state<() => void>(() => {});
 
 	const settledReviews = new SvelteSet<string>();
@@ -78,6 +83,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queueCancellable = false;
 		stoppedMessage = '';
 		pollError = '';
+		firstMessageError = '';
+		firstMessageSent = false;
 		settledReviews.clear();
 
 		/** Reads the session or its ticket; returns whether to poll again. */
@@ -195,19 +202,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				if (res.isErr) throw new Error(res.error.message);
 				return true;
 			},
-			showSuccessToast: !quiet
+			showSuccessToast: !quiet,
+			// The first End of a running FCAF campaign stops it and shows its actions for review.
+			successText:
+				session?.mode === 'fcaf' && session.chat_running && !pendingReview
+					? m.Fcaf_stopping()
+					: undefined
 		});
 		pollNow();
 		return done === true;
 	}
 
-	/* Leaving the page ends the session */
+	/* Leaving the page ends a chat session */
 
 	// The queued ticket or the running chat holds a device until it ends; once the chat has
-	// ended the session only releases the device.
+	// ended the session only releases the device. An FCAF campaign runs on its own.
 	const guardActive = $derived(
 		(!!queue && !stoppedMessage) ||
-			(session?.status === 'Running' && (!session.chat_ready || session.chat_running))
+			(session?.mode !== 'fcaf' &&
+				session?.status === 'Running' &&
+				(!session.chat_ready || session.chat_running))
 	);
 	let exitConfirmed = false;
 
@@ -251,6 +265,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			window.removeEventListener('beforeunload', onBeforeUnload);
 			window.removeEventListener('pagehide', onPageHide);
 		};
+	});
+
+	/* FCAF first message */
+
+	// An FCAF campaign starts without the user typing: the page sends the first message once,
+	// with the guidance typed in the start dialog. The harness ignores a repeated send.
+	$effect(() => {
+		if (
+			session?.mode !== 'fcaf' ||
+			session.status !== 'Running' ||
+			!session.chat_ready ||
+			!session.chat_running ||
+			session.fcaf_progress?.roles.length ||
+			firstMessageSent
+		)
+			return;
+		firstMessageSent = true;
+		const id = session.session_id;
+		const chatId = session.chat_workflow_id;
+		let guidance = '';
+		try {
+			guidance = fcafGuidance(id).getData()?.text ?? '';
+		} catch {
+			guidance = '';
+		}
+		void sendFirstMessage(id, chatId, guidance || m.Fcaf_default_first_message()).then(
+			(res) => {
+				if (res.isOk) {
+					try {
+						fcafGuidance(id).end();
+					} catch {
+						// Outside the browser there is no guidance to drop.
+					}
+				} else if (res.error.status !== 409) {
+					firstMessageError = m.Fcaf_first_message_failed();
+				}
+			}
+		);
 	});
 
 	/* Idle warning */
@@ -338,11 +390,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const showReview = $derived(!!pendingReview);
 	const showLiveView = $derived(liveViewOpen && !!session?.live_view);
 	const progress = $derived(
-		session?.mode === 'fcaf' && session.fcaf_progress?.roles.length
-			? session.fcaf_progress
-			: undefined
+		session?.fcaf_progress?.roles.length ? session.fcaf_progress : undefined
 	);
-	const showProgress = $derived(!!progress);
 </script>
 
 <div class="flex h-dvh flex-col bg-slate-50">
@@ -383,11 +432,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 
-		{#if pollError || idleSeconds !== undefined}
+		{#if pollError || firstMessageError || idleSeconds !== undefined}
 			<div class="padding-x space-y-2 pb-3">
 				{#if pollError}
 					<Alert variant="destructive" class="block border border-destructive p-3!">
 						{pollError}
+					</Alert>
+				{/if}
+				{#if firstMessageError}
+					<Alert variant="destructive" class="block border border-destructive p-3!">
+						{firstMessageError}
 					</Alert>
 				{/if}
 				{#if idleSeconds !== undefined}
@@ -484,7 +538,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</section>
 
-		{#if session && (showReview || showLiveView || showProgress)}
+		{#if session && (showReview || showLiveView || progress)}
 			<aside class="flex w-full shrink-0 flex-col gap-4 overflow-y-auto lg:w-[22rem]">
 				{#if pendingReview && showReview}
 					{#key pendingReview.tool_id}

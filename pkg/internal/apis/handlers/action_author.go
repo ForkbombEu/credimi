@@ -100,7 +100,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorFCAFCoverage,
 			OperationID:    "actionAuthor.fcafCoverage",
 			Summary:        "FCAF coverage of a wallet",
-			Description:    "Lists the FCAF relying-party roles and the state of the caller organization's action for each on the wallet: missing, current, stale or unmanaged, with the newest FCAF wallet profile and its warnings.",
+			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed or unsupported) and note, with the warnings about the wallet.",
 			ResponseSchema: ActionAuthorFCAFCoverageResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -753,6 +753,8 @@ type ActionAuthorReviewAction struct {
 	// Note is the agent's note on the action (wallet findings, or why the
 	// wallet cannot do an FCAF role), empty when none.
 	Note string `json:"note,omitempty"`
+	// FCAFStatus is passed or unsupported for an FCAF action; empty otherwise.
+	FCAFStatus string `json:"fcaf_status,omitempty"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
 	// StartsFrom lists the candidate keys among the plan's prerequisites.
@@ -785,13 +787,9 @@ type ActionAuthorSessionListItem struct {
 // ActionAuthorFCAFCoverageResponse is the FCAF relying-party coverage of a
 // wallet by the caller organization's actions.
 type ActionAuthorFCAFCoverageResponse struct {
-	Suite string                          `json:"suite"`
-	Roles []actionauthor.FCAFRoleCoverage `json:"roles"`
-	// Profile is the newest FCAF wallet profile (an object), null when no
-	// FCAF action saved one. It is any because PocketBase encodes with
-	// encoding/json/v2, which writes a nil map as {}.
-	Profile  any      `json:"profile"`
-	Warnings []string `json:"warnings"`
+	Suite    string                          `json:"suite"`
+	Roles    []actionauthor.FCAFRoleCoverage `json:"roles"`
+	Warnings []string                        `json:"warnings"`
 }
 
 // ActionAuthorTranscriptResponse is the transcript of a session's chat, in event order.
@@ -930,7 +928,7 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 				response.LiveView = err == nil && held
 			}
 		}
-		readActionAuthorChat(e, c, response.ChatWorkflowID, running, &response)
+		readActionAuthorChat(e, c, response.ChatWorkflowID, running, info.FCAFSuite, &response)
 		return e.JSON(http.StatusOK, response)
 	}
 }
@@ -1024,11 +1022,13 @@ func actionAuthorChatReplayable(ctx context.Context, c client.Client, chatID str
 // readActionAuthorChat fills the chat state of a session in any state. The
 // idle state and the pending review are read only while the session and its
 // started chat run. A missing chat, or a query that fails, leaves them empty.
+// fcafSuite is the suite of an FCAF session, which bounds its progress.
 func readActionAuthorChat(
 	e *core.RequestEvent,
 	c client.Client,
 	chatID string,
 	sessionRunning bool,
+	fcafSuite string,
 	response *ActionAuthorSessionResponse,
 ) {
 	ctx := e.Request.Context()
@@ -1067,10 +1067,7 @@ func readActionAuthorChat(
 		); err != nil {
 			e.App.Logger().Warn("action author fcaf progress", "chat", chatID, "error", err)
 		} else {
-			if progress.Roles == nil {
-				progress.Roles = []ActionAuthorFCAFRole{}
-			}
-			response.FCAFProgress = &progress
+			response.FCAFProgress = fcafProgress(e, progress, fcafSuite)
 		}
 	}
 	var status struct {
@@ -1102,6 +1099,53 @@ func readActionAuthorChat(
 		)
 		return
 	}
+}
+
+// actionAuthorProgressNoteRunes caps a role's note in the progress, as the agent does.
+const actionAuthorProgressNoteRunes = 500
+
+// fcafProgressStatuses are the statuses of a role in an FCAF campaign.
+var fcafProgressStatuses = map[string]bool{
+	"pending":     true,
+	"working":     true,
+	"passed":      true,
+	"unsupported": true,
+	"blocked":     true,
+	"skipped":     true,
+}
+
+// fcafProgress keeps, from the runner's answer, the roles of the session's suite once each
+// with a known status, each note cut to actionAuthorProgressNoteRunes and each key a
+// candidate key; current_role only when it is a kept role. Nil when the contract does not load.
+func fcafProgress(
+	e *core.RequestEvent,
+	in ActionAuthorFCAFProgress,
+	suite string,
+) *ActionAuthorFCAFProgress {
+	contract, err := activities.LoadFCAFContract()
+	if err != nil {
+		e.App.Logger().Warn("action author fcaf progress contract", "error", err)
+		return nil
+	}
+	scope := &actionauthor.FCAFScope{Contract: contract, Suite: suite}
+	out := &ActionAuthorFCAFProgress{Roles: []ActionAuthorFCAFRole{}}
+	seen := map[string]bool{}
+	for _, r := range in.Roles {
+		if _, err := actionauthor.FCAFSuiteRole(scope, r.Role); err != nil ||
+			seen[r.Role] || !fcafProgressStatuses[r.Status] {
+			continue
+		}
+		seen[r.Role] = true
+		if !actionauthor.IsCandidateKey(r.Key) {
+			r.Key = ""
+		}
+		r.Note = truncateRunes(r.Note, actionAuthorProgressNoteRunes)
+		out.Roles = append(out.Roles, r)
+	}
+	if seen[in.CurrentRole] {
+		out.CurrentRole = in.CurrentRole
+	}
+	return out
 }
 
 // actionAuthorPendingReview decodes the actions of a review callback's
@@ -1147,6 +1191,7 @@ func actionAuthorPendingReview(
 			Replaces:        text("replaces"),
 			Error:           text("error"),
 			Note:            truncateRunes(text("note"), actionAuthorNoteRunes),
+			FCAFStatus:      fcafReviewStatus(text("fcaf_status")),
 			Plan:            plan,
 			StartsFrom:      planCandidates(plan),
 			StartsFromNames: map[string]string{},
@@ -1171,6 +1216,15 @@ func actionAuthorPendingReview(
 		}
 	}
 	return review
+}
+
+// fcafReviewStatus keeps an FCAF review action's status when it is passed or
+// unsupported, empty otherwise.
+func fcafReviewStatus(status string) string {
+	if status == actionauthor.FCAFResultPassed || status == actionauthor.FCAFResultUnsupported {
+		return status
+	}
+	return ""
 }
 
 // actionAuthorNoteRunes bounds the agent's note on a review action.
@@ -1423,9 +1477,6 @@ func HandleActionAuthorFCAFCoverage() func(*core.RequestEvent) error {
 			Suite:    actionauthor.FCAFRelyingPartySuite,
 			Roles:    roles,
 			Warnings: actionauthor.FCAFWarnings(profile),
-		}
-		if profile != nil {
-			response.Profile = profile
 		}
 		return e.JSON(http.StatusOK, response)
 	}

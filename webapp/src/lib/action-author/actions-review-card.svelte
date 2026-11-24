@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { Label } from '@/components/ui/label';
 	import * as RadioGroup from '@/components/ui/radio-group/index.js';
 	import * as Tabs from '@/components/ui/tabs/index.js';
@@ -22,11 +23,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type ReviewAction,
 		type Session
 	} from './api';
+	import { roleStatusLabel, roleStatusVariant } from './fcaf';
 	import {
 		blockedBy,
 		canAccept,
 		canSend,
 		hasPlan,
+		isFCAF,
 		reviewDecisions,
 		startingName,
 		type Choices
@@ -185,6 +188,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<p class="font-bold">{m.Review_previous_save_failed()}</p>
 						<p class="break-words">{action.error}</p>
 					</Alert>
+				{/if}
+
+				{#if isFCAF(action) && action.fcaf_status}
+					<Badge variant={roleStatusVariant(action.fcaf_status)}>
+						{roleStatusLabel(action.fcaf_status)}
+					</Badge>
 				{/if}
 
 				{#if action.note}

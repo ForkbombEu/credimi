@@ -353,6 +353,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"replaces":         "usera-s-organization/authoring-handler-wallet/install",
 							"error":            "save failed: try again",
 							"note":             "Wallet findings: dcql-1 failed: no match",
+							"fcaf_status":      "unsupported",
 							// A per-action profile is ignored: the review carries one.
 							"profile": map[string]any{"pin": "000000"},
 							// The agent's starts_from is ignored: the plan says it.
@@ -377,6 +378,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"replaces":    "",
 							"error":       "",
 							"note":        strings.Repeat("é", 2001),
+							"fcaf_status": "bogus",
 							"starts_from": []any{},
 						},
 					},
@@ -487,6 +489,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					Replaces:        "usera-s-organization/authoring-handler-wallet/install",
 					Error:           "save failed: try again",
 					Note:            "Wallet findings: dcql-1 failed: no match",
+					FCAFStatus:      actionauthor.FCAFResultUnsupported,
 					StartsFrom:      []string{},
 					StartsFromNames: map[string]string{},
 					UsedBy:          2,
@@ -529,18 +532,48 @@ func TestActionAuthorSessionReadsTheFCAFProgress(t *testing.T) {
 			{"role": "fcaf-issue-pid", "status": "working", "key": "", "note": ""},
 		},
 	}
+	// A runner's answer off the contract keeps only the suite's roles, once each.
+	hostile := map[string]any{
+		"current_role": "evil",
+		"roles": []map[string]any{
+			{"role": "evil", "status": "passed", "key": "a1", "note": ""},
+			{
+				"role":   "fcaf-reset-and-onboard",
+				"status": "unsupported",
+				"key":    "../x",
+				"note":   strings.Repeat("é", 600),
+			},
+			{"role": "fcaf-reset-and-onboard", "status": "passed", "key": "a2", "note": ""},
+			{"role": "fcaf-issue-pid", "status": "done", "key": "a3", "note": ""},
+		},
+	}
 	for _, tc := range []struct {
-		name string
-		err  error
-		want *ActionAuthorFCAFProgress
+		name     string
+		progress map[string]any
+		err      error
+		want     *ActionAuthorFCAFProgress
 	}{
 		{
-			name: "progress",
+			name:     "progress",
+			progress: progress,
 			want: &ActionAuthorFCAFProgress{
 				CurrentRole: "fcaf-issue-pid",
 				Roles: []ActionAuthorFCAFRole{
 					{Role: "fcaf-reset-and-onboard", Status: "passed", Key: "a1"},
 					{Role: "fcaf-issue-pid", Status: "working"},
+				},
+			},
+		},
+		{
+			name:     "hostile progress",
+			progress: hostile,
+			want: &ActionAuthorFCAFProgress{
+				Roles: []ActionAuthorFCAFRole{
+					{
+						Role:   "fcaf-reset-and-onboard",
+						Status: "unsupported",
+						Note:   strings.Repeat("é", 500),
+					},
 				},
 			},
 		},
@@ -565,7 +598,7 @@ func TestActionAuthorSessionReadsTheFCAFProgress(t *testing.T) {
 					Return(nil, tc.err)
 			} else {
 				c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "fcaf_progress").
-					Return(jsonEncodedValue{progress}, nil)
+					Return(jsonEncodedValue{tc.progress}, nil)
 			}
 			var response ActionAuthorSessionResponse
 			(&tests.ApiScenario{
@@ -1422,10 +1455,10 @@ func TestActionAuthorFCAFCoverage(t *testing.T) {
 		Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
-			`"profile":null`,
 			`"warnings":[]`,
 		},
-		TestAppFactory: setupActionAuthorApp,
+		NotExpectedContent: []string{`"profile"`},
+		TestAppFactory:     setupActionAuthorApp,
 		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
 			decodeBody(t, res, &response)
 		},
@@ -1436,19 +1469,70 @@ func TestActionAuthorFCAFCoverage(t *testing.T) {
 	for _, role := range response.Roles {
 		require.Equal(t, actionauthor.FCAFMissing, role.Status, role.Role)
 	}
-	require.Nil(t, response.Profile)
 	require.Equal(t, []string{}, response.Warnings)
 
-	for _, wallet := range []string{"bad", "org/unknown"} {
+	for _, tc := range []struct{ wallet, user, reason string }{
+		{"bad", "userA", "invalid_request"},
+		// An unknown wallet is forbidden, as another organization's unpublished one.
+		{"org/unknown", "userA", "forbidden"},
+		{wallet, "userB", "forbidden"},
+	} {
+		status := http.StatusBadRequest
+		if tc.reason == "forbidden" {
+			status = http.StatusForbidden
+		}
 		(&tests.ApiScenario{
-			Name:            "wallet " + wallet,
+			Name:            "wallet " + tc.wallet + " for " + tc.user,
 			Method:          http.MethodGet,
-			URL:             "/api/action-author/fcaf-coverage?wallet=" + wallet,
-			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-			ExpectedStatus:  http.StatusBadRequest,
-			ExpectedContent: []string{`"reason":"invalid_request"`},
+			URL:             "/api/action-author/fcaf-coverage?wallet=" + tc.wallet,
+			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, tc.user)},
+			ExpectedStatus:  status,
+			ExpectedContent: []string{`"reason":"` + tc.reason + `"`},
 			TestAppFactory:  setupActionAuthorApp,
 		}).Test(t)
+	}
+
+	// A published wallet of another organization: the owner's actions do not
+	// count for the caller's organization.
+	var foreign ActionAuthorFCAFCoverageResponse
+	(&tests.ApiScenario{
+		Name:            "published wallet of another organization",
+		Method:          http.MethodGet,
+		URL:             "/api/action-author/fcaf-coverage?wallet=" + wallet,
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userB")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"status":"missing"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			record, err := app.FindFirstRecordByData(
+				"wallets", "canonified_name", strings.Split(wallet, "/")[1],
+			)
+			require.NoError(t, err)
+			record.Set("published", true)
+			require.NoError(t, app.Save(record))
+			actions, err := app.FindCollectionByNameOrId("wallet_actions")
+			require.NoError(t, err)
+			action := core.NewRecord(actions)
+			action.Set("owner", record.GetString("owner"))
+			action.Set("wallet", record.Id)
+			action.Set("name", "fcaf-reset-and-onboard")
+			action.Set("code", "appId: eu.wallet\n---\n- launchApp\n")
+			action.Set("category", "onboarding")
+			action.Set("authoring_provenance", actionauthor.Provenance{
+				FCAFRole:   "fcaf-reset-and-onboard",
+				FCAFResult: &actionauthor.FCAFResult{Status: actionauthor.FCAFResultPassed},
+			})
+			require.NoError(t, app.Save(action))
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			decodeBody(t, res, &foreign)
+		},
+	}).Test(t)
+	require.Len(t, foreign.Roles, len(response.Roles))
+	for _, role := range foreign.Roles {
+		require.Equal(t, actionauthor.FCAFMissing, role.Status, role.Role)
+		require.Empty(t, role.Result, role.Role)
 	}
 }
 

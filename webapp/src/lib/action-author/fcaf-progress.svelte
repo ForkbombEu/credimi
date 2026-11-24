@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<div class="flex flex-wrap items-baseline justify-between gap-2">
 		<T class="font-semibold">{m.Fcaf_progress()}</T>
-		<span class="text-xs text-muted-foreground">
+		<span class="font-mono text-xs text-muted-foreground">
 			{m.Fcaf_progress_count({
 				done: progressDone(progress.roles),
 				total: progress.roles.length

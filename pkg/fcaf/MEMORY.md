@@ -4719,3 +4719,13 @@ Still open:
   with `key_attestations_required`. The dedicated
   `jwt-key-attestation-issuance` scenario owns 051–053 and DeviceBinding
   010–012 (16 tests); it awaits a real Wallet run.
+
+## Wallet role contract, 24/11/2026
+
+`config_templates/fcaf/fcaf-roles.yaml` is the wallet role contract: what each
+wallet action of the scenarios must do for any wallet. The action author agent
+writes other wallets' FCAF actions from it, and `cmd/fcaf-pipeline-gen` reads
+credential use, issuance, absence probes and apps from it. The skill section
+"Keep the wallet role contract in step" names when to update it;
+`go test ./pkg/fcaf/walletroles/ ./cmd/fcaf-pipeline-gen/` checks it against the
+reference flows, the generated pipelines and the tests.

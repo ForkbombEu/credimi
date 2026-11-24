@@ -181,4 +181,33 @@ describe('reviewDecisions', () => {
 		const decisions = reviewDecisions({ actions: [fcaf] }, choices);
 		expect(decisions[0]).not.toHaveProperty('profile');
 	});
+
+	it('sends the verdict with an accepted FCAF action only', () => {
+		const unsupported = action({
+			key: 'a1',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-reset' },
+			fcaf_status: 'unsupported',
+			note: 'no Deny button'
+		});
+		const chatWithStatus = action({
+			key: 'a2',
+			plan: { slot: 'onboarding' },
+			fcaf_status: 'passed'
+		});
+		const refusedWithStatus = action({
+			key: 'a3',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-x' },
+			fcaf_status: 'passed'
+		});
+		const decisions = reviewDecisions(
+			{ actions: [unsupported, chatWithStatus, refusedWithStatus], profile },
+			choices
+		);
+		expect(decisions[0].fcaf_result).toEqual({
+			status: 'unsupported',
+			note: 'no Deny button'
+		});
+		expect(decisions[1]).not.toHaveProperty('fcaf_result');
+		expect(decisions[2]).not.toHaveProperty('fcaf_result');
+	});
 });

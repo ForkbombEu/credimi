@@ -22,6 +22,14 @@ func TestProfileSHA256(t *testing.T) {
 	assert.Equal(t, got, ProfileSHA256(map[string]any{"a": "2", "b": "1"}))
 }
 
+func TestFCAFResultSHA256(t *testing.T) {
+	assert.Empty(t, FCAFResultSHA256(nil))
+	passed := FCAFResultSHA256(&FCAFResult{Status: FCAFResultPassed})
+	unsupported := FCAFResultSHA256(&FCAFResult{Status: FCAFResultUnsupported})
+	assert.Equal(t, CodeSHA256(`{"status":"passed","note":""}`), passed)
+	assert.NotEqual(t, passed, unsupported)
+}
+
 func TestApprovalSignAndVerify(t *testing.T) {
 	app, _, _ := authoringFixture(t)
 	now := time.Unix(1_800_000_000, 0)

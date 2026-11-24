@@ -19,7 +19,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { getFcafCoverage, type FcafCoverage } from './api';
 	import { walletPath } from './builds';
-	import { coverageCurrent, roleStatusLabel, roleStatusVariant } from './fcaf';
+	import {
+		coverageCounts,
+		coverageLabel,
+		coverageVariant,
+		coverageVerdict,
+		percent
+	} from './fcaf';
 
 	//
 
@@ -59,31 +65,56 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{:then result}
 			{#if result}
+				{@const { total, written, supported } = coverageCounts(result.roles)}
 				<div class="space-y-3 text-sm">
-					{#each result.warnings as warning, index (index)}
+					{#each result.warnings as warning (warning)}
 						<Alert variant="warning">
 							<p class="break-words">{warning}</p>
 						</Alert>
 					{/each}
 
-					<p class="text-muted-foreground">
-						{m.Fcaf_coverage_count({
-							current: coverageCurrent(result.roles),
-							total: result.roles.length
-						})}
-					</p>
+					<div class="font-mono text-xs text-muted-foreground">
+						<p>
+							{m.Fcaf_coverage_written({
+								written,
+								total,
+								percent: percent(written, total)
+							})}
+						</p>
+						<p>
+							{m.Fcaf_coverage_supported({
+								supported,
+								total,
+								percent: percent(supported, total)
+							})}
+						</p>
+					</div>
 
 					<ul class="space-y-2">
 						{#each result.roles as role (role.role)}
+							{@const verdict = coverageVerdict(role)}
 							<li class="space-y-1 rounded-md border p-3">
 								<div class="flex items-center justify-between gap-2">
 									<span class="truncate font-mono text-xs">{role.role}</span>
-									<Badge variant={roleStatusVariant(role.status)}>
-										{roleStatusLabel(role.status)}
+									<Badge variant={coverageVariant(verdict)}>
+										{coverageLabel(verdict)}
 									</Badge>
 								</div>
 								{#if role.summary}
 									<p class="text-xs text-muted-foreground">{role.summary}</p>
+								{/if}
+								{#if verdict === 'unsupported'}
+									<p class="text-xs break-words whitespace-pre-wrap">
+										{role.note}
+									</p>
+								{:else if verdict === 'passed' && role.note}
+									<p class="text-xs break-words whitespace-pre-wrap">
+										{m.Review_agent_note()}: {role.note}
+									</p>
+								{:else if verdict === 'stale'}
+									<p class="text-xs text-muted-foreground">
+										{m.Fcaf_coverage_stale_hint()}
+									</p>
 								{/if}
 							</li>
 						{/each}

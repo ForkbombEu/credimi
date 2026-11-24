@@ -1374,6 +1374,21 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 			message: "fcaf_profile is only for FCAF actions, at most 8 KiB",
 		},
 		{
+			name: "result of a chat plan",
+			edit: func(in *SaveRequest) {
+				*in = acceptedRequest(request, build.InstallerSHA256)
+				in.FCAFResult = &FCAFResult{Status: FCAFResultPassed}
+			},
+			message: "fcaf_result: only FCAF actions carry a result",
+		},
+		{
+			name: "result off the statuses",
+			edit: func(in *SaveRequest) {
+				in.FCAFResult = &FCAFResult{Status: "blocked"}
+			},
+			message: "fcaf_result: status must be passed or unsupported",
+		},
+		{
 			name: "code off the contract",
 			edit: func(in *SaveRequest) {
 				in.Code += "- takeScreenshot: home\n"
@@ -1393,6 +1408,7 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	}
 
 	in := fcafResetRequest(t, request, build.InstallerSHA256, scope)
+	in.FCAFResult = &FCAFResult{Status: FCAFResultUnsupported, Note: "no Deny button"}
 	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
 	require.NoError(t, err)
 	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
@@ -1402,6 +1418,7 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	assert.Equal(t, role.Name, provenance.FCAFRole)
 	assert.Equal(t, role.SHA256(), provenance.FCAFRoleSHA256)
 	assert.Equal(t, map[string]any{"pin": "123456"}, provenance.FCAFProfile)
+	assert.Equal(t, in.FCAFResult, provenance.FCAFResult)
 	assert.Equal(t, provenance, receipt.Provenance)
 
 	// A replacing save merges the FCAF tags into the record's own.
@@ -1556,6 +1573,8 @@ func TestFCAFCoverage(t *testing.T) {
 		Category:   "onboarding",
 		StartsFrom: []string{},
 		Status:     FCAFMissing,
+		Result:     "",
+		Note:       "",
 		RoleSHA256: role.SHA256(),
 	}, reset)
 	assert.Equal(t, FCAFMissing, issue.Status)
@@ -1576,7 +1595,16 @@ func TestFCAFCoverage(t *testing.T) {
 	assert.Equal(t, path, coverage["fcaf-reset-and-onboard"].Action)
 	assert.Equal(t, map[string]any{"pin": "123456"}, profile)
 
+	// The agent's verdict, recorded with the save, shows with the action.
 	provenance := savedProvenance(record)
+	provenance.FCAFResult = &FCAFResult{Status: FCAFResultUnsupported, Note: "no Deny button"}
+	record.Set("authoring_provenance", provenance)
+	require.NoError(t, app.Save(record))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFCurrent, coverage["fcaf-reset-and-onboard"].Status)
+	assert.Equal(t, FCAFResultUnsupported, coverage["fcaf-reset-and-onboard"].Result)
+	assert.Equal(t, "no Deny button", coverage["fcaf-reset-and-onboard"].Note)
+
 	provenance.FCAFRoleSHA256 = strings.Repeat("0", 64)
 	record.Set("authoring_provenance", provenance)
 	require.NoError(t, app.Save(record))
@@ -1611,13 +1639,30 @@ func TestSelectWallet(t *testing.T) {
 	assert.Nil(t, selection.Version)
 	assert.Empty(t, selection.Platform)
 
-	for _, path := range []string{request.WalletVersionIdentifier, "", segments[0] + "/unknown"} {
+	for _, path := range []string{request.WalletVersionIdentifier, ""} {
 		_, err := SelectWallet(app, namespace, request.Actor, path)
 		require.ErrorIs(t, err, ErrInvalid, path)
 	}
+	// An unknown wallet is forbidden, as an unpublished one of another organization.
+	_, err = SelectWallet(app, namespace, request.Actor, segments[0]+"/unknown")
+	require.ErrorIs(t, err, ErrForbidden)
+	_, err = SelectWallet(app, "", request.Actor, walletPath)
+	require.ErrorIs(t, err, ErrForbidden)
 
 	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
 	require.NoError(t, err)
-	_, err = SelectWallet(app, "", Actor{ActorID: other.Id}, walletPath)
+	orgID, err := pbutils.GetUserOrganizationID(app, other.Id)
+	require.NoError(t, err)
+	otherOrg, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	otherNamespace := otherOrg.GetString("canonified_name")
+	_, err = SelectWallet(app, otherNamespace, Actor{ActorID: other.Id}, walletPath)
 	require.ErrorIs(t, err, ErrForbidden)
+
+	// A published wallet of another organization is selected for the caller's own.
+	setRecordFields(t, app, selection.Wallet, map[string]any{"published": true})
+	foreign, err := SelectWallet(app, otherNamespace, Actor{ActorID: other.Id}, walletPath)
+	require.NoError(t, err)
+	assert.Equal(t, otherOrg.Id, foreign.Organization.Id)
+	assert.Equal(t, selection.Organization.Id, foreign.WalletOwner.Id)
 }

@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Label } from '@/components/ui/label';
 	import * as RadioGroup from '@/components/ui/radio-group/index.js';
+	import { Textarea } from '@/components/ui/textarea';
 	import { goto, m } from '@/i18n';
 
 	import {
@@ -37,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		walletBuilds,
 		walletPath
 	} from './builds';
-	import { modePlatforms } from './fcaf';
+	import { fcafGuidance, modePlatforms } from './fcaf';
 
 	//
 
@@ -60,6 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let selectedBuild = $state('');
 	let starting = $state(false);
 	let startError = $state('');
+	let guidance = $state('');
 
 	// A slower earlier load (after a quick close and reopen) must not overwrite the selection.
 	let loadId = 0;
@@ -71,10 +73,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (builds.isErr) throw new Error(builds.error.message);
 		const walletBuildList = walletBuilds(builds.value, walletPath(walletOwner, wallet));
 		if (id === loadId) {
-			const preferred = preferredDevice(
-				devices.value,
-				modePlatforms(buildPlatforms(walletBuildList), mode)
-			);
+			// The mode is always chat when the options load.
+			const preferred = preferredDevice(devices.value, buildPlatforms(walletBuildList));
 			selectedDevice = preferred;
 			selectedBuild = preferred
 				? (buildsForPlatform(walletBuildList, preferred.platform)[0]?.identifier ?? '')
@@ -86,6 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		if (!open) return;
 		mode = 'chat';
+		guidance = '';
 		options = loadOptions();
 		startError = '';
 	});
@@ -119,6 +120,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return;
 		}
 		const { session_id, device_id } = res.value;
+		if (mode === 'fcaf') fcafGuidance(session_id).start({ text: guidance.trim() });
 		open = false;
 		await goto(`/my/action-author/${session_id}?device=${encodeURIComponent(device_id)}`);
 	}
@@ -153,8 +155,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="space-y-2">
 							<Label>{m.Authoring_mode()}</Label>
 							<RadioGroup.Root
-								value={mode}
-								onValueChange={(v) => setMode(v as AuthoringMode, opts)}
+								bind:value={() => mode, (v) => setMode(v as AuthoringMode, opts)}
 								aria-label={m.Authoring_mode()}
 							>
 								<div class="flex items-start gap-2">
@@ -189,6 +190,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</div>
 							</RadioGroup.Root>
 						</div>
+
+						{#if mode === 'fcaf'}
+							<label class="block space-y-1 text-sm">
+								<span class="font-medium">{m.Fcaf_guidance()}</span>
+								<Textarea
+									bind:value={guidance}
+									maxlength={2000}
+									rows={3}
+									placeholder={m.Fcaf_guidance_placeholder()}
+								/>
+							</label>
+						{/if}
 
 						{#if mode === 'fcaf' && platforms.size === 0}
 							<T class="text-sm text-muted-foreground"

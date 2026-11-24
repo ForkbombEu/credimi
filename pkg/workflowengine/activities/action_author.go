@@ -241,6 +241,11 @@ func (a *SaveAuthoredWalletActionActivity) save(
 			"%w: approval is for another profile", actionauthor.ErrForbidden,
 		))
 	}
+	if approval.ResultSHA256 != actionauthor.FCAFResultSHA256(payload.FCAFResult) {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: approval is for another result", actionauthor.ErrForbidden,
+		))
+	}
 	if approval.Key == "" {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
 			"%w: the approval predates this release; accept the action again",

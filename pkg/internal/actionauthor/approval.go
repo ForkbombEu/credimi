@@ -40,6 +40,23 @@ type Approval struct {
 	// ProfileSHA256 binds the approval to the FCAF profile the user saw
 	// (ProfileSHA256), empty without one.
 	ProfileSHA256 string `json:"profile_sha256,omitempty"`
+	// ResultSHA256 binds the approval to the FCAF result the user saw
+	// (FCAFResultSHA256), empty without one.
+	ResultSHA256 string `json:"result_sha256,omitempty"`
+}
+
+// FCAFResultSHA256 hashes an FCAF result: the lowercase hex sha256 of its JSON
+// encoding, "" for a nil result.
+func FCAFResultSHA256(result *FCAFResult) string {
+	if result == nil {
+		return ""
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return ""
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:])
 }
 
 // ProfileSHA256 hashes an FCAF profile: the lowercase hex sha256 of its JSON

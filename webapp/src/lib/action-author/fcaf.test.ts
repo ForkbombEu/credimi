@@ -6,13 +6,25 @@ import { describe, expect, it } from 'vitest';
 
 import type { FcafCoverageStatus, FcafRoleCoverage, FcafRoleProgress, FcafRoleStatus } from './api';
 
-import { coverageCurrent, modePlatforms, progressDone, roleStatusVariant } from './fcaf';
+import {
+	coverageCounts,
+	coverageVerdict,
+	modePlatforms,
+	percent,
+	progressDone,
+	roleStatusLabel,
+	roleStatusVariant
+} from './fcaf';
 
 function progress(role: string, status: FcafRoleStatus): FcafRoleProgress {
 	return { role, status, key: '', note: '' };
 }
 
-function coverage(role: string, status: FcafCoverageStatus): FcafRoleCoverage {
+function coverage(
+	role: string,
+	status: FcafCoverageStatus,
+	result: FcafRoleCoverage['result'] = ''
+): FcafRoleCoverage {
 	return {
 		role,
 		summary: '',
@@ -21,7 +33,9 @@ function coverage(role: string, status: FcafCoverageStatus): FcafRoleCoverage {
 		starts_from: [],
 		status,
 		action: '',
-		role_sha256: ''
+		role_sha256: '',
+		result,
+		note: ''
 	};
 }
 
@@ -54,20 +68,58 @@ describe('progressDone', () => {
 });
 
 describe('roleStatusVariant', () => {
-	it('marks a blocked role as destructive and a current one as default', () => {
+	it('marks a blocked role as destructive and a passed one as default', () => {
 		expect(roleStatusVariant('blocked')).toBe('destructive');
-		expect(roleStatusVariant('current')).toBe('default');
+		expect(roleStatusVariant('passed')).toBe('default');
+	});
+
+	it('falls back to outline for an unknown status', () => {
+		expect(roleStatusVariant('done')).toBe('outline');
 	});
 });
 
-describe('coverageCurrent', () => {
-	it('counts the roles whose action is current', () => {
+describe('roleStatusLabel', () => {
+	it('shows an unknown status as is', () => {
+		expect(roleStatusLabel('done')).toBe('done');
+	});
+});
+
+describe('coverageVerdict', () => {
+	it('shows the verdict of a current action', () => {
+		expect(coverageVerdict(coverage('a', 'current', 'unsupported'))).toBe('unsupported');
+		expect(coverageVerdict(coverage('a', 'current', 'passed'))).toBe('passed');
+	});
+
+	it('marks a current action without a verdict as unrecorded', () => {
+		expect(coverageVerdict(coverage('a', 'current'))).toBe('unrecorded');
+	});
+
+	it('keeps the status of a stale, missing or unmanaged role', () => {
+		expect(coverageVerdict(coverage('a', 'stale', 'passed'))).toBe('stale');
+		expect(coverageVerdict(coverage('a', 'missing'))).toBe('missing');
+		expect(coverageVerdict(coverage('a', 'unmanaged'))).toBe('unmanaged');
+	});
+});
+
+describe('coverageCounts', () => {
+	it('counts the written and the supported roles', () => {
 		const roles = [
-			coverage('a', 'current'),
-			coverage('b', 'stale'),
+			coverage('a', 'current', 'passed'),
+			coverage('b', 'current', 'unsupported'),
 			coverage('c', 'current'),
-			coverage('d', 'missing')
+			coverage('d', 'stale', 'passed'),
+			coverage('e', 'missing')
 		];
-		expect(coverageCurrent(roles)).toBe(2);
+		expect(coverageCounts(roles)).toEqual({ total: 5, written: 3, supported: 1 });
+	});
+});
+
+describe('percent', () => {
+	it('rounds the percentage', () => {
+		expect(percent(2, 3)).toBe(67);
+	});
+
+	it('is 0 without roles', () => {
+		expect(percent(0, 0)).toBe(0);
 	});
 });

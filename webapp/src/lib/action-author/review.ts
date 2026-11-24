@@ -96,7 +96,7 @@ export function isFCAF(action: Pick<ReviewAction, 'plan'>): boolean {
 
 /**
  * The decisions the review sends, in review order. Every accepted FCAF action carries the
- * review's profile, which the approval binds.
+ * review's profile and the agent's verdict on it, which the approval binds.
  */
 export function reviewDecisions(
 	review: Pick<PendingReview, 'actions' | 'profile'>,
@@ -114,6 +114,9 @@ export function reviewDecisions(
 			plan: action.plan,
 			...(decision === 'accept' && review.profile && isFCAF(action)
 				? { profile: review.profile }
+				: {}),
+			...(decision === 'accept' && isFCAF(action) && action.fcaf_status
+				? { fcaf_result: { status: action.fcaf_status, note: action.note ?? '' } }
 				: {})
 		};
 	});

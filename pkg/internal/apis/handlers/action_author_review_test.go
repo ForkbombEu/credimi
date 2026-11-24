@@ -563,6 +563,71 @@ func TestActionAuthorReviewBindsTheFCAFProfile(t *testing.T) {
 	}
 }
 
+// An accept of an FCAF action binds the agent's verdict the review showed; a
+// chat action carries none.
+func TestActionAuthorReviewBindsTheFCAFResult(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	result := &actionauthor.FCAFResult{Status: actionauthor.FCAFResultUnsupported, Note: "x"}
+	for _, tc := range []struct {
+		name     string
+		mode     string
+		plan     actionauthor.Spec
+		status   int
+		expected string
+	}{
+		{
+			name:   "fcaf action",
+			mode:   actionauthor.SessionModeFCAF,
+			plan:   actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"},
+			status: http.StatusOK,
+		},
+		{
+			name:     "chat action",
+			plan:     actionauthor.Spec{Slot: "onboarding"},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_result: only FCAF actions carry a result",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode = tc.mode
+			decision := reviewDecision("a1", reviewSHA1, "accept", tc.plan, "")
+			decision.FCAFResult = result
+			expected := []string{`"decision":"accept"`}
+			if tc.expected != "" {
+				expected = []string{`"invalid_request"`, tc.expected}
+			}
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body:   strings.NewReader(reviewBody(t, decision)),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: expected,
+				TestAppFactory:  setupActionAuthorApp,
+				AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+					if tc.status != http.StatusOK {
+						require.Empty(t, stub.workflowID)
+						return
+					}
+					decisions := deliveredDecisions(t, stub)
+					require.Len(t, decisions, 1)
+					token, _ := decisions[0]["approval"].(string)
+					approval, err := actionauthor.VerifyApproval(
+						app, token, reviewAuthorWorkflow, reviewSHA1, time.Now(),
+					)
+					require.NoError(t, err)
+					require.Equal(t, actionauthor.FCAFResultSHA256(result), approval.ResultSHA256)
+				},
+			}).Test(t)
+		})
+	}
+}
+
 func TestActionAuthorReviewBindsTheReplacedCode(t *testing.T) {
 	user, err := getUserRecordFromName("userA")
 	require.NoError(t, err)

@@ -379,13 +379,18 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 
 // SelectWallet authorizes the caller on the wallet walletPath
 // (organization/wallet, canonified) as Select does, without a build: the
-// selection has no version, platform or package. Coverage and listings use it.
+// selection has no version, platform or package. The FCAF coverage endpoint
+// uses it. organization must not be empty. A wallet that is not found is
+// ErrForbidden, as one the caller cannot author.
 func SelectWallet(
 	app core.App,
 	organization string,
 	in Actor,
 	walletPath string,
 ) (Selection, error) {
+	if organization == "" {
+		return Selection{}, fmt.Errorf("%w: no organization", ErrForbidden)
+	}
 	actor, err := findActor(app, in)
 	if err != nil {
 		return Selection{}, err
@@ -400,7 +405,7 @@ func SelectWallet(
 		dbx.Params{"wallet": segments[1], "org": segments[0]},
 	)
 	if err != nil {
-		return Selection{}, fmt.Errorf("%w: wallet not found", ErrInvalid)
+		return Selection{}, fmt.Errorf("%w: wallet not found", ErrForbidden)
 	}
 	caller, walletOwner, _, err := walletAccess(app, organization, actor, wallet)
 	if err != nil {
@@ -525,6 +530,8 @@ type SaveRequest struct {
 	FCAF *FCAFScope `json:"-"`
 	// FCAFProfile is the agent's notes on the wallet, kept with an FCAF action.
 	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
+	// FCAFResult is the agent's verdict on an FCAF action, kept with it.
+	FCAFResult *FCAFResult `json:"fcaf_result,omitempty"`
 }
 
 // maxFCAFProfileBytes bounds the JSON encoding of an FCAF profile.
@@ -571,6 +578,8 @@ type Provenance struct {
 	FCAFRoleSHA256 string `json:"fcaf_role_sha256,omitempty"`
 	// FCAFProfile is the agent's notes on the wallet, given with the save.
 	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
+	// FCAFResult is the agent's verdict on the FCAF action, given with the save.
+	FCAFResult *FCAFResult `json:"fcaf_result,omitempty"`
 }
 
 // Receipt describes the saved record and its validation provenance.
@@ -665,6 +674,36 @@ func validFCAFProfileNotes(value any) bool {
 	return true
 }
 
+// FCAFResult is what the agent found when it wrote an FCAF action: the wallet
+// did the role (passed) or cannot do it (unsupported), and its note.
+type FCAFResult struct {
+	Status string `json:"status"`
+	Note   string `json:"note"`
+}
+
+// FCAF result statuses, and the bound of a result's note.
+const (
+	FCAFResultPassed       = "passed"
+	FCAFResultUnsupported  = "unsupported"
+	maxFCAFResultNoteRunes = 2000
+)
+
+// CheckFCAFResult refuses a result for an action without an FCAF role, a
+// status other than passed or unsupported, and a note over 2000 characters.
+func CheckFCAFResult(result *FCAFResult, fcafRole string) error {
+	switch {
+	case result == nil:
+		return nil
+	case fcafRole == "":
+		return fmt.Errorf("%w: fcaf_result: only FCAF actions carry a result", ErrInvalid)
+	case result.Status != FCAFResultPassed && result.Status != FCAFResultUnsupported:
+		return fmt.Errorf("%w: fcaf_result: status must be passed or unsupported", ErrInvalid)
+	case utf8.RuneCountInString(result.Note) > maxFCAFResultNoteRunes:
+		return fmt.Errorf("%w: fcaf_result: note is longer than 2000 characters", ErrInvalid)
+	}
+	return nil
+}
+
 // validateAcceptedAction checks the accepted candidate and its code; for an
 // FCAF plan it also checks the plan and code against the role, which it
 // returns, nil otherwise.
@@ -677,6 +716,9 @@ func validateAcceptedAction(in *SaveRequest, selection Selection) (*walletroles.
 		return nil, fmt.Errorf("%w: batch_key must match a<number>", ErrInvalid)
 	}
 	if err := CheckFCAFProfile(in.FCAFProfile, in.Spec.FCAFRole); err != nil {
+		return nil, err
+	}
+	if err := CheckFCAFResult(in.FCAFResult, in.Spec.FCAFRole); err != nil {
 		return nil, err
 	}
 	scope := CodeScope{
@@ -733,6 +775,7 @@ func fcafProvenance(provenance *Provenance, in *SaveRequest, role walletroles.Ro
 	provenance.FCAFRole = role.Name
 	provenance.FCAFRoleSHA256 = role.SHA256()
 	provenance.FCAFProfile = in.FCAFProfile
+	provenance.FCAFResult = in.FCAFResult
 	return nil
 }
 
