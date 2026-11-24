@@ -120,7 +120,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return;
 		}
 		const { session_id, device_id } = res.value;
-		if (mode === 'fcaf') fcafGuidance(session_id).start({ text: guidance.trim() });
+		if (mode === 'fcaf') {
+			try {
+				fcafGuidance(session_id).start({ text: guidance.trim() });
+			} catch {
+				/* storage unavailable: the page sends the default first message */
+			}
+		}
 		open = false;
 		await goto(`/my/action-author/${session_id}?device=${encodeURIComponent(device_id)}`);
 	}

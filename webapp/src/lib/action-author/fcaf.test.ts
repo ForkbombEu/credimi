@@ -102,15 +102,14 @@ describe('coverageVerdict', () => {
 });
 
 describe('coverageCounts', () => {
-	it('counts the written and the supported roles', () => {
+	it('counts the written, the recorded and the supported roles', () => {
 		const roles = [
 			coverage('a', 'current', 'passed'),
 			coverage('b', 'current', 'unsupported'),
 			coverage('c', 'current'),
-			coverage('d', 'stale', 'passed'),
-			coverage('e', 'missing')
+			coverage('d', 'missing')
 		];
-		expect(coverageCounts(roles)).toEqual({ total: 5, written: 3, supported: 1 });
+		expect(coverageCounts(roles)).toEqual({ total: 4, written: 3, recorded: 2, supported: 1 });
 	});
 });
 

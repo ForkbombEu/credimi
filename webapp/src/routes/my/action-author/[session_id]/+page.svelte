@@ -203,9 +203,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return true;
 			},
 			showSuccessToast: !quiet,
-			// The first End of a running FCAF campaign stops it and shows its actions for review.
+			// The first End of a running FCAF campaign with roles left stops it and shows its
+			// actions for review.
 			successText:
-				session?.mode === 'fcaf' && session.chat_running && !pendingReview
+				session?.mode === 'fcaf' &&
+				session.chat_running &&
+				!pendingReview &&
+				!!session.fcaf_progress?.roles.some(
+					(r) => r.status === 'working' || r.status === 'pending'
+				)
 					? m.Fcaf_stopping()
 					: undefined
 		});
@@ -216,12 +222,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/* Leaving the page ends a chat session */
 
 	// The queued ticket or the running chat holds a device until it ends; once the chat has
-	// ended the session only releases the device. An FCAF campaign runs on its own.
+	// ended the session only releases the device. Leaving an FCAF session before its chat is
+	// ready ends it: only this page sends the first message. Afterwards the campaign runs on
+	// its own.
 	const guardActive = $derived(
 		(!!queue && !stoppedMessage) ||
-			(session?.mode !== 'fcaf' &&
-				session?.status === 'Running' &&
-				(!session.chat_ready || session.chat_running))
+			(session?.status === 'Running' &&
+				(session.mode === 'fcaf'
+					? !session.chat_ready
+					: !session.chat_ready || session.chat_running))
 	);
 	let exitConfirmed = false;
 

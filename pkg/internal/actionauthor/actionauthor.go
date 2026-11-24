@@ -404,8 +404,11 @@ func SelectWallet(
 		"canonified_name = {:wallet} && owner.canonified_name = {:org}",
 		dbx.Params{"wallet": segments[1], "org": segments[0]},
 	)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
 		return Selection{}, fmt.Errorf("%w: wallet not found", ErrForbidden)
+	}
+	if err != nil {
+		return Selection{}, fmt.Errorf("find wallet: %w", err)
 	}
 	caller, walletOwner, _, err := walletAccess(app, organization, actor, wallet)
 	if err != nil {

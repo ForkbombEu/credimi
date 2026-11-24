@@ -547,6 +547,17 @@ func TestActionAuthorSessionReadsTheFCAFProgress(t *testing.T) {
 			{"role": "fcaf-issue-pid", "status": "done", "key": "a3", "note": ""},
 		},
 	}
+	// A role past the first actionAuthorProgressMaxRoles is not read.
+	for i := range 100 {
+		hostile["roles"] = append(
+			hostile["roles"].([]map[string]any),
+			map[string]any{"role": fmt.Sprintf("evil-%d", i), "status": "passed"},
+		)
+	}
+	hostile["roles"] = append(
+		hostile["roles"].([]map[string]any),
+		map[string]any{"role": "fcaf-issue-pid", "status": "working"},
+	)
 	for _, tc := range []struct {
 		name     string
 		progress map[string]any

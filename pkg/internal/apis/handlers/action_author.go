@@ -1104,6 +1104,9 @@ func readActionAuthorChat(
 // actionAuthorProgressNoteRunes caps a role's note in the progress, as the agent does.
 const actionAuthorProgressNoteRunes = 500
 
+// actionAuthorProgressMaxRoles caps the roles read from the runner's answer.
+const actionAuthorProgressMaxRoles = 64
+
 // fcafProgressStatuses are the statuses of a role in an FCAF campaign.
 var fcafProgressStatuses = map[string]bool{
 	"pending":     true,
@@ -1114,9 +1117,10 @@ var fcafProgressStatuses = map[string]bool{
 	"skipped":     true,
 }
 
-// fcafProgress keeps, from the runner's answer, the roles of the session's suite once each
-// with a known status, each note cut to actionAuthorProgressNoteRunes and each key a
-// candidate key; current_role only when it is a kept role. Nil when the contract does not load.
+// fcafProgress keeps, from the first actionAuthorProgressMaxRoles roles of the runner's
+// answer, the roles of the session's suite once each with a known status, each note cut to
+// actionAuthorProgressNoteRunes and each key a candidate key; current_role only when it is a
+// kept role. Nil when the contract does not load.
 func fcafProgress(
 	e *core.RequestEvent,
 	in ActionAuthorFCAFProgress,
@@ -1130,7 +1134,7 @@ func fcafProgress(
 	scope := &actionauthor.FCAFScope{Contract: contract, Suite: suite}
 	out := &ActionAuthorFCAFProgress{Roles: []ActionAuthorFCAFRole{}}
 	seen := map[string]bool{}
-	for _, r := range in.Roles {
+	for _, r := range in.Roles[:min(len(in.Roles), actionAuthorProgressMaxRoles)] {
 		if _, err := actionauthor.FCAFSuiteRole(scope, r.Role); err != nil ||
 			seen[r.Role] || !fcafProgressStatuses[r.Status] {
 			continue

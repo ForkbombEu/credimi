@@ -120,7 +120,6 @@ Run the narrow checks while iterating:
 gofmt -w pkg/fcaf/validators/dcql.go  # only when this Go file changed
 make fcaf-generate
 go test ./cmd/fcaf-pipeline-gen ./pkg/fcaf/... ./pkg/internal/pipeline
-go test ./pkg/fcaf/walletroles/
 git diff --check
 ```
 

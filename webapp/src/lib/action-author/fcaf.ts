@@ -51,13 +51,7 @@ export function roleStatusLabel(status: string): string {
 }
 
 /** What the wallet's coverage says of a role. */
-export type CoverageVerdict =
-	| 'passed'
-	| 'unsupported'
-	| 'unrecorded'
-	| 'stale'
-	| 'missing'
-	| 'unmanaged';
+type CoverageVerdict = 'passed' | 'unsupported' | 'unrecorded' | 'stale' | 'missing' | 'unmanaged';
 
 /** The coverage verdict of a role: a current action shows the agent's verdict on it. */
 export function coverageVerdict(role: FcafRoleCoverage): CoverageVerdict {
@@ -73,17 +67,23 @@ export function coverageVerdict(role: FcafRoleCoverage): CoverageVerdict {
 	}
 }
 
-/** The roles with a current action (written) and those whose current action passed (supported). */
+/**
+ * The roles with a current action (written), those whose current action has a recorded
+ * verdict (recorded) and those whose recorded verdict passed (supported).
+ */
 export function coverageCounts(roles: FcafRoleCoverage[]): {
 	total: number;
 	written: number;
+	recorded: number;
 	supported: number;
 } {
 	const current = roles.filter((r) => r.status === 'current');
+	const recorded = current.filter((r) => r.result !== '');
 	return {
 		total: roles.length,
 		written: current.length,
-		supported: current.filter((r) => r.result === 'passed').length
+		recorded: recorded.length,
+		supported: recorded.filter((r) => r.result === 'passed').length
 	};
 }
 
