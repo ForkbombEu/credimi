@@ -51,6 +51,16 @@ const tools: ExtraLink[] = [
 		href: 'https://tsl.credimi.io/',
 		title: m.extra_token_status_list_console(),
 		description: m.extra_token_status_list_console_description()
+	},
+	{
+		href: 'https://federation.credimi.io/',
+		title: m.extra_openid_federation_trust_anchor(),
+		description: m.extra_openid_federation_trust_anchor_description()
+	},
+	{
+		href: 'https://attestbook.credimi.io/',
+		title: m.extra_attestation_rulebooks_catalogue(),
+		description: m.extra_attestation_rulebooks_catalogue_description()
 	}
 ];
 
