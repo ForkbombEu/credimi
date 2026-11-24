@@ -27,6 +27,7 @@ const STATUS_VARIANTS: Record<string, BadgeVariant> = {
 	pending: 'secondary',
 	working: 'secondary',
 	unsupported: 'outline',
+	finding: 'destructive',
 	skipped: 'outline',
 	blocked: 'destructive'
 };
@@ -41,6 +42,7 @@ const STATUS_LABELS: Record<string, () => string> = {
 	working: m.Fcaf_role_working,
 	passed: m.Fcaf_role_passed,
 	unsupported: m.Fcaf_role_unsupported,
+	finding: m.Fcaf_role_finding,
 	blocked: m.Fcaf_role_blocked,
 	skipped: m.Fcaf_role_skipped
 };
@@ -51,7 +53,14 @@ export function roleStatusLabel(status: string): string {
 }
 
 /** What the wallet's coverage says of a role. */
-type CoverageVerdict = 'passed' | 'unsupported' | 'unrecorded' | 'stale' | 'missing' | 'unmanaged';
+type CoverageVerdict =
+	| 'passed'
+	| 'unsupported'
+	| 'finding'
+	| 'unrecorded'
+	| 'stale'
+	| 'missing'
+	| 'unmanaged';
 
 /** The coverage verdict of a role: a current action shows the agent's verdict on it. */
 export function coverageVerdict(role: FcafRoleCoverage): CoverageVerdict {
@@ -95,6 +104,7 @@ export function percent(n: number, total: number): number {
 const COVERAGE_LABELS: Record<CoverageVerdict, () => string> = {
 	passed: m.Fcaf_role_passed,
 	unsupported: m.Fcaf_role_unsupported,
+	finding: m.Fcaf_role_finding,
 	unrecorded: m.Fcaf_coverage_unrecorded,
 	stale: m.Fcaf_coverage_stale,
 	missing: m.Fcaf_coverage_missing,
@@ -104,6 +114,7 @@ const COVERAGE_LABELS: Record<CoverageVerdict, () => string> = {
 const COVERAGE_VARIANTS: Record<CoverageVerdict, BadgeVariant> = {
 	passed: 'default',
 	unsupported: 'outline',
+	finding: 'destructive',
 	unrecorded: 'secondary',
 	stale: 'outline',
 	missing: 'secondary',

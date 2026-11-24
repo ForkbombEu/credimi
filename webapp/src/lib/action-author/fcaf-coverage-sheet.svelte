@@ -108,7 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{#if role.summary}
 									<p class="text-xs text-muted-foreground">{role.summary}</p>
 								{/if}
-								{#if verdict === 'unsupported'}
+								{#if verdict === 'unsupported' || verdict === 'finding'}
 									<p class="text-xs break-words whitespace-pre-wrap">
 										{role.note}
 									</p>

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
@@ -168,16 +169,18 @@ type DescribeActionAuthorFCAFRoleOutput struct {
 
 // FCAFFixtureOption is a fixture of an FCAF scenario that exercises the role,
 // with the plan whose parameter it generates. PIDIssuer is set only for the
-// injected issuance's fixtures.
+// injected issuance's fixtures. Setup is what the start state holds beyond
+// StartsFrom, never nil.
 type FCAFFixtureOption struct {
-	ID           string            `json:"id"`
-	Scenario     string            `json:"scenario"`
-	MobileStepID string            `json:"mobile_step_id"`
-	Standalone   bool              `json:"standalone"`
-	PIDFormat    string            `json:"pid_format"`
-	PIDIssuer    string            `json:"pid_issuer"`
-	TestIDs      []string          `json:"test_ids"`
-	Plan         actionauthor.Spec `json:"plan"`
+	ID           string                     `json:"id"`
+	Scenario     string                     `json:"scenario"`
+	MobileStepID string                     `json:"mobile_step_id"`
+	Standalone   bool                       `json:"standalone"`
+	PIDFormat    string                     `json:"pid_format"`
+	PIDIssuer    string                     `json:"pid_issuer"`
+	TestIDs      []string                   `json:"test_ids"`
+	Setup        []walletroles.FixtureSetup `json:"setup"`
+	Plan         actionauthor.Spec          `json:"plan"`
 }
 
 // DescribeActionAuthorFCAFRoleActivity describes a role of the caller
@@ -283,6 +286,19 @@ func describeFCAFRole(
 	if err != nil {
 		return DescribeActionAuthorFCAFRoleOutput{}, err
 	}
+	if role.Injected != walletroles.InjectedIssuance {
+		// Standalone first, then the fixtures that feed more tests, then by ID.
+		sort.SliceStable(fixtures, func(i, j int) bool {
+			a, b := fixtures[i], fixtures[j]
+			if a.Standalone != b.Standalone {
+				return a.Standalone
+			}
+			if len(a.TestIDs) != len(b.TestIDs) {
+				return len(a.TestIDs) > len(b.TestIDs)
+			}
+			return a.ID < b.ID
+		})
+	}
 	for _, fixture := range fixtures[:min(len(fixtures), fcafDescribeFixtures)] {
 		output.Fixtures = append(output.Fixtures, FCAFFixtureOption{
 			ID:           fixture.ID,
@@ -292,6 +308,7 @@ func describeFCAFRole(
 			PIDFormat:    fixture.PIDFormat,
 			PIDIssuer:    fixture.PIDIssuer,
 			TestIDs:      nonNil(fixture.TestIDs),
+			Setup:        nonNil(fixture.Setup),
 			Plan:         fixturePlan(role, fixture),
 		})
 	}

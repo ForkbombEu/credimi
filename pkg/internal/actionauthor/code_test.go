@@ -710,7 +710,8 @@ func TestValidateCodeAcceptsFCAFReferences(t *testing.T) {
 
 func TestValidateCodeFCAF(t *testing.T) {
 	scope := fcafTestScope(t)
-	const header = "appId: eu.europa.ec.euidi\n---\n"
+	// Every role that launches the wallet starts with launchApp.
+	const header = "appId: eu.europa.ec.euidi\n---\n- launchApp\n"
 	cases := []struct {
 		name    string
 		role    string
@@ -802,37 +803,63 @@ func TestValidateCodeFCAF(t *testing.T) {
 		{
 			name: "wait role must wait",
 			role: "fcaf-wait-past-status-list-expiry",
-			code: header + "- assertVisible: \"Home\"\n",
+			code: "appId: eu.europa.ec.euidi\n---\n- assertVisible: \"Home\"\n",
 			want: []string{"the last command other than takeScreenshot must wait 240 s: " +
 				"extendedWaitUntil with visible: <text>, optional: true and timeout: 240000"},
+		},
+		{
+			name: "launch of the wallet by package",
+			role: "fcaf-expect-request-rejected",
+			code: "appId: eu.europa.ec.euidi\n---\n- launchApp: eu.europa.ec.euidi\n" +
+				"- openLink: ${deeplink}\n- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+		},
+		{
+			name: "no launch of the wallet",
+			role: "fcaf-expect-request-rejected",
+			code: "appId: eu.europa.ec.euidi\n---\n- openLink: ${deeplink}\n" +
+				"- runFlow:\n    when:\n      visible: \"Locked\"\n    commands:\n      - launchApp\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{
+				"the role launches the wallet: start the action with launchApp of eu.europa.ec.euidi",
+			},
+		},
+		{
+			name: "launch of another app only",
+			role: "fcaf-expect-request-rejected",
+			code: "appId: eu.europa.ec.euidi\n---\n- launchApp:\n    appId: com.android.chrome\n" +
+				"- openLink: ${deeplink}\n- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{
+				"the role launches the wallet: start the action with launchApp of eu.europa.ec.euidi",
+				"commands[0]: launchApp targets 'com.android.chrome', not the app under test",
+			},
 		},
 		{
 			name: "clearState outside the reset role",
 			role: "fcaf-expect-request-rejected",
 			code: header + "- launchApp:\n    clearState: true\n- openLink: ${deeplink}\n" +
 				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
-			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+			want: []string{"commands[1]: only the FCAF reset role clears the app state"},
 		},
 		{
 			name: "clearState quoted true outside the reset role",
 			role: "fcaf-expect-request-rejected",
 			code: header + "- launchApp:\n    clearState: \"true\"\n- openLink: ${deeplink}\n" +
 				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
-			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+			want: []string{"commands[1]: only the FCAF reset role clears the app state"},
 		},
 		{
 			name: "clearState yes outside the reset role",
 			role: "fcaf-expect-request-rejected",
 			code: header + "- launchApp:\n    clearState: yes\n- openLink: ${deeplink}\n" +
 				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
-			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+			want: []string{"commands[1]: only the FCAF reset role clears the app state"},
 		},
 		{
 			name: "clearState on outside the reset role",
 			role: "fcaf-expect-request-rejected",
 			code: header + "- launchApp:\n    clearState: on\n- openLink: ${deeplink}\n" +
 				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
-			want: []string{"commands[0]: only the FCAF reset role clears the app state"},
+			want: []string{"commands[1]: only the FCAF reset role clears the app state"},
 		},
 		{
 			name: "clearState false outside the reset role",
@@ -845,7 +872,7 @@ func TestValidateCodeFCAF(t *testing.T) {
 			role: "fcaf-expect-request-rejected",
 			code: header + "- openLink: ${deeplink}\n- assertTrue: \"${x}\"\n" +
 				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
-			want: []string{"commands[1]: assertTrue may only fail the flow on purpose: " +
+			want: []string{"commands[2]: assertTrue may only fail the flow on purpose: " +
 				"assertTrue: {condition: \"false\"}"},
 			missing: true,
 		},
@@ -855,7 +882,7 @@ func TestValidateCodeFCAF(t *testing.T) {
 			code: header + "- openLink: ${deeplink}\n" +
 				"- assertTrue:\n    condition: \"false\"\n    optional: true\n" +
 				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
-			want: []string{"commands[1]: assertTrue may only fail the flow on purpose: " +
+			want: []string{"commands[2]: assertTrue may only fail the flow on purpose: " +
 				"assertTrue: {condition: \"false\"}"},
 		},
 		{
@@ -864,7 +891,7 @@ func TestValidateCodeFCAF(t *testing.T) {
 			code: header + "- stopApp: com.android.chrome\n- openLink: ${deeplink}\n" +
 				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
 			want: []string{
-				"commands[0]: stopApp targets 'com.android.chrome', not the app under test",
+				"commands[1]: stopApp targets 'com.android.chrome', not the app under test",
 			},
 		},
 		{

@@ -51,8 +51,8 @@ export type ReviewAction = {
 	error: string;
 	/** The agent's note on the action (wallet findings, why the wallet cannot do the role). */
 	note?: string;
-	/** The agent's verdict on an FCAF action: passed or unsupported; absent otherwise. */
-	fcaf_status?: 'passed' | 'unsupported';
+	/** The agent's verdict on an FCAF action: passed, unsupported or finding; absent otherwise. */
+	fcaf_status?: 'passed' | 'unsupported' | 'finding';
 	/** Candidate keys among the prerequisites of the action's plan. */
 	starts_from: string[];
 	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
@@ -79,6 +79,7 @@ export type FcafRoleStatus =
 	| 'working'
 	| 'passed'
 	| 'unsupported'
+	| 'finding'
 	| 'blocked'
 	| 'skipped';
 
@@ -101,7 +102,7 @@ export type FcafRoleCoverage = {
 	action: string;
 	role_sha256: string;
 	/** The agent's verdict on the saved FCAF action, empty when not recorded or no action. */
-	result: '' | 'passed' | 'unsupported';
+	result: '' | 'passed' | 'unsupported' | 'finding';
 	/** The agent's note on the saved action. */
 	note: string;
 };
@@ -173,7 +174,7 @@ export type StartedSession = { session_id: string; ticket_id: string; device_id:
 export type ApiFailure = { status: number; reason: string; message: string };
 
 /** The agent's verdict on an FCAF action, as the review showed it. */
-export type FcafResult = { status: 'passed' | 'unsupported'; note: string };
+export type FcafResult = { status: 'passed' | 'unsupported' | 'finding'; note: string };
 
 export type Decision = 'accept' | 'refuse' | 'change';
 

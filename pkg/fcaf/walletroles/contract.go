@@ -142,11 +142,13 @@ func (r Role) SHA256() string {
 // StartsFrom returns the names of the roles a role's action starts from, in
 // order: none for onboarding, the reset for the others, and the reset then
 // the PID issuance for presentations, as the generator runs every scenario.
+// An absence probe starts from the reset alone: the generator injects no PID
+// before it.
 func (c *Contract) StartsFrom(role Role) []string {
-	switch role.Category {
-	case "onboarding":
+	switch {
+	case role.Category == "onboarding":
 		return []string{}
-	case "verify-credential":
+	case role.Category == "verify-credential" && !role.AbsenceProbe:
 		return []string{c.Injected(InjectedReset).Name, c.Injected(InjectedIssuance).Name}
 	default:
 		return []string{c.Injected(InjectedReset).Name}

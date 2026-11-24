@@ -119,8 +119,8 @@ type FCAFRoleCoverage struct {
 	StartsFrom []string `json:"starts_from"`
 	Status     string   `json:"status"` // "missing" | "current" | "stale" | "unmanaged"
 	Action     string   `json:"action"` // canonified path of the wallet's record, "" when missing
-	// Result is the agent's verdict on the saved FCAF action, "passed" or
-	// "unsupported"; "" when not recorded or no action.
+	// Result is the agent's verdict on the saved FCAF action, "passed",
+	// "unsupported" or "finding"; "" when not recorded or no action.
 	Result     string `json:"result"`
 	Note       string `json:"note"` // the agent's note on the saved action
 	RoleSHA256 string `json:"role_sha256"`

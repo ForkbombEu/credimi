@@ -8,6 +8,8 @@ import type { FcafCoverageStatus, FcafRoleCoverage, FcafRoleProgress, FcafRoleSt
 
 import {
 	coverageCounts,
+	coverageLabel,
+	coverageVariant,
 	coverageVerdict,
 	modePlatforms,
 	percent,
@@ -73,6 +75,10 @@ describe('roleStatusVariant', () => {
 		expect(roleStatusVariant('passed')).toBe('default');
 	});
 
+	it('marks a wallet finding as destructive', () => {
+		expect(roleStatusVariant('finding')).toBe('destructive');
+	});
+
 	it('falls back to outline for an unknown status', () => {
 		expect(roleStatusVariant('done')).toBe('outline');
 	});
@@ -82,12 +88,22 @@ describe('roleStatusLabel', () => {
 	it('shows an unknown status as is', () => {
 		expect(roleStatusLabel('done')).toBe('done');
 	});
+
+	it('labels a wallet finding', () => {
+		expect(roleStatusLabel('finding')).toBe('Wallet finding');
+	});
 });
 
 describe('coverageVerdict', () => {
 	it('shows the verdict of a current action', () => {
 		expect(coverageVerdict(coverage('a', 'current', 'unsupported'))).toBe('unsupported');
 		expect(coverageVerdict(coverage('a', 'current', 'passed'))).toBe('passed');
+		expect(coverageVerdict(coverage('a', 'current', 'finding'))).toBe('finding');
+	});
+
+	it('labels a finding coverage as a destructive wallet finding', () => {
+		expect(coverageLabel('finding')).toBe('Wallet finding');
+		expect(coverageVariant('finding')).toBe('destructive');
 	});
 
 	it('marks a current action without a verdict as unrecorded', () => {
@@ -110,6 +126,11 @@ describe('coverageCounts', () => {
 			coverage('d', 'missing')
 		];
 		expect(coverageCounts(roles)).toEqual({ total: 4, written: 3, recorded: 2, supported: 1 });
+	});
+
+	it('counts a wallet finding as recorded, not supported', () => {
+		const roles = [coverage('a', 'current', 'passed'), coverage('b', 'current', 'finding')];
+		expect(coverageCounts(roles)).toEqual({ total: 2, written: 2, recorded: 2, supported: 1 });
 	});
 });
 

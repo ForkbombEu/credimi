@@ -64,10 +64,10 @@ const (
 // FixtureRequest is the HTTP request that creates the session a role's
 // parameter opens.
 type FixtureRequest struct {
-	Method  string
-	URL     string
-	Headers map[string]string
-	Body    any
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Body    any               `json:"body,omitempty"`
 }
 
 // FixtureFetch is a GET step that reads back the session the request created.
@@ -101,6 +101,20 @@ type Fixture struct {
 	Fetches         []FixtureFetch
 	TestIDs         []string
 	PipelineOutputs map[string]any
+	// Setup lists what the start state must hold beyond the role's starting actions, in order:
+	// a PID of another format for each further format the request asks for, and the scenario's
+	// own earlier credential offers a non-standalone step depends on.
+	Setup []FixtureSetup `json:"setup"`
+}
+
+// FixtureSetup is one credential a fixture's start state holds beyond the
+// role's starting actions: an injected PID of PIDFormat, or a scenario offer
+// that Role accepted, whose parameter Request generates.
+type FixtureSetup struct {
+	Role      string          `json:"role"`              // issuance role, or the role that ran the offer
+	PIDFormat string          `json:"pid_format"`        // set for an injected PID; the runner picks the wallet's issuer
+	Request   *FixtureRequest `json:"request,omitempty"` // set for a scenario offer
+	ValuePath string          `json:"value_path,omitempty"`
 }
 
 var (
@@ -370,6 +384,7 @@ func pidFixtures(role Role) []Fixture {
 				Fetches:         []FixtureFetch{},
 				TestIDs:         []string{},
 				PipelineOutputs: map[string]any{},
+				Setup:           []FixtureSetup{},
 			})
 		}
 	}
@@ -407,7 +422,7 @@ func (c *Contract) scenarioFixtures(
 	actionID := c.ReferencePrefix + role.Name
 	var fixtures []Fixture
 	mobileSeen := false
-	for _, step := range scenario.steps {
+	for index, step := range scenario.steps {
 		use, _ := step["use"].(string)
 		if use != mobileAutomationUse {
 			continue
@@ -425,12 +440,60 @@ func (c *Contract) scenarioFixtures(
 		fixture.ID = scenario.name + "#" + fixture.MobileStepID
 		fixture.Scenario = scenario.name
 		fixture.Standalone = standalone
+		fixture.Setup = c.fixtureSetup(fixture, role, scenario, scenario.steps[:index])
 		if err := scenarioTests(&fixture, scenario.steps, loader); err != nil {
 			return nil, fmt.Errorf("FCAF scenario %s: %w", scenario.path, err)
 		}
 		fixtures = append(fixtures, fixture)
 	}
 	return fixtures, nil
+}
+
+// fixtureSetup returns the setup of a fixture whose role step comes after
+// earlier: for a role that starts from the injected PID, a PID of each further
+// format its request asks for; then, for a non-standalone fixture, the offers
+// of earlier steps whose role issues a credential and is not injected, when a
+// self-contained POST generates their parameter.
+func (c *Contract) fixtureSetup(
+	fixture Fixture,
+	role Role,
+	scenario fixtureScenario,
+	earlier []map[string]any,
+) []FixtureSetup {
+	setup := []FixtureSetup{}
+	issuance := c.Injected(InjectedIssuance).Name
+	if slices.Contains(c.StartsFrom(role), issuance) {
+		for _, format := range RequestPIDFormats(fixture.Request.Body) {
+			if format != fixture.PIDFormat {
+				setup = append(setup, FixtureSetup{Role: issuance, PIDFormat: format})
+			}
+		}
+	}
+	if fixture.Standalone {
+		return setup
+	}
+	for _, step := range earlier {
+		if use, _ := step["use"].(string); use != mobileAutomationUse {
+			continue
+		}
+		with, _ := step["with"].(map[string]any)
+		actionID, _ := with["action_id"].(string)
+		name, isReference := strings.CutPrefix(actionID, c.ReferencePrefix)
+		offerRole, known := c.Role(name)
+		if !isReference || !known || !offerRole.IssuesCredential || offerRole.Injected != "" {
+			continue
+		}
+		_, valuePath, request, ok := stepRequest(step, offerRole, scenario.byID)
+		if !ok {
+			continue
+		}
+		setup = append(setup, FixtureSetup{
+			Role:      offerRole.Name,
+			Request:   &request,
+			ValuePath: valuePath,
+		})
+	}
+	return setup
 }
 
 func substituteFixture(value any, values map[string]string) any {
@@ -463,19 +526,7 @@ func stepFixture(
 	byID map[string]map[string]any,
 	steps []map[string]any,
 ) (Fixture, bool) {
-	with, _ := step["with"].(map[string]any)
-	parameters, _ := with["parameters"].(map[string]any)
-	if len(parameters) != 1 || len(role.Parameters) != 1 {
-		return Fixture{}, false
-	}
-	parameter := role.Parameters[0]
-	text, _ := parameters[parameter].(string)
-	match := fixtureParameterSource.FindStringSubmatch(text)
-	if match == nil {
-		return Fixture{}, false
-	}
-	createID, valuePath := match[1], match[2]
-	request, ok := fixtureRequest(byID[createID])
+	createID, valuePath, request, ok := stepRequest(step, role, byID)
 	if !ok {
 		return Fixture{}, false
 	}
@@ -483,12 +534,39 @@ func stepFixture(
 	return Fixture{
 		MobileStepID: stepID,
 		PIDFormat:    requestPIDFormat(request.Body),
-		Parameter:    parameter,
+		Parameter:    role.Parameters[0],
 		Request:      request,
 		ValuePath:    valuePath,
 		Fetches:      sessionFetches(createID, steps),
 		TestIDs:      []string{},
+		Setup:        []FixtureSetup{},
 	}, true
+}
+
+// stepRequest returns the step that creates a mobile step's only parameter,
+// the path of the parameter's value in its response body, and its request,
+// when that request is a self-contained POST.
+func stepRequest(
+	step map[string]any,
+	role Role,
+	byID map[string]map[string]any,
+) (string, string, FixtureRequest, bool) {
+	with, _ := step["with"].(map[string]any)
+	parameters, _ := with["parameters"].(map[string]any)
+	if len(parameters) != 1 || len(role.Parameters) != 1 {
+		return "", "", FixtureRequest{}, false
+	}
+	text, _ := parameters[role.Parameters[0]].(string)
+	match := fixtureParameterSource.FindStringSubmatch(text)
+	if match == nil {
+		return "", "", FixtureRequest{}, false
+	}
+	createID, valuePath := match[1], match[2]
+	request, ok := fixtureRequest(byID[createID])
+	if !ok {
+		return "", "", FixtureRequest{}, false
+	}
+	return createID, valuePath, request, true
 }
 
 // fixtureRequest returns the request of a POST http-request step that needs
@@ -555,13 +633,49 @@ func sessionFetches(createID string, steps []map[string]any) []FixtureFetch {
 	return fetches
 }
 
-// requestPIDFormat is the PID format a presentation request asks for: mdoc
-// when any credential query is mso_mdoc, else sd-jwt when any is dc+sd-jwt.
-func requestPIDFormat(body any) string {
+// requestCredentialQueries returns the DCQL credential queries of a
+// presentation request body.
+func requestCredentialQueries(body any) []any {
 	request, _ := body.(map[string]any)
 	presentation, _ := request["presentation_request"].(map[string]any)
 	query, _ := presentation["dcql_query"].(map[string]any)
 	credentials, _ := query["credentials"].([]any)
+	return credentials
+}
+
+// pidVCT is the SD-JWT PID vct of the FCAF scenarios and PID issuers.
+const pidVCT = "urn:eudi:pid:1"
+
+// RequestPIDFormats returns the PID formats a presentation request body asks
+// for, in sd-jwt, mdoc order: mdoc when a credential query is mso_mdoc,
+// sd-jwt when one is dc+sd-jwt whose vct_values hold the PID vct or name none.
+func RequestPIDFormats(body any) []string {
+	sdJWT, mdoc := false, false
+	for _, credential := range requestCredentialQueries(body) {
+		entry, _ := credential.(map[string]any)
+		switch format, _ := entry["format"].(string); format {
+		case "mso_mdoc":
+			mdoc = true
+		case "dc+sd-jwt":
+			meta, _ := entry["meta"].(map[string]any)
+			values := StringList(meta["vct_values"])
+			sdJWT = sdJWT || len(values) == 0 || slices.Contains(values, pidVCT)
+		}
+	}
+	formats := []string{}
+	if sdJWT {
+		formats = append(formats, pidFormatSDJWT)
+	}
+	if mdoc {
+		formats = append(formats, pidFormatMdoc)
+	}
+	return formats
+}
+
+// requestPIDFormat is the PID format a presentation request asks for: mdoc
+// when any credential query is mso_mdoc, else sd-jwt when any is dc+sd-jwt.
+func requestPIDFormat(body any) string {
+	credentials := requestCredentialQueries(body)
 	formats := make([]string, 0, len(credentials))
 	for _, credential := range credentials {
 		entry, _ := credential.(map[string]any)

@@ -1386,7 +1386,7 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 			edit: func(in *SaveRequest) {
 				in.FCAFResult = &FCAFResult{Status: "blocked"}
 			},
-			message: "fcaf_result: status must be passed or unsupported",
+			message: "fcaf_result: status must be passed, unsupported or finding",
 		},
 		{
 			name: "code off the contract",
@@ -1444,6 +1444,20 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, record.GetString("tags"))
 	assert.Empty(t, savedProvenance(record).FCAFRole)
+}
+
+func TestCheckFCAFResultStatuses(t *testing.T) {
+	const role = "fcaf-expect-credential-rejected"
+	for _, status := range []string{FCAFResultPassed, FCAFResultUnsupported, FCAFResultFinding} {
+		require.NoError(
+			t,
+			CheckFCAFResult(&FCAFResult{Status: status, Note: "RI-WALLET-009"}, role),
+			status,
+		)
+	}
+	err := CheckFCAFResult(&FCAFResult{Status: "blocked"}, role)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "fcaf_result: status must be passed, unsupported or finding")
 }
 
 func TestCheckFCAFProfile(t *testing.T) {

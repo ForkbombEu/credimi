@@ -1139,6 +1139,7 @@
 	"Fcaf_role_working": "In Arbeit",
 	"Fcaf_role_passed": "Bestanden",
 	"Fcaf_role_unsupported": "Nicht unterstützt",
+	"Fcaf_role_finding": "Wallet-Befund",
 	"Fcaf_role_blocked": "Blockiert",
 	"Fcaf_role_skipped": "Übersprungen",
 	"Fcaf_coverage": "FCAF-Abdeckung",

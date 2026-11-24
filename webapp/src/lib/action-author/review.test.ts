@@ -210,4 +210,15 @@ describe('reviewDecisions', () => {
 		expect(decisions[1]).not.toHaveProperty('fcaf_result');
 		expect(decisions[2]).not.toHaveProperty('fcaf_result');
 	});
+
+	it('sends a wallet finding with an accepted FCAF action', () => {
+		const finding = action({
+			key: 'a1',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-expect-credential-rejected' },
+			fcaf_status: 'finding',
+			note: 'Wallet finding: stored the credential'
+		});
+		const decisions = reviewDecisions({ actions: [finding], profile }, choices);
+		expect(decisions[0].fcaf_result?.status).toBe('finding');
+	});
 });

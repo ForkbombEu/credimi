@@ -315,6 +315,22 @@ func TestDescribeFCAFRolePlansPassTheContract(t *testing.T) {
 	}
 }
 
+// A presentation of both PID formats starts from the injected PID of one
+// format and gets the other in its fixture's setup.
+func TestDescribeFCAFRoleFixtureSetup(t *testing.T) {
+	scope := testFCAFScope(t)
+	described, err := describeFCAFRole(scope, "fcaf-present-all-credentials")
+	require.NoError(t, err)
+	require.NotEmpty(t, described.Fixtures)
+	issuance := scope.Contract.Injected(walletroles.InjectedIssuance).Name
+	encoded, err := json.Marshal(described.Fixtures[0].Setup)
+	require.NoError(t, err)
+	require.JSONEq(t, `[{"role":"`+issuance+`","pid_format":"sd-jwt"}]`, string(encoded))
+	for _, fixture := range described.Fixtures {
+		require.NotNil(t, fixture.Setup, fixture.ID)
+	}
+}
+
 func TestCheckActionAuthorFCAFEvidence(t *testing.T) {
 	setFCAFTestEnv(t)
 	app, session, _ := authorSaveFixture(t)
@@ -364,7 +380,8 @@ func TestCheckActionAuthorFCAFEvidence(t *testing.T) {
 
 	refused, err := check(valid)
 	require.NoError(t, err)
-	require.Equal(t, "GET /openid4vp/sessions/s1", fetched.Load())
+	// The fixture's fetches read back the captured session.
+	require.Contains(t, fetched.Load(), "GET /openid4vp/sessions/s1")
 	require.NotEmpty(t, refused.Tests)
 	require.Contains(t, []string{"passed", "failed"}, refused.Status)
 	require.Empty(t, screenshotProblems(refused))
@@ -387,7 +404,7 @@ func TestCheckActionAuthorFCAFEvidence(t *testing.T) {
 	}{
 		"unknown fixture": {
 			mutate: func(in *CheckActionAuthorFCAFEvidenceInput) { in.Fixture = "missing#step" },
-			want:   "fixture missing#step is not one of " + fixture.ID,
+			want:   "fixture missing#step is not one of ",
 		},
 		"missing session id": {
 			mutate: func(in *CheckActionAuthorFCAFEvidenceInput) { in.Captures = nil },

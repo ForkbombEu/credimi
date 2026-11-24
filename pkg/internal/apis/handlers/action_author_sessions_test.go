@@ -353,7 +353,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"replaces":         "usera-s-organization/authoring-handler-wallet/install",
 							"error":            "save failed: try again",
 							"note":             "Wallet findings: dcql-1 failed: no match",
-							"fcaf_status":      "unsupported",
+							"fcaf_status":      "finding",
 							// A per-action profile is ignored: the review carries one.
 							"profile": map[string]any{"pin": "000000"},
 							// The agent's starts_from is ignored: the plan says it.
@@ -489,7 +489,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					Replaces:        "usera-s-organization/authoring-handler-wallet/install",
 					Error:           "save failed: try again",
 					Note:            "Wallet findings: dcql-1 failed: no match",
-					FCAFStatus:      actionauthor.FCAFResultUnsupported,
+					FCAFStatus:      actionauthor.FCAFResultFinding,
 					StartsFrom:      []string{},
 					StartsFromNames: map[string]string{},
 					UsedBy:          2,
@@ -530,6 +530,12 @@ func TestActionAuthorSessionReadsTheFCAFProgress(t *testing.T) {
 		"roles": []map[string]any{
 			{"role": "fcaf-reset-and-onboard", "status": "passed", "key": "a1", "note": ""},
 			{"role": "fcaf-issue-pid", "status": "working", "key": "", "note": ""},
+			{
+				"role":   "fcaf-expect-credential-rejected",
+				"status": "finding",
+				"key":    "a2",
+				"note":   "RI-WALLET-009",
+			},
 		},
 	}
 	// A runner's answer off the contract keeps only the suite's roles, once each.
@@ -572,6 +578,7 @@ func TestActionAuthorSessionReadsTheFCAFProgress(t *testing.T) {
 				Roles: []ActionAuthorFCAFRole{
 					{Role: "fcaf-reset-and-onboard", Status: "passed", Key: "a1"},
 					{Role: "fcaf-issue-pid", Status: "working"},
+					{Role: "fcaf-expect-credential-rejected", Status: "finding", Key: "a2", Note: "RI-WALLET-009"},
 				},
 			},
 		},

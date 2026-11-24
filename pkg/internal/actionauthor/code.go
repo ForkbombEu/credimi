@@ -214,6 +214,7 @@ func ValidateCode(code string, scope CodeScope) []string {
 	v.header(header)
 	if scope.FCAF != nil {
 		v.fcafHeader(header, scope.FCAF)
+		v.fcafLaunch(header, commands, scope.FCAF)
 	}
 
 	v.walk(commands, "commands", v.command)
@@ -838,6 +839,42 @@ func (v *codeValidator) fcafHeader(header *yaml.Node, scope *FCAFCodeScope) {
 		v.add(fmt.Sprintf("header appId must be '%s' for the FCAF role %s, found '%s'",
 			want, scope.Role.Name, appID.Value))
 	}
+}
+
+// fcafLaunch requires a role that launches the wallet to run, at top level, a
+// launchApp whose target is the wallet package: its scalar argument, else its
+// appId, else the header appId.
+func (v *codeValidator) fcafLaunch(header, commands *yaml.Node, scope *FCAFCodeScope) {
+	wallet := scope.Packages[walletroles.AppWallet]
+	if commands == nil || wallet == "" ||
+		!slices.Contains(scope.Role.LaunchApps, walletroles.AppWallet) {
+		return
+	}
+	headerApp := ""
+	if header != nil {
+		if appID := codeLookup(header, "appId"); codeIsString(appID) {
+			headerApp = appID.Value
+		}
+	}
+	for _, item := range commands.Content {
+		name, arg, ok := codeCommand(item)
+		if !ok || name != "launchApp" {
+			continue
+		}
+		target := headerApp
+		switch {
+		case codeIsString(arg):
+			target = arg.Value
+		case arg != nil && arg.Kind == yaml.MappingNode:
+			if appID := codeLookup(arg, "appId"); codeIsString(appID) {
+				target = appID.Value
+			}
+		}
+		if target == wallet {
+			return
+		}
+	}
+	v.add("the role launches the wallet: start the action with launchApp of " + wallet)
 }
 
 // fcafScreenshotPhrases says where each contract screenshot condition is taken.

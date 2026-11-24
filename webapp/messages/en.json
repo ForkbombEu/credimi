@@ -1183,6 +1183,7 @@
 	"Fcaf_role_working": "Working",
 	"Fcaf_role_passed": "Passed",
 	"Fcaf_role_unsupported": "Unsupported",
+	"Fcaf_role_finding": "Wallet finding",
 	"Fcaf_role_blocked": "Blocked",
 	"Fcaf_role_skipped": "Skipped",
 	"Fcaf_coverage": "FCAF coverage",

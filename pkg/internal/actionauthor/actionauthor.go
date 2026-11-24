@@ -678,7 +678,8 @@ func validFCAFProfileNotes(value any) bool {
 }
 
 // FCAFResult is what the agent found when it wrote an FCAF action: the wallet
-// did the role (passed) or cannot do it (unsupported), and its note.
+// did the role (passed), cannot do it (unsupported) or does not conform
+// (finding), and its note.
 type FCAFResult struct {
 	Status string `json:"status"`
 	Note   string `json:"note"`
@@ -686,21 +687,33 @@ type FCAFResult struct {
 
 // FCAF result statuses, and the bound of a result's note.
 const (
-	FCAFResultPassed       = "passed"
-	FCAFResultUnsupported  = "unsupported"
+	FCAFResultPassed      = "passed"
+	FCAFResultUnsupported = "unsupported"
+	// FCAFResultFinding: the action is right and the wallet does not conform:
+	// it does what the role forbids, or misbehaves on a feature it has.
+	FCAFResultFinding      = "finding"
 	maxFCAFResultNoteRunes = 2000
 )
 
+// IsFCAFResultStatus reports whether status is passed, unsupported or finding.
+func IsFCAFResultStatus(status string) bool {
+	return status == FCAFResultPassed || status == FCAFResultUnsupported ||
+		status == FCAFResultFinding
+}
+
 // CheckFCAFResult refuses a result for an action without an FCAF role, a
-// status other than passed or unsupported, and a note over 2000 characters.
+// status other than passed, unsupported or finding, and a note over 2000 characters.
 func CheckFCAFResult(result *FCAFResult, fcafRole string) error {
 	switch {
 	case result == nil:
 		return nil
 	case fcafRole == "":
 		return fmt.Errorf("%w: fcaf_result: only FCAF actions carry a result", ErrInvalid)
-	case result.Status != FCAFResultPassed && result.Status != FCAFResultUnsupported:
-		return fmt.Errorf("%w: fcaf_result: status must be passed or unsupported", ErrInvalid)
+	case !IsFCAFResultStatus(result.Status):
+		return fmt.Errorf(
+			"%w: fcaf_result: status must be passed, unsupported or finding",
+			ErrInvalid,
+		)
 	case utf8.RuneCountInString(result.Note) > maxFCAFResultNoteRunes:
 		return fmt.Errorf("%w: fcaf_result: note is longer than 2000 characters", ErrInvalid)
 	}

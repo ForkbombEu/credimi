@@ -1139,6 +1139,7 @@
 	"Fcaf_role_working": "Em andamento",
 	"Fcaf_role_passed": "Aprovado",
 	"Fcaf_role_unsupported": "Não suportado",
+	"Fcaf_role_finding": "Achado na carteira",
 	"Fcaf_role_blocked": "Bloqueado",
 	"Fcaf_role_skipped": "Ignorado",
 	"Fcaf_coverage": "Cobertura FCAF",

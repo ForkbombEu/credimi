@@ -10,13 +10,15 @@ rules:
   - Verdict screenshots keep exactly the contract name and condition; their names are read by FCAF tests.
   - Diagnostic screenshot names are free but at most diagnostic_name_budget characters.
   - Type the wallet's fixed PIN as a literal; it is the same in every action of the wallet.
-  - Start from the wallet state the pipeline leaves (reset and onboarded, plus any injected PID); only the injected reset role clears app state.
+  - "Start from the state the pipeline leaves: the wallet reset and onboarded, plus the credentials issued before the step. The wallet may be locked or show any screen: launch it and unlock it yourself, also after opening a deeplink if it locks again."
+  - "launch_apps lists the apps the action launches with launchApp at its start; presents is how many times the action taps the wallet's share control when the consent screen appears (0: it never shares); absence_probe means the wallet holds no credential matching the request; issues_credential means the action accepts a credential offer."
+  - Identify the consent screen by an element only it has (an enabled share control or the list of requested claims), never by a title the wallet also shows on its no-match or error screens.
 roles:
   - name: getcredential-generic-credential-without-authentication
-    summary: Opens a credential offer deeplink, accepts the offer without user authentication and reaches the wallet's View details success screen.
+    summary: Opens a credential offer deeplink, accepts the offer without user authentication and reaches the wallet's screen confirming that the credential was stored.
     suites: [wallet_solution/attestation_provider, wallet_solution/relying_party]
     outcome: strict-success
-    fails_when: the wallet never shows the View details screen confirming that the credential was stored
+    fails_when: the wallet never confirms that the credential was stored
     parameters: [deeplink]
     header_app: wallet
     launch_apps: [wallet]
@@ -47,7 +49,7 @@ roles:
     summary: Opens a credential offer the wallet must refuse, accepts the offer and expects the wallet to refuse to store the credential, showing an error screen or returning Home.
     suites: [wallet_solution/attestation_provider, wallet_solution/relying_party]
     outcome: strict-rejection
-    fails_when: the wallet reaches the View details success screen of a stored credential
+    fails_when: the wallet confirms that the credential was stored
     parameters: [deeplink]
     header_app: wallet
     launch_apps: [wallet]
@@ -89,7 +91,7 @@ roles:
         screen: the wallet's confirmation that the presentation was shared
 
   - name: fcaf-expect-request-rejected
-    summary: Opens a presentation request the wallet must refuse and expects an error screen or the no-match notice, or a return to Home, without a consent screen.
+    summary: Opens a presentation request the wallet must refuse and expects an error screen or the no-match notice, or a return to Home, without a consent screen. A consent screen (identified by its share control or its requested claims) is tapped through and then fails the action, so the verifier records what the wallet sends.
     suites: [wallet_solution/relying_party]
     outcome: strict-rejection
     fails_when: the wallet shows the consent screen for the request
@@ -116,7 +118,7 @@ roles:
     screenshots: []
 
   - name: fcaf-expect-no-matching-document
-    summary: Opens a presentation request and records the wallet's notice that it holds no credential satisfying it.
+    summary: Launches and unlocks the wallet, opens a presentation request and records the wallet's notice that it holds no credential satisfying it; when the wallet shows a consent screen instead, it shares, so the verifier records the presentation.
     suites: [wallet_solution/relying_party]
     outcome: tolerant
     fails_when: never on the outcome; the no-match-notice screenshot decides
@@ -292,10 +294,10 @@ roles:
     screenshots: []
 
   - name: fcaf-present-unchecked-claim
-    summary: Opens a request with a claim the user leaves unchecked on the consent screen, shares the rest and reaches the wallet's success screen.
+    summary: Opens a request, leaves the address claim unchecked on the consent screen, shares the rest and reaches the wallet's success screen.
     suites: [wallet_solution/relying_party]
     outcome: strict-success
-    fails_when: the wallet never shows the request screen or never reports the presentation as shared
+    fails_when: the consent screen offers no control that deselects the address claim, or the wallet never reports the presentation as shared
     parameters: [deeplink]
     header_app: wallet
     launch_apps: [wallet]
@@ -304,10 +306,10 @@ roles:
     screenshots: []
 
   - name: fcaf-user-authentication-failed
-    summary: Opens a presentation request, answers the second authentication with a wrong PIN and expects the wallet's failed-authentication screen.
+    summary: Opens a presentation request, answers the second authentication with a wrong PIN, expects the wallet's failed-authentication screen, then abandons the authentication (back or cancel) and records the screen the wallet returns to.
     suites: [wallet_solution/relying_party]
     outcome: strict-rejection
-    fails_when: the wallet never shows the failed-authentication screen or reports the presentation as shared
+    fails_when: the wallet never shows the failed-authentication screen or reports the presentation as shared or never lets the user abandon the authentication
     parameters: [deeplink]
     header_app: wallet
     launch_apps: [wallet]
@@ -337,7 +339,10 @@ roles:
     launch_apps: [wallet]
     presents: 1
     diagnostic_name_budget: 40
-    screenshots: []
+    screenshots:
+      - name: pid-candidate-selected
+        when: gated
+        screen: the consent screen with the second candidate selected
 
   - name: fcaf-wait-past-status-list-expiry
     summary: Leaves the wallet untouched until the status list token of the scenario has expired.

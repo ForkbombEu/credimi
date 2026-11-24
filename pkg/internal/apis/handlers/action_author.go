@@ -753,7 +753,7 @@ type ActionAuthorReviewAction struct {
 	// Note is the agent's note on the action (wallet findings, or why the
 	// wallet cannot do an FCAF role), empty when none.
 	Note string `json:"note,omitempty"`
-	// FCAFStatus is passed or unsupported for an FCAF action; empty otherwise.
+	// FCAFStatus is passed, unsupported or finding for an FCAF action; empty otherwise.
 	FCAFStatus string `json:"fcaf_status,omitempty"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
@@ -1113,6 +1113,7 @@ var fcafProgressStatuses = map[string]bool{
 	"working":     true,
 	"passed":      true,
 	"unsupported": true,
+	"finding":     true,
 	"blocked":     true,
 	"skipped":     true,
 }
@@ -1222,10 +1223,10 @@ func actionAuthorPendingReview(
 	return review
 }
 
-// fcafReviewStatus keeps an FCAF review action's status when it is passed or
-// unsupported, empty otherwise.
+// fcafReviewStatus keeps an FCAF review action's status when it is passed,
+// unsupported or finding, empty otherwise.
 func fcafReviewStatus(status string) string {
-	if status == actionauthor.FCAFResultPassed || status == actionauthor.FCAFResultUnsupported {
+	if actionauthor.IsFCAFResultStatus(status) {
 		return status
 	}
 	return ""

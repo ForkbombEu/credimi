@@ -1139,6 +1139,7 @@
 	"Fcaf_role_working": "I gang",
 	"Fcaf_role_passed": "Bestået",
 	"Fcaf_role_unsupported": "Ikke understøttet",
+	"Fcaf_role_finding": "Wallet-fund",
 	"Fcaf_role_blocked": "Blokeret",
 	"Fcaf_role_skipped": "Sprunget over",
 	"Fcaf_coverage": "FCAF-dækning",
