@@ -303,16 +303,7 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 	if err != nil {
 		return selection, err
 	}
-	segments := strings.Split(
-		strings.Trim(canonify.NormalizePath(in.WalletVersionIdentifier), "/"),
-		"/",
-	)
-	for _, segment := range segments {
-		if segment == "" {
-			segments = nil
-			break
-		}
-	}
+	segments := pathSegments(in.WalletVersionIdentifier)
 	var version, wallet *core.Record
 	switch len(segments) {
 	case 3:
@@ -343,21 +334,9 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 			ErrInvalid,
 		)
 	}
-	walletOwner, err := app.FindRecordById("organizations", wallet.GetString("owner"))
-	if err != nil || walletOwner.GetString("canonified_name") == "" {
-		return selection, ErrForbidden
-	}
-	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
+	caller, walletOwner, foreign, err := walletAccess(app, organization, actor, wallet)
 	if err != nil {
-		return selection, ErrForbidden
-	}
-	caller, err := app.FindRecordById("organizations", orgID)
-	if err != nil || (organization != "" && organization != caller.GetString("canonified_name")) {
-		return selection, ErrForbidden
-	}
-	foreign := walletOwner.Id != caller.Id
-	if foreign && !wallet.GetBool("published") {
-		return selection, ErrForbidden
+		return selection, err
 	}
 	installer, ok := installerFields[in.Platform]
 	if !ok {
@@ -396,6 +375,83 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 		return Selection{}, fmt.Errorf("%w: %s", ErrInvalid, installer.missing)
 	}
 	return selection, nil
+}
+
+// SelectWallet authorizes the caller on the wallet walletPath
+// (organization/wallet, canonified) as Select does, without a build: the
+// selection has no version, platform or package. Coverage and listings use it.
+func SelectWallet(
+	app core.App,
+	organization string,
+	in Actor,
+	walletPath string,
+) (Selection, error) {
+	actor, err := findActor(app, in)
+	if err != nil {
+		return Selection{}, err
+	}
+	segments := pathSegments(walletPath)
+	if len(segments) != 2 {
+		return Selection{}, fmt.Errorf("%w: expected organization/wallet", ErrInvalid)
+	}
+	wallet, err := app.FindFirstRecordByFilter(
+		"wallets",
+		"canonified_name = {:wallet} && owner.canonified_name = {:org}",
+		dbx.Params{"wallet": segments[1], "org": segments[0]},
+	)
+	if err != nil {
+		return Selection{}, fmt.Errorf("%w: wallet not found", ErrInvalid)
+	}
+	caller, walletOwner, _, err := walletAccess(app, organization, actor, wallet)
+	if err != nil {
+		return Selection{}, err
+	}
+	return Selection{
+		Wallet:       wallet,
+		Organization: caller,
+		WalletOwner:  walletOwner,
+		Actor:        in,
+		Identifier:   strings.Join(segments, "/"),
+	}, nil
+}
+
+// pathSegments splits a canonified build or wallet path; any empty segment
+// gives none.
+func pathSegments(path string) []string {
+	segments := strings.Split(strings.Trim(canonify.NormalizePath(path), "/"), "/")
+	for _, segment := range segments {
+		if segment == "" {
+			return nil
+		}
+	}
+	return segments
+}
+
+// walletAccess authorizes actor, acting for organization (empty: any), on
+// wallet: their organization's own wallet, or another's published one.
+func walletAccess(
+	app core.App,
+	organization string,
+	actor *core.Record,
+	wallet *core.Record,
+) (caller, walletOwner *core.Record, foreign bool, err error) {
+	walletOwner, err = app.FindRecordById("organizations", wallet.GetString("owner"))
+	if err != nil || walletOwner.GetString("canonified_name") == "" {
+		return nil, nil, false, ErrForbidden
+	}
+	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
+	if err != nil {
+		return nil, nil, false, ErrForbidden
+	}
+	caller, err = app.FindRecordById("organizations", orgID)
+	if err != nil || (organization != "" && organization != caller.GetString("canonified_name")) {
+		return nil, nil, false, ErrForbidden
+	}
+	foreign = walletOwner.Id != caller.Id
+	if foreign && !wallet.GetBool("published") {
+		return nil, nil, false, ErrForbidden
+	}
+	return caller, walletOwner, foreign, nil
 }
 
 // installerDigest streams the selected platform's installer rather than retaining it in memory.

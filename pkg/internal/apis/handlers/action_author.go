@@ -84,7 +84,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSessions,
 			OperationID:    "actionAuthor.listSessions",
 			Summary:        "List a wallet's recent authoring sessions",
-			Description:    "List the ten latest authoring sessions the caller started for their organization on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
+			Description:    "List the ten latest authoring sessions the caller started for their organization on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, mode (chat or fcaf), device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
 			ResponseSchema: ActionAuthorSessionsResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -96,11 +96,27 @@ var ActionAuthorRoutes = routing.RouteGroup{
 		},
 		{
 			Method:         http.MethodGet,
+			Path:           "/fcaf-coverage",
+			Handler:        HandleActionAuthorFCAFCoverage,
+			OperationID:    "actionAuthor.fcafCoverage",
+			Summary:        "FCAF coverage of a wallet",
+			Description:    "Lists the FCAF relying-party roles and the state of the caller organization's action for each on the wallet: missing, current, stale or unmanaged, with the newest FCAF wallet profile and its warnings.",
+			ResponseSchema: ActionAuthorFCAFCoverageResponse{},
+			QuerySearchAttributes: []routing.QuerySearchAttribute{
+				{
+					Name:        "wallet",
+					Required:    true,
+					Description: "Wallet: organization/wallet (canonified names).",
+				},
+			},
+		},
+		{
+			Method:         http.MethodGet,
 			Path:           "/sessions/{session_id}",
 			Handler:        HandleActionAuthorSession,
 			OperationID:    "actionAuthor.getSession",
 			Summary:        "Read an authoring session",
-			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started for their organization, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started for their organization, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, fcaf_progress the campaign of an FCAF session (the role being written and each role's status: pending, working, passed, unsupported, blocked or skipped, with the agent's note), null otherwise or when the agent does not answer it, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
@@ -636,8 +652,9 @@ func rollbackActionAuthorTicket(e *core.RequestEvent, deviceID, ticketID, namesp
 // Agent chat workflow queries and signal of the Temporal Agent Harness that
 // the session page reads and sends.
 const (
-	actionAuthorIdleStateQuery   = "idle_state"
-	actionAuthorAgentStatusQuery = "agent_status"
+	actionAuthorIdleStateQuery    = "idle_state"
+	actionAuthorFCAFProgressQuery = "fcaf_progress"
+	actionAuthorAgentStatusQuery  = "agent_status"
 	// actionAuthorStreamPollQuery reads the chat's retained stream events
 	// (temporalio's workflow streams); the chat UI's attach replays a closed
 	// chat through it.
@@ -687,6 +704,9 @@ type ActionAuthorSessionResponse struct {
 	// ClosesAt is when the idle session closes, empty when unknown or while a turn runs.
 	ClosesAt      string                     `json:"closes_at"`
 	PendingReview *ActionAuthorPendingReview `json:"pending_review"`
+	// FCAFProgress is the campaign of an FCAF session while its chat runs,
+	// null otherwise.
+	FCAFProgress *ActionAuthorFCAFProgress `json:"fcaf_progress"`
 }
 
 // ActionAuthorPendingReview is the review waiting for the caller's
@@ -702,6 +722,21 @@ type ActionAuthorPendingReview struct {
 	// each, never nil.
 	Warnings []string                   `json:"warnings"`
 	Actions  []ActionAuthorReviewAction `json:"actions"`
+}
+
+// ActionAuthorFCAFProgress is where an FCAF session's campaign stands.
+type ActionAuthorFCAFProgress struct {
+	CurrentRole string                 `json:"current_role"`
+	Roles       []ActionAuthorFCAFRole `json:"roles"`
+}
+
+// ActionAuthorFCAFRole is one role of the campaign: pending, working,
+// passed, unsupported, blocked or skipped, with the agent's note.
+type ActionAuthorFCAFRole struct {
+	Role   string `json:"role"`
+	Status string `json:"status"`
+	Key    string `json:"key"`
+	Note   string `json:"note"`
 }
 
 // ActionAuthorReviewAction is one action of a pending review.
@@ -743,6 +778,20 @@ type ActionAuthorSessionListItem struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	DeviceID                string `json:"device_id"`
 	DeviceName              string `json:"device_name"`
+	// Mode is "fcaf" for an FCAF authoring session, else "chat".
+	Mode string `json:"mode"`
+}
+
+// ActionAuthorFCAFCoverageResponse is the FCAF relying-party coverage of a
+// wallet by the caller organization's actions.
+type ActionAuthorFCAFCoverageResponse struct {
+	Suite string                          `json:"suite"`
+	Roles []actionauthor.FCAFRoleCoverage `json:"roles"`
+	// Profile is the newest FCAF wallet profile (an object), null when no
+	// FCAF action saved one. It is any because PocketBase encodes with
+	// encoding/json/v2, which writes a nil map as {}.
+	Profile  any      `json:"profile"`
+	Warnings []string `json:"warnings"`
 }
 
 // ActionAuthorTranscriptResponse is the transcript of a session's chat, in event order.
@@ -1005,6 +1054,24 @@ func readActionAuthorChat(
 		e.App.Logger().Warn("action author chat idle state", "chat", chatID, "error", err)
 	} else {
 		response.ClosesAt = idle.ClosesAt
+	}
+	if response.Mode == actionauthor.SessionModeFCAF {
+		// A runner without the query answers an error: no progress shows.
+		var progress ActionAuthorFCAFProgress
+		if err := queryActionAuthorChat(
+			ctx,
+			c,
+			chatID,
+			actionAuthorFCAFProgressQuery,
+			&progress,
+		); err != nil {
+			e.App.Logger().Warn("action author fcaf progress", "chat", chatID, "error", err)
+		} else {
+			if progress.Roles == nil {
+				progress.Roles = []ActionAuthorFCAFRole{}
+			}
+			response.FCAFProgress = &progress
+		}
 	}
 	var status struct {
 		PendingCallbacks []struct {
@@ -1305,11 +1372,60 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 				StartTime:               info.StartTime.UTC().Format(time.RFC3339),
 				WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
 				DeviceID:                info.DeviceID,
+				Mode:                    actionAuthorSessionMode(info.Mode),
 			}
 			if device, _, err := mobilerunner.ResolveDevice(e.App, info.DeviceID); err == nil {
 				item.DeviceName = device.GetString("name")
 			}
 			response.Sessions = append(response.Sessions, item)
+		}
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+// HandleActionAuthorFCAFCoverage reports the FCAF relying-party coverage of
+// a wallet the caller can author: each role's action of the caller's
+// organization, the newest FCAF wallet profile and its warnings.
+func HandleActionAuthorFCAFCoverage() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		organization, apiErr := actionAuthorCallerNamespace(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		wallet := e.Request.URL.Query().Get("wallet")
+		if !actionAuthorWalletPattern.MatchString(wallet) {
+			return authoringAPIError(e, fmt.Errorf(
+				"%w: wallet must be organization/wallet",
+				actionauthor.ErrInvalid,
+			))
+		}
+		selection, err := actionauthor.SelectWallet(
+			e.App,
+			organization,
+			authoringActor(e.Auth),
+			wallet,
+		)
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
+		contract, err := activities.LoadFCAFContract()
+		if err != nil {
+			return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
+		}
+		roles, profile, err := actionauthor.FCAFCoverage(e.App, selection, &actionauthor.FCAFScope{
+			Contract: contract,
+			Suite:    actionauthor.FCAFRelyingPartySuite,
+		})
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
+		response := ActionAuthorFCAFCoverageResponse{
+			Suite:    actionauthor.FCAFRelyingPartySuite,
+			Roles:    roles,
+			Warnings: actionauthor.FCAFWarnings(profile),
+		}
+		if profile != nil {
+			response.Profile = profile
 		}
 		return e.JSON(http.StatusOK, response)
 	}

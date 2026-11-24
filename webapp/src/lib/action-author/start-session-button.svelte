@@ -16,6 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Label } from '@/components/ui/label';
+	import * as RadioGroup from '@/components/ui/radio-group/index.js';
 	import { goto, m } from '@/i18n';
 
 	import {
@@ -23,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		listDevices,
 		startSession,
 		type AuthorDevice,
+		type AuthoringMode,
 		type BuildOption
 	} from './api';
 	import {
@@ -34,6 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		walletBuilds,
 		walletPath
 	} from './builds';
+	import { modePlatforms } from './fcaf';
 
 	//
 
@@ -47,10 +51,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { wallet, walletOwner, organization }: Props = $props();
 
-	type Options = { builds: BuildOption[]; devices: AuthorDevice[]; records: DeviceRecord[] };
+	type Options = { builds: BuildOption[]; devices: AuthorDevice[] };
 
 	let open = $state(false);
 	let options = $state<Promise<Options>>();
+	let mode = $state<AuthoringMode>('chat');
 	let selectedDevice = $state<AuthorDevice>();
 	let selectedBuild = $state('');
 	let starting = $state(false);
@@ -65,26 +70,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (devices.isErr) throw new Error(devices.error.message);
 		if (builds.isErr) throw new Error(builds.error.message);
 		const walletBuildList = walletBuilds(builds.value, walletPath(walletOwner, wallet));
-		const platforms = buildPlatforms(walletBuildList);
 		if (id === loadId) {
-			const preferred = preferredDevice(devices.value, platforms);
+			const preferred = preferredDevice(
+				devices.value,
+				modePlatforms(buildPlatforms(walletBuildList), mode)
+			);
 			selectedDevice = preferred;
 			selectedBuild = preferred
 				? (buildsForPlatform(walletBuildList, preferred.platform)[0]?.identifier ?? '')
 				: '';
 		}
-		return {
-			builds: walletBuildList,
-			devices: devices.value,
-			records: toDeviceRecords(devices.value, platforms)
-		};
+		return { builds: walletBuildList, devices: devices.value };
 	}
 
 	$effect(() => {
 		if (!open) return;
+		mode = 'chat';
 		options = loadOptions();
 		startError = '';
 	});
+
+	function setMode(next: AuthoringMode, opts: Options) {
+		mode = next;
+		selectedDevice = preferredDevice(
+			opts.devices,
+			modePlatforms(buildPlatforms(opts.builds), next)
+		);
+		selectedBuild = selectedDevice
+			? (buildsForPlatform(opts.builds, selectedDevice.platform)[0]?.identifier ?? '')
+			: '';
+	}
 
 	function selectDevice(record: DeviceRecord, opts: Options) {
 		selectedDevice = opts.devices.find((d) => d.path === record.path);
@@ -97,7 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!selectedDevice || !selectedBuild || starting) return;
 		starting = true;
 		startError = '';
-		const res = await startSession(selectedDevice.path, selectedBuild);
+		const res = await startSession(selectedDevice.path, selectedBuild, mode);
 		starting = false;
 		if (res.isErr) {
 			startError = res.error.message;
@@ -131,50 +146,99 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							? m.No_authoring_build()
 							: m.No_authoring_build_public_wallet()}
 					</T>
-				{:else if opts.records.length === 0}
-					<T class="text-sm text-muted-foreground">{m.No_authoring_device()}</T>
 				{:else}
+					{@const platforms = modePlatforms(buildPlatforms(opts.builds), mode)}
+					{@const records = toDeviceRecords(opts.devices, platforms)}
 					<div class="space-y-4">
-						<div class="max-h-[50dvh] overflow-auto">
-							<Pipeline.Device.SelectList
-								presentation="run"
-								foundDevices={opts.records}
-								catalogLoading={false}
-								selectedDevice={selectedDevice?.path}
-								onSelect={(record) => selectDevice(record, opts)}
-							/>
-						</div>
-
-						{#if selectedDevice}
-							<label class="block space-y-1 text-sm">
-								<span class="font-medium">{m.Version()}</span>
-								<select
-									bind:value={selectedBuild}
-									class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-								>
-									{#each buildsForPlatform(opts.builds, selectedDevice.platform) as build (build.identifier)}
-										<option value={build.identifier}>{buildLabel(build)}</option
-										>
-									{/each}
-								</select>
-							</label>
-						{/if}
-
-						{#if startError}
-							<p class="text-sm text-destructive" role="alert">{startError}</p>
-						{/if}
-
-						<div class="flex justify-end">
-							<Button
-								onclick={start}
-								disabled={!selectedDevice || !selectedBuild || starting}
+						<div class="space-y-2">
+							<Label>{m.Authoring_mode()}</Label>
+							<RadioGroup.Root
+								value={mode}
+								onValueChange={(v) => setMode(v as AuthoringMode, opts)}
+								aria-label={m.Authoring_mode()}
 							>
-								{#if starting}
-									<Spinner size={14} />
-								{/if}
-								{m.Start_session()}
-							</Button>
+								<div class="flex items-start gap-2">
+									<RadioGroup.Item
+										value="chat"
+										id="{wallet.id}-mode-chat"
+										class="mt-0.5"
+									/>
+									<div class="space-y-0.5">
+										<Label for="{wallet.id}-mode-chat"
+											>{m.Authoring_mode_chat()}</Label
+										>
+										<p class="text-xs text-muted-foreground">
+											{m.Authoring_mode_chat_description()}
+										</p>
+									</div>
+								</div>
+								<div class="flex items-start gap-2">
+									<RadioGroup.Item
+										value="fcaf"
+										id="{wallet.id}-mode-fcaf"
+										class="mt-0.5"
+									/>
+									<div class="space-y-0.5">
+										<Label for="{wallet.id}-mode-fcaf"
+											>{m.Authoring_mode_fcaf()}</Label
+										>
+										<p class="text-xs text-muted-foreground">
+											{m.Authoring_mode_fcaf_description()}
+										</p>
+									</div>
+								</div>
+							</RadioGroup.Root>
 						</div>
+
+						{#if mode === 'fcaf' && platforms.size === 0}
+							<T class="text-sm text-muted-foreground"
+								>{m.No_fcaf_authoring_build()}</T
+							>
+						{:else if records.length === 0}
+							<T class="text-sm text-muted-foreground">{m.No_authoring_device()}</T>
+						{:else}
+							<div class="max-h-[50dvh] overflow-auto">
+								<Pipeline.Device.SelectList
+									presentation="run"
+									foundDevices={records}
+									catalogLoading={false}
+									selectedDevice={selectedDevice?.path}
+									onSelect={(record) => selectDevice(record, opts)}
+								/>
+							</div>
+
+							{#if selectedDevice}
+								<label class="block space-y-1 text-sm">
+									<span class="font-medium">{m.Version()}</span>
+									<select
+										bind:value={selectedBuild}
+										class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+									>
+										{#each buildsForPlatform(opts.builds, selectedDevice.platform) as build (build.identifier)}
+											<option value={build.identifier}
+												>{buildLabel(build)}</option
+											>
+										{/each}
+									</select>
+								</label>
+							{/if}
+
+							{#if startError}
+								<p class="text-sm text-destructive" role="alert">{startError}</p>
+							{/if}
+
+							<div class="flex justify-end">
+								<Button
+									onclick={start}
+									disabled={!selectedDevice || !selectedBuild || starting}
+								>
+									{#if starting}
+										<Spinner size={14} />
+									{/if}
+									{m.Start_session()}
+								</Button>
+							</div>
+						{/if}
 					</div>
 				{/if}
 			{/if}

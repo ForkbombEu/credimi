@@ -55,6 +55,46 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: List devices available for authoring
+  /api/action-author/fcaf-coverage:
+    get:
+      description: 'Lists the FCAF relying-party roles and the state of the caller
+        organization''s action for each on the wallet: missing, current, stale or
+        unmanaged, with the newest FCAF wallet profile and its warnings.'
+      operationId: actionAuthor.fcafCoverage
+      parameters:
+      - description: 'Wallet: organization/wallet (canonified names).'
+        in: query
+        name: wallet
+        required: true
+        schema:
+          description: 'Wallet: organization/wallet (canonified names).'
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorFCAFCoverageResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: FCAF coverage of a wallet
   /api/action-author/reviews:
     post:
       description: 'Deliver the human decisions on the pending review tool_id of the
@@ -114,9 +154,9 @@ paths:
       description: List the ten latest authoring sessions the caller started for their
         organization on the wallet organization/wallet (its Play Store build and every
         version), newest first, with their Temporal status (for example Running or
-        Completed), start time (RFC 3339), build, device path and device name (empty
-        when the device no longer exists). A session Temporal cannot describe is left
-        out.
+        Completed), start time (RFC 3339), build, mode (chat or fcaf), device path
+        and device name (empty when the device no longer exists). A session Temporal
+        cannot describe is left out.
       operationId: actionAuthor.listSessions
       parameters:
       - description: 'Wallet of the sessions: organization/wallet (canonified names).'
@@ -228,15 +268,18 @@ paths:
         screen (POST /api/pipeline/live-view opens it with the session ID and run).
         For a running session, chat_ready reports whether the agent chat has started
         its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown)
-        when the idle session closes to free the device, and pending_review the review
-        waiting for the caller''s decisions (POST /api/action-author/reviews), null
-        otherwise: its tool_id and its actions, one per candidate key, each with its
-        name, build, code, candidate_sha256, plan, the candidate keys among its plan''s
-        prerequisites (starts_from) and their names (starts_from_names: the review''s
-        action of that key, else the action the session saved for it, else the key),
-        the action it replaces with the pipelines using it (used_by), and why its
-        previous accept did not save (error). A session that has not started yet,
-        an unknown session and one another user started all answer 404 session_not_found
+        when the idle session closes to free the device, fcaf_progress the campaign
+        of an FCAF session (the role being written and each role''s status: pending,
+        working, passed, unsupported, blocked or skipped, with the agent''s note),
+        null otherwise or when the agent does not answer it, and pending_review the
+        review waiting for the caller''s decisions (POST /api/action-author/reviews),
+        null otherwise: its tool_id and its actions, one per candidate key, each with
+        its name, build, code, candidate_sha256, plan, the candidate keys among its
+        plan''s prerequisites (starts_from) and their names (starts_from_names: the
+        review''s action of that key, else the action the session saved for it, else
+        the key), the action it replaces with the pipelines using it (used_by), and
+        why its previous accept did not save (error). A session that has not started
+        yet, an unknown session and one another user started all answer 404 session_not_found
         (follow a queued session''s ticket in the device queue).'
       operationId: actionAuthor.getSession
       parameters:
@@ -927,6 +970,28 @@ components:
         wallet_name:
           type: string
       type: object
+    ActionauthorFCAFRoleCoverage:
+      properties:
+        action:
+          type: string
+        category:
+          type: string
+        outcome:
+          type: string
+        role:
+          type: string
+        role_sha256:
+          type: string
+        starts_from:
+          items:
+            type: string
+          nullable: true
+          type: array
+        status:
+          type: string
+        summary:
+          type: string
+      type: object
     ActionauthorHTTPSourceRequest:
       properties:
         body: {}
@@ -1094,6 +1159,43 @@ components:
           nullable: true
           type: array
       type: object
+    HandlersActionAuthorFCAFCoverageResponse:
+      properties:
+        profile: {}
+        roles:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFRoleCoverage'
+          nullable: true
+          type: array
+        suite:
+          type: string
+        warnings:
+          items:
+            type: string
+          nullable: true
+          type: array
+      type: object
+    HandlersActionAuthorFCAFProgress:
+      properties:
+        current_role:
+          type: string
+        roles:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorFCAFRole'
+          nullable: true
+          type: array
+      type: object
+    HandlersActionAuthorFCAFRole:
+      properties:
+        key:
+          type: string
+        note:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+      type: object
     HandlersActionAuthorPendingReview:
       properties:
         actions:
@@ -1210,6 +1312,8 @@ components:
           type: string
         device_name:
           type: string
+        mode:
+          type: string
         session_id:
           type: string
         start_time:
@@ -1235,6 +1339,8 @@ components:
           type: string
         device_name:
           type: string
+        fcaf_progress:
+          $ref: '#/components/schemas/HandlersActionAuthorFCAFProgress'
         live_view:
           type: boolean
         mode:

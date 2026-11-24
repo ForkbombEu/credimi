@@ -1598,3 +1598,26 @@ func TestFCAFCoverage(t *testing.T) {
 	assert.Equal(t, issuePath, coverage["fcaf-issue-pid"].Action)
 	assert.Equal(t, FCAFMissing, coverage["fcaf-engagement-haip-vp"].Status)
 }
+
+func TestSelectWallet(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	segments := strings.Split(request.WalletVersionIdentifier, "/")
+	walletPath := strings.Join(segments[:2], "/")
+
+	selection, err := SelectWallet(app, namespace, request.Actor, walletPath)
+	require.NoError(t, err)
+	assert.Equal(t, namespace, selection.Organization.GetString("canonified_name"))
+	assert.Equal(t, walletPath, selection.Identifier)
+	assert.Nil(t, selection.Version)
+	assert.Empty(t, selection.Platform)
+
+	for _, path := range []string{request.WalletVersionIdentifier, "", segments[0] + "/unknown"} {
+		_, err := SelectWallet(app, namespace, request.Actor, path)
+		require.ErrorIs(t, err, ErrInvalid, path)
+	}
+
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	_, err = SelectWallet(app, "", Actor{ActorID: other.Id}, walletPath)
+	require.ErrorIs(t, err, ErrForbidden)
+}

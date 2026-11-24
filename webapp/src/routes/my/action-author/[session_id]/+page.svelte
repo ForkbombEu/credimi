@@ -17,6 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ticketOf,
 		type Session
 	} from '$lib/action-author/api';
+	import FcafProgress from '$lib/action-author/fcaf-progress.svelte';
 	import Transcript from '$lib/action-author/transcript.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
@@ -321,6 +322,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const metadata = $derived.by(() => {
 		if (!session) return '';
 		return [
+			session.mode === 'fcaf' ? m.Authoring_mode_fcaf() : '',
 			session.wallet_version_identifier,
 			session.device_name,
 			session.runner_name,
@@ -335,6 +337,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const showReview = $derived(!!pendingReview);
 	const showLiveView = $derived(liveViewOpen && !!session?.live_view);
+	const progress = $derived(
+		session?.mode === 'fcaf' && session.fcaf_progress?.roles.length
+			? session.fcaf_progress
+			: undefined
+	);
+	const showProgress = $derived(!!progress);
 </script>
 
 <div class="flex h-dvh flex-col bg-slate-50">
@@ -476,7 +484,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</section>
 
-		{#if session && (showReview || showLiveView)}
+		{#if session && (showReview || showLiveView || showProgress)}
 			<aside class="flex w-full shrink-0 flex-col gap-4 overflow-y-auto lg:w-[22rem]">
 				{#if pendingReview && showReview}
 					{#key pendingReview.tool_id}
@@ -489,6 +497,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							}}
 						/>
 					{/key}
+				{/if}
+
+				{#if progress}
+					<FcafProgress {progress} />
 				{/if}
 
 				{#if showLiveView}

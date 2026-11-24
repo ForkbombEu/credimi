@@ -72,7 +72,7 @@ func FCAFScope(ref ActionAuthorSessionRef) (*actionauthor.FCAFScope, error) {
 	if ref.Mode != actionauthor.SessionModeFCAF {
 		return nil, nil
 	}
-	contract, err := loadFCAFContract()
+	contract, err := LoadFCAFContract()
 	if err != nil {
 		return nil, err
 	}
@@ -86,9 +86,9 @@ var fcafContract struct {
 	contract *walletroles.Contract
 }
 
-// loadFCAFContract returns the role contract, loading it on first use. A
-// failed load is not kept, so the next call tries again.
-func loadFCAFContract() (*walletroles.Contract, error) {
+// LoadFCAFContract returns the FCAF role contract, loading it once per
+// process; a failed load is retried on the next call.
+func LoadFCAFContract() (*walletroles.Contract, error) {
 	fcafContract.mu.Lock()
 	defer fcafContract.mu.Unlock()
 	if fcafContract.contract == nil {

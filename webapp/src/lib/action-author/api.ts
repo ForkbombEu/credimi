@@ -69,6 +69,45 @@ export type PendingReview = {
 	actions: ReviewAction[];
 };
 
+export type AuthoringMode = 'chat' | 'fcaf';
+
+/** Where a role of an FCAF campaign stands. */
+export type FcafRoleStatus =
+	| 'pending'
+	| 'working'
+	| 'passed'
+	| 'unsupported'
+	| 'blocked'
+	| 'skipped';
+
+/** A role of an FCAF campaign, with the agent's note. */
+export type FcafRoleProgress = { role: string; status: FcafRoleStatus; key: string; note: string };
+
+/** The campaign of an FCAF session while its chat runs. */
+export type FcafProgress = { current_role: string; roles: FcafRoleProgress[] };
+
+/** The state of the caller organization's action for an FCAF role on a wallet. */
+export type FcafCoverageStatus = 'missing' | 'current' | 'stale' | 'unmanaged';
+
+export type FcafRoleCoverage = {
+	role: string;
+	summary: string;
+	outcome: string;
+	category: string;
+	starts_from: string[];
+	status: FcafCoverageStatus;
+	action: string;
+	role_sha256: string;
+};
+
+/** FCAF relying-party coverage of a wallet (GET /api/action-author/fcaf-coverage). */
+export type FcafCoverage = {
+	suite: string;
+	roles: FcafRoleCoverage[];
+	profile: Record<string, unknown> | null;
+	warnings: string[];
+};
+
 /** An authoring session and its state (GET /api/action-author/sessions/{id}). */
 export type Session = {
 	session_id: string;
@@ -90,6 +129,9 @@ export type Session = {
 	chat_running: boolean;
 	closes_at: string;
 	pending_review: PendingReview | null;
+	mode: AuthoringMode;
+	/** The campaign of an FCAF session while its chat runs, null otherwise. */
+	fcaf_progress: FcafProgress | null;
 };
 
 /** A row of GET /api/action-author/sessions?wallet=… */
@@ -100,6 +142,7 @@ export type SessionListItem = {
 	wallet_version_identifier: string;
 	device_id: string;
 	device_name: string;
+	mode: AuthoringMode;
 };
 
 /** An item of a chat's transcript (GET /api/action-author/sessions/{id}/transcript). */
@@ -198,11 +241,12 @@ export async function listBuilds(): Promise<Result<BuildOption[], ApiFailure>> {
 
 export function startSession(
 	deviceId: string,
-	walletVersionIdentifier: string
+	walletVersionIdentifier: string,
+	mode: AuthoringMode
 ): Promise<Result<StartedSession, ApiFailure>> {
 	return call<StartedSession>('/sessions', {
 		method: 'POST',
-		body: { device_id: deviceId, wallet_version_identifier: walletVersionIdentifier }
+		body: { device_id: deviceId, wallet_version_identifier: walletVersionIdentifier, mode }
 	});
 }
 
@@ -218,6 +262,11 @@ export async function listSessions(
 		`/sessions?${params.toString()}`
 	);
 	return res.map((r) => r.sessions ?? []);
+}
+
+export function getFcafCoverage(walletPath: string): Promise<Result<FcafCoverage, ApiFailure>> {
+	const params = new URLSearchParams({ wallet: walletPath });
+	return call<FcafCoverage>(`/fcaf-coverage?${params.toString()}`);
 }
 
 export async function getTranscript(
