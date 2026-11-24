@@ -156,6 +156,7 @@ func TestListActionAuthorFCAFRoles(t *testing.T) {
 	require.Equal(t, actionauthor.FCAFRelyingPartySuite, output.Suite)
 	require.Equal(t, scope.Contract.Rules, output.Rules)
 	require.Nil(t, output.Profile)
+	require.Equal(t, []string{}, output.Warnings)
 	require.NotEmpty(t, output.Roles)
 	require.Equal(t, scope.Contract.Injected(walletroles.InjectedReset).Name, output.Roles[0].Role)
 	require.Equal(
@@ -165,6 +166,25 @@ func TestListActionAuthorFCAFRoles(t *testing.T) {
 	)
 	for _, role := range output.Roles {
 		require.Equal(t, actionauthor.FCAFMissing, role.Status, role.Role)
+	}
+
+	// A profile whose PID issuer is jwt-proof misses FCAF's key attestation.
+	reset := scope.Contract.Injected(walletroles.InjectedReset).Name
+	action := seedAuthorAction(t, app, session, reset, "appId: eu.wallet")
+	for issuer, warnings := range map[string][]string{
+		walletroles.PIDIssuerJWTProof:       {actionauthor.FCAFKeyAttestationFinding},
+		walletroles.PIDIssuerKeyAttestation: {},
+	} {
+		profile := map[string]any{"pin": "123456", "pid_issuer": issuer}
+		recordProvenance(t, app, action, actionauthor.Provenance{
+			FCAFRole:    reset,
+			FCAFProfile: profile,
+		})
+		a.authorSessionLookup = fcafSessionLookup(t, app, session).lookup()
+		output, err = a.list(t.Context(), authorTestCaller())
+		require.NoError(t, err, issuer)
+		require.Equal(t, profile, output.Profile, issuer)
+		require.Equal(t, warnings, output.Warnings, issuer)
 	}
 }
 

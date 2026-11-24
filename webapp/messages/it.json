@@ -1132,6 +1132,7 @@
 	"Review_used_by": "Usata da {count} pipeline: eseguiranno il codice corretto dopo il salvataggio.",
 	"Review_previous_save_failed": "L'ultimo salvataggio non è riuscito",
 	"Review_agent_note": "Nota dell'agente",
+	"Review_fcaf_warnings": "Risultati FCAF su questo wallet",
 	"Review_wallet_profile": "Profilo del wallet",
 	"Chat_transcript": "Trascrizione della chat",
 	"Transcript_empty": "Nessun messaggio in questa chat.",

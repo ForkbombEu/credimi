@@ -64,6 +64,8 @@ export type PendingReview = {
 	tool_id: string;
 	/** FCAF wallet profile saved with every FCAF action of the review; an accept binds it. */
 	profile?: Record<string, unknown>;
+	/** The agent's FCAF findings about the wallet itself, in English; empty when none. */
+	warnings: string[];
 	actions: ReviewAction[];
 };
 

@@ -184,6 +184,26 @@ func FCAFCoverage(
 	return coverage, profile, nil
 }
 
+// FCAFKeyAttestationFinding is the FCAF finding about a wallet whose profile
+// says pid_issuer jwt-proof: the agent wrote its actions with the jwt-proof
+// PID only as an authoring aid, and FCAF pipelines still issue the
+// key-attestation PID (the agent's fcaf.FCAF_KEY_ATTESTATION_FINDING).
+const FCAFKeyAttestationFinding = "FCAF requirement not met: the wallet refuses Capture's " +
+	"key-attestation PID (eu-pid-device-bound), which FCAF requires. The other actions were " +
+	"written with a jwt-proof PID (eu-pid-jwt-proof-only) only to author and replay them; " +
+	"FCAF pipelines still issue the key-attestation PID, so this wallet's conformance runs " +
+	"will fail or block on it."
+
+// FCAFWarnings returns the FCAF findings about the wallet of an FCAF
+// profile: FCAFKeyAttestationFinding when its pid_issuer is jwt-proof. It is
+// empty, never nil.
+func FCAFWarnings(profile map[string]any) []string {
+	if issuer, _ := profile["pid_issuer"].(string); issuer == walletroles.PIDIssuerJWTProof {
+		return []string{FCAFKeyAttestationFinding}
+	}
+	return []string{}
+}
+
 // fcafSuiteRoles returns the roles of the scope suite: the injected reset,
 // the injected issuance, then the others in contract order.
 func fcafSuiteRoles(scope *FCAFScope) []walletroles.Role {

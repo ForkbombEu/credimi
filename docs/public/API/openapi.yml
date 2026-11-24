@@ -1106,6 +1106,11 @@ components:
           type: object
         tool_id:
           type: string
+        warnings:
+          items:
+            type: string
+          nullable: true
+          type: array
       type: object
     HandlersActionAuthorReplayResponse:
       properties:

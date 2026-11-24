@@ -48,6 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const toolId = untrack(() => review.tool_id);
 	// The FCAF profile the agent saves with every action of the review; an accept binds it.
 	const profile = untrack(() => review.profile);
+	// The agent's FCAF findings about the wallet itself (such as a missing key attestation).
+	const warnings = untrack(() => review.warnings);
 
 	let choices = $state<Choices>(
 		Object.fromEntries(actions.map((action) => [action.key, { decision: null, comment: '' }]))
@@ -122,6 +124,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<h3 class="font-semibold">{m.Review_actions_title()}</h3>
 	<p class="break-words">{m.Review_actions_details({ build })}</p>
+
+	{#if warnings.length}
+		<Alert variant="warning" aria-label={m.Review_fcaf_warnings()}>
+			<p class="font-bold">{m.Review_fcaf_warnings()}</p>
+			{#each warnings as warning, index (index)}
+				<p class="break-words">{warning}</p>
+			{/each}
+		</Alert>
+	{/if}
 
 	{#if profile}
 		<section class="space-y-1" aria-label={m.Review_wallet_profile()}>

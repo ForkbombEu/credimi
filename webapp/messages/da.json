@@ -1125,6 +1125,7 @@
 	"Review_used_by": "Bruges af {count} pipelines: de kører den rettede kode, når du har gemt.",
 	"Review_previous_save_failed": "Den seneste gemning mislykkedes",
 	"Review_agent_note": "Agentens note",
+	"Review_fcaf_warnings": "FCAF-fund om denne wallet",
 	"Review_wallet_profile": "Wallet-profil",
 	"Chat_transcript": "Chatudskrift",
 	"Transcript_empty": "Ingen beskeder i denne chat.",

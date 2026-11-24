@@ -1169,6 +1169,7 @@
 	"Review_used_by": "Used by {count} pipelines: they run the fixed code after you save.",
 	"Review_previous_save_failed": "The last save failed",
 	"Review_agent_note": "Agent's note",
+	"Review_fcaf_warnings": "FCAF findings about this wallet",
 	"Review_wallet_profile": "Wallet profile",
 	"Chat_transcript": "Chat transcript",
 	"Transcript_empty": "No messages in this chat.",

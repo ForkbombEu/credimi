@@ -695,8 +695,13 @@ type ActionAuthorPendingReview struct {
 	ToolID string `json:"tool_id"`
 	// Profile is the FCAF profile the agent saves with every action of an
 	// FCAF review (wallet UI notes, never secrets); an accept binds it.
-	Profile map[string]any             `json:"profile,omitempty"`
-	Actions []ActionAuthorReviewAction `json:"actions"`
+	Profile map[string]any `json:"profile,omitempty"`
+	// Warnings are the agent's FCAF findings about the wallet itself (such
+	// as actionauthor.FCAFKeyAttestationFinding), shown above the actions:
+	// at most actionAuthorWarningCount of actionAuthorWarningRunes runes
+	// each, never nil.
+	Warnings []string                   `json:"warnings"`
+	Actions  []ActionAuthorReviewAction `json:"actions"`
 }
 
 // ActionAuthorReviewAction is one action of a pending review.
@@ -1047,9 +1052,10 @@ func actionAuthorPendingReview(
 	}
 	profile, _ := input["profile"].(map[string]any)
 	review := &ActionAuthorPendingReview{
-		ToolID:  toolID,
-		Profile: profile,
-		Actions: []ActionAuthorReviewAction{},
+		ToolID:   toolID,
+		Profile:  profile,
+		Warnings: actionAuthorWarnings(input["warnings"]),
+		Actions:  []ActionAuthorReviewAction{},
 	}
 	names := map[string]string{}
 	items, _ := input["actions"].([]any)
@@ -1102,6 +1108,30 @@ func actionAuthorPendingReview(
 
 // actionAuthorNoteRunes bounds the agent's note on a review action.
 const actionAuthorNoteRunes = 2000
+
+// Bounds of the agent's review warnings: at most actionAuthorWarningCount
+// warnings of actionAuthorWarningRunes runes each.
+const (
+	actionAuthorWarningCount = 10
+	actionAuthorWarningRunes = 1000
+)
+
+// actionAuthorWarnings returns the string items of a review's warnings, at
+// most actionAuthorWarningCount, each cut at actionAuthorWarningRunes runes;
+// empty, never nil.
+func actionAuthorWarnings(value any) []string {
+	items, _ := value.([]any)
+	warnings := []string{}
+	for _, item := range items {
+		if len(warnings) == actionAuthorWarningCount {
+			break
+		}
+		if text, ok := item.(string); ok {
+			warnings = append(warnings, truncateRunes(text, actionAuthorWarningRunes))
+		}
+	}
+	return warnings
+}
 
 // truncateRunes keeps the first limit runes of text.
 func truncateRunes(text string, limit int) string {

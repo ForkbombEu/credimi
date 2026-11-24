@@ -303,6 +303,23 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 				"tool_input": map[string]any{
 					"author_workflow_id": authoringSessionChat,
 					"profile":            map[string]any{"pin": "123456"},
+					// Only strings, at most 10 of 1000 runes each.
+					"warnings": append(
+						[]any{
+							actionauthor.FCAFKeyAttestationFinding,
+							42,
+							strings.Repeat("ü", 1001),
+						},
+						"w2",
+						"w3",
+						"w4",
+						"w5",
+						"w6",
+						"w7",
+						"w8",
+						"w9",
+						"w10",
+					),
 					"actions": []any{
 						map[string]any{
 							"key":              "a1",
@@ -432,6 +449,11 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		PendingReview: &ActionAuthorPendingReview{
 			ToolID:  "tool-1",
 			Profile: map[string]any{"pin": "123456"},
+			Warnings: []string{
+				actionauthor.FCAFKeyAttestationFinding,
+				strings.Repeat("ü", 1000),
+				"w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9",
+			},
 			Actions: []ActionAuthorReviewAction{
 				{
 					Key:             "a1",

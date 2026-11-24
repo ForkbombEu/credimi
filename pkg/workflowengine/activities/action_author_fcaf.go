@@ -69,12 +69,15 @@ func (l authorSessionLookup) fcafSession(
 
 // ListActionAuthorFCAFRolesOutput is the session suite, the contract's
 // authoring rules, the coverage of every role of the suite in the session
-// wallet and the newest saved FCAF profile, null when none.
+// wallet, the newest saved FCAF profile, null when none, and the FCAF
+// findings about the wallet that profile implies (actionauthor.FCAFWarnings),
+// which the wallet's coverage shows.
 type ListActionAuthorFCAFRolesOutput struct {
-	Suite   string                          `json:"suite"`
-	Rules   []string                        `json:"rules"`
-	Roles   []actionauthor.FCAFRoleCoverage `json:"roles"`
-	Profile map[string]any                  `json:"profile"`
+	Suite    string                          `json:"suite"`
+	Rules    []string                        `json:"rules"`
+	Roles    []actionauthor.FCAFRoleCoverage `json:"roles"`
+	Profile  map[string]any                  `json:"profile"`
+	Warnings []string                        `json:"warnings"`
 }
 
 // ListActionAuthorFCAFRolesActivity lists the FCAF roles of the caller
@@ -129,10 +132,11 @@ func (a *ListActionAuthorFCAFRolesActivity) list(
 		return ListActionAuthorFCAFRolesOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	return ListActionAuthorFCAFRolesOutput{
-		Suite:   scope.Suite,
-		Rules:   nonNil(scope.Contract.Rules),
-		Roles:   nonNil(roles),
-		Profile: profile,
+		Suite:    scope.Suite,
+		Rules:    nonNil(scope.Contract.Rules),
+		Roles:    nonNil(roles),
+		Profile:  profile,
+		Warnings: actionauthor.FCAFWarnings(profile),
 	}, nil
 }
 
