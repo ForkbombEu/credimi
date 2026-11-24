@@ -546,7 +546,8 @@ const (
 // profile whose JSON encoding exceeds 8 KiB, and one off the profile schema:
 // an optional pin of 4-8 digits, optional notes, at most 20 strings of
 // 1-300 characters, an optional pid_issuer, one of walletroles.PIDIssuers,
-// and nothing else.
+// an optional request_scheme, only walletroles.OpenID4VPRequestScheme, and
+// nothing else.
 func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
 	if profile == nil {
 		return nil
@@ -558,7 +559,7 @@ func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
 	if !validFCAFProfile(profile) {
 		return fmt.Errorf(
 			"%w: fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, "+
-				"pid_issuer: key-attestation or jwt-proof}",
+				"pid_issuer: key-attestation or jwt-proof, request_scheme: openid4vp://}",
 			ErrInvalid,
 		)
 	}
@@ -580,6 +581,10 @@ func validFCAFProfile(profile map[string]any) bool {
 		case "pid_issuer":
 			issuer, ok := value.(string)
 			if !ok || !slices.Contains(walletroles.PIDIssuers, issuer) {
+				return false
+			}
+		case "request_scheme":
+			if value != walletroles.OpenID4VPRequestScheme {
 				return false
 			}
 		default:

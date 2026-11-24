@@ -1363,7 +1363,7 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 				in.FCAFProfile = map[string]any{"pin": "12"}
 			},
 			message: "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, " +
-				"pid_issuer: key-attestation or jwt-proof}",
+				"pid_issuer: key-attestation or jwt-proof, request_scheme: openid4vp://}",
 		},
 		{
 			name: "profile of a chat plan",
@@ -1432,7 +1432,7 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 func TestCheckFCAFProfile(t *testing.T) {
 	const role = "fcaf-reset-and-onboard"
 	const schema = "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, " +
-		"pid_issuer: key-attestation or jwt-proof}"
+		"pid_issuer: key-attestation or jwt-proof, request_scheme: openid4vp://}"
 	manyNotes := make([]any, 21)
 	for index := range manyNotes {
 		manyNotes[index] = "note"
@@ -1448,6 +1448,8 @@ func TestCheckFCAFProfile(t *testing.T) {
 		{"pid_issuer": "key-attestation"},
 		{"pid_issuer": "jwt-proof"},
 		{"pin": "1234", "notes": []any{"a"}, "pid_issuer": "jwt-proof"},
+		{"request_scheme": "openid4vp://"},
+		{"pin": "1234", "pid_issuer": "jwt-proof", "request_scheme": "openid4vp://"},
 	}
 	for _, profile := range accepted {
 		assert.NoError(t, CheckFCAFProfile(profile, role), "%v", profile)
@@ -1466,6 +1468,10 @@ func TestCheckFCAFProfile(t *testing.T) {
 		"unknown issuer":      {"pid_issuer": "eu-pid-jwt-proof-only"},
 		"empty issuer":        {"pid_issuer": ""},
 		"issuer not a string": {"pid_issuer": []any{"jwt-proof"}},
+		"haip scheme":         {"request_scheme": "haip-vp://"},
+		"empty scheme":        {"request_scheme": ""},
+		"other scheme":        {"request_scheme": "eu-eaap://"},
+		"scheme not a string": {"request_scheme": []any{"openid4vp://"}},
 		"note not a string":   {"notes": []any{float64(1)}},
 	}
 	for name, profile := range refused {

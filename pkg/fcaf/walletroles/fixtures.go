@@ -46,6 +46,14 @@ const (
 	pidFormatMdoc  = "mdoc"
 )
 
+// OpenID4VP request schemes of the FCAF verifier session requests. The
+// scenarios ask for HAIPRequestScheme; a wallet that registers only
+// OpenID4VPRequestScheme gets its requests rewritten by WithRequestScheme.
+const (
+	HAIPRequestScheme      = "haip-vp://"
+	OpenID4VPRequestScheme = "openid4vp://"
+)
+
 const (
 	mobileAutomationUse = "mobile-automation"
 	httpRequestUse      = "http-request"
@@ -149,6 +157,40 @@ func OptionalizeExpressions(value any) any {
 			}
 		}
 		return typed
+	default:
+		return value
+	}
+}
+
+// WithRequestScheme returns a deep copy of a fixture request body. When
+// scheme is OpenID4VPRequestScheme, a top-level "scheme" equal to
+// HAIPRequestScheme becomes OpenID4VPRequestScheme; any other value, or a
+// missing key, is left unchanged.
+func WithRequestScheme(body any, scheme string) any {
+	out := deepCopy(body)
+	if scheme != OpenID4VPRequestScheme {
+		return out
+	}
+	if fields, ok := out.(map[string]any); ok && fields["scheme"] == HAIPRequestScheme {
+		fields["scheme"] = OpenID4VPRequestScheme
+	}
+	return out
+}
+
+func deepCopy(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, child := range typed {
+			out[key] = deepCopy(child)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for index, child := range typed {
+			out[index] = deepCopy(child)
+		}
+		return out
 	default:
 		return value
 	}

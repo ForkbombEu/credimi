@@ -431,3 +431,55 @@ func TestOptionalizeExpressions(t *testing.T) {
 		})
 	}
 }
+
+func TestWithRequestScheme(t *testing.T) {
+	haip := map[string]any{"scheme": HAIPRequestScheme, "dcql": map[string]any{"q": []any{"a"}}}
+	tests := []struct {
+		name   string
+		body   any
+		scheme string
+		want   any
+	}{
+		{
+			name:   "haip to openid4vp",
+			body:   haip,
+			scheme: OpenID4VPRequestScheme,
+			want: map[string]any{
+				"scheme": OpenID4VPRequestScheme,
+				"dcql":   map[string]any{"q": []any{"a"}},
+			},
+		},
+		{name: "no scheme asked", body: haip, scheme: "", want: haip},
+		{name: "haip asked", body: haip, scheme: HAIPRequestScheme, want: haip},
+		{
+			name:   "other scheme",
+			body:   map[string]any{"scheme": "eu-eaap://"},
+			scheme: OpenID4VPRequestScheme,
+			want:   map[string]any{"scheme": "eu-eaap://"},
+		},
+		{
+			name:   "missing scheme",
+			body:   map[string]any{"dcql": "x"},
+			scheme: OpenID4VPRequestScheme,
+			want:   map[string]any{"dcql": "x"},
+		},
+		{
+			name:   "nested scheme",
+			body:   map[string]any{"inner": map[string]any{"scheme": HAIPRequestScheme}},
+			scheme: OpenID4VPRequestScheme,
+			want:   map[string]any{"inner": map[string]any{"scheme": HAIPRequestScheme}},
+		},
+		{name: "not an object", body: "x", scheme: OpenID4VPRequestScheme, want: "x"},
+		{name: "nil", body: nil, scheme: OpenID4VPRequestScheme, want: nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, WithRequestScheme(tc.body, tc.scheme))
+		})
+	}
+	assert.Equal(t, HAIPRequestScheme, haip["scheme"], "the input is not modified")
+
+	copied := WithRequestScheme(haip, "").(map[string]any)
+	copied["dcql"].(map[string]any)["q"].([]any)[0] = "b"
+	assert.Equal(t, "a", haip["dcql"].(map[string]any)["q"].([]any)[0], "the copy is deep")
+}
