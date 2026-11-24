@@ -1137,7 +1137,7 @@ func pidIssuance(
 	// Inserted steps miss the scenario rewrite; an unresolved token would fall
 	// back to the default issuer at run time instead of the scenario issuer.
 	base = walletroles.SubstituteFixture(base, fixture)
-	request := walletroles.PIDIssuance(string(format))
+	request := walletroles.PIDIssuance(walletroles.PIDIssuerKeyAttestation, string(format))
 	// PIDIssuance's URL is a constant absolute URL; only its path is kept.
 	requestURL, _ := url.Parse(request.URL)
 	suffix := ""

@@ -6,6 +6,7 @@ package activities
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -197,11 +198,26 @@ func TestDescribeActionAuthorFCAFRole(t *testing.T) {
 	require.Equal(t, "https://capture-wallet.credimi.io/openid4vp/sessions", source.Request.URL)
 	require.Equal(t, map[string]string{"session_id": "session_id"}, source.Captures)
 	require.Equal(t, actionauthor.SourceSpec{
-		Kind:      actionauthor.SourceHTTP,
-		Request:   httpSourceRequest(walletroles.PIDIssuance("mdoc")),
+		Kind: actionauthor.SourceHTTP,
+		Request: httpSourceRequest(
+			walletroles.PIDIssuance(walletroles.PIDIssuerKeyAttestation, "mdoc"),
+		),
 		ValuePath: "deeplink",
-	}, rejected.PIDIssuance["mdoc"])
-	require.Contains(t, rejected.PIDIssuance, "sd-jwt")
+	}, rejected.PIDIssuance[walletroles.PIDIssuerKeyAttestation]["mdoc"])
+	require.ElementsMatch(
+		t,
+		walletroles.PIDIssuers,
+		slices.Collect(maps.Keys(rejected.PIDIssuance)),
+	)
+	for _, formats := range rejected.PIDIssuance {
+		require.ElementsMatch(t, []string{"sd-jwt", "mdoc"}, slices.Collect(maps.Keys(formats)))
+	}
+	jwtProof := rejected.PIDIssuance[walletroles.PIDIssuerJWTProof]["sd-jwt"]
+	require.Equal(t, http.MethodPost, jwtProof.Request.Method)
+	require.Equal(t, map[string]any{
+		"issuer_configuration_id":     "eu-pid-jwt-proof-only",
+		"credential_configuration_id": "urn:eu.europa.ec.eudi:pid:1.sd-jwt.jwt-proof",
+	}, jwtProof.Request.Body)
 
 	reset, err := describe("fcaf-reset-and-onboard")
 	require.NoError(t, err)
@@ -215,10 +231,25 @@ func TestDescribeActionAuthorFCAFRole(t *testing.T) {
 	pid, err := describe("fcaf-issue-pid")
 	require.NoError(t, err)
 	ids := make([]string, 0, len(pid.Fixtures))
+	issuers := make([]string, 0, len(pid.Fixtures))
 	for _, fixture := range pid.Fixtures {
 		ids = append(ids, fixture.ID)
+		issuers = append(issuers, fixture.PIDIssuer)
 	}
-	require.Equal(t, []string{"pid-sd-jwt", "pid-mdoc"}, ids)
+	require.Equal(
+		t,
+		[]string{"pid-sd-jwt", "pid-mdoc", "pid-jwt-proof-sd-jwt", "pid-jwt-proof-mdoc"},
+		ids,
+	)
+	require.Equal(t, []string{
+		walletroles.PIDIssuerKeyAttestation,
+		walletroles.PIDIssuerKeyAttestation,
+		walletroles.PIDIssuerJWTProof,
+		walletroles.PIDIssuerJWTProof,
+	}, issuers)
+	for _, fixture := range rejected.Fixtures {
+		require.Empty(t, fixture.PIDIssuer, fixture.ID)
+	}
 
 	for name, tc := range map[string]struct {
 		role string

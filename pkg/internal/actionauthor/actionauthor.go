@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -543,8 +544,9 @@ const (
 
 // CheckFCAFProfile refuses a profile for an action without an FCAF role, a
 // profile whose JSON encoding exceeds 8 KiB, and one off the profile schema:
-// an optional pin of 4-8 digits and optional notes, at most 20 strings of
-// 1-300 characters, and nothing else.
+// an optional pin of 4-8 digits, optional notes, at most 20 strings of
+// 1-300 characters, an optional pid_issuer, one of walletroles.PIDIssuers,
+// and nothing else.
 func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
 	if profile == nil {
 		return nil
@@ -555,7 +557,8 @@ func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
 	}
 	if !validFCAFProfile(profile) {
 		return fmt.Errorf(
-			"%w: fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters}",
+			"%w: fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, "+
+				"pid_issuer: key-attestation or jwt-proof}",
 			ErrInvalid,
 		)
 	}
@@ -572,6 +575,11 @@ func validFCAFProfile(profile map[string]any) bool {
 			}
 		case "notes":
 			if !validFCAFProfileNotes(value) {
+				return false
+			}
+		case "pid_issuer":
+			issuer, ok := value.(string)
+			if !ok || !slices.Contains(walletroles.PIDIssuers, issuer) {
 				return false
 			}
 		default:

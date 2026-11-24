@@ -21,13 +21,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The PID the FCAF suites issue: the issuer configuration and its SD-JWT VC
-// and mdoc credential configurations.
+// PID issuers of Capture the FCAF action author may issue the PID from.
 const (
-	PIDIssuerConfigurationID = "eu-pid-device-bound"
-	PIDSDJWTConfigurationID  = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
-	PIDMdocConfigurationID   = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
+	PIDIssuerKeyAttestation = "key-attestation" // eu-pid-device-bound, key attestation required
+	PIDIssuerJWTProof       = "jwt-proof"       // eu-pid-jwt-proof-only, plain JWT proof
 )
+
+// PIDIssuers lists them, the one tried first first.
+var PIDIssuers = []string{PIDIssuerKeyAttestation, PIDIssuerJWTProof}
+
+// pidIssuerConfigurations maps each PID issuer to its Capture issuer
+// configuration and the suffix of its credential configurations.
+var pidIssuerConfigurations = map[string]struct {
+	issuerConfigurationID string
+	credentialSuffix      string
+}{
+	PIDIssuerKeyAttestation: {"eu-pid-device-bound", "key-attestation-required"},
+	PIDIssuerJWTProof:       {"eu-pid-jwt-proof-only", "jwt-proof"},
+}
 
 // The PID formats of the injected issuance fixtures.
 const (
@@ -62,8 +73,8 @@ type FixtureFetch struct {
 // request that creates its parameter, the fetches that read the evidence
 // back, and the tests that evidence feeds.
 type Fixture struct {
-	// ID is "<scenario base name>#<mobile step id>", or "pid-sd-jwt" /
-	// "pid-mdoc" for the injected issuance.
+	// ID is "<scenario base name>#<mobile step id>", or "pid-<format>" /
+	// "pid-jwt-proof-<format>" for the injected issuance.
 	ID string
 	// Scenario is the scenario file base name without .yaml; "" for PID
 	// fixtures.
@@ -73,7 +84,9 @@ type Fixture struct {
 	// mobile-automation step.
 	Standalone bool
 	// PIDFormat is "sd-jwt", "mdoc" or "".
-	PIDFormat       string
+	PIDFormat string
+	// PIDIssuer is one of PIDIssuers for issuance fixtures, "" otherwise.
+	PIDIssuer       string
 	Parameter       string
 	Request         FixtureRequest
 	ValuePath       string
@@ -90,19 +103,22 @@ var (
 )
 
 // PIDIssuance is the issuer session request of the injected PID issuance the
-// generator runs before a relying-party presentation.
-func PIDIssuance(format string) FixtureRequest {
-	configurationID := PIDSDJWTConfigurationID
-	if format == pidFormatMdoc {
-		configurationID = PIDMdocConfigurationID
+// generator runs before a relying-party presentation, from one of PIDIssuers
+// in format "sd-jwt" or "mdoc". An unknown issuer panics: callers pass only
+// constants.
+func PIDIssuance(issuer, format string) FixtureRequest {
+	configuration, ok := pidIssuerConfigurations[issuer]
+	if !ok {
+		panic(fmt.Sprintf("walletroles: unknown PID issuer %q", issuer))
 	}
 	return FixtureRequest{
 		Method:  "POST",
 		URL:     pipelineexpr.DefaultVerifierURL + "/sessions",
 		Headers: map[string]string{"Content-Type": "application/json"},
 		Body: map[string]any{
-			"issuer_configuration_id":     PIDIssuerConfigurationID,
-			"credential_configuration_id": configurationID,
+			"issuer_configuration_id": configuration.issuerConfigurationID,
+			"credential_configuration_id": "urn:eu.europa.ec.eudi:pid:1." + format + "." +
+				configuration.credentialSuffix,
 		},
 	}
 }
@@ -295,18 +311,25 @@ func pidFixtures(role Role) []Fixture {
 	if len(role.Parameters) > 0 {
 		parameter = role.Parameters[0]
 	}
-	fixtures := make([]Fixture, 0, 2)
-	for _, format := range []string{pidFormatSDJWT, pidFormatMdoc} {
-		fixtures = append(fixtures, Fixture{
-			ID:              "pid-" + format,
-			PIDFormat:       format,
-			Parameter:       parameter,
-			Request:         PIDIssuance(format),
-			ValuePath:       "deeplink",
-			Fetches:         []FixtureFetch{},
-			TestIDs:         []string{},
-			PipelineOutputs: map[string]any{},
-		})
+	fixtures := make([]Fixture, 0, len(PIDIssuers)*2)
+	for _, issuer := range PIDIssuers {
+		prefix := "pid-"
+		if issuer != PIDIssuerKeyAttestation {
+			prefix += issuer + "-"
+		}
+		for _, format := range []string{pidFormatSDJWT, pidFormatMdoc} {
+			fixtures = append(fixtures, Fixture{
+				ID:              prefix + format,
+				PIDFormat:       format,
+				PIDIssuer:       issuer,
+				Parameter:       parameter,
+				Request:         PIDIssuance(issuer, format),
+				ValuePath:       "deeplink",
+				Fetches:         []FixtureFetch{},
+				TestIDs:         []string{},
+				PipelineOutputs: map[string]any{},
+			})
+		}
 	}
 	return fixtures
 }

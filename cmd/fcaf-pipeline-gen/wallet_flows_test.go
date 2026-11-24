@@ -180,9 +180,9 @@ func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
 			"action_id": roles.prefix + "fcaf-expect-credential-rejected",
 		},
 	}
-	offerSession := map[string]any{"with": map[string]any{"body": map[string]any{
-		"credential_configuration_id": walletroles.PIDSDJWTConfigurationID,
-	}}}
+	offerSession := map[string]any{"with": map[string]any{
+		"body": walletroles.PIDIssuance(walletroles.PIDIssuerKeyAttestation, "sd-jwt").Body,
+	}}
 	probeSession := map[string]any{"with": map[string]any{"body": map[string]any{
 		"presentation_request": map[string]any{"dcql_query": map[string]any{
 			"credentials": []any{map[string]any{"id": "pid", "format": "dc+sd-jwt"}},

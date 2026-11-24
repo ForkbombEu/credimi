@@ -145,30 +145,33 @@ type DescribeActionAuthorFCAFRoleInput struct {
 // reference code, the roles its action starts from, the contract's
 // authoring rules and Credimi-built plans: Plan for a role without
 // parameters, one per fixture otherwise. PIDIssuance holds the parameter
-// source of the injected PID issuance per PID format ("sd-jwt", "mdoc").
+// source of the injected PID issuance per PID issuer (walletroles.PIDIssuers),
+// then per PID format ("sd-jwt", "mdoc").
 // Plans carry no prerequisites: the agent adds the wallet's actions or
 // candidates for StartsFrom, in order.
 type DescribeActionAuthorFCAFRoleOutput struct {
-	Role        walletroles.Role                   `json:"role"`
-	RoleSHA256  string                             `json:"role_sha256"`
-	StartsFrom  []string                           `json:"starts_from"`
-	Rules       []string                           `json:"rules"`
-	Plan        *actionauthor.Spec                 `json:"plan"`
-	Fixtures    []FCAFFixtureOption                `json:"fixtures"`
-	PIDIssuance map[string]actionauthor.SourceSpec `json:"pid_issuance"`
+	Role        walletroles.Role                              `json:"role"`
+	RoleSHA256  string                                        `json:"role_sha256"`
+	StartsFrom  []string                                      `json:"starts_from"`
+	Rules       []string                                      `json:"rules"`
+	Plan        *actionauthor.Spec                            `json:"plan"`
+	Fixtures    []FCAFFixtureOption                           `json:"fixtures"`
+	PIDIssuance map[string]map[string]actionauthor.SourceSpec `json:"pid_issuance"`
 	// BrowserAppID is the browser package a role that uses the browser may
 	// target, as Save allows it.
 	BrowserAppID string `json:"browser_app_id"`
 }
 
 // FCAFFixtureOption is a fixture of an FCAF scenario that exercises the role,
-// with the plan whose parameter it generates.
+// with the plan whose parameter it generates. PIDIssuer is set only for the
+// injected issuance's fixtures.
 type FCAFFixtureOption struct {
 	ID           string            `json:"id"`
 	Scenario     string            `json:"scenario"`
 	MobileStepID string            `json:"mobile_step_id"`
 	Standalone   bool              `json:"standalone"`
 	PIDFormat    string            `json:"pid_format"`
+	PIDIssuer    string            `json:"pid_issuer"`
 	TestIDs      []string          `json:"test_ids"`
 	Plan         actionauthor.Spec `json:"plan"`
 }
@@ -244,11 +247,11 @@ func describeFCAFRole(
 		StartsFrom:  nonNil(scope.Contract.StartsFrom(role)),
 		Rules:       nonNil(scope.Contract.Rules),
 		Fixtures:    []FCAFFixtureOption{},
-		PIDIssuance: map[string]actionauthor.SourceSpec{},
+		PIDIssuance: map[string]map[string]actionauthor.SourceSpec{},
 		// The browser package Save allows for roles that use the browser.
 		BrowserAppID: scope.Contract.Reference.AppIDs[walletroles.AppBrowser],
 	}
-	// The PID issuances the generator injects, one per PID format.
+	// The PID issuances the generator may inject, per issuer and PID format.
 	issuances, err := scope.Contract.Fixtures(
 		fcafTemplatesRoot(),
 		scope.Suite,
@@ -258,7 +261,10 @@ func describeFCAFRole(
 		return DescribeActionAuthorFCAFRoleOutput{}, err
 	}
 	for _, issuance := range issuances {
-		output.PIDIssuance[issuance.PIDFormat] = actionauthor.SourceSpec{
+		if output.PIDIssuance[issuance.PIDIssuer] == nil {
+			output.PIDIssuance[issuance.PIDIssuer] = map[string]actionauthor.SourceSpec{}
+		}
+		output.PIDIssuance[issuance.PIDIssuer][issuance.PIDFormat] = actionauthor.SourceSpec{
 			Kind:      actionauthor.SourceHTTP,
 			Request:   httpSourceRequest(issuance.Request),
 			ValuePath: issuance.ValuePath,
@@ -280,6 +286,7 @@ func describeFCAFRole(
 			MobileStepID: fixture.MobileStepID,
 			Standalone:   fixture.Standalone,
 			PIDFormat:    fixture.PIDFormat,
+			PIDIssuer:    fixture.PIDIssuer,
 			TestIDs:      nonNil(fixture.TestIDs),
 			Plan:         fixturePlan(role, fixture),
 		})

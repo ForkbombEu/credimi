@@ -1362,7 +1362,8 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 			edit: func(in *SaveRequest) {
 				in.FCAFProfile = map[string]any{"pin": "12"}
 			},
-			message: "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters}",
+			message: "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, " +
+				"pid_issuer: key-attestation or jwt-proof}",
 		},
 		{
 			name: "profile of a chat plan",
@@ -1430,7 +1431,8 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 
 func TestCheckFCAFProfile(t *testing.T) {
 	const role = "fcaf-reset-and-onboard"
-	const schema = "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters}"
+	const schema = "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, " +
+		"pid_issuer: key-attestation or jwt-proof}"
 	manyNotes := make([]any, 21)
 	for index := range manyNotes {
 		manyNotes[index] = "note"
@@ -1443,22 +1445,28 @@ func TestCheckFCAFProfile(t *testing.T) {
 		{"notes": []any{}},
 		{"notes": []any{"a", strings.Repeat("x", 300)}},
 		{"pin": "123456", "notes": manyNotes[:20]},
+		{"pid_issuer": "key-attestation"},
+		{"pid_issuer": "jwt-proof"},
+		{"pin": "1234", "notes": []any{"a"}, "pid_issuer": "jwt-proof"},
 	}
 	for _, profile := range accepted {
 		assert.NoError(t, CheckFCAFProfile(profile, role), "%v", profile)
 	}
 	refused := map[string]map[string]any{
-		"unknown key":       {"pin": "1234", "wallet": "x"},
-		"short pin":         {"pin": "123"},
-		"long pin":          {"pin": "123456789"},
-		"pin with letters":  {"pin": "12a4"},
-		"pin with newline":  {"pin": "1234\n"},
-		"numeric pin":       {"pin": float64(1234)},
-		"notes not a list":  {"notes": "a note"},
-		"too many notes":    {"notes": manyNotes},
-		"empty note":        {"notes": []any{""}},
-		"long note":         {"notes": []any{strings.Repeat("x", 301)}},
-		"note not a string": {"notes": []any{float64(1)}},
+		"unknown key":         {"pin": "1234", "wallet": "x"},
+		"short pin":           {"pin": "123"},
+		"long pin":            {"pin": "123456789"},
+		"pin with letters":    {"pin": "12a4"},
+		"pin with newline":    {"pin": "1234\n"},
+		"numeric pin":         {"pin": float64(1234)},
+		"notes not a list":    {"notes": "a note"},
+		"too many notes":      {"notes": manyNotes},
+		"empty note":          {"notes": []any{""}},
+		"long note":           {"notes": []any{strings.Repeat("x", 301)}},
+		"unknown issuer":      {"pid_issuer": "eu-pid-jwt-proof-only"},
+		"empty issuer":        {"pid_issuer": ""},
+		"issuer not a string": {"pid_issuer": []any{"jwt-proof"}},
+		"note not a string":   {"notes": []any{float64(1)}},
 	}
 	for name, profile := range refused {
 		t.Run(name, func(t *testing.T) {

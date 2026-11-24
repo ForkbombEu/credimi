@@ -67,26 +67,55 @@ func TestRepositoryFixturesOfTheInjectedIssuance(t *testing.T) {
 
 	fixtures, err := contract.Fixtures(repositoryRoot, relyingPartySuite, "fcaf-issue-pid")
 	require.NoError(t, err)
-	require.Len(t, fixtures, 2)
+	require.Len(t, fixtures, 4)
 
 	tests := []struct {
-		id              string
-		format          string
-		configurationID string
+		id                    string
+		issuer                string
+		format                string
+		issuerConfigurationID string
+		configurationID       string
 	}{
-		{id: "pid-sd-jwt", format: "sd-jwt", configurationID: PIDSDJWTConfigurationID},
-		{id: "pid-mdoc", format: "mdoc", configurationID: PIDMdocConfigurationID},
+		{
+			id:                    "pid-sd-jwt",
+			issuer:                PIDIssuerKeyAttestation,
+			format:                "sd-jwt",
+			issuerConfigurationID: "eu-pid-device-bound",
+			configurationID:       "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required",
+		},
+		{
+			id:                    "pid-mdoc",
+			issuer:                PIDIssuerKeyAttestation,
+			format:                "mdoc",
+			issuerConfigurationID: "eu-pid-device-bound",
+			configurationID:       "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required",
+		},
+		{
+			id:                    "pid-jwt-proof-sd-jwt",
+			issuer:                PIDIssuerJWTProof,
+			format:                "sd-jwt",
+			issuerConfigurationID: "eu-pid-jwt-proof-only",
+			configurationID:       "urn:eu.europa.ec.eudi:pid:1.sd-jwt.jwt-proof",
+		},
+		{
+			id:                    "pid-jwt-proof-mdoc",
+			issuer:                PIDIssuerJWTProof,
+			format:                "mdoc",
+			issuerConfigurationID: "eu-pid-jwt-proof-only",
+			configurationID:       "urn:eu.europa.ec.eudi:pid:1.mdoc.jwt-proof",
+		},
 	}
 	for i, tc := range tests {
 		t.Run(tc.id, func(t *testing.T) {
 			fixture := fixtures[i]
 			assert.Equal(t, tc.id, fixture.ID)
 			assert.Equal(t, tc.format, fixture.PIDFormat)
+			assert.Equal(t, tc.issuer, fixture.PIDIssuer)
 			assert.Equal(t, "deeplink", fixture.Parameter)
 			assert.Equal(t, "deeplink", fixture.ValuePath)
-			assert.Equal(t, PIDIssuance(tc.format), fixture.Request)
+			assert.Equal(t, PIDIssuance(tc.issuer, tc.format), fixture.Request)
 			assert.Equal(t, map[string]any{
-				"issuer_configuration_id":     PIDIssuerConfigurationID,
+				"issuer_configuration_id":     tc.issuerConfigurationID,
 				"credential_configuration_id": tc.configurationID,
 			}, fixture.Request.Body)
 			assert.Equal(t, "https://capture-wallet.credimi.io/sessions", fixture.Request.URL)
@@ -94,6 +123,10 @@ func TestRepositoryFixturesOfTheInjectedIssuance(t *testing.T) {
 			assert.Empty(t, fixture.TestIDs)
 		})
 	}
+}
+
+func TestPIDIssuancePanicsOnAnUnknownIssuer(t *testing.T) {
+	assert.Panics(t, func() { PIDIssuance("unknown", "sd-jwt") })
 }
 
 func TestRepositoryFixturesOfARequestRejection(t *testing.T) {
