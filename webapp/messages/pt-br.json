@@ -1145,6 +1145,7 @@
 	"Fcaf_coverage": "Cobertura FCAF",
 	"Fcaf_coverage_missing": "Ausente",
 	"Fcaf_coverage_stale": "Desatualizada",
+	"Fcaf_coverage_incomplete": "Não reproduzida em todas as solicitações",
 	"Fcaf_coverage_unmanaged": "Não gerenciada",
 	"Fcaf_coverage_written": "{written} de {total} papéis escritos ({percent}%)",
 	"Fcaf_coverage_supported": "{supported} de {recorded} resultados registrados suportados pela carteira ({percent}%)",

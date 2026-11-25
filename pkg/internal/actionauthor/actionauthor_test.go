@@ -6,9 +6,11 @@ package actionauthor
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/pocketbase/dbx"
@@ -1389,6 +1391,21 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 			message: "fcaf_result: status must be passed, unsupported or finding",
 		},
 		{
+			name: "replays of a chat plan",
+			edit: func(in *SaveRequest) {
+				*in = acceptedRequest(request, build.InstallerSHA256)
+				in.FCAFReplays = []FCAFReplay{{Fixture: "x#y", Status: FCAFReplayPassed}}
+			},
+			message: "fcaf_replays: only FCAF actions carry replays",
+		},
+		{
+			name: "replay off the authoring set",
+			edit: func(in *SaveRequest) {
+				in.FCAFReplays = []FCAFReplay{{Fixture: "x#y", Status: FCAFReplayPassed}}
+			},
+			message: "fcaf_replays: x#y is not a fixture of the authoring set of fcaf-reset-and-onboard",
+		},
+		{
 			name: "code off the contract",
 			edit: func(in *SaveRequest) {
 				in.Code += "- takeScreenshot: home\n"
@@ -1419,6 +1436,8 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	assert.Equal(t, role.SHA256(), provenance.FCAFRoleSHA256)
 	assert.Equal(t, map[string]any{"pin": "123456"}, provenance.FCAFProfile)
 	assert.Equal(t, in.FCAFResult, provenance.FCAFResult)
+	assert.Empty(t, provenance.FCAFReplays)
+	assert.Equal(t, FCAFFixturesSHA256(nil), provenance.FCAFFixturesSHA256)
 	assert.Equal(t, provenance, receipt.Provenance)
 
 	// A replacing save merges the FCAF tags into the record's own.
@@ -1444,6 +1463,57 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, record.GetString("tags"))
 	assert.Empty(t, savedProvenance(record).FCAFRole)
+}
+
+func TestCheckFCAFReplays(t *testing.T) {
+	scope := fcafTestScope(t)
+	const role = "fcaf-engagement-haip-vp"
+	set, err := scope.Contract.AuthoringSet(scope.Suite, role)
+	require.NoError(t, err)
+	require.Greater(t, len(set), 1)
+	first, second := set[0], set[1]
+	valid := []FCAFReplay{
+		{Fixture: first.ID, Class: first.Class, Status: FCAFReplayPassed},
+		{Fixture: second.ID, Class: second.Class, Status: FCAFReplayFinding},
+	}
+	require.NoError(t, CheckFCAFReplays(scope, valid, role))
+	require.NoError(t, CheckFCAFReplays(scope, nil, ""))
+	many := make([]FCAFReplay, 65)
+	for name, tc := range map[string]struct {
+		replays []FCAFReplay
+		role    string
+		message string
+	}{
+		"no role":  {valid, "", "fcaf_replays: only FCAF actions carry replays"},
+		"too many": {many, role, "fcaf_replays: at most 64 replays"},
+		"twice":    {append(slices.Clone(valid), valid[0]), role, "is replayed twice"},
+		"off class": {
+			[]FCAFReplay{{Fixture: first.ID, Class: "x", Status: FCAFReplayPassed}},
+			role,
+			"the class of",
+		},
+		"status": {
+			[]FCAFReplay{{Fixture: first.ID, Class: first.Class, Status: "blocked"}},
+			role,
+			"status must be passed, finding or action_failed",
+		},
+		"unknown fixture": {
+			[]FCAFReplay{{Fixture: "x#y", Class: first.Class, Status: FCAFReplayActionFailed}},
+			role,
+			"x#y is not a fixture of the authoring set",
+		},
+	} {
+		err := CheckFCAFReplays(scope, tc.replays, tc.role)
+		require.ErrorIs(t, err, ErrInvalid, name)
+		assert.ErrorContains(t, err, tc.message, name)
+	}
+}
+
+func TestFCAFFixturesSHA256(t *testing.T) {
+	a := walletroles.Fixture{ID: "a#1"}
+	b := walletroles.Fixture{ID: "b#1"}
+	assert.Equal(t, CodeSHA256("a#1\nb#1\n"), FCAFFixturesSHA256([]walletroles.Fixture{b, a}))
+	assert.Equal(t, CodeSHA256(""), FCAFFixturesSHA256(nil))
 }
 
 func TestCheckFCAFResultStatuses(t *testing.T) {
@@ -1581,15 +1651,17 @@ func TestFCAFCoverage(t *testing.T) {
 	reset, issue := coverage["fcaf-reset-and-onboard"], coverage["fcaf-issue-pid"]
 	role, _ := scope.Contract.Role("fcaf-reset-and-onboard")
 	assert.Equal(t, FCAFRoleCoverage{
-		Role:       role.Name,
-		Summary:    role.Summary,
-		Outcome:    OutcomeSuccess,
-		Category:   "onboarding",
-		StartsFrom: []string{},
-		Status:     FCAFMissing,
-		Result:     "",
-		Note:       "",
-		RoleSHA256: role.SHA256(),
+		Role:            role.Name,
+		Summary:         role.Summary,
+		Outcome:         OutcomeSuccess,
+		Category:        "onboarding",
+		StartsFrom:      []string{},
+		Status:          FCAFMissing,
+		Result:          "",
+		Note:            "",
+		RoleSHA256:      role.SHA256(),
+		MissingFixtures: []string{},
+		Replays:         []FCAFReplay{},
 	}, reset)
 	assert.Equal(t, FCAFMissing, issue.Status)
 	assert.Equal(t, []string{"fcaf-reset-and-onboard"}, issue.StartsFrom)
@@ -1639,6 +1711,51 @@ func TestFCAFCoverage(t *testing.T) {
 	assert.Equal(t, FCAFUnmanaged, coverage["fcaf-issue-pid"].Status)
 	assert.Equal(t, issuePath, coverage["fcaf-issue-pid"].Action)
 	assert.Equal(t, FCAFMissing, coverage["fcaf-engagement-haip-vp"].Status)
+	assert.Equal(t, []string{}, coverage["fcaf-issue-pid"].MissingFixtures)
+
+	// A current action is incomplete until it has replayed on its whole authoring set.
+	const haip = "fcaf-engagement-haip-vp"
+	haipRole, _ := scope.Contract.Role(haip)
+	set, err := scope.Contract.AuthoringSet(scope.Suite, haip)
+	require.NoError(t, err)
+	haipRecord, _ := seedWalletAction(
+		t,
+		app,
+		selection.Organization.Id,
+		selection.Wallet,
+		haip,
+		"verify-credential",
+		"appId: eu.europa.ec.euidi\n---\n- back\n",
+		false,
+	)
+	replays := make([]FCAFReplay, 0, len(set))
+	for _, fixture := range set[1:] {
+		replays = append(replays, FCAFReplay{
+			Fixture: fixture.ID, Class: fixture.Class, Status: FCAFReplayPassed,
+		})
+	}
+	haipProvenance := Provenance{FCAFRole: haip, FCAFRoleSHA256: haipRole.SHA256()}
+	haipRecord.Set("authoring_provenance", haipProvenance)
+	require.NoError(t, app.Save(haipRecord))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFIncomplete, coverage[haip].Status, "saved before fcaf_replays")
+	assert.Len(t, coverage[haip].MissingFixtures, len(set))
+	haipProvenance.FCAFReplays = replays
+	haipRecord.Set("authoring_provenance", haipProvenance)
+	require.NoError(t, app.Save(haipRecord))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFIncomplete, coverage[haip].Status)
+	assert.Equal(t, []string{set[0].ID}, coverage[haip].MissingFixtures)
+	replays = append(replays, FCAFReplay{
+		Fixture: set[0].ID, Class: set[0].Class, Status: FCAFReplayActionFailed,
+	})
+	haipProvenance.FCAFReplays = replays
+	haipRecord.Set("authoring_provenance", haipProvenance)
+	require.NoError(t, app.Save(haipRecord))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFCurrent, coverage[haip].Status)
+	assert.Equal(t, []string{}, coverage[haip].MissingFixtures)
+	assert.Equal(t, replays, coverage[haip].Replays)
 }
 
 func TestSelectWallet(t *testing.T) {

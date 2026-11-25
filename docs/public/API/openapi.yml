@@ -971,6 +971,15 @@ components:
         wallet_name:
           type: string
       type: object
+    ActionauthorFCAFReplay:
+      properties:
+        class:
+          type: string
+        fixture:
+          type: string
+        status:
+          type: string
+      type: object
     ActionauthorFCAFResult:
       properties:
         note:
@@ -984,6 +993,16 @@ components:
           type: string
         category:
           type: string
+        fcaf_replays:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFReplay'
+          nullable: true
+          type: array
+        missing_fixtures:
+          items:
+            type: string
+          nullable: true
+          type: array
         note:
           type: string
         outcome:
@@ -1240,6 +1259,10 @@ components:
           type: string
         error:
           type: string
+        fcaf_replays:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFReplay'
+          type: array
         fcaf_status:
           type: string
         key:
@@ -1275,6 +1298,10 @@ components:
           type: string
         decision:
           type: string
+        fcaf_replays:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFReplay'
+          type: array
         fcaf_result:
           $ref: '#/components/schemas/ActionauthorFCAFResult'
         key:

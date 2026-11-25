@@ -1145,6 +1145,7 @@
 	"Fcaf_coverage": "Couverture FCAF",
 	"Fcaf_coverage_missing": "Manquante",
 	"Fcaf_coverage_stale": "Obsolète",
+	"Fcaf_coverage_incomplete": "Pas rejouée sur chaque requête",
 	"Fcaf_coverage_unmanaged": "Non gérée",
 	"Fcaf_coverage_written": "{written} rôles écrits sur {total} ({percent} %)",
 	"Fcaf_coverage_supported": "{supported} sur {recorded} verdicts enregistrés pris en charge par le wallet ({percent} %)",

@@ -19,6 +19,7 @@ reference:
   app_ids:
     wallet: org.example.wallet
     browser: com.android.chrome
+authoring_class_fields: [dcql_query.credentials.format, scheme]
 rules: []
 roles:
   - name: reset
@@ -105,6 +106,32 @@ func TestLoadRejectsInvalidContract(t *testing.T) {
 			name:    "duplicate role name",
 			mutate:  func(c string) string { return c + issueRole },
 			message: `role "issue"`,
+		},
+		{
+			name: "unknown authoring class field",
+			mutate: func(c string) string {
+				return strings.Replace(c, "scheme]", "scheme, nonce]", 1)
+			},
+			message: "authoring_class_fields",
+		},
+		{
+			name: "no authoring class fields",
+			mutate: func(c string) string {
+				return strings.Replace(
+					c,
+					"authoring_class_fields: [dcql_query.credentials.format, scheme]\n",
+					"",
+					1,
+				)
+			},
+			message: "authoring_class_fields is required",
+		},
+		{
+			name: "duplicate authoring fixture",
+			mutate: func(c string) string {
+				return replaceInIssue(c, "presents: 0", "presents: 0\n    authoring_fixtures: [a#b, a#b]")
+			},
+			message: "authoring_fixtures",
 		},
 		{
 			name: "unknown outcome",

@@ -5,6 +5,8 @@
 package actionauthor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"path"
 	"slices"
@@ -22,12 +24,15 @@ type FCAFScope struct {
 	Suite    string // e.g. "wallet_solution/relying_party"
 }
 
-// Coverage statuses of an FCAF role in the session wallet.
+// Coverage statuses of an FCAF role in the session wallet. FCAFIncomplete is
+// a current action whose replays miss a fixture of the role's current
+// authoring set (walletroles.Contract.AuthoringSet).
 const (
-	FCAFMissing   = "missing"
-	FCAFCurrent   = "current"
-	FCAFStale     = "stale"
-	FCAFUnmanaged = "unmanaged"
+	FCAFMissing    = "missing"
+	FCAFCurrent    = "current"
+	FCAFIncomplete = "incomplete"
+	FCAFStale      = "stale"
+	FCAFUnmanaged  = "unmanaged"
 )
 
 // FCAFOutcome maps a contract outcome to the Spec outcome.
@@ -117,13 +122,20 @@ type FCAFRoleCoverage struct {
 	Outcome    string   `json:"outcome"`
 	Category   string   `json:"category"`
 	StartsFrom []string `json:"starts_from"`
-	Status     string   `json:"status"` // "missing" | "current" | "stale" | "unmanaged"
-	Action     string   `json:"action"` // canonified path of the wallet's record, "" when missing
+	// Status is "missing", "current", "incomplete", "stale" or "unmanaged".
+	Status string `json:"status"`
+	Action string `json:"action"` // canonified path of the wallet's record, "" when missing
 	// Result is the agent's verdict on the saved FCAF action, "passed",
 	// "unsupported" or "finding"; "" when not recorded or no action.
 	Result     string `json:"result"`
 	Note       string `json:"note"` // the agent's note on the saved action
 	RoleSHA256 string `json:"role_sha256"`
+	// MissingFixtures are the fixtures of the role's authoring set the saved
+	// action was not replayed on, set when Status is incomplete; never nil.
+	MissingFixtures []string `json:"missing_fixtures"`
+	// Replays are the saved FCAF action's fcaf_replays, which a runner merges
+	// with its replays of MissingFixtures; never nil.
+	Replays []FCAFReplay `json:"fcaf_replays"`
 }
 
 // FCAFCoverage lists the roles of the session suite, the injected reset
@@ -160,13 +172,15 @@ func FCAFCoverage(
 	coverage := []FCAFRoleCoverage{}
 	for _, role := range fcafSuiteRoles(scope) {
 		entry := FCAFRoleCoverage{
-			Role:       role.Name,
-			Summary:    role.Summary,
-			Outcome:    FCAFOutcome(role.Outcome),
-			Category:   role.Category,
-			StartsFrom: scope.Contract.StartsFrom(role),
-			Status:     FCAFMissing,
-			RoleSHA256: role.SHA256(),
+			Role:            role.Name,
+			Summary:         role.Summary,
+			Outcome:         FCAFOutcome(role.Outcome),
+			Category:        role.Category,
+			StartsFrom:      scope.Contract.StartsFrom(role),
+			Status:          FCAFMissing,
+			RoleSHA256:      role.SHA256(),
+			MissingFixtures: []string{},
+			Replays:         []FCAFReplay{},
 		}
 		if record, ok := byName[role.Name]; ok {
 			entry.Action, err = walletActionPath(app, record)
@@ -179,12 +193,26 @@ func FCAFCoverage(
 				entry.Status = FCAFUnmanaged
 			case provenance.FCAFRoleSHA256 == entry.RoleSHA256:
 				entry.Status = FCAFCurrent
+				entry.MissingFixtures, err = fcafMissingFixtures(
+					scope,
+					role,
+					provenance.FCAFReplays,
+				)
+				if err != nil {
+					return nil, nil, err
+				}
+				if len(entry.MissingFixtures) > 0 {
+					entry.Status = FCAFIncomplete
+				}
 			default:
 				entry.Status = FCAFStale
 			}
 			if provenance.FCAFRole == role.Name && provenance.FCAFResult != nil {
 				entry.Result = provenance.FCAFResult.Status
 				entry.Note = provenance.FCAFResult.Note
+			}
+			if provenance.FCAFRole == role.Name && len(provenance.FCAFReplays) > 0 {
+				entry.Replays = provenance.FCAFReplays
 			}
 		}
 		coverage = append(coverage, entry)
@@ -210,6 +238,110 @@ func FCAFWarnings(profile map[string]any) []string {
 		return []string{FCAFKeyAttestationFinding}
 	}
 	return []string{}
+}
+
+// FCAFReplay is how an FCAF action did on one fixture of its role's
+// authoring set: passed, finding (the action did the role and the fixture's
+// FCAF tests report wallet findings) or action_failed.
+type FCAFReplay struct {
+	Fixture string `json:"fixture"`
+	Class   string `json:"class"`
+	Status  string `json:"status"`
+}
+
+// FCAF replay statuses, and the bound of an action's replays.
+const (
+	FCAFReplayPassed       = "passed"
+	FCAFReplayFinding      = "finding"
+	FCAFReplayActionFailed = "action_failed"
+	maxFCAFReplays         = 64
+)
+
+// CheckFCAFReplays refuses replays of an action without an FCAF role, more
+// than 64 of them, and a replay of a fixture that is not in the role's
+// current authoring set, given twice, of another class than the fixture's or
+// with a status other than passed, finding or action_failed.
+func CheckFCAFReplays(scope *FCAFScope, replays []FCAFReplay, fcafRole string) error {
+	if len(replays) == 0 {
+		return nil
+	}
+	if fcafRole == "" || scope == nil {
+		return fmt.Errorf("%w: fcaf_replays: only FCAF actions carry replays", ErrInvalid)
+	}
+	if len(replays) > maxFCAFReplays {
+		return fmt.Errorf("%w: fcaf_replays: at most %d replays", ErrInvalid, maxFCAFReplays)
+	}
+	set, err := scope.Contract.AuthoringSet(scope.Suite, fcafRole)
+	if err != nil {
+		return fmt.Errorf("fcaf_replays: %w", err)
+	}
+	classes := make(map[string]string, len(set))
+	for _, fixture := range set {
+		classes[fixture.ID] = fixture.Class
+	}
+	seen := map[string]bool{}
+	for _, replay := range replays {
+		class, ok := classes[replay.Fixture]
+		switch {
+		case !ok:
+			return fmt.Errorf(
+				"%w: fcaf_replays: %s is not a fixture of the authoring set of %s",
+				ErrInvalid, replay.Fixture, fcafRole,
+			)
+		case seen[replay.Fixture]:
+			return fmt.Errorf("%w: fcaf_replays: %s is replayed twice", ErrInvalid, replay.Fixture)
+		case replay.Class != class:
+			return fmt.Errorf(
+				"%w: fcaf_replays: the class of %s is %q", ErrInvalid, replay.Fixture, class,
+			)
+		case replay.Status != FCAFReplayPassed && replay.Status != FCAFReplayFinding &&
+			replay.Status != FCAFReplayActionFailed:
+			return fmt.Errorf(
+				"%w: fcaf_replays: status must be passed, finding or action_failed", ErrInvalid,
+			)
+		}
+		seen[replay.Fixture] = true
+	}
+	return nil
+}
+
+// FCAFFixturesSHA256 hashes a role's authoring set: the lowercase hex sha256
+// of its fixture IDs, sorted, each followed by a newline.
+func FCAFFixturesSHA256(fixtures []walletroles.Fixture) string {
+	ids := make([]string, 0, len(fixtures))
+	for _, fixture := range fixtures {
+		ids = append(ids, fixture.ID+"\n")
+	}
+	slices.Sort(ids)
+	digest := sha256.Sum256([]byte(strings.Join(ids, "")))
+	return hex.EncodeToString(digest[:])
+}
+
+// fcafMissingFixtures returns the fixtures of the role's authoring set that
+// no replay covers, in authoring set order, never nil. The injected PID
+// issuance needs none: its fixtures are alternative PID issuers.
+func fcafMissingFixtures(
+	scope *FCAFScope,
+	role walletroles.Role,
+	replays []FCAFReplay,
+) ([]string, error) {
+	missing := []string{}
+	if role.Injected != "" || len(role.Parameters) == 0 {
+		return missing, nil
+	}
+	set, err := scope.Contract.AuthoringSet(scope.Suite, role.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, fixture := range set {
+		if !slices.ContainsFunc(
+			replays,
+			func(r FCAFReplay) bool { return r.Fixture == fixture.ID },
+		) {
+			missing = append(missing, fixture.ID)
+		}
+	}
+	return missing, nil
 }
 
 // fcafSuiteRoles returns the roles of the scope suite: the injected reset,

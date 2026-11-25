@@ -102,6 +102,10 @@ type Role struct {
 	Category string `yaml:"-" json:"category"`
 	// ReferenceCode is the reference flow source.
 	ReferenceCode string `yaml:"-" json:"reference_code"`
+	// AuthoringFixtures pins fixture IDs the action author always replays, beyond
+	// one fixture per behaviour class. Not part of SHA256: pinning a fixture does
+	// not make the role's saved actions stale.
+	AuthoringFixtures []string `yaml:"authoring_fixtures,omitempty" json:"-"`
 }
 
 // Reference names the reference wallet whose flows implement every role.
@@ -115,11 +119,16 @@ type Reference struct {
 type Contract struct {
 	Version   int       `yaml:"version"   json:"version"`
 	Reference Reference `yaml:"reference" json:"reference"`
-	Rules     []string  `yaml:"rules"     json:"rules"`
-	Roles     []Role    `yaml:"roles"     json:"roles"`
+	// AuthoringClassFields are the request fields (ClassFields) a fixture's
+	// behaviour class (Fixture.Class) is built from.
+	AuthoringClassFields []string `yaml:"authoring_class_fields" json:"authoring_class_fields"`
+	Rules                []string `yaml:"rules"                  json:"rules"`
+	Roles                []Role   `yaml:"roles"                  json:"roles"`
 	// ReferencePrefix is "<organization>/<wallet>/" of the reference
 	// manifest: the action_id prefix of the reference flows in scenarios.
 	ReferencePrefix string `yaml:"-" json:"-"`
+	// root is the FCAF templates root the contract was loaded from.
+	root string
 
 	// fixturesMu guards fixtureSuites, the scenarios Fixtures reads per
 	// (fcafRoot, suite).
@@ -185,6 +194,7 @@ func Load(fcafRoot string) (*Contract, error) {
 	if err := contract.loadReference(fcafRoot); err != nil {
 		return nil, fmt.Errorf("fcaf roles: %w", err)
 	}
+	contract.root = fcafRoot
 	return &contract, nil
 }
 
@@ -219,6 +229,14 @@ func (c *Contract) validate() error {
 	if len(c.Reference.AppIDs) != 2 ||
 		c.Reference.AppIDs[AppWallet] == "" || c.Reference.AppIDs[AppBrowser] == "" {
 		return errors.New("reference.app_ids must name exactly wallet and browser")
+	}
+	if len(c.AuthoringClassFields) == 0 {
+		return errors.New("authoring_class_fields is required")
+	}
+	if err := uniqueIn("authoring_class_fields", c.AuthoringClassFields, func(field string) bool {
+		return slices.Contains(ClassFields, field)
+	}); err != nil {
+		return err
 	}
 	names := map[string]struct{}{}
 	injected := map[Injection]int{}
@@ -300,6 +318,11 @@ func (r Role) validate() error {
 	}
 	if r.DiagnosticNameBudget < 1 || r.DiagnosticNameBudget > 99 {
 		return fmt.Errorf("diagnostic_name_budget must be 1-99, got %d", r.DiagnosticNameBudget)
+	}
+	if err := uniqueIn("authoring_fixtures", r.AuthoringFixtures, func(id string) bool {
+		return strings.TrimSpace(id) != ""
+	}); err != nil {
+		return err
 	}
 	shots := map[string]struct{}{}
 	for _, shot := range r.Screenshots {

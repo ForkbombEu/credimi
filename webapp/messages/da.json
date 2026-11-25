@@ -1145,6 +1145,7 @@
 	"Fcaf_coverage": "FCAF-dækning",
 	"Fcaf_coverage_missing": "Mangler",
 	"Fcaf_coverage_stale": "Forældet",
+	"Fcaf_coverage_incomplete": "Ikke afspillet på alle anmodninger",
 	"Fcaf_coverage_unmanaged": "Ikke administreret",
 	"Fcaf_coverage_written": "{written} af {total} roller skrevet ({percent} %)",
 	"Fcaf_coverage_supported": "{supported} af {recorded} registrerede resultater understøttet af wallet'en ({percent} %)",

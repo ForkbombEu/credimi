@@ -109,6 +109,9 @@ type Fixture struct {
 	// Complete is set when Setup reproduces the start state: the fixture is standalone, or
 	// every earlier step that leaves a credential in the wallet is one of its offers.
 	Complete bool `json:"complete"`
+	// Class is the fixture's behaviour class: what the wallet can show for its
+	// request, built from the contract's authoring_class_fields (Contract.Class).
+	Class string `json:"class"`
 }
 
 // FixtureSetup is one credential a fixture's start state holds beyond the
@@ -282,16 +285,21 @@ type fixtureScenario struct {
 
 // Fixtures returns the fixtures of a role in the scenarios of a suite under
 // fcafRoot: every step of a scenario that runs the role's reference action
-// with a parameter a self-contained POST request produces. Standalone
-// fixtures come first; file and step order is kept otherwise. The contract
-// reads the scenarios and tests of each (fcafRoot, suite) once.
+// with a parameter a self-contained POST request produces, each with its
+// behaviour Class. Standalone fixtures come first; file and step order is
+// kept otherwise. The contract reads the scenarios and tests of each
+// (fcafRoot, suite) once.
 func (c *Contract) Fixtures(fcafRoot, suite, roleName string) ([]Fixture, error) {
 	role, ok := c.Role(roleName)
 	if !ok {
 		return nil, fmt.Errorf("role %q is not in the contract", roleName)
 	}
 	if role.Injected == InjectedIssuance {
-		return pidFixtures(role), nil
+		fixtures := pidFixtures(role)
+		for i := range fixtures {
+			fixtures[i].Class = c.Class(fixtures[i].Request.Body)
+		}
+		return fixtures, nil
 	}
 	if len(role.Parameters) == 0 {
 		return []Fixture{}, nil
@@ -311,6 +319,9 @@ func (c *Contract) Fixtures(fcafRoot, suite, roleName string) ([]Fixture, error)
 	sort.SliceStable(fixtures, func(i, j int) bool {
 		return fixtures[i].Standalone && !fixtures[j].Standalone
 	})
+	for i := range fixtures {
+		fixtures[i].Class = c.Class(fixtures[i].Request.Body)
+	}
 	return fixtures, nil
 }
 

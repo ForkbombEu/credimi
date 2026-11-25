@@ -65,7 +65,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{:then result}
 			{#if result}
-				{@const { total, written, recorded, supported } = coverageCounts(result.roles)}
+				{@const { total, written, incomplete, recorded, supported } = coverageCounts(
+					result.roles
+				)}
 				<div class="space-y-3 text-sm">
 					{#each result.warnings as warning (warning)}
 						<Alert variant="warning">
@@ -88,9 +90,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								percent: percent(supported, recorded)
 							})}
 						</p>
-						{#if written > recorded}
+						{#if written - incomplete > recorded}
 							<p>
-								{m.Fcaf_coverage_unrecorded_count({ count: written - recorded })}
+								{m.Fcaf_coverage_unrecorded_count({
+									count: written - incomplete - recorded
+								})}
 							</p>
 						{/if}
 					</div>

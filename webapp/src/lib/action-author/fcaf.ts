@@ -58,6 +58,7 @@ type CoverageVerdict =
 	| 'unsupported'
 	| 'finding'
 	| 'unrecorded'
+	| 'incomplete'
 	| 'stale'
 	| 'missing'
 	| 'unmanaged';
@@ -67,6 +68,8 @@ export function coverageVerdict(role: FcafRoleCoverage): CoverageVerdict {
 	switch (role.status) {
 		case 'current':
 			return role.result || 'unrecorded';
+		case 'incomplete':
+			return 'incomplete';
 		case 'stale':
 			return 'stale';
 		case 'unmanaged':
@@ -77,20 +80,24 @@ export function coverageVerdict(role: FcafRoleCoverage): CoverageVerdict {
 }
 
 /**
- * The roles with a current action (written), those whose current action has a recorded
- * verdict (recorded) and those whose recorded verdict passed (supported).
+ * The roles with a current or incomplete action (written), those with an incomplete one
+ * (incomplete: written, not replayed on every request), those whose current action has a
+ * recorded verdict (recorded) and those whose recorded verdict passed (supported).
  */
 export function coverageCounts(roles: FcafRoleCoverage[]): {
 	total: number;
 	written: number;
+	incomplete: number;
 	recorded: number;
 	supported: number;
 } {
 	const current = roles.filter((r) => r.status === 'current');
+	const incomplete = roles.filter((r) => r.status === 'incomplete').length;
 	const recorded = current.filter((r) => r.result !== '');
 	return {
 		total: roles.length,
-		written: current.length,
+		written: current.length + incomplete,
+		incomplete,
 		recorded: recorded.length,
 		supported: recorded.filter((r) => r.result === 'passed').length
 	};
@@ -106,6 +113,7 @@ const COVERAGE_LABELS: Record<CoverageVerdict, () => string> = {
 	unsupported: m.Fcaf_role_unsupported,
 	finding: m.Fcaf_role_finding,
 	unrecorded: m.Fcaf_coverage_unrecorded,
+	incomplete: m.Fcaf_coverage_incomplete,
 	stale: m.Fcaf_coverage_stale,
 	missing: m.Fcaf_coverage_missing,
 	unmanaged: m.Fcaf_coverage_unmanaged
@@ -116,6 +124,7 @@ const COVERAGE_VARIANTS: Record<CoverageVerdict, BadgeVariant> = {
 	unsupported: 'outline',
 	finding: 'destructive',
 	unrecorded: 'secondary',
+	incomplete: 'outline',
 	stale: 'outline',
 	missing: 'secondary',
 	unmanaged: 'outline'

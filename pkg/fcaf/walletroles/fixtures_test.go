@@ -501,7 +501,8 @@ func TestFixturesQualifyOnlySelfContainedSteps(t *testing.T) {
 	))
 
 	contract := &Contract{
-		ReferencePrefix: "org/wallet/",
+		ReferencePrefix:      "org/wallet/",
+		AuthoringClassFields: ClassFields,
 		Roles: []Role{
 			{Name: "fcaf-role", Parameters: []string{"deeplink"}, Category: "verify-credential"},
 			{Name: "fcaf-bare"},
@@ -557,6 +558,7 @@ func TestFixturesQualifyOnlySelfContainedSteps(t *testing.T) {
 				}},
 				Setup:    []FixtureSetup{{Role: "fcaf-issue-pid", PIDFormat: "sd-jwt"}},
 				Complete: true,
+				Class:    "dc+sd-jwt + mso_mdoc, openid4vp://",
 			},
 		},
 		{
@@ -578,6 +580,7 @@ func TestFixturesQualifyOnlySelfContainedSteps(t *testing.T) {
 				PipelineOutputs: map[string]any{},
 				Setup:           []FixtureSetup{},
 				Complete:        true,
+				Class:           "no dcql credentials, openid4vp://",
 			},
 		},
 	}

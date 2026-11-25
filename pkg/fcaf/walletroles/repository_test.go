@@ -236,6 +236,34 @@ func TestRepositoryContract(t *testing.T) {
 			assert.Equal(t, reset, with["action_id"], pipeline.suite)
 		}
 	})
+
+	t.Run("authoring set", func(t *testing.T) {
+		const suite = "wallet_solution/relying_party"
+		for _, role := range contract.Roles {
+			if !slices.Contains(role.Suites, suite) {
+				continue
+			}
+			fixtures, err := contract.Fixtures(repositoryRoot, suite, role.Name)
+			require.NoError(t, err, role.Name)
+			for _, id := range role.AuthoringFixtures {
+				assert.Truef(t, slices.ContainsFunc(fixtures, func(f Fixture) bool {
+					return f.ID == id
+				}), "role %q pins %q, which is not one of its fixtures", role.Name, id)
+			}
+			set, err := contract.AuthoringSet(suite, role.Name)
+			require.NoError(t, err, role.Name)
+			represented := map[string]bool{}
+			for _, fixture := range set {
+				represented[fixture.Class] = true
+			}
+			for _, fixture := range fixtures {
+				assert.NotEmptyf(t, fixture.Class, "fixture %s", fixture.ID)
+				assert.Truef(t, represented[fixture.Class],
+					"role %q: class %q of %s has no authoring fixture",
+					role.Name, fixture.Class, fixture.ID)
+			}
+		}
+	})
 }
 
 type verdictBinding struct {

@@ -535,6 +535,9 @@ type SaveRequest struct {
 	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
 	// FCAFResult is the agent's verdict on an FCAF action, kept with it.
 	FCAFResult *FCAFResult `json:"fcaf_result,omitempty"`
+	// FCAFReplays are the action's replays on fixtures of its role's
+	// authoring set, kept with it.
+	FCAFReplays []FCAFReplay `json:"fcaf_replays,omitempty"`
 }
 
 // maxFCAFProfileBytes bounds the JSON encoding of an FCAF profile.
@@ -583,6 +586,11 @@ type Provenance struct {
 	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
 	// FCAFResult is the agent's verdict on the FCAF action, given with the save.
 	FCAFResult *FCAFResult `json:"fcaf_result,omitempty"`
+	// FCAFReplays are the action's replays the save carried, and
+	// FCAFFixturesSHA256 the FCAFFixturesSHA256 of the role's authoring set
+	// when it was saved.
+	FCAFReplays        []FCAFReplay `json:"fcaf_replays,omitempty"`
+	FCAFFixturesSHA256 string       `json:"fcaf_fixtures_sha256,omitempty"`
 }
 
 // Receipt describes the saved record and its validation provenance.
@@ -771,6 +779,9 @@ func validateAcceptedAction(in *SaveRequest, selection Selection) (*walletroles.
 		scope.StoreLinks = nil
 		scope.FCAF = &FCAFCodeScope{Role: checked, Packages: packages}
 	}
+	if err := CheckFCAFReplays(in.FCAF, in.FCAFReplays, in.Spec.FCAFRole); err != nil {
+		return nil, err
+	}
 	if problems := ValidateCode(in.Code, scope); len(problems) > 0 {
 		return nil, fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
 	}
@@ -792,6 +803,12 @@ func fcafProvenance(provenance *Provenance, in *SaveRequest, role walletroles.Ro
 	provenance.FCAFRoleSHA256 = role.SHA256()
 	provenance.FCAFProfile = in.FCAFProfile
 	provenance.FCAFResult = in.FCAFResult
+	provenance.FCAFReplays = in.FCAFReplays
+	set, err := in.FCAF.Contract.AuthoringSet(in.FCAF.Suite, role.Name)
+	if err != nil {
+		return err
+	}
+	provenance.FCAFFixturesSHA256 = FCAFFixturesSHA256(set)
 	return nil
 }
 

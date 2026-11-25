@@ -1145,6 +1145,7 @@
 	"Fcaf_coverage": "Cobertura FCAF",
 	"Fcaf_coverage_missing": "Falta",
 	"Fcaf_coverage_stale": "Desactualizada",
+	"Fcaf_coverage_incomplete": "No reproducida en todas las solicitudes",
 	"Fcaf_coverage_unmanaged": "No gestionada",
 	"Fcaf_coverage_written": "{written} de {total} roles escritos ({percent} %)",
 	"Fcaf_coverage_supported": "{supported} de {recorded} resultados registrados admitidos por el wallet ({percent} %)",

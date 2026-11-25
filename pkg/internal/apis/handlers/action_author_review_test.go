@@ -628,6 +628,84 @@ func TestActionAuthorReviewBindsTheFCAFResult(t *testing.T) {
 	}
 }
 
+// The review checks the replays of an accepted FCAF action against the role's
+// authoring set; a chat action carries none.
+func TestActionAuthorReviewChecksTheFCAFReplays(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name     string
+		mode     string
+		plan     actionauthor.Spec
+		replays  []actionauthor.FCAFReplay
+		status   int
+		expected string
+	}{
+		{
+			name:   "fcaf action without replays",
+			mode:   actionauthor.SessionModeFCAF,
+			plan:   actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"},
+			status: http.StatusOK,
+		},
+		{
+			name: "replay off the authoring set",
+			mode: actionauthor.SessionModeFCAF,
+			plan: actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"},
+			replays: []actionauthor.FCAFReplay{
+				{Fixture: "s#a", Class: "x", Status: actionauthor.FCAFReplayPassed},
+			},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_replays: s#a is not a fixture of the authoring set",
+		},
+		{
+			name: "chat action",
+			plan: actionauthor.Spec{Slot: "onboarding"},
+			replays: []actionauthor.FCAFReplay{
+				{Fixture: "s#a", Class: "x", Status: actionauthor.FCAFReplayPassed},
+			},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_replays: only FCAF actions carry replays",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode = tc.mode
+			decision := reviewDecision("a1", reviewSHA1, "accept", tc.plan, "")
+			decision.FCAFReplays = tc.replays
+			expected := []string{`"decision":"accept"`}
+			if tc.expected != "" {
+				expected = []string{`"invalid_request"`, tc.expected}
+			}
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body:   strings.NewReader(reviewBody(t, decision)),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: expected,
+				TestAppFactory:  setupActionAuthorApp,
+				AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+					if tc.status != http.StatusOK {
+						require.Empty(t, stub.workflowID)
+						return
+					}
+					decisions := deliveredDecisions(t, stub)
+					require.Len(t, decisions, 1)
+					token, _ := decisions[0]["approval"].(string)
+					approval, err := actionauthor.VerifyApproval(
+						app, token, reviewAuthorWorkflow, reviewSHA1, time.Now(),
+					)
+					require.NoError(t, err)
+					require.Empty(t, approval.ReplaysSHA256)
+				},
+			}).Test(t)
+		})
+	}
+}
+
 func TestActionAuthorReviewBindsTheReplacedCode(t *testing.T) {
 	user, err := getUserRecordFromName("userA")
 	require.NoError(t, err)

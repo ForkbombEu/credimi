@@ -40,17 +40,19 @@ type ActionAuthorReviewRequest struct {
 // the action's plan as the review shows it, with its candidate prerequisites
 // unresolved; Credimi checks it again and binds an accept's approval to it.
 // Profile is the FCAF profile the review showed, which an accept also binds.
-// FCAFResult is the agent's verdict on an FCAF action the review showed, which
-// an accept also binds.
+// FCAFResult is the agent's verdict on an FCAF action the review showed, and
+// FCAFReplays its replays on fixtures of the role's authoring set, which an
+// accept also binds.
 type ActionAuthorReviewDecision struct {
-	Key             string                   `json:"key"                   validate:"required"`
-	Name            string                   `json:"name"                  validate:"max=200"`
-	CandidateSHA256 string                   `json:"candidate_sha256"      validate:"required,len=64,hexadecimal"`
-	Decision        string                   `json:"decision"              validate:"required,oneof=accept refuse change"`
-	Comment         string                   `json:"comment"               validate:"max=2000"`
-	Plan            actionauthor.Spec        `json:"plan"`
-	Profile         map[string]any           `json:"profile,omitempty"`
-	FCAFResult      *actionauthor.FCAFResult `json:"fcaf_result,omitempty"`
+	Key             string                    `json:"key"                    validate:"required"`
+	Name            string                    `json:"name"                   validate:"max=200"`
+	CandidateSHA256 string                    `json:"candidate_sha256"       validate:"required,len=64,hexadecimal"`
+	Decision        string                    `json:"decision"               validate:"required,oneof=accept refuse change"`
+	Comment         string                    `json:"comment"                validate:"max=2000"`
+	Plan            actionauthor.Spec         `json:"plan"`
+	Profile         map[string]any            `json:"profile,omitempty"`
+	FCAFResult      *actionauthor.FCAFResult  `json:"fcaf_result,omitempty"`
+	FCAFReplays     []actionauthor.FCAFReplay `json:"fcaf_replays,omitempty"`
 }
 
 // ActionAuthorReviewResponse confirms the decisions the agent received.
@@ -267,9 +269,9 @@ func checkReviewDecisions(decisions []ActionAuthorReviewDecision) error {
 	return nil
 }
 
-// signReviewApproval checks an accepted action's plan, FCAF profile and FCAF
-// result again for the session and signs the caller's approval of its code,
-// plan, profile and result.
+// signReviewApproval checks an accepted action's plan, FCAF profile, FCAF
+// result and FCAF replays again for the session and signs the caller's
+// approval of its code, plan, profile, result and replays.
 func signReviewApproval(
 	e *core.RequestEvent,
 	ref activities.ActionAuthorSessionRef,
@@ -303,6 +305,13 @@ func signReviewApproval(
 	if err != nil {
 		return "", err
 	}
+	if err := actionauthor.CheckFCAFReplays(
+		scope,
+		decision.FCAFReplays,
+		plan.FCAFRole,
+	); err != nil {
+		return "", err
+	}
 	return actionauthor.SignApproval(e.App, actionauthor.Approval{
 		AuthorWorkflowID: authorWorkflowID,
 		CandidateSHA256:  decision.CandidateSHA256,
@@ -312,6 +321,7 @@ func signReviewApproval(
 		Key:              decision.Key,
 		ProfileSHA256:    actionauthor.ProfileSHA256(decision.Profile),
 		ResultSHA256:     actionauthor.FCAFResultSHA256(decision.FCAFResult),
+		ReplaysSHA256:    actionauthor.FCAFReplaysSHA256(decision.FCAFReplays),
 	})
 }
 

@@ -354,6 +354,11 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"error":            "save failed: try again",
 							"note":             "Wallet findings: dcql-1 failed: no match",
 							"fcaf_status":      "finding",
+							// Replays whose fields are not all strings are dropped.
+							"fcaf_replays": []any{
+								map[string]any{"fixture": "s#a", "class": "c", "status": "passed"},
+								map[string]any{"fixture": "s#b", "class": 1, "status": "passed"},
+							},
 							// A per-action profile is ignored: the review carries one.
 							"profile": map[string]any{"pin": "000000"},
 							// The agent's starts_from is ignored: the plan says it.
@@ -490,6 +495,9 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					Error:           "save failed: try again",
 					Note:            "Wallet findings: dcql-1 failed: no match",
 					FCAFStatus:      actionauthor.FCAFResultFinding,
+					FCAFReplays: []actionauthor.FCAFReplay{
+						{Fixture: "s#a", Class: "c", Status: actionauthor.FCAFReplayPassed},
+					},
 					StartsFrom:      []string{},
 					StartsFromNames: map[string]string{},
 					UsedBy:          2,

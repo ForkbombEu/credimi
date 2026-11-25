@@ -209,7 +209,20 @@ func TestDescribeActionAuthorFCAFRole(t *testing.T) {
 	require.Nil(t, rejected.Plan)
 	require.Equal(t, "com.android.chrome", rejected.BrowserAppID)
 	require.NotEmpty(t, rejected.Fixtures)
-	require.LessOrEqual(t, len(rejected.Fixtures), fcafDescribeFixtures)
+	// One fixture per behaviour class.
+	classes := map[string]bool{}
+	for _, fixture := range rejected.Fixtures {
+		require.NotEmpty(t, fixture.Class, fixture.ID)
+		require.False(t, classes[fixture.Class], fixture.Class)
+		classes[fixture.Class] = true
+	}
+	all, err := testFCAFScope(t).Contract.Fixtures(
+		fcafTemplatesRoot(), actionauthor.FCAFRelyingPartySuite, "fcaf-expect-request-rejected",
+	)
+	require.NoError(t, err)
+	for _, fixture := range all {
+		require.True(t, classes[fixture.Class], fixture.Class)
+	}
 	first := rejected.Fixtures[0]
 	require.NotEmpty(t, first.TestIDs)
 	require.Equal(t, "fcaf-expect-request-rejected", first.Plan.FCAFRole)
@@ -542,6 +555,15 @@ func TestSaveAuthoredWalletActionBindsTheFCAFProfileAndResult(t *testing.T) {
 		requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 		require.ErrorContains(t, err, "approval is for another result", name)
 	}
+	// The approval binds the replays the review showed; none for an older runner.
+	withReplays := payload
+	withReplays.FCAFReplays = []actionauthor.FCAFReplay{
+		{Fixture: "s#a", Class: "dc+sd-jwt, haip-vp://", Status: actionauthor.FCAFReplayPassed},
+	}
+	withReplays.Approval = approval(profile, result)
+	_, err = save(withReplays)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "approval is for another replay set")
 
 	payload.Approval = approval(profile, result)
 	receipt, err := save(payload)

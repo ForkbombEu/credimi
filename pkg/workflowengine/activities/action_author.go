@@ -246,6 +246,11 @@ func (a *SaveAuthoredWalletActionActivity) save(
 			"%w: approval is for another result", actionauthor.ErrForbidden,
 		))
 	}
+	if approval.ReplaysSHA256 != actionauthor.FCAFReplaysSHA256(payload.FCAFReplays) {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: approval is for another replay set", actionauthor.ErrForbidden,
+		))
+	}
 	if approval.Key == "" {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
 			"%w: the approval predates this release; accept the action again",

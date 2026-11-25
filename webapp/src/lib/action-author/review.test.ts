@@ -221,4 +221,36 @@ describe('reviewDecisions', () => {
 		const decisions = reviewDecisions({ actions: [finding], profile }, choices);
 		expect(decisions[0].fcaf_result?.status).toBe('finding');
 	});
+
+	it('sends the replays with an accepted FCAF action only', () => {
+		const replays = [
+			{ fixture: 's#a', class: 'dc+sd-jwt, haip-vp://', status: 'passed' as const },
+			{ fixture: 's#b', class: 'mso_mdoc, openid4vp://', status: 'finding' as const }
+		];
+		const accepted = action({
+			key: 'a1',
+			plan: { slot: 'verify-credential', fcaf_role: 'fcaf-engagement-haip-vp' },
+			fcaf_status: 'passed',
+			fcaf_replays: replays
+		});
+		const chat = action({ key: 'a2', plan: { slot: 'onboarding' }, fcaf_replays: replays });
+		const refused = action({
+			key: 'a3',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-x' },
+			fcaf_replays: replays
+		});
+		const noReplays = action({
+			key: 'a4',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-reset' },
+			fcaf_replays: []
+		});
+		const decisions = reviewDecisions(
+			{ actions: [accepted, chat, refused, noReplays], profile },
+			{ ...choices, a4: { decision: 'accept', comment: '' } }
+		);
+		expect(decisions[0].fcaf_replays).toEqual(replays);
+		expect(decisions[1]).not.toHaveProperty('fcaf_replays');
+		expect(decisions[2]).not.toHaveProperty('fcaf_replays');
+		expect(decisions[3]).not.toHaveProperty('fcaf_replays');
+	});
 });

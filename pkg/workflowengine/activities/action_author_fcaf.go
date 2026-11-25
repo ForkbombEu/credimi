@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
@@ -33,8 +32,6 @@ const (
 )
 
 const (
-	// fcafDescribeFixtures caps the fixtures Describe returns.
-	fcafDescribeFixtures = 5
 	// fcafEvidenceScreenshots caps the screenshot names of an evidence check.
 	fcafEvidenceScreenshots = 64
 	// fcafEvidenceScreenshotURL prefixes the screenshot URLs an evidence
@@ -149,9 +146,10 @@ type DescribeActionAuthorFCAFRoleInput struct {
 // DescribeActionAuthorFCAFRoleOutput is a role of the session suite with its
 // reference code, the roles its action starts from, the contract's
 // authoring rules and Credimi-built plans: Plan for a role without
-// parameters, one per fixture otherwise. PIDIssuance holds the parameter
-// source of the injected PID issuance per PID issuer (walletroles.PIDIssuers),
-// then per PID format ("sd-jwt", "mdoc").
+// parameters, one per fixture of the role's authoring set
+// (walletroles.Contract.AuthoringSet) otherwise. PIDIssuance holds the
+// parameter source of the injected PID issuance per PID issuer
+// (walletroles.PIDIssuers), then per PID format ("sd-jwt", "mdoc").
 // Plans carry no prerequisites: the agent adds the wallet's actions or
 // candidates for StartsFrom, in order.
 type DescribeActionAuthorFCAFRoleOutput struct {
@@ -168,13 +166,15 @@ type DescribeActionAuthorFCAFRoleOutput struct {
 }
 
 // FCAFFixtureOption is a fixture of an FCAF scenario that exercises the role,
-// with the plan whose parameter it generates. PIDIssuer is set only for the
-// injected issuance's fixtures. Setup is what the start state holds beyond
-// StartsFrom, never nil; Complete is set when it holds all of it.
+// with its behaviour class and the plan whose parameter it generates.
+// PIDIssuer is set only for the injected issuance's fixtures. Setup is what
+// the start state holds beyond StartsFrom, never nil; Complete is set when it
+// holds all of it.
 type FCAFFixtureOption struct {
 	ID           string                     `json:"id"`
 	Scenario     string                     `json:"scenario"`
 	MobileStepID string                     `json:"mobile_step_id"`
+	Class        string                     `json:"class"`
 	Standalone   bool                       `json:"standalone"`
 	PIDFormat    string                     `json:"pid_format"`
 	PIDIssuer    string                     `json:"pid_issuer"`
@@ -283,28 +283,17 @@ func describeFCAFRole(
 		output.Plan = &plan
 		return output, nil
 	}
-	fixtures, err := scope.Contract.Fixtures(fcafTemplatesRoot(), scope.Suite, role.Name)
+	// One fixture per behaviour class (the issuance role: every PID issuer and format).
+	fixtures, err := scope.Contract.AuthoringSet(scope.Suite, role.Name)
 	if err != nil {
 		return DescribeActionAuthorFCAFRoleOutput{}, err
 	}
-	if role.Injected != walletroles.InjectedIssuance {
-		// Standalone first, then the fixtures that feed more tests, then by ID.
-		sort.SliceStable(fixtures, func(i, j int) bool {
-			a, b := fixtures[i], fixtures[j]
-			if a.Standalone != b.Standalone {
-				return a.Standalone
-			}
-			if len(a.TestIDs) != len(b.TestIDs) {
-				return len(a.TestIDs) > len(b.TestIDs)
-			}
-			return a.ID < b.ID
-		})
-	}
-	for _, fixture := range fixtures[:min(len(fixtures), fcafDescribeFixtures)] {
+	for _, fixture := range fixtures {
 		output.Fixtures = append(output.Fixtures, FCAFFixtureOption{
 			ID:           fixture.ID,
 			Scenario:     fixture.Scenario,
 			MobileStepID: fixture.MobileStepID,
+			Class:        fixture.Class,
 			Standalone:   fixture.Standalone,
 			PIDFormat:    fixture.PIDFormat,
 			PIDIssuer:    fixture.PIDIssuer,

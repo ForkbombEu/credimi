@@ -755,6 +755,9 @@ type ActionAuthorReviewAction struct {
 	Note string `json:"note,omitempty"`
 	// FCAFStatus is passed, unsupported or finding for an FCAF action; empty otherwise.
 	FCAFStatus string `json:"fcaf_status,omitempty"`
+	// FCAFReplays are an FCAF action's replays on fixtures of its role's
+	// authoring set, which the review sends back with an accept; absent otherwise.
+	FCAFReplays []actionauthor.FCAFReplay `json:"fcaf_replays,omitempty"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
 	// StartsFrom lists the candidate keys among the plan's prerequisites.
@@ -1197,6 +1200,7 @@ func actionAuthorPendingReview(
 			Error:           text("error"),
 			Note:            truncateRunes(text("note"), actionAuthorNoteRunes),
 			FCAFStatus:      fcafReviewStatus(text("fcaf_status")),
+			FCAFReplays:     fcafReviewReplays(fields["fcaf_replays"]),
 			Plan:            plan,
 			StartsFrom:      planCandidates(plan),
 			StartsFromNames: map[string]string{},
@@ -1231,6 +1235,31 @@ func fcafReviewStatus(status string) string {
 	}
 	return ""
 }
+
+// fcafReviewReplays returns the replays of an FCAF review action whose
+// fixture, class and status are strings, at most actionAuthorReviewReplays;
+// nil when none. Credimi checks them when the review accepts the action.
+func fcafReviewReplays(value any) []actionauthor.FCAFReplay {
+	items, _ := value.([]any)
+	var replays []actionauthor.FCAFReplay
+	for _, item := range items[:min(len(items), actionAuthorReviewReplays)] {
+		fields, _ := item.(map[string]any)
+		fixture, fixtureOK := fields["fixture"].(string)
+		class, classOK := fields["class"].(string)
+		status, statusOK := fields["status"].(string)
+		if fixtureOK && classOK && statusOK {
+			replays = append(replays, actionauthor.FCAFReplay{
+				Fixture: fixture,
+				Class:   class,
+				Status:  status,
+			})
+		}
+	}
+	return replays
+}
+
+// actionAuthorReviewReplays bounds the replays of a review action, as Save does.
+const actionAuthorReviewReplays = 64
 
 // actionAuthorNoteRunes bounds the agent's note on a review action.
 const actionAuthorNoteRunes = 2000

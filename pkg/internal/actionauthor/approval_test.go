@@ -237,3 +237,16 @@ func TestRunSignAndVerify(t *testing.T) {
 		})
 	}
 }
+
+func TestFCAFReplaysSHA256(t *testing.T) {
+	assert.Empty(t, FCAFReplaysSHA256(nil))
+	assert.Empty(t, FCAFReplaysSHA256([]FCAFReplay{}))
+	replays := []FCAFReplay{
+		{Fixture: "s#a", Class: "dc+sd-jwt, haip-vp://", Status: FCAFReplayPassed},
+	}
+	assert.Equal(
+		t,
+		CodeSHA256(`[{"fixture":"s#a","class":"dc+sd-jwt, haip-vp://","status":"passed"}]`),
+		FCAFReplaysSHA256(replays),
+	)
+}

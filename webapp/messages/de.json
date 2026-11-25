@@ -1145,6 +1145,7 @@
 	"Fcaf_coverage": "FCAF-Abdeckung",
 	"Fcaf_coverage_missing": "Fehlt",
 	"Fcaf_coverage_stale": "Veraltet",
+	"Fcaf_coverage_incomplete": "Nicht bei jeder Anfrage wiedergegeben",
 	"Fcaf_coverage_unmanaged": "Nicht verwaltet",
 	"Fcaf_coverage_written": "{written} von {total} Rollen geschrieben ({percent} %)",
 	"Fcaf_coverage_supported": "{supported} von {recorded} erfassten Ergebnissen von der Wallet unterstützt ({percent} %)",

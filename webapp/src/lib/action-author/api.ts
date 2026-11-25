@@ -53,6 +53,8 @@ export type ReviewAction = {
 	note?: string;
 	/** The agent's verdict on an FCAF action: passed, unsupported or finding; absent otherwise. */
 	fcaf_status?: 'passed' | 'unsupported' | 'finding';
+	/** An FCAF action's replays on the fixtures of its role's authoring set; absent otherwise. */
+	fcaf_replays?: FcafReplay[];
 	/** Candidate keys among the prerequisites of the action's plan. */
 	starts_from: string[];
 	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
@@ -90,7 +92,7 @@ export type FcafRoleProgress = { role: string; status: FcafRoleStatus; key: stri
 export type FcafProgress = { current_role: string; roles: FcafRoleProgress[] };
 
 /** The state of the caller organization's action for an FCAF role on a wallet. */
-export type FcafCoverageStatus = 'missing' | 'current' | 'stale' | 'unmanaged';
+export type FcafCoverageStatus = 'missing' | 'current' | 'incomplete' | 'stale' | 'unmanaged';
 
 export type FcafRoleCoverage = {
 	role: string;
@@ -105,6 +107,10 @@ export type FcafRoleCoverage = {
 	result: '' | 'passed' | 'unsupported' | 'finding';
 	/** The agent's note on the saved action. */
 	note: string;
+	/** The fixtures of the role's authoring set an incomplete action was not replayed on. */
+	missing_fixtures: string[];
+	/** The saved action's replays on fixtures of its role's authoring set. */
+	fcaf_replays: FcafReplay[];
 };
 
 /** FCAF relying-party coverage of a wallet (GET /api/action-author/fcaf-coverage). */
@@ -176,6 +182,13 @@ export type ApiFailure = { status: number; reason: string; message: string };
 /** The agent's verdict on an FCAF action, as the review showed it. */
 export type FcafResult = { status: 'passed' | 'unsupported' | 'finding'; note: string };
 
+/** How an FCAF action did on one fixture of its role's authoring set. */
+export type FcafReplay = {
+	fixture: string;
+	class: string;
+	status: 'passed' | 'finding' | 'action_failed';
+};
+
 export type Decision = 'accept' | 'refuse' | 'change';
 
 /** The user's decision on one action of a review. */
@@ -191,6 +204,8 @@ export type ReviewDecisionItem = {
 	profile?: Record<string, unknown>;
 	/** The agent's verdict the review showed, only for an accepted FCAF action. */
 	fcaf_result?: FcafResult;
+	/** The replays the review showed, only for an accepted FCAF action. */
+	fcaf_replays?: FcafReplay[];
 };
 
 /** POST /api/action-author/reviews: the decisions on every action of a review. */

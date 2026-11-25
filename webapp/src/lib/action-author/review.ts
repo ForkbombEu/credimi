@@ -117,6 +117,9 @@ export function reviewDecisions(
 				: {}),
 			...(decision === 'accept' && isFCAF(action) && action.fcaf_status
 				? { fcaf_result: { status: action.fcaf_status, note: action.note ?? '' } }
+				: {}),
+			...(decision === 'accept' && isFCAF(action) && action.fcaf_replays?.length
+				? { fcaf_replays: action.fcaf_replays }
 				: {})
 		};
 	});

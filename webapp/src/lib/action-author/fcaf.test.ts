@@ -37,7 +37,9 @@ function coverage(
 		action: '',
 		role_sha256: '',
 		result,
-		note: ''
+		note: '',
+		missing_fixtures: [],
+		fcaf_replays: []
 	};
 }
 
@@ -115,6 +117,13 @@ describe('coverageVerdict', () => {
 		expect(coverageVerdict(coverage('a', 'missing'))).toBe('missing');
 		expect(coverageVerdict(coverage('a', 'unmanaged'))).toBe('unmanaged');
 	});
+
+	it('shows an incomplete action as not replayed on every request', () => {
+		const role = coverage('a', 'incomplete', 'passed');
+		expect(coverageVerdict(role)).toBe('incomplete');
+		expect(coverageLabel('incomplete')).toBe('Not replayed on every request');
+		expect(coverageVariant('incomplete')).toBe('outline');
+	});
 });
 
 describe('coverageCounts', () => {
@@ -125,12 +134,35 @@ describe('coverageCounts', () => {
 			coverage('c', 'current'),
 			coverage('d', 'missing')
 		];
-		expect(coverageCounts(roles)).toEqual({ total: 4, written: 3, recorded: 2, supported: 1 });
+		expect(coverageCounts(roles)).toEqual({
+			total: 4,
+			written: 3,
+			incomplete: 0,
+			recorded: 2,
+			supported: 1
+		});
 	});
 
 	it('counts a wallet finding as recorded, not supported', () => {
 		const roles = [coverage('a', 'current', 'passed'), coverage('b', 'current', 'finding')];
-		expect(coverageCounts(roles)).toEqual({ total: 2, written: 2, recorded: 2, supported: 1 });
+		expect(coverageCounts(roles)).toEqual({
+			total: 2,
+			written: 2,
+			incomplete: 0,
+			recorded: 2,
+			supported: 1
+		});
+	});
+
+	it('counts an incomplete action as written, not recorded', () => {
+		const roles = [coverage('a', 'current', 'passed'), coverage('b', 'incomplete', 'passed')];
+		expect(coverageCounts(roles)).toEqual({
+			total: 2,
+			written: 2,
+			incomplete: 1,
+			recorded: 1,
+			supported: 1
+		});
 	});
 });
 

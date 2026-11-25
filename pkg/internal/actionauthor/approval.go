@@ -43,6 +43,9 @@ type Approval struct {
 	// ResultSHA256 binds the approval to the FCAF result the user saw
 	// (FCAFResultSHA256), empty without one.
 	ResultSHA256 string `json:"result_sha256,omitempty"`
+	// ReplaysSHA256 binds the approval to the FCAF replays the user saw
+	// (FCAFReplaysSHA256), empty without any.
+	ReplaysSHA256 string `json:"replays_sha256,omitempty"`
 }
 
 // FCAFResultSHA256 hashes an FCAF result: the lowercase hex sha256 of its JSON
@@ -51,7 +54,22 @@ func FCAFResultSHA256(result *FCAFResult) string {
 	if result == nil {
 		return ""
 	}
-	encoded, err := json.Marshal(result)
+	return jsonSHA256(result)
+}
+
+// FCAFReplaysSHA256 hashes FCAF replays: the lowercase hex sha256 of their
+// JSON encoding, "" for none.
+func FCAFReplaysSHA256(replays []FCAFReplay) string {
+	if len(replays) == 0 {
+		return ""
+	}
+	return jsonSHA256(replays)
+}
+
+// jsonSHA256 is the lowercase hex sha256 of value's JSON encoding, "" when
+// it does not encode.
+func jsonSHA256(value any) string {
+	encoded, err := json.Marshal(value)
 	if err != nil {
 		return ""
 	}
@@ -66,12 +84,7 @@ func ProfileSHA256(profile map[string]any) string {
 	if len(profile) == 0 {
 		return ""
 	}
-	encoded, err := json.Marshal(profile)
-	if err != nil {
-		return ""
-	}
-	digest := sha256.Sum256(encoded)
-	return hex.EncodeToString(digest[:])
+	return jsonSHA256(profile)
 }
 
 // SignApproval returns the token base64url(json).base64url(hmac).
