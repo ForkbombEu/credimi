@@ -6,13 +6,14 @@ package actionauthor
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"path"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
@@ -40,15 +41,22 @@ const fcafPipelineNamePrefix = "FCAF relying-party validation - "
 
 // FCAFPipelineName is the name of the pipeline record that runs the FCAF
 // relying-party validation of the wallet walletPath (FCAFWalletPath): one
-// per wallet, and one per number of scenarios for a subset (scenarios above
-// 0), so a subset never replaces the wallet's complete pipeline.
-func FCAFPipelineName(walletPath string, scenarios int) string {
+// per wallet, and for a subset (scenarios, its scenario file names, not
+// empty) one per set of scenarios, suffixed " - scenarios <hash>" (the first
+// 8 hex digits of the sha256 of the sorted names joined by newlines), so a
+// subset never replaces the wallet's complete pipeline nor another subset.
+func FCAFPipelineName(walletPath string, scenarios []string) string {
 	name := fcafPipelineNamePrefix + walletPath
-	if scenarios > 0 {
-		name += " - " + strconv.Itoa(scenarios) + " scenarios"
+	if len(scenarios) > 0 {
+		sorted := slices.Sorted(slices.Values(scenarios))
+		sum := sha256.Sum256([]byte(strings.Join(sorted, "\n")))
+		name += fcafSubsetInfix + hex.EncodeToString(sum[:])[:8]
 	}
 	return name
 }
+
+// fcafSubsetInfix follows the wallet path in a subset pipeline's name.
+const fcafSubsetInfix = " - scenarios "
 
 // FCAFWalletPath is "<owner>/<wallet>" of the selection's wallet, canonified.
 func FCAFWalletPath(selection Selection) string {
@@ -401,12 +409,14 @@ type fcafFinishedRun struct {
 // (FCAFPipelineName of FCAFWalletPath, complete or subset). A result with a
 // stored report finished; one without asks state, and counts only once
 // finished (a nil state skips it). A report of another wallet's actions
-// (role_outcomes.wallet_prefix) is ignored. The summary and every action
-// come from the newest finished complete run (the newest subset run without
-// one); a newer subset run replaces the outcome of each action it ran. A run
-// without a report leaves every action not_run, except resetAction (the
-// path of the wallet's reset action), failing when the prelude step failed.
-// It returns nil when there is no finished run.
+// (role_outcomes.wallet_prefix) is ignored. The outcomes start from the
+// newest finished complete run, else from the oldest finished subset run,
+// and every newer finished subset run, oldest first, replaces the outcome of
+// each action it ran. The summary and link are those of the newest finished
+// complete run, else of the newest finished subset run. A run without a
+// report leaves every action not_run when it is the starting run, except
+// resetAction (the path of the wallet's reset action), failing when the
+// prelude step failed. It returns nil when there is no finished run.
 func ReadFCAFLastRun(
 	app core.App,
 	selection Selection,
@@ -414,8 +424,7 @@ func ReadFCAFLastRun(
 	state FCAFRunStateFunc,
 ) (*FCAFLastRun, error) {
 	walletPath := FCAFWalletPath(selection)
-	base := FCAFPipelineName(walletPath, 0)
-	subset := regexp.MustCompile(`^` + regexp.QuoteMeta(base) + ` - [0-9]+ scenarios$`)
+	base := FCAFPipelineName(walletPath, nil)
 	records, err := app.FindAllRecords(
 		"pipelines",
 		dbx.HashExp{"owner": selection.Organization.Id},
@@ -428,7 +437,7 @@ func ReadFCAFLastRun(
 	ids := []any{}
 	for _, record := range records {
 		name := record.GetString("name")
-		if name == base || subset.MatchString(name) {
+		if name == base || strings.HasPrefix(name, base+fcafSubsetInfix) {
 			pipelines[record.Id] = record
 			ids = append(ids, record.Id)
 		}
@@ -449,8 +458,8 @@ func ReadFCAFLastRun(
 	slices.SortFunc(results, func(a, b *core.Record) int {
 		return b.GetDateTime("created").Compare(a.GetDateTime("created"))
 	})
-	var newer []fcafFinishedRun
-	var complete *fcafFinishedRun
+	// The finished runs, newest first, down to the newest complete run.
+	var runs []fcafFinishedRun
 	for _, result := range results {
 		run, finished, err := readFCAFFinishedRun(app, result, walletPath, state)
 		if err != nil {
@@ -461,33 +470,33 @@ func ReadFCAFLastRun(
 		}
 		run.pipeline = pipelines[result.GetString("pipeline")]
 		run.subset = run.pipeline.GetString("name") != base
+		runs = append(runs, run)
 		if !run.subset {
-			complete = &run
 			break
 		}
-		newer = append(newer, run)
 	}
-	if complete == nil {
-		if len(newer) == 0 {
-			return nil, nil
-		}
-		complete, newer = &newer[0], nil
+	if len(runs) == 0 {
+		return nil, nil
 	}
-	last := &FCAFLastRun{RunURL: complete.url, Actions: map[string]FCAFRoleRun{}}
-	if complete.report != nil {
-		last.Summary = complete.report.Summary
+	// The newest complete run, else the newest subset run, gives the summary.
+	shown := runs[len(runs)-1]
+	if shown.subset {
+		shown = runs[0]
+	}
+	last := &FCAFLastRun{RunURL: shown.url, Actions: map[string]FCAFRoleRun{}}
+	if shown.report != nil {
+		last.Summary = shown.report.Summary
 	}
 	summary := &last.Summary
 	summary.Total = summary.Pass + summary.Fail + summary.Blocked + summary.Skipped +
 		summary.Inconclusive + summary.NotApplicable + summary.Error
 	summary.Pipeline = selection.Organization.GetString("canonified_name") + "/" +
-		complete.pipeline.GetString("canonified_name")
-	summary.Created = complete.result.GetDateTime("created").String()
-	summary.Status = complete.state.Status
-	complete.apply(last, resetAction, true)
-	// Oldest first, so the newest subset run wins.
-	for i := len(newer) - 1; i >= 0; i-- {
-		newer[i].apply(last, resetAction, false)
+		shown.pipeline.GetString("canonified_name")
+	summary.Created = shown.result.GetDateTime("created").String()
+	summary.Status = shown.state.Status
+	// Oldest first, so the newest run of each action wins.
+	for i := len(runs) - 1; i >= 0; i-- {
+		runs[i].apply(last, resetAction, i == len(runs)-1)
 	}
 	return last, nil
 }

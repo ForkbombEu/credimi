@@ -5,8 +5,11 @@
 package actionauthor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"path"
+	"regexp"
 	"testing"
 	"time"
 
@@ -217,7 +220,8 @@ func attachFCAFRun(
 }
 
 // fcafRunFixture is a wallet selection of userA's organization with its FCAF
-// pipeline records and its current actions of three roles.
+// pipeline records (complete and two subsets) and its current actions of
+// three roles.
 type fcafRunFixture struct {
 	app       *tests.TestApp
 	selection Selection
@@ -225,6 +229,7 @@ type fcafRunFixture struct {
 	namespace string
 	complete  *core.Record
 	subset    *core.Record
+	other     *core.Record
 	prefix    string
 	actions   map[string]string // role → action path
 }
@@ -252,8 +257,11 @@ func fcafRunFixtureOf(
 		prefix:    FCAFWalletPath(selection) + "/",
 		actions:   map[string]string{},
 	}
-	fixture.complete = fixture.pipeline(t, FCAFPipelineName(FCAFWalletPath(selection), 0))
-	fixture.subset = fixture.pipeline(t, FCAFPipelineName(FCAFWalletPath(selection), 3))
+	fixture.complete = fixture.pipeline(t, FCAFPipelineName(FCAFWalletPath(selection), nil))
+	fixture.subset = fixture.pipeline(t, FCAFPipelineName(FCAFWalletPath(selection),
+		[]string{"a.yaml", "b.yaml", "c.yaml"}))
+	fixture.other = fixture.pipeline(t, FCAFPipelineName(FCAFWalletPath(selection),
+		[]string{"d.yaml", "e.yaml", "f.yaml"}))
 	for _, role := range []string{"fcaf-reset-and-onboard", "fcaf-issue-pid", "fcaf-engagement-haip-vp"} {
 		fixture.actions[role] = saveFCAFRunAction(t, app, selection.Organization.Id,
 			selection.Wallet.Id, fixture.scope, role)
@@ -372,7 +380,7 @@ func TestFCAFCoverageReadsOnlyTheWalletsOwnRuns(t *testing.T) {
 	twinPath := f.selection.WalletOwner.GetString("canonified_name") + "/" +
 		twin.GetString("canonified_name")
 	require.NotEqual(t, FCAFWalletPath(f.selection), twinPath)
-	attachFCAFRun(t, f.app, orgID, f.pipeline(t, FCAFPipelineName(twinPath, 0)), "twin",
+	attachFCAFRun(t, f.app, orgID, f.pipeline(t, FCAFPipelineName(twinPath, nil)), "twin",
 		f.report(50, twinPath+"/"))
 	// A report of the twin's actions on this wallet's record.
 	attachFCAFRun(t, f.app, orgID, f.complete, "foreign-actions", f.report(40, twinPath+"/"))
@@ -472,15 +480,78 @@ func TestFCAFCoverageKeepsTheCompleteRunUnderNewerSubsets(t *testing.T) {
 	attachFCAFRun(t, f.app, orgID, f.subset, "subset-new", f.report(2, f.prefix,
 		f.outcome("fcaf-issue-pid", FCAFRunFailing),
 	))
+	// Another, newer subset: both newer subsets count.
+	attachFCAFRun(t, f.app, orgID, f.other, "other-new", f.report(3, f.prefix,
+		f.outcome("fcaf-reset-and-onboard", FCAFRunFailing),
+	))
 	byRole, lastRun := f.coverage(t, nil)
 	require.NotNil(t, lastRun)
 	assert.Equal(t, 20, lastRun.Summary.Pass)
 	assert.Contains(t, lastRun.RunURL, "/complete/")
 	assert.Equal(t, FCAFRunFailing, byRole["fcaf-issue-pid"].Run.Status)
 	assert.Contains(t, byRole["fcaf-issue-pid"].Run.RunURL, "/subset-new/")
-	assert.Equal(t, FCAFRunOK, byRole["fcaf-reset-and-onboard"].Run.Status)
+	assert.Equal(t, FCAFRunFailing, byRole["fcaf-reset-and-onboard"].Run.Status)
+	assert.Contains(t, byRole["fcaf-reset-and-onboard"].Run.RunURL, "/other-new/")
 	// The subset older than the complete run changes nothing.
 	assert.Equal(t, FCAFRunOK, byRole["fcaf-engagement-haip-vp"].Run.Status)
+}
+
+// TestFCAFCoverageMergesSubsetsWithoutACompleteRun pins that, without a
+// complete run, every finished subset run counts: roles run only by an older
+// subset keep their outcome, a newer subset replaces the outcome of the
+// roles it ran, and the summary and link are the newest subset run's.
+func TestFCAFCoverageMergesSubsetsWithoutACompleteRun(t *testing.T) {
+	f := newFCAFRunFixture(t)
+	orgID := f.selection.Organization.Id
+	attachFCAFRun(t, f.app, orgID, f.subset, "subset-old", f.report(1, f.prefix,
+		f.outcome("fcaf-reset-and-onboard", FCAFRunOK),
+		f.outcome("fcaf-engagement-haip-vp", FCAFRunFailing),
+	))
+	attachFCAFRun(t, f.app, orgID, f.other, "other", f.report(4, f.prefix,
+		f.outcome("fcaf-issue-pid", FCAFRunOK),
+	))
+	byRole, lastRun := f.coverage(t, nil)
+	require.NotNil(t, lastRun)
+	assert.Equal(t, 4, lastRun.Summary.Pass)
+	assert.Contains(t, lastRun.RunURL, "/other/")
+	assert.Equal(
+		t,
+		f.namespace+"/"+f.other.GetString("canonified_name"),
+		lastRun.Summary.Pipeline,
+	)
+	// Disjoint subsets: both outcomes are there.
+	require.NotNil(t, byRole["fcaf-issue-pid"].Run)
+	assert.Equal(t, FCAFRunOK, byRole["fcaf-issue-pid"].Run.Status)
+	assert.Contains(t, byRole["fcaf-issue-pid"].Run.RunURL, "/other/")
+	require.NotNil(t, byRole["fcaf-engagement-haip-vp"].Run)
+	assert.Equal(t, FCAFRunFailing, byRole["fcaf-engagement-haip-vp"].Run.Status)
+	assert.Contains(t, byRole["fcaf-engagement-haip-vp"].Run.RunURL, "/subset-old/")
+
+	// A newer subset replaces the outcome of the roles it ran only.
+	attachFCAFRun(t, f.app, orgID, f.subset, "subset-new", f.report(2, f.prefix,
+		f.outcome("fcaf-engagement-haip-vp", FCAFRunOK),
+	))
+	byRole, lastRun = f.coverage(t, nil)
+	assert.Equal(t, 2, lastRun.Summary.Pass)
+	assert.Contains(t, lastRun.RunURL, "/subset-new/")
+	assert.Equal(t, FCAFRunOK, byRole["fcaf-engagement-haip-vp"].Run.Status)
+	assert.Contains(t, byRole["fcaf-engagement-haip-vp"].Run.RunURL, "/subset-new/")
+	assert.Equal(t, FCAFRunOK, byRole["fcaf-reset-and-onboard"].Run.Status)
+	assert.Contains(t, byRole["fcaf-reset-and-onboard"].Run.RunURL, "/subset-old/")
+	assert.Contains(t, byRole["fcaf-issue-pid"].Run.RunURL, "/other/")
+}
+
+// TestFCAFPipelineName pins the record names: the complete one, and a
+// subset's named by its set of scenarios whatever their order.
+func TestFCAFPipelineName(t *testing.T) {
+	complete := FCAFPipelineName("org/wallet", nil)
+	assert.Equal(t, "FCAF relying-party validation - org/wallet", complete)
+	subset := FCAFPipelineName("org/wallet", []string{"b.yaml", "a.yaml"})
+	assert.Regexp(t, `^`+regexp.QuoteMeta(complete)+` - scenarios [0-9a-f]{8}$`, subset)
+	assert.Equal(t, subset, FCAFPipelineName("org/wallet", []string{"a.yaml", "b.yaml"}))
+	assert.NotEqual(t, subset, FCAFPipelineName("org/wallet", []string{"a.yaml", "c.yaml"}))
+	sum := sha256.Sum256([]byte("a.yaml\nb.yaml"))
+	assert.Equal(t, complete+" - scenarios "+hex.EncodeToString(sum[:4]), subset)
 }
 
 // TestFCAFCoverageMatchesRunsByActionPath reads back a run of the caller's

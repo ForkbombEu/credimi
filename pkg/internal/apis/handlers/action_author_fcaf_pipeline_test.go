@@ -158,6 +158,24 @@ func TestActionAuthorFCAFPipelineErrors(t *testing.T) {
 			reason: "fcaf_unknown_scenario",
 		},
 		{
+			name:   "unknown scenario without extension",
+			user:   "userA",
+			body:   fcafPipelineBody(fcafPipelineDevice, "nope"),
+			status: http.StatusUnprocessableEntity,
+			reason: "fcaf_unknown_scenario",
+		},
+		{
+			name: "scenario named twice, with and without extension",
+			user: "userA",
+			body: fcafPipelineBody(
+				fcafPipelineDevice,
+				fcafPipelineHaipVP,
+				strings.TrimSuffix(fcafPipelineHaipVP, ".yaml"),
+			),
+			status: http.StatusUnprocessableEntity,
+			reason: "fcaf_unknown_scenario",
+		},
+		{
 			name:   "private device of another organization",
 			user:   "userA",
 			body:   fcafPipelineBody(foreignDevice),
@@ -196,9 +214,9 @@ func TestActionAuthorFCAFPipelineErrors(t *testing.T) {
 }
 
 // TestActionAuthorFCAFPipelineRunsTheWalletActions builds a two-scenario
-// subset for a wallet that lacks a role of one of them: the other one runs
-// with the wallet's own actions on the chosen device, and the first is
-// listed as skipped.
+// subset, one named without its .yaml extension, for a wallet that lacks a
+// role of one of them: the other one runs with the wallet's own actions on
+// the chosen device, and the first is listed as skipped.
 func TestActionAuthorFCAFPipelineRunsTheWalletActions(t *testing.T) {
 	scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
 	require.NoError(t, err)
@@ -240,9 +258,11 @@ func TestActionAuthorFCAFPipelineRunsTheWalletActions(t *testing.T) {
 		Name:   "subset with a missing role",
 		Method: http.MethodPost,
 		URL:    fcafPipelineURL,
-		Body: strings.NewReader(
-			fcafPipelineBody(fcafPipelineDevice, fcafPipelineHaipVP, skipped),
-		),
+		Body: strings.NewReader(fcafPipelineBody(
+			fcafPipelineDevice,
+			strings.TrimSuffix(fcafPipelineHaipVP, ".yaml"),
+			skipped,
+		)),
 		Headers: map[string]string{
 			"Authorization": "Bearer " + authoringToken(t, "userA"),
 			"Content-Type":  "application/json",
@@ -257,7 +277,10 @@ func TestActionAuthorFCAFPipelineRunsTheWalletActions(t *testing.T) {
 			record, err := app.FindFirstRecordByData(
 				"pipelines",
 				"name",
-				actionauthor.FCAFPipelineName("usera-s-organization/authoring-handler-wallet", 2),
+				actionauthor.FCAFPipelineName(
+					"usera-s-organization/authoring-handler-wallet",
+					[]string{skipped, fcafPipelineHaipVP},
+				),
 			)
 			require.NoError(t, err)
 			require.False(t, record.GetBool("published"))
@@ -333,7 +356,10 @@ func TestActionAuthorFCAFPipelineRunsTheCallersActionsOnAForeignWallet(t *testin
 			record, err := app.FindFirstRecordByData(
 				"pipelines",
 				"name",
-				actionauthor.FCAFPipelineName("userb-s-organization/foreign-wallet", 1),
+				actionauthor.FCAFPipelineName(
+					"userb-s-organization/foreign-wallet",
+					[]string{fcafPipelineHaipVP},
+				),
 			)
 			require.NoError(t, err)
 			yaml := record.GetString("yaml")

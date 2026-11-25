@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -30,7 +31,8 @@ type ActionAuthorFCAFPipelineRequest struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
 	DeviceID                string `json:"device_id"                 validate:"required"`
 	// Scenarios limits the pipeline to these scenario file names of the
-	// suite; empty runs every scenario.
+	// suite, with or without their .yaml extension; empty runs every
+	// scenario.
 	Scenarios []string `json:"scenarios"`
 }
 
@@ -113,9 +115,11 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr
 		}
-		subset := 0
+		var subset []string
 		if len(input.Scenarios) > 0 {
-			subset = len(paths)
+			for _, path := range paths {
+				subset = append(subset, filepath.Base(path))
+			}
 		}
 		name := actionauthor.FCAFPipelineName(actionauthor.FCAFWalletPath(selection), subset)
 		versionID := selection.Identifier
@@ -133,7 +137,7 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 			ActionIDs: actionauthor.FCAFWrittenActions(coverage),
 			// A subset keeps only the tests whose evidence it produces, as the
 			// happy-flow pipeline does.
-			FilterTestsByEvidence: subset > 0,
+			FilterTestsByEvidence: len(subset) > 0,
 			NoVideo:               new(true),
 		})
 		if errors.Is(err, aggregate.ErrNothingToRun) {
@@ -209,7 +213,8 @@ func fcafNotSupported() *apierror.APIError {
 }
 
 // fcafPipelineScenarios returns the suite's scenario files, limited to the
-// named ones when names is not empty; an unknown name answers 422
+// named ones when names is not empty. A name may leave out the .yaml
+// extension; an unknown name, or one named twice, answers 422
 // fcaf_unknown_scenario.
 func fcafPipelineScenarios(
 	e *core.RequestEvent,
@@ -223,22 +228,34 @@ func fcafPipelineScenarios(
 	if len(names) == 0 {
 		return paths, nil
 	}
+	unknown := func(message string) *apierror.APIError {
+		return apierror.New(
+			http.StatusUnprocessableEntity,
+			"action_author",
+			"fcaf_unknown_scenario",
+			message,
+		)
+	}
+	wanted := make(map[string]bool, len(names))
+	for _, name := range names {
+		file := name
+		if !strings.HasSuffix(file, ".yaml") {
+			file += ".yaml"
+		}
+		if wanted[file] {
+			return nil, unknown("scenario named more than once: " + name)
+		}
+		if !slices.ContainsFunc(paths, func(path string) bool {
+			return filepath.Base(path) == file
+		}) {
+			return nil, unknown("not a scenario of the FCAF " + scope.Suite + " suite: " + name)
+		}
+		wanted[file] = true
+	}
 	selected := make([]string, 0, len(names))
 	for _, path := range paths {
-		if slices.Contains(names, filepath.Base(path)) {
+		if wanted[filepath.Base(path)] {
 			selected = append(selected, path)
-		}
-	}
-	for _, name := range names {
-		if !slices.ContainsFunc(selected, func(path string) bool {
-			return filepath.Base(path) == name
-		}) {
-			return nil, apierror.New(
-				http.StatusUnprocessableEntity,
-				"action_author",
-				"fcaf_unknown_scenario",
-				"not a scenario of the FCAF "+scope.Suite+" suite: "+name,
-			)
 		}
 	}
 	return selected, nil

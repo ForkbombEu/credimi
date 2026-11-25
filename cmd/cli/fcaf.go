@@ -125,7 +125,7 @@ func NewFCAFCommand() *cobra.Command {
 	run.Flags().
 		StringVar(&fcafWallet, "wallet", "", "wallet build org/wallet/version (or org/wallet for its store build): build and run the FCAF relying-party validation from the wallet's own actions on Credimi, with --device-id")
 	run.Flags().
-		StringSliceVar(&fcafScenarios, "scenarios", nil, "with --wallet, run only these scenario file names (comma separated)")
+		StringSliceVar(&fcafScenarios, "scenarios", nil, "with --wallet, run only these scenario file names, with or without .yaml (comma separated)")
 	syncCmd.Flags().
 		StringVar(&fcafImportsDir, "imports-dir", "config_templates/fcaf/imports", "directory containing repository-backed FCAF imports")
 	syncCmd.Flags().
