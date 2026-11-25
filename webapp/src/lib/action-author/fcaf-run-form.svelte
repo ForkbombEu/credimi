@@ -26,7 +26,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type FcafPipelineRun
 	} from './api';
 	import { buildLabel, buildsForPlatform, walletBuilds, walletPath } from './builds';
-	import { fcafDeviceRecords, fcafPreferredDevice, pipelineRunLink } from './fcaf';
+	import {
+		fcafDeviceRecords,
+		fcafPreferredDevice,
+		pipelineRunLink,
+		queueStatusLabel
+	} from './fcaf';
 
 	//
 
@@ -160,7 +165,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<p>
 									{m.Fcaf_run_queued({
 										count: started.test_count,
-										status: started.status
+										status: queueStatusLabel(started.status)
 									})}
 								</p>
 								<a

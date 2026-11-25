@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -218,9 +219,49 @@ func TestBuildLeavesOutTheScenariosOfAMissingRole(t *testing.T) {
 	require.Equal(t, alone.TestIDs, built.TestIDs)
 	require.Less(t, len(built.TestIDs), 617)
 
+	// A wallet's build filters its tests by evidence: with every role it
+	// still has every test.
+	every := testActionIDs(t, func(role string) string { return roles.prefix + role })
+	filtered := buildComplete(t, paths, func(o *Options) {
+		o.ActionIDs, o.FilterTestsByEvidence = every, true
+	})
+	require.Empty(t, filtered.Skipped)
+	require.Equal(t, buildComplete(t, paths, nil).TestIDs, filtered.TestIDs)
+
+	// Without the engagement role, no kept test reads evidence of a skipped
+	// scenario.
+	withoutEngagement := maps.Clone(every)
+	delete(withoutEngagement, "fcaf-engagement-haip-vp")
+	partial := buildComplete(t, paths, func(o *Options) {
+		o.ActionIDs, o.FilterTestsByEvidence = withoutEngagement, true
+	})
+	require.NotEmpty(t, partial.Skipped)
+	skippedPrefixes := make([]string, 0, len(partial.Skipped))
+	for _, scenario := range partial.Skipped {
+		skippedPrefixes = append(skippedPrefixes, ScenarioPrefix(testSuite, scenario.Scenario)+"-")
+	}
+	definitions, err := catalog.LoadTests(filepath.Join(testFCAFRoot, testSuite, "tests"))
+	require.NoError(t, err)
+	for _, id := range partial.TestIDs {
+		for name, binding := range definitions[id].Evidence {
+			source, _, _ := strings.Cut(binding.From, ".outputs.")
+			for _, prefix := range skippedPrefixes {
+				require.Falsef(
+					t,
+					strings.HasPrefix(source, prefix),
+					"test %s reads evidence %s of the skipped step %s",
+					id,
+					name,
+					source,
+				)
+			}
+		}
+	}
+	require.Less(t, len(partial.TestIDs), len(filtered.TestIDs))
+
 	// Without the reset role no scenario driving the wallet can run.
 	delete(have, strings.TrimPrefix(roles.resetActionID, roles.prefix))
-	_, err := Build(testFCAFRoot, usedBy[missing][:1], Options{Suite: testSuite, ActionIDs: have})
+	_, err = Build(testFCAFRoot, usedBy[missing][:1], Options{Suite: testSuite, ActionIDs: have})
 	require.ErrorIs(t, err, ErrNothingToRun)
 }
 

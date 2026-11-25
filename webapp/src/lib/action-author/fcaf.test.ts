@@ -26,6 +26,7 @@ import {
 	percent,
 	pipelineRunLink,
 	progressDone,
+	queueStatusLabel,
 	replayStatusLabel,
 	replayStatusVariant,
 	roleRunBadge,
@@ -164,9 +165,6 @@ describe('pipelineRunLink', () => {
 		ticket_id: 't',
 		device_id: 'org/runner/device',
 		status: 'queued',
-		workflow_id: '',
-		run_id: '',
-		run_url: '',
 		skipped: [],
 		test_count: 3
 	};
@@ -178,6 +176,15 @@ describe('pipelineRunLink', () => {
 	it('links the run once it started', () => {
 		const url = 'https://example.org/my/tests/runs/wf/run';
 		expect(pipelineRunLink({ ...run, run_url: url })).toBe(url);
+	});
+});
+
+describe('queueStatusLabel', () => {
+	it('labels the queue statuses and keeps an unknown one', () => {
+		expect(queueStatusLabel('queued')).toBe('In queue');
+		expect(queueStatusLabel('running')).toBe('Running');
+		expect(queueStatusLabel('not_found')).toBe('Not found');
+		expect(queueStatusLabel('paused')).toBe('paused');
 	});
 });
 

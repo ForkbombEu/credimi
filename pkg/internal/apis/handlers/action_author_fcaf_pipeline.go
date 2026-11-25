@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -19,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/dbx"
@@ -56,7 +59,8 @@ type ActionAuthorFCAFPipelineResponse struct {
 // HandleActionAuthorFCAFPipeline builds the FCAF relying-party validation
 // pipeline of a wallet build from the caller organization's actions of the
 // wallet, stores it on the wallet's FCAF pipeline record and queues it on the
-// device, as POST /api/pipeline/queue does.
+// device, as POST /api/pipeline/queue does. Only an owner of the
+// organization may.
 func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[ActionAuthorFCAFPipelineRequest](e)
@@ -77,6 +81,18 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 				"action_author",
 				"forbidden",
 				"you are not a member of any organization",
+			)
+		}
+		owner, err := isOrganizationOwner(e.App, e.Auth.Id, org.Id)
+		if err != nil {
+			return authoringAPIError(e, fmt.Errorf("check organization ownership: %w", err))
+		}
+		if !owner {
+			return apierror.New(
+				http.StatusForbidden,
+				"action_author",
+				"forbidden",
+				"only an owner of the organization can build and run its FCAF pipelines",
 			)
 		}
 		deviceID := canonify.NormalizePath(input.DeviceID)
@@ -107,7 +123,7 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
 		}
-		coverage, _, _, err := actionauthor.FCAFCoverage(e.App, selection, scope, nil)
+		coverage, _, err := actionauthor.FCAFCoverage(e.App, selection, scope)
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
@@ -135,9 +151,9 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 			// Each role runs the caller organization's own action of the
 			// wallet, at the path it was saved under.
 			ActionIDs: actionauthor.FCAFWrittenActions(coverage),
-			// A subset keeps only the tests whose evidence it produces, as the
-			// happy-flow pipeline does.
-			FilterTestsByEvidence: len(subset) > 0,
+			// A build keeps only the tests whose evidence it produces, so a
+			// scenario left out for a missing role drops only its tests.
+			FilterTestsByEvidence: true,
 			NoVideo:               new(true),
 		})
 		if errors.Is(err, aggregate.ErrNothingToRun) {
@@ -150,6 +166,9 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 		}
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("build FCAF pipeline: %w", err))
+		}
+		if apiErr := checkFCAFReferences(e, org.Id, string(built.YAML)); apiErr != nil {
+			return apiErr
 		}
 		record, err := upsertFCAFPipeline(e.App, org.Id, name, string(built.YAML))
 		if err != nil {
@@ -187,9 +206,13 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 	}
 }
 
+// fcafRunStateTimeout bounds each Temporal read of coverage.
+const fcafRunStateTimeout = 5 * time.Second
+
 // fcafRunStateReader reads, for coverage, the Temporal state of the
-// organization's pipeline runs in its namespace; nil (runs without a report
-// are then left out) when there is no client. Stubbed in unit tests.
+// organization's pipeline runs in its namespace, each read within
+// fcafRunStateTimeout; nil (runs without a report are then left out) when
+// there is no client. Stubbed in unit tests.
 var fcafRunStateReader = func(
 	e *core.RequestEvent,
 	namespace string,
@@ -199,8 +222,50 @@ var fcafRunStateReader = func(
 		return nil
 	}
 	return func(workflowID, runID string) (actionauthor.FCAFRunState, error) {
-		return activities.FCAFRunState(e.Request.Context(), c, workflowID, runID)
+		ctx, cancel := context.WithTimeout(e.Request.Context(), fcafRunStateTimeout)
+		defer cancel()
+		return activities.FCAFRunState(ctx, c, workflowID, runID)
 	}
+}
+
+// checkFCAFReferences answers 422 fcaf_credential_unavailable when the
+// built pipeline names a credential or use case that is neither the
+// organization's own nor published, listing their paths: wallet pipelines
+// run the scenarios' reference credentials, which the deployment must
+// publish.
+func checkFCAFReferences(e *core.RequestEvent, orgID, yaml string) *apierror.APIError {
+	ids, err := pipeline.ParseEntityIDs(yaml)
+	if err != nil {
+		return authoringAPIError(e, fmt.Errorf("read FCAF pipeline references: %w", err))
+	}
+	var unusable []string
+	for _, references := range []struct {
+		collection string
+		paths      []string
+	}{
+		{collection: "credentials", paths: ids.Credentials},
+		{collection: "use_cases_verifications", paths: ids.UseCases},
+	} {
+		for _, path := range references.paths {
+			_, err := actionauthor.CheckRecordAccess(e.App, references.collection, path, orgID)
+			switch {
+			case errors.Is(err, actionauthor.ErrInvalid):
+				unusable = append(unusable, path)
+			case err != nil:
+				return authoringAPIError(e, err)
+			}
+		}
+	}
+	if len(unusable) == 0 {
+		return nil
+	}
+	return apierror.New(
+		http.StatusUnprocessableEntity,
+		"action_author",
+		"fcaf_credential_unavailable",
+		"the FCAF scenarios use credentials or use cases your organization neither owns nor "+
+			"can use published: "+strings.Join(unusable, ", "),
+	)
 }
 
 func fcafNotSupported() *apierror.APIError {

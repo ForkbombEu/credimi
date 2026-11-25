@@ -173,10 +173,10 @@ export type FcafPipelineRun = {
 	device_id: string;
 	/** Queue status of the ticket: queued, starting, running, … */
 	status: string;
-	/** Set when the run already started. */
-	workflow_id: string;
-	run_id: string;
-	run_url: string;
+	/** Set only when the run already started. */
+	workflow_id?: string;
+	run_id?: string;
+	run_url?: string;
 	skipped: FcafSkippedScenario[];
 	test_count: number;
 };

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { DeviceRecord } from '$lib/pipeline/device/types';
+import type { Status as QueueStatus } from '$lib/pipeline/queue';
 
 import type { BadgeVariant } from '@/components/ui/badge';
 
@@ -215,9 +216,25 @@ const RUN_STATUS_LABELS: Record<FcafRunStatus, () => string> = {
 };
 
 /** The label of a finished run's status; the status itself for an unknown one. */
-export function runStatusLabel(status: string): string {
+function runStatusLabel(status: string): string {
 	return Object.hasOwn(RUN_STATUS_LABELS, status)
 		? RUN_STATUS_LABELS[status as FcafRunStatus]()
+		: status;
+}
+
+const QUEUE_STATUS_LABELS: Record<QueueStatus, () => string> = {
+	queued: m.Fcaf_queue_status_queued,
+	starting: m.Fcaf_queue_status_starting,
+	running: m.Fcaf_queue_status_running,
+	failed: m.Fcaf_queue_status_failed,
+	canceled: m.Fcaf_queue_status_canceled,
+	not_found: m.Fcaf_queue_status_not_found
+};
+
+/** The label of a queued FCAF run's queue status; the status itself for an unknown one. */
+export function queueStatusLabel(status: string): string {
+	return Object.hasOwn(QUEUE_STATUS_LABELS, status)
+		? QUEUE_STATUS_LABELS[status as QueueStatus]()
 		: status;
 }
 

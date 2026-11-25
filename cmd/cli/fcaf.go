@@ -818,15 +818,7 @@ func runFCAF(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		report := fcafReport{GeneratedAt: time.Now()}
-		run, err := runWalletFCAF(ctx, token)
-		if err != nil {
-			run.Status, run.Error = "error", err.Error()
-		}
-		if err := recordFCAFRun(&report, run, run.Name); err != nil {
-			return err
-		}
-		return writeFCAFRunsReport(report)
+		return runWalletFCAFReport(ctx, token)
 	}
 	pipelinesDir, err := fcafPipelinesDir()
 	if err != nil {
@@ -848,7 +840,7 @@ func runFCAF(ctx context.Context) error {
 	if len(paths) == 0 {
 		return fmt.Errorf("no YAML pipelines found in %s", pipelinesDir)
 	}
-	report := fcafReport{GeneratedAt: time.Now(), Runs: make([]fcafRun, 0, len(paths))}
+	report := fcafReport{Runs: make([]fcafRun, 0, len(paths))}
 	for _, path := range paths {
 		if fcafFilter != "" && !strings.Contains(filepath.Base(path), fcafFilter) {
 			continue
@@ -863,6 +855,27 @@ func runFCAF(ctx context.Context) error {
 		}
 	}
 	return writeFCAFRunsReport(report)
+}
+
+// runWalletFCAFReport runs --wallet (runWalletFCAF), records it in the
+// report and, when it failed, prints its error and returns it, so the
+// command exits non-zero.
+func runWalletFCAFReport(ctx context.Context, token string) error {
+	var report fcafReport
+	run, runErr := runWalletFCAF(ctx, token)
+	if runErr != nil {
+		run.Status, run.Error = "error", runErr.Error()
+	}
+	if err := recordFCAFRun(&report, run, run.Name); err != nil {
+		return err
+	}
+	if err := writeFCAFRunsReport(report); err != nil {
+		return err
+	}
+	if runErr != nil {
+		fmt.Println(run.Error)
+	}
+	return runErr
 }
 
 // recordFCAFRun counts a finished run in the report, writes its JSON as
@@ -892,7 +905,8 @@ func recordFCAFRun(report *fcafReport, run fcafRun, name string) error {
 	return nil
 }
 
-// writeFCAFRunsReport writes the HTML report of the runs with --output.
+// writeFCAFRunsReport writes the HTML report of the runs with --output,
+// generated now.
 func writeFCAFRunsReport(report fcafReport) error {
 	if !localFCAFOutputEnabled() {
 		return nil

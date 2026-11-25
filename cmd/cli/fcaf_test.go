@@ -173,6 +173,27 @@ func TestRunWalletFCAFBuildsThePipelineOnCredimi(t *testing.T) {
 	require.Equal(t, "fcaf-relying-party-validation-wallet-1-scenarios", run.Name)
 }
 
+// TestRunWalletFCAFReportFailsWhenTheEndpointFails pins that --wallet exits
+// non-zero with the endpoint's answer when Credimi refuses the build.
+func TestRunWalletFCAFReportFailsWhenTheEndpointFails(t *testing.T) {
+	const refusal = `{"message":"only an owner of the organization can build and run ` +
+		`its FCAF pipelines"}`
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(refusal))
+	}))
+	defer server.Close()
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+	wallet, device, output := fcafWallet, fcafDeviceID, fcafOutput
+	t.Cleanup(func() { fcafWallet, fcafDeviceID, fcafOutput = wallet, device, output })
+	fcafWallet, fcafDeviceID, fcafOutput = "acme/wallet/1-0", "acme/runner/pixel", ""
+
+	err := runWalletFCAFReport(context.Background(), "token")
+	require.ErrorContains(t, err, "HTTP 403")
+	require.ErrorContains(t, err, "only an owner of the organization")
+}
+
 func TestApplyFCAFWalletFlags(t *testing.T) {
 	wallet, scenarios, timeout := fcafWallet, fcafScenarios, fcafTimeout
 	t.Cleanup(func() { fcafWallet, fcafScenarios, fcafTimeout = wallet, scenarios, timeout })

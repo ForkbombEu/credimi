@@ -125,8 +125,8 @@ func (a *ListActionAuthorFCAFRolesActivity) list(
 	if err != nil {
 		return ListActionAuthorFCAFRolesOutput{}, err
 	}
-	// The agent reads finished runs with a report only.
-	roles, profile, _, err := actionauthor.FCAFCoverage(a.app, selection, scope, nil)
+	// The agent's coverage reads no run.
+	roles, profile, err := actionauthor.FCAFCoverage(a.app, selection, scope)
 	if err != nil {
 		return ListActionAuthorFCAFRolesOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}

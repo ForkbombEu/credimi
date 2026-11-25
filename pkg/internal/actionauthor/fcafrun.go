@@ -39,6 +39,10 @@ const (
 // fcafPipelineNamePrefix names a wallet's FCAF relying-party pipeline.
 const fcafPipelineNamePrefix = "FCAF relying-party validation - "
 
+// fcafRunScanLimit is how many of the newest pipeline results of a wallet's
+// FCAF records ReadFCAFLastRun reads.
+const fcafRunScanLimit = 20
+
 // FCAFPipelineName is the name of the pipeline record that runs the FCAF
 // relying-party validation of the wallet walletPath (FCAFWalletPath): one
 // per wallet, and for a subset (scenarios, its scenario file names, not
@@ -118,6 +122,23 @@ var maestroLabelFailed = regexp.MustCompile(
 	`^\s*` + regexp.QuoteMeta(pipeline.ActionFlowLabelPrefix) + `(.+?)\.\.\. FAILED\s*$`,
 )
 
+// maestroLabelCompleted is the line Maestro prints when the `runFlow` block
+// of an action of a composed flow completed.
+var maestroLabelCompleted = regexp.MustCompile(
+	`^\s*` + regexp.QuoteMeta(pipeline.ActionFlowLabelPrefix) + `(.+?)\.\.\. COMPLETED\s*$`,
+)
+
+// injectedIssuance is the step ID, after its scenario prefix, of a PID
+// issuance the generator injects for a scenario step (aggregate's
+// pidIssuance): "<step id>-issue-pid[-N]" and its issuer session
+// "<step id>-issue-pid[-N]-session".
+var injectedIssuance = regexp.MustCompile(`^(.+)-issue-pid(?:-[0-9]+)?(?:-session)?$`)
+
+// injectedReset is the step ID, after its scenario prefix, of the wallet
+// reset the generator injects before a scenario's next step (aggregate's
+// walletResetStep).
+const injectedReset = "reset-wallet"
+
 // FCAFRoleOutcomesOf reads, from a pipeline definition and how its steps
 // ended, how every action of the pipeline's wallet did. The wallet is the
 // one of the first mobile-automation step's first action (the prelude's
@@ -164,10 +185,11 @@ func FCAFRoleOutcomesOf(
 		}
 		return name
 	}
-	for _, step := range definition.Steps {
+	fixtures := stepFixtures(definition.Steps, scenarioFiles)
+	for index, step := range definition.Steps {
 		ids := stepActionIDs(step)
 		statuses, failedCommand := actionStatuses(ids, results[step.ID])
-		fixture := fixtureID(step.ID, scenarioFiles)
+		fixture := fixtures[index]
 		for i, id := range ids {
 			if path.Dir(id)+"/" != prefix {
 				continue
@@ -249,8 +271,10 @@ func stepActionIDs(step pipeline.StepDefinition) []string {
 // Maestro command the failing one stopped at. A completed step ran every
 // action; a Maestro flow failure (CRE315) of a single action is that
 // action's, and in a composed flow it is the one whose label Maestro reports
-// as FAILED: the actions before it ran, those after it did not. Any other
-// end leaves every action not run.
+// as FAILED, at the index of the labels reported COMPLETED before it (so an
+// action the flow runs twice is told apart; the first entry of the failed
+// action when that index names another): the actions before it ran, those
+// after it did not. Any other end leaves every action not run.
 func actionStatuses(ids []string, result FCAFStepResult) ([]string, string) {
 	statuses := make([]string, len(ids))
 	fill := func(status string) {
@@ -272,16 +296,22 @@ func actionStatuses(ids []string, result FCAFStepResult) ([]string, string) {
 		statuses[0] = FCAFRunFailing
 		return statuses, command
 	}
-	failed := ""
+	failed, completed := "", 0
 	for _, line := range strings.Split(result.Stdout, "\n") {
-		if match := maestroLabelFailed.FindStringSubmatch(
-			strings.TrimRight(line, "\r"),
-		); match != nil {
+		line = strings.TrimRight(line, "\r")
+		if maestroLabelCompleted.MatchString(line) {
+			completed++
+			continue
+		}
+		if match := maestroLabelFailed.FindStringSubmatch(line); match != nil {
 			failed = strings.TrimSpace(match[1])
 			break
 		}
 	}
-	index := slices.Index(ids, failed)
+	index := completed
+	if index >= len(ids) || ids[index] != failed {
+		index = slices.Index(ids, failed)
+	}
 	if index < 0 {
 		return statuses, ""
 	}
@@ -309,15 +339,38 @@ func failedMaestroCommand(stdout string) string {
 	return command
 }
 
-// fixtureID is "<scenario file>#<scenario step id>" of an aggregate step ID
-// that starts with a scenario's prefix, "" for another step (the prelude).
-func fixtureID(stepID string, scenarioFiles map[string]string) string {
-	for prefix, file := range scenarioFiles {
-		if rest, ok := strings.CutPrefix(stepID, prefix+"-"); ok {
-			return file + "#" + rest
+// stepFixtures maps each step of a definition to its scenario fixture,
+// "<scenario file>#<scenario step id>", or "" for a step of no scenario (the
+// prelude). An injected PID issuance and its issuer session map to the
+// scenario step they issue for, an injected wallet reset to the scenario
+// step it precedes.
+func stepFixtures(steps []pipeline.StepDefinition, scenarioFiles map[string]string) []string {
+	stepIDs := make(map[string]bool, len(steps))
+	for _, step := range steps {
+		stepIDs[step.ID] = true
+	}
+	fixtures := make([]string, len(steps))
+	// The fixture of each scenario's next step, walking backwards.
+	next := map[string]string{}
+	for index := len(steps) - 1; index >= 0; index-- {
+		for prefix, file := range scenarioFiles {
+			rest, ok := strings.CutPrefix(steps[index].ID, prefix+"-")
+			if !ok {
+				continue
+			}
+			fixture := file + "#" + rest
+			match := injectedIssuance.FindStringSubmatch(rest)
+			switch {
+			case rest == injectedReset && next[prefix] != "":
+				fixture = next[prefix]
+			case match != nil && stepIDs[prefix+"-"+match[1]]:
+				fixture = file + "#" + match[1]
+			}
+			fixtures[index], next[prefix] = fixture, fixture
+			break
 		}
 	}
-	return ""
+	return fixtures
 }
 
 // FCAFRoleRun is how a role's action did in the wallet's last FCAF run.
@@ -404,11 +457,12 @@ type fcafFinishedRun struct {
 	url      string
 }
 
-// ReadFCAFLastRun reads the wallet's last FCAF run from the pipeline results
-// of the selection's organization for the wallet's FCAF pipeline records
-// (FCAFPipelineName of FCAFWalletPath, complete or subset). A result with a
-// stored report finished; one without asks state, and counts only once
-// finished (a nil state skips it). A report of another wallet's actions
+// ReadFCAFLastRun reads the wallet's last FCAF run from the
+// fcafRunScanLimit newest pipeline results of the selection's organization
+// for the wallet's FCAF pipeline records (FCAFPipelineName of
+// FCAFWalletPath, complete or subset). A result with a stored report
+// finished; one without asks state, and counts only once finished (a nil
+// state skips it). A report of another wallet's actions
 // (role_outcomes.wallet_prefix) is ignored. The outcomes start from the
 // newest finished complete run, else from the oldest finished subset run,
 // and every newer finished subset run, oldest first, replaces the outcome of
@@ -446,18 +500,18 @@ func ReadFCAFLastRun(
 		return nil, nil
 	}
 	// Only the organization's own runs: another organization may run its own
-	// YAML on this record.
-	results, err := app.FindAllRecords(
-		"pipeline_results",
-		dbx.In("pipeline", ids...),
-		dbx.HashExp{"owner": selection.Organization.Id},
-	)
+	// YAML on this record. Newest first, and only the newest few, so a
+	// wallet's history bounds neither the query nor the Temporal reads.
+	results := []*core.Record{}
+	err = app.RecordQuery("pipeline_results").
+		AndWhere(dbx.In("pipeline", ids...)).
+		AndWhere(dbx.HashExp{"owner": selection.Organization.Id}).
+		OrderBy("created DESC").
+		Limit(fcafRunScanLimit).
+		All(&results)
 	if err != nil {
 		return nil, fmt.Errorf("list FCAF pipeline results: %w", err)
 	}
-	slices.SortFunc(results, func(a, b *core.Record) int {
-		return b.GetDateTime("created").Compare(a.GetDateTime("created"))
-	})
 	// The finished runs, newest first, down to the newest complete run.
 	var runs []fcafFinishedRun
 	for _, result := range results {

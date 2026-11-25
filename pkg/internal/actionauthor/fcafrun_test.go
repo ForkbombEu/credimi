@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"path"
 	"regexp"
 	"testing"
@@ -185,6 +186,91 @@ func TestFCAFRoleOutcomesOfASingleActionAndAnUnlabeledFlow(t *testing.T) {
 	assert.Nil(t, FCAFRoleOutcomesOf(&pipeline.WorkflowDefinition{}, nil, nil, nil))
 }
 
+// TestFCAFRoleOutcomesOfARepeatedAction pins that a composed flow running an
+// action twice blames the run of it that failed: the labels completed before
+// the failed one count the actions that ran.
+func TestFCAFRoleOutcomesOfARepeatedAction(t *testing.T) {
+	definition := &pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{
+		fcafRunStep("present", "", composed("fcaf-issue-pid", "fcaf-issue-pid", "fcaf-share")),
+	}}
+	stdout := "action " + fcafRunPrefix + "fcaf-issue-pid...\n" +
+		"action " + fcafRunPrefix + "fcaf-issue-pid... COMPLETED\n" +
+		"action " + fcafRunPrefix + "fcaf-issue-pid...\n" +
+		"  Tap on \"Accept\"... FAILED\n" +
+		"action " + fcafRunPrefix + "fcaf-issue-pid... FAILED\n"
+	outcomes := FCAFRoleOutcomesOf(definition, map[string]FCAFStepResult{"present": {
+		Failed: true,
+		Code:   errorcodes.MobileAutomationStepError,
+		Stdout: stdout,
+	}}, nil, nil)
+	require.NotNil(t, outcomes)
+	statuses := make([]string, 0, len(outcomes.Steps))
+	for _, step := range outcomes.Steps {
+		statuses = append(statuses, step.Status)
+	}
+	assert.Equal(t, []string{FCAFRunOK, FCAFRunFailing, FCAFRunNotRun}, statuses)
+	assert.Equal(t, `Tap on "Accept"`, outcomes.Steps[1].FailedCommand)
+}
+
+// TestFCAFRoleOutcomesOfInjectedSteps pins the fixture of the steps the
+// generator injects: a DC API presentation's separate PID issuance and its
+// issuer session are the presentation's fixture, and a separate wallet reset
+// the fixture of the step it precedes.
+func TestFCAFRoleOutcomesOfInjectedSteps(t *testing.T) {
+	definition := &pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{
+		fcafRunStep("onboard-reference-wallet", "", map[string]any{
+			"action_id": fcafRunPrefix + "fcaf-reset-and-onboard",
+		}),
+		{StepSpec: pipeline.StepSpec{ID: "dc-api-abcdef01-create", Use: "http-request"}},
+		{StepSpec: pipeline.StepSpec{
+			ID:  "dc-api-abcdef01-present-issue-pid-session",
+			Use: "http-request",
+		}},
+		fcafRunStep("dc-api-abcdef01-present-issue-pid", "", composed(
+			"fcaf-reset-and-onboard", "fcaf-issue-pid",
+		)),
+		{StepSpec: pipeline.StepSpec{
+			ID:  "dc-api-abcdef01-present-issue-pid-2-session",
+			Use: "http-request",
+		}},
+		fcafRunStep("dc-api-abcdef01-present-issue-pid-2", "", map[string]any{
+			"action_id": fcafRunPrefix + "fcaf-issue-pid",
+		}),
+		fcafRunStep("dc-api-abcdef01-present", "", map[string]any{
+			"action_id": fcafRunPrefix + "fcaf-share",
+		}),
+		fcafRunStep("browser-12345678-reset-wallet", "", map[string]any{
+			"action_id": fcafRunPrefix + "fcaf-reset-and-onboard",
+		}),
+		fcafRunStep("browser-12345678-open", "", map[string]any{
+			"action_id": fcafRunPrefix + "fcaf-share",
+		}),
+	}}
+	results := map[string]FCAFStepResult{}
+	for _, step := range definition.Steps {
+		results[step.ID] = FCAFStepResult{Completed: true}
+	}
+	outcomes := FCAFRoleOutcomesOf(definition, results, map[string]string{
+		"dc-api-abcdef01":  "fcaf-dc-api.yaml",
+		"browser-12345678": "fcaf-browser.yaml",
+	}, nil)
+	require.NotNil(t, outcomes)
+	fixtures := map[string][]string{}
+	for _, step := range outcomes.Steps {
+		fixtures[step.StepID] = append(fixtures[step.StepID], step.FixtureID)
+	}
+	assert.Equal(t, map[string][]string{
+		"onboard-reference-wallet": {""},
+		"dc-api-abcdef01-present-issue-pid": {
+			"fcaf-dc-api.yaml#present", "fcaf-dc-api.yaml#present",
+		},
+		"dc-api-abcdef01-present-issue-pid-2": {"fcaf-dc-api.yaml#present"},
+		"dc-api-abcdef01-present":             {"fcaf-dc-api.yaml#present"},
+		"browser-12345678-reset-wallet":       {"fcaf-browser.yaml#open"},
+		"browser-12345678-open":               {"fcaf-browser.yaml#open"},
+	}, fixtures)
+}
+
 // attachFCAFRun stores a pipeline result of owner for pipeline, with an
 // fcaf_report when report is not nil.
 func attachFCAFRun(
@@ -343,7 +429,7 @@ func (f fcafRunFixture) coverage(
 	state FCAFRunStateFunc,
 ) (map[string]FCAFRoleCoverage, *FCAFLastRun) {
 	t.Helper()
-	coverage, _, lastRun, err := FCAFCoverage(f.app, f.selection, f.scope, state)
+	coverage, _, lastRun, err := FCAFCoverageWithRun(f.app, f.selection, f.scope, state)
 	require.NoError(t, err)
 	byRole := map[string]FCAFRoleCoverage{}
 	for _, entry := range coverage {
@@ -539,6 +625,31 @@ func TestFCAFCoverageMergesSubsetsWithoutACompleteRun(t *testing.T) {
 	assert.Equal(t, FCAFRunOK, byRole["fcaf-reset-and-onboard"].Run.Status)
 	assert.Contains(t, byRole["fcaf-reset-and-onboard"].Run.RunURL, "/subset-old/")
 	assert.Contains(t, byRole["fcaf-issue-pid"].Run.RunURL, "/other/")
+}
+
+// TestFCAFCoverageReadsOnlyTheNewestResults pins that coverage reads only
+// the fcafRunScanLimit newest results, asking Temporal about each at most
+// once: a finished run older than them is not read.
+func TestFCAFCoverageReadsOnlyTheNewestResults(t *testing.T) {
+	f := newFCAFRunFixture(t)
+	orgID := f.selection.Organization.Id
+	attachFCAFRun(t, f.app, orgID, f.complete, "old", f.report(7, f.prefix,
+		f.outcome("fcaf-issue-pid", FCAFRunOK),
+	))
+	for i := range fcafRunScanLimit {
+		attachFCAFRun(t, f.app, orgID, f.subset, fmt.Sprintf("running-%d", i), nil)
+	}
+	asked := map[string]int{}
+	byRole, lastRun := f.coverage(t, func(workflowID, _ string) (FCAFRunState, error) {
+		asked[workflowID]++
+		return FCAFRunState{Status: "running"}, nil
+	})
+	assert.Nil(t, lastRun)
+	assert.Nil(t, byRole["fcaf-issue-pid"].Run)
+	assert.Len(t, asked, fcafRunScanLimit)
+	for workflowID, count := range asked {
+		assert.Equal(t, 1, count, workflowID)
+	}
 }
 
 // TestFCAFPipelineName pins the record names: the complete one, and a

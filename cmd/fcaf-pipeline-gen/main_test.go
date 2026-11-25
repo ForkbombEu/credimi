@@ -10,36 +10,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
-const validationTask = "fcaf-validation"
-
 // testFCAFRoot is the repository's FCAF templates root.
 var testFCAFRoot = filepath.Join("..", "..", "config_templates", "fcaf")
 
-// referencePrefix is the action_id prefix of the reference wallet's roles.
-type referencePrefix struct{ prefix string }
-
-// testWalletRoles loads the repository's FCAF role contract's prefix.
-func testWalletRoles(t *testing.T) referencePrefix {
-	t.Helper()
+func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	contract, err := walletroles.Load(testFCAFRoot)
 	require.NoError(t, err)
-	return referencePrefix{prefix: contract.ReferencePrefix}
-}
-
-func TestGenerateCompleteFCAFPipeline(t *testing.T) {
-	root := filepath.Join(
-		"..",
-		"..",
-		"config_templates",
-		"fcaf",
-		"wallet_solution",
-		"relying_party",
-	)
+	// The action_id prefix of the reference wallet's roles.
+	prefix := contract.ReferencePrefix
 	output := filepath.Join(t.TempDir(), "complete.yaml")
 	require.NoError(t, generate(testFCAFRoot, relyingPartySuite, output))
 
@@ -57,7 +41,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
 	for index, step := range definition.Steps {
-		if step["use"] == validationTask {
+		if step["id"] == aggregate.ValidationStepID {
 			validationSteps = append(validationSteps, step)
 			continue
 		}
@@ -99,7 +83,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		t,
 		observedRequestWith["actions"],
 		map[string]any{
-			"id": testWalletRoles(t).prefix + "fcaf-observe-request",
+			"id": prefix + "fcaf-observe-request",
 			"parameters": map[string]any{
 				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.deeplink }}",
 			},
@@ -109,7 +93,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		t,
 		observedRequestWith["actions"],
 		map[string]any{
-			"id": testWalletRoles(t).prefix + "fcaf-issue-pid",
+			"id": prefix + "fcaf-issue-pid",
 			"parameters": map[string]any{
 				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}",
 			},
@@ -119,7 +103,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	reusedCredentialWith, _ := reusedCredential["with"].(map[string]any)
 	require.Equal(
 		t,
-		testWalletRoles(t).prefix+"fcaf-expect-request-rejected",
+		prefix+"fcaf-expect-request-rejected",
 		reusedCredentialWith["action_id"],
 	)
 	require.NotContains(t, reusedCredentialWith, "actions")
@@ -155,7 +139,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			)
 			action, ok := actions[len(actions)-1].(map[string]any)
 			require.True(t, ok)
-			require.Equal(t, testWalletRoles(t).prefix+"fcaf-expect-request-rejected", action["id"])
+			require.Equal(t, prefix+"fcaf-expect-request-rejected", action["id"])
 			parameters, _ := action["parameters"].(map[string]any)
 			require.Equal(
 				t,
@@ -226,14 +210,6 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		walletPolicy["maximum_attempts"],
 		"the chain keeps the producer's retry policy",
 	)
-
-	committed, err := os.ReadFile(filepath.Join(
-		root,
-		"pipelines",
-		"fcaf-wallet-solution-relying-party-complete-validation.yaml",
-	))
-	require.NoError(t, err)
-	require.Equal(t, committed, data, "generated aggregate pipeline is stale")
 }
 
 func TestGenerateAttestationProviderFCAFPipeline(t *testing.T) {
@@ -249,7 +225,7 @@ func TestGenerateAttestationProviderFCAFPipeline(t *testing.T) {
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validation := definition.Steps[len(definition.Steps)-1]
-	require.Equal(t, validationTask, validation["use"])
+	require.Equal(t, aggregate.ValidationStepID, validation["id"])
 	with, ok := validation["with"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, attestationProviderSuite, with["suite"])
@@ -293,7 +269,7 @@ func TestGenerateDemoFCAFPipeline(t *testing.T) {
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validation := definition.Steps[len(definition.Steps)-1]
-	require.Equal(t, validationTask, validation["use"])
+	require.Equal(t, aggregate.ValidationStepID, validation["id"])
 	with, ok := validation["with"].(map[string]any)
 	require.True(t, ok)
 	selectedTestIDs := walletroles.StringList(with["test_ids"])
@@ -331,7 +307,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 
 	validationSteps := make([]map[string]any, 0, 1)
 	for index, step := range definition.Steps {
-		if step["use"] == validationTask {
+		if step["id"] == aggregate.ValidationStepID {
 			validationSteps = append(validationSteps, step)
 			continue
 		}

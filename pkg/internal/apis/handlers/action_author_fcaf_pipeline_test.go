@@ -6,8 +6,12 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/http"
+	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -17,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -57,7 +62,8 @@ func stubFCAFPipelineQueue(t *testing.T) *[]workflows.MobileDeviceSemaphoreEnque
 }
 
 // setupFCAFPipelineApp is setupActionAuthorApp with a private runner of
-// userB's organization and, saved as current FCAF actions of userA's
+// userB's organization, the scenarios' reference credentials published by
+// their own organization and, saved as current FCAF actions of userA's
 // wallet, every role of the suite but those in without.
 func setupFCAFPipelineApp(t testing.TB, without ...string) *tests.TestApp {
 	t.Helper()
@@ -70,6 +76,7 @@ func setupFCAFPipelineApp(t testing.TB, without ...string) *tests.TestApp {
 		createAuthoringRunner(t, app, foreignOrg.Id, fcafPipelinePrivateName, false),
 		"android_emulator",
 	)
+	seedFCAFReferenceCredentials(t, app)
 	if without == nil {
 		return app
 	}
@@ -77,6 +84,77 @@ func setupFCAFPipelineApp(t testing.TB, without ...string) *tests.TestApp {
 	require.NoError(t, err)
 	saveFCAFActions(t, app, wallet.GetString("owner"), wallet.Id, without...)
 	return app
+}
+
+// seedFCAFReferenceCredentials creates, published, every credential the
+// suite's scenarios name (organization/issuer/credential), each under an
+// organization and issuer of those names.
+func seedFCAFReferenceCredentials(t testing.TB, app *tests.TestApp) []*core.Record {
+	t.Helper()
+	scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
+	require.NoError(t, err)
+	paths, err := filepath.Glob(filepath.Join(scope.Root, scope.Suite, "scenarios", "*.yaml"))
+	require.NoError(t, err)
+	reference := regexp.MustCompile(`credential_id:\s*/?([^/\s]+)/([^/\s]+)/([^/\s]+)\s*$`)
+	seen := map[string]bool{}
+	var credentials []*core.Record
+	find := func(collection, filter string, params dbx.Params) *core.Record {
+		record, err := app.FindFirstRecordByFilter(collection, filter, params)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		require.NoError(t, err)
+		return record
+	}
+	save := func(collection string, fields map[string]any) *core.Record {
+		c, err := app.FindCollectionByNameOrId(collection)
+		require.NoError(t, err)
+		record := core.NewRecord(c)
+		for key, value := range fields {
+			record.Set(key, value)
+		}
+		require.NoError(t, app.Save(record))
+		return record
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		for _, line := range strings.Split(string(data), "\n") {
+			match := reference.FindStringSubmatch(line)
+			if match == nil || seen[strings.Join(match[1:], "/")] {
+				continue
+			}
+			seen[strings.Join(match[1:], "/")] = true
+			org := find("organizations", "canonified_name = {:name}", dbx.Params{"name": match[1]})
+			if org == nil {
+				org = save("organizations", map[string]any{"name": match[1]})
+				require.Equal(t, match[1], org.GetString("canonified_name"))
+			}
+			issuer := find(
+				"credential_issuers",
+				"owner = {:owner} && canonified_name = {:name}",
+				dbx.Params{"owner": org.Id, "name": match[2]},
+			)
+			if issuer == nil {
+				issuer = save("credential_issuers", map[string]any{
+					"owner":     org.Id,
+					"name":      match[2],
+					"url":       "https://" + match[2] + ".example",
+					"published": true,
+				})
+			}
+			credential := save("credentials", map[string]any{
+				"owner":             org.Id,
+				"credential_issuer": issuer.Id,
+				"name":              match[3],
+				"published":         true,
+			})
+			require.Equal(t, match[3], credential.GetString("canonified_name"))
+			credentials = append(credentials, credential)
+		}
+	}
+	require.NotEmpty(t, credentials)
+	return credentials
 }
 
 // saveFCAFActions saves, for organization owner on the wallet, a current FCAF
@@ -370,4 +448,93 @@ func TestActionAuthorFCAFPipelineRunsTheCallersActionsOnAForeignWallet(t *testin
 			require.NotRegexp(t, `foreign-wallet/fcaf-reset-and-onboard\n`, yaml)
 		},
 	}).Test(t)
+}
+
+// requireNoFCAFPipeline fails when any FCAF pipeline record was written.
+func requireNoFCAFPipeline(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+	records, err := app.FindAllRecords(
+		"pipelines",
+		dbx.Like("name", actionauthor.FCAFPipelineName("", nil)).Match(false, true),
+	)
+	require.NoError(t, err)
+	require.Empty(t, records)
+}
+
+// TestActionAuthorFCAFPipelineIsForOwners pins that a member who is not an
+// owner of the organization can neither build nor run its FCAF pipelines.
+func TestActionAuthorFCAFPipelineIsForOwners(t *testing.T) {
+	enqueued := stubFCAFPipelineQueue(t)
+	(&tests.ApiScenario{
+		Name:   "member who is not an owner",
+		Method: http.MethodPost,
+		URL:    fcafPipelineURL,
+		Body:   strings.NewReader(fcafPipelineBody(fcafPipelineDevice, fcafPipelineHaipVP)),
+		Headers: map[string]string{
+			"Authorization": "Bearer " + authoringToken(t, "userA"),
+			"Content-Type":  "application/json",
+		},
+		ExpectedStatus: http.StatusForbidden,
+		ExpectedContent: []string{
+			`"reason":"forbidden"`,
+			"only an owner of the organization can build and run its FCAF pipelines",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupFCAFPipelineApp(t, "no role left out")
+			demoteToMember(t, app, "userA@example.org")
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+			requireNoFCAFPipeline(t, app)
+		},
+	}).Test(t)
+	require.Empty(t, *enqueued)
+}
+
+// TestActionAuthorFCAFPipelineNeedsUsableCredentials pins that a pipeline
+// naming a reference credential the organization can neither own nor use
+// published answers 422 fcaf_credential_unavailable with its path, writing
+// nothing.
+func TestActionAuthorFCAFPipelineNeedsUsableCredentials(t *testing.T) {
+	enqueued := stubFCAFPipelineQueue(t)
+	issuerPath := ""
+	(&tests.ApiScenario{
+		Name:   "unpublished reference credential",
+		Method: http.MethodPost,
+		URL:    fcafPipelineURL,
+		Body:   strings.NewReader(fcafPipelineBody(fcafPipelineDevice, fcafPipelineHaipVP)),
+		Headers: map[string]string{
+			"Authorization": "Bearer " + authoringToken(t, "userA"),
+			"Content-Type":  "application/json",
+		},
+		ExpectedStatus:  http.StatusUnprocessableEntity,
+		ExpectedContent: []string{`"reason":"fcaf_credential_unavailable"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupFCAFPipelineApp(t, "no role left out")
+			credentials, err := app.FindAllRecords("credentials")
+			require.NoError(t, err)
+			for _, credential := range credentials {
+				credential.Set("published", false)
+				require.NoError(t, app.Save(credential))
+			}
+			issuer, err := app.FindRecordById(
+				"credential_issuers",
+				credentials[0].GetString("credential_issuer"),
+			)
+			require.NoError(t, err)
+			org, err := app.FindRecordById("organizations", credentials[0].GetString("owner"))
+			require.NoError(t, err)
+			issuerPath = org.GetString("canonified_name") + "/" + issuer.GetString("canonified_name")
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+			var body struct {
+				Message string `json:"message"`
+			}
+			decodeBody(t, res, &body)
+			require.Contains(t, body.Message, issuerPath+"/")
+			requireNoFCAFPipeline(t, app)
+		},
+	}).Test(t)
+	require.Empty(t, *enqueued)
 }

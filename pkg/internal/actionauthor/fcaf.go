@@ -136,30 +136,29 @@ type FCAFRoleCoverage struct {
 	// with its replays of MissingFixtures; never nil.
 	Replays []FCAFReplay `json:"fcaf_replays"`
 	// Run is how the role's action did in the wallet's last finished FCAF
-	// pipeline run; nil when that run did not run it or there is none. A
-	// failing run changes neither Status nor Result.
+	// pipeline run (FCAFCoverageWithRun); nil when that run did not run it,
+	// there is none or runs were not read. A failing run changes neither
+	// Status nor Result.
 	Run *FCAFRoleRun `json:"run"`
 }
 
 // FCAFCoverage lists the roles of the session suite, the injected reset
 // first, the injected issuance second, then in contract order, with the
 // state of the caller organization's action of the same name for the
-// selected wallet and how it did in the wallet's last finished FCAF run
-// (ReadFCAFLastRun with state, which may be nil). The second value is the
-// FCAF profile of the newest FCAF action that saved one, nil when none did;
-// the third the last run, nil when there is none.
+// selected wallet, without reading any run (every Run is nil; see
+// FCAFCoverageWithRun). The second value is the FCAF profile of the newest
+// FCAF action that saved one, nil when none did.
 func FCAFCoverage(
 	app core.App,
 	selection Selection,
 	scope *FCAFScope,
-	state FCAFRunStateFunc,
-) ([]FCAFRoleCoverage, map[string]any, *FCAFLastRun, error) {
+) ([]FCAFRoleCoverage, map[string]any, error) {
 	records, err := app.FindAllRecords("wallet_actions", dbx.HashExp{
 		"owner":  selection.Organization.Id,
 		"wallet": selection.Wallet.Id,
 	})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("list wallet actions: %w", err)
+		return nil, nil, fmt.Errorf("list wallet actions: %w", err)
 	}
 	byName := make(map[string]*core.Record, len(records))
 	var profile map[string]any
@@ -174,16 +173,6 @@ func FCAFCoverage(
 			record.GetDateTime("updated").After(newest.GetDateTime("updated")) {
 			newest, profile = record, provenance.FCAFProfile
 		}
-	}
-	resetAction := ""
-	if record, ok := byName[scope.Contract.Injected(walletroles.InjectedReset).Name]; ok {
-		if resetAction, err = walletActionPath(app, record); err != nil {
-			return nil, nil, nil, err
-		}
-	}
-	lastRun, err := ReadFCAFLastRun(app, selection, resetAction, state)
-	if err != nil {
-		return nil, nil, nil, err
 	}
 	coverage := []FCAFRoleCoverage{}
 	for _, role := range fcafSuiteRoles(scope) {
@@ -201,10 +190,8 @@ func FCAFCoverage(
 		if record, ok := byName[role.Name]; ok {
 			entry.Action, err = walletActionPath(app, record)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, err
 			}
-			// The run ran the action at its path, whatever its role's name.
-			entry.Run = lastRun.Run(entry.Action)
 			provenance := savedProvenance(record)
 			switch {
 			case provenance.FCAFRole != role.Name:
@@ -217,7 +204,7 @@ func FCAFCoverage(
 					provenance.FCAFReplays,
 				)
 				if err != nil {
-					return nil, nil, nil, err
+					return nil, nil, err
 				}
 				if len(entry.MissingFixtures) > 0 {
 					entry.Status = FCAFIncomplete
@@ -234,6 +221,37 @@ func FCAFCoverage(
 			}
 		}
 		coverage = append(coverage, entry)
+	}
+	return coverage, profile, nil
+}
+
+// FCAFCoverageWithRun is FCAFCoverage with how each role's action did in the
+// wallet's last finished FCAF run (ReadFCAFLastRun with state, which may be
+// nil), matched by the action's path whatever its role's name. The third
+// value is the last run, nil when there is none.
+func FCAFCoverageWithRun(
+	app core.App,
+	selection Selection,
+	scope *FCAFScope,
+	state FCAFRunStateFunc,
+) ([]FCAFRoleCoverage, map[string]any, *FCAFLastRun, error) {
+	coverage, profile, err := FCAFCoverage(app, selection, scope)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	resetRole := scope.Contract.Injected(walletroles.InjectedReset).Name
+	resetAction := ""
+	for _, entry := range coverage {
+		if entry.Role == resetRole {
+			resetAction = entry.Action
+		}
+	}
+	lastRun, err := ReadFCAFLastRun(app, selection, resetAction, state)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	for i := range coverage {
+		coverage[i].Run = lastRun.Run(coverage[i].Action)
 	}
 	return coverage, profile, lastRun, nil
 }

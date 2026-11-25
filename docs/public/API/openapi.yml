@@ -66,8 +66,9 @@ paths:
         finished subset run, and each role''s run how its action did in the latest
         finished run that ran it (the complete run, or a newer subset run): ok, failing
         (the run failed inside the action, with the Maestro command and the fixture)
-        or not_run; null when no such run ran it. A failing run changes neither status
-        nor result.'
+        or not_run; null when no such run ran it. Only the 20 newest runs of the caller''s
+        organization on the wallet''s FCAF records are read. A failing run changes
+        neither status nor result.'
       operationId: actionAuthor.fcafCoverage
       parameters:
       - description: 'Wallet: organization/wallet (canonified names).'
@@ -105,21 +106,26 @@ paths:
       summary: FCAF coverage of a wallet
   /api/action-author/fcaf-pipeline:
     post:
-      description: Build the FCAF relying-party validation pipeline of a wallet build
+      description: 'Build the FCAF relying-party validation pipeline of a wallet build
         (wallet_version_identifier as for sessions, Android installer or store build)
-        from the caller organization's FCAF actions of the wallet, and queue it on
-        device_id as POST /api/pipeline/queue does. Roles whose action is current
-        or incomplete are the wallet's; a scenario needing another role is left out
-        and listed in skipped with its missing roles, and its tests are not run. The
-        pipeline record "FCAF relying-party validation - <wallet name>" of the caller's
-        organization is created unpublished or its yaml replaced; scenarios (scenario
-        file names of the suite, with or without .yaml) limits the build to those
-        scenarios and stores it on the record of that set of scenarios, suffixed "
-        - scenarios <hash>" (the first 8 hex digits of the sha256 of the sorted file
-        names joined by newlines). An unknown or repeated scenario answers 422 fcaf_unknown_scenario,
-        no scenario that can run 422 fcaf_nothing_to_run, a device that is not Android
-        422 fcaf_not_supported; device access and availability are checked as for
-        pipelines.
+        from the caller organization''s FCAF actions of the wallet, and queue it on
+        device_id as POST /api/pipeline/queue does. Only an owner of the caller''s
+        organization may (403 forbidden otherwise). Roles whose action is current
+        or incomplete are the wallet''s; a scenario needing another role is left out
+        and listed in skipped with its missing roles, and only its tests are dropped:
+        every build keeps only the tests whose evidence it produces. The pipeline
+        record "FCAF relying-party validation - <wallet owner>/<wallet>" (the canonified
+        wallet path) of the caller''s organization is created unpublished or its yaml
+        replaced (a published one answers 409 conflict); scenarios (scenario file
+        names of the suite, with or without .yaml) limits the build to those scenarios
+        and stores it on the record of that set of scenarios, suffixed " - scenarios
+        <hash>" (the first 8 hex digits of the sha256 of the sorted file names joined
+        by newlines). The pipeline runs the scenarios'' reference credentials and
+        use cases, which must be the caller organization''s own or published: 422
+        fcaf_credential_unavailable lists the others. An unknown or repeated scenario
+        answers 422 fcaf_unknown_scenario, no scenario that can run 422 fcaf_nothing_to_run,
+        a device that is not Android 422 fcaf_not_supported; device access and availability
+        are checked as for pipelines.'
       operationId: actionAuthor.runFCAFPipeline
       parameters:
       - description: Bearer token for authentication.
