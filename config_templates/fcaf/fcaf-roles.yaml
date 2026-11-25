@@ -173,6 +173,11 @@ roles:
     launch_apps: [browser]
     presents: 1
     diagnostic_name_budget: 36
+    # How the request is delivered decides whether the wallet answers at all
+    # (RI-WALLET-018), so every delivery is replayed.
+    authoring_fixtures:
+      - fcaf-wallet-solution-relying-party-dc-api-unsigned#invoke-dc-api-unsigned
+      - fcaf-wallet-solution-relying-party-dc-api-multisigned#invoke-dc-api-multisigned
     screenshots: []
 
   - name: fcaf-dc-api-expect-rejected
@@ -185,6 +190,9 @@ roles:
     launch_apps: [browser]
     presents: 0
     diagnostic_name_budget: 34
+    # An unencrypted request must be refused for a reason of its own.
+    authoring_fixtures:
+      - fcaf-wallet-solution-relying-party-dc-api-unencrypted#invoke-dc-api-unencrypted
     screenshots: []
 
   - name: fcaf-submit-request-object-by-value
