@@ -32,7 +32,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Sidebar.MenuButton {isActive}>
 		{#snippet child({ props })}
 			<a
-				href={localizeHref(item.url)}
+				href={item.target ? item.url : localizeHref(item.url)}
+				target={item.target}
+				rel={item.target ? 'noopener noreferrer' : undefined}
 				{...props}
 				onclick={() => {
 					sidebar.setOpenMobile(false);

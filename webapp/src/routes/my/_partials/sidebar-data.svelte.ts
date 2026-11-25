@@ -6,6 +6,7 @@ import { GlobeIcon, HourglassIcon, House, ListIcon, LockIcon, UserIcon } from '@
 import { page } from '$app/state';
 import { Pipeline } from '$lib';
 import { baseSections, entities } from '$lib/global';
+import { extras } from '$lib/layout/topbar-links';
 import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
 import { SvelteURL } from 'svelte/reactivity';
 
@@ -116,6 +117,10 @@ const data: SidebarGroup[] = $derived([
 				)
 			}
 		]
+	},
+	{
+		title: m.Extras(),
+		items: extras.map(({ title, href, icon }) => ({ title, url: href, icon, target: '_blank' }))
 	},
 	{
 		title: m.Settings(),

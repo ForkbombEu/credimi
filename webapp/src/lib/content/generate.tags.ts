@@ -11,27 +11,13 @@ import { GENERATED, logCodegenResult } from '@/utils/codegen';
 
 import { pageFrontMatterSchema } from './types';
 
-const STRIP_PATH_MARKER = 'pages/';
-
 const tagMap: Record<string, string[]> = {};
 const base = import.meta.dirname;
 const pagesBase = path.resolve(base, '../../../static/pages');
-const files = await fg(path.join(pagesBase, '**/en.md'));
+const files = await fg('*/**/en.md', { cwd: pagesBase });
 
-function stripPagesAndFile(fullPath: string): string {
-	const idx = fullPath.indexOf(STRIP_PATH_MARKER);
-	if (idx < 0) return '';
-
-	const afterMarker = fullPath.slice(idx + STRIP_PATH_MARKER.length);
-
-	// drop the file
-	const parts = afterMarker.split('/');
-	if (parts.length <= 1) return '';
-	parts.pop();
-	return parts.join('/');
-}
-
-for (const fullPath of files) {
+for (const file of files) {
+	const fullPath = path.join(pagesBase, file);
 	const raw = fs.readFileSync(fullPath, 'utf8');
 	const parsed = fm(raw);
 	const parsedResult = pageFrontMatterSchema.safeParse(parsed.attributes);
@@ -42,11 +28,11 @@ for (const fullPath of files) {
 	}
 	const tags = parsedResult.data.tags;
 
-	const loaderKey = stripPagesAndFile(fullPath);
+	const loaderKey = path.posix.dirname(file);
 
 	for (const tag of tags) {
 		tagMap[tag] ??= [];
-		if (loaderKey) tagMap[tag].push(loaderKey);
+		tagMap[tag].push(loaderKey);
 	}
 }
 

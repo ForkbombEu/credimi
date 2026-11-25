@@ -11,6 +11,8 @@ import type { IconComponent } from '@/components/types';
 export type SidebarItem = {
 	title: string;
 	url: string;
+	/** `_blank` for a link that leaves the dashboard. */
+	target?: string;
 	notification?: boolean;
 	icon?: IconComponent;
 	children?: Omit<SidebarItem, 'children'>[];

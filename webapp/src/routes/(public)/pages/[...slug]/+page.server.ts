@@ -12,7 +12,8 @@ import type { EntryGenerator } from './$types';
 // Served by their own routes under /pages; prerendering them here would collide with those routes.
 const DEDICATED_ROUTE_SLUGS: Record<string, true> = {
 	'why-credimi': true,
-	'conformance-automation': true
+	'conformance-automation': true,
+	extras: true
 };
 
 // The guides render here. 'auto' prerenders the slugs listed in `entries` and renders any other

@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { version } from '$app/environment';
+	import { onMount } from 'svelte';
 
 	import { AppLogo } from '@/brand';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -14,7 +15,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import LanguageSelect from '@/i18n/languageSelect.svelte';
 	import { currentUser } from '@/pocketbase';
 
+	import type { ServiceStatus } from './service-status';
+
 	import { extras } from './topbar-links';
+
+	// Same-origin: the Uptime Kuma API sends no CORS headers, so /status.json reads it server-side.
+	let status = $state<ServiceStatus>('unknown');
+	onMount(async () => {
+		status = await fetch('/status.json')
+			.then((response) => response.json())
+			.catch(() => 'unknown');
+	});
 
 	// One link per destination: product, guides, companion tools, company.
 	const footer_data = [
@@ -104,10 +115,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 	</div>
-	<div class="flex items-center justify-center bg-black/30 p-2 px-8">
+	<div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-1 bg-black/30 p-2 px-8">
 		<small>
 			<a href="https://forkbomb.solutions/" class="underline hover:no-underline">
 				{m.Proudly_developed_by_ForkBomb_BV()}
+			</a>
+		</small>
+		<small>
+			<a
+				href="https://status.credimi.io/"
+				class="flex items-center gap-2 underline-offset-4 hover:underline"
+			>
+				<span
+					class={[
+						'size-2 rounded-full',
+						{ up: 'bg-green-400', degraded: 'bg-amber-400', unknown: 'bg-slate-400' }[
+							status
+						]
+					]}
+					aria-hidden="true"
+				></span>
+				{{
+					up: m.status_operational(),
+					degraded: m.status_degraded(),
+					unknown: m.status_unknown()
+				}[status]}
 			</a>
 		</small>
 	</div>
