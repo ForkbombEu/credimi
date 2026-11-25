@@ -55,25 +55,91 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<body data-sveltekit-preload-data="hover">
 		<div id="pipeline-report-boot-spinner" aria-busy="true" aria-label="Loading"></div>
 		<div style="display: contents">%sveltekit.body%</div>
-
-		<!-- Matomo -->
+		<section
+			id="analytics-consent"
+			aria-label="Analytics consent"
+			class="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-lg rounded-md border bg-background p-4 shadow-md sm:mr-0"
+			hidden
+		>
+			<p class="mb-3 text-sm">
+				Can we use analytics cookies to help improve Credimi? It’s your choice. Learn more
+				in our <a href="https://docs.credimi.io/legal/privacy-policy/">Privacy Policy</a>.
+			</p>
+			<div class="flex flex-wrap gap-2">
+				<button type="button" id="analytics-reject" class="rounded-md border px-3 py-2">
+					No thanks
+				</button>
+				<button
+					type="button"
+					id="analytics-accept"
+					class="rounded-md bg-primary px-3 py-2 text-primary-foreground hover:bg-primary/90"
+				>
+					Accept analytics
+				</button>
+			</div>
+		</section>
 		<script>
-			var _paq = (window._paq = window._paq || []);
-			/* tracker methods like "setCustomDimension" should be called before "trackPageView" */
-			_paq.push(['trackPageView']);
-			_paq.push(['enableLinkTracking']);
-			(function () {
-				var u = 'https://matomo.dyne.org/';
-				_paq.push(['setTrackerUrl', u + 'matomo.php']);
-				_paq.push(['setSiteId', '12']);
-				var d = document,
-					g = d.createElement('script'),
-					s = d.getElementsByTagName('script')[0];
-				g.async = true;
-				g.src = u + 'matomo.js';
-				s.parentNode.insertBefore(g, s);
+			(() => {
+				const key = 'credimi-analytics-consent';
+				const banner = document.getElementById('analytics-consent');
+				let choice;
+				try {
+					choice = localStorage.getItem(key);
+				} catch {
+					// Without storage, keep analytics off unless explicitly accepted on this page.
+				}
+				let started = false;
+				function start() {
+					if (started) return;
+					started = true;
+					const url = 'https://matomo.dyne.org/';
+					window._paq = [
+						['setTrackerUrl', url + 'matomo.php'],
+						['setSiteId', '12'],
+						['requireConsent'],
+						['setConsentGiven'],
+						['trackPageView'],
+						['enableLinkTracking']
+					];
+					const script = document.createElement('script');
+					script.async = true;
+					script.src = url + 'matomo.js';
+					document.head.append(script);
+				}
+				function choose(value) {
+					try {
+						localStorage.setItem(key, value);
+					} catch {
+						// The choice still applies to this page.
+					}
+					banner.hidden = true;
+					document
+						.querySelector('[data-analytics-settings]')
+						?.focus({ preventScroll: true });
+					if (value === 'accept') {
+						start();
+					} else {
+						window._paq?.push(['forgetConsentGiven']);
+						for (const cookie of document.cookie.split(';')) {
+							const name = cookie.split('=')[0].trim();
+							if (/^_pk_(id|ses|ref)\.12\./.test(name)) {
+								document.cookie = `${name}=; Max-Age=0; Path=/`;
+							}
+						}
+						if (started) location.reload();
+					}
+				}
+				document.getElementById('analytics-accept').onclick = () => choose('accept');
+				document.addEventListener('credimi:accept-analytics', () => choose('accept'));
+				document.getElementById('analytics-reject').onclick = () => choose('reject');
+				document.addEventListener('click', (event) => {
+					if (!event.target.closest('[data-analytics-settings]')) return;
+					banner.hidden = false;
+					document.getElementById('analytics-reject').focus();
+				});
+				banner.hidden = choice === 'accept' || choice === 'reject';
+				if (choice === 'accept') start();
 			})();
 		</script>
-		<!-- End Matomo Code -->
 	</body>
 </html>

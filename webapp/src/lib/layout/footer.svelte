@@ -49,6 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		{
 			label: m.Company(),
+			analyticsSettings: true,
 			links: [
 				{ label: m.about_credimi(), url: 'https://forkbomb.solutions/about-us/' },
 				{ label: m.contact_us(), url: 'mailto:credimi@forkbomb.eu' },
@@ -98,6 +99,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{item.label}
 								</a>
 							{/each}
+							{#if category.analyticsSettings}
+								<button
+									type="button"
+									data-analytics-settings
+									class="self-start text-sm text-primary-foreground/75 transition-colors duration-150 hover:text-primary-foreground"
+								>
+									Analytics settings
+								</button>
+							{/if}
 						</div>
 					</div>
 				{/each}

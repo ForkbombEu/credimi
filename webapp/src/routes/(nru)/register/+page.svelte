@@ -31,7 +31,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			email: z.string().email(),
 			password: z.string().min(8),
 			passwordConfirm: z.string().min(8),
-			acceptTerms: z.boolean()
+			acceptTerms: z.boolean(),
+			acceptAnalytics: z.boolean()
 		})
 		.refine((data) => data.password === data.passwordConfirm, m.PASSWORDS_DO_NOT_MATCH());
 
@@ -42,8 +43,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const form = createForm({
 		adapter: zod(schema),
+		initialData: { acceptAnalytics: false },
 		onSubmit: async ({ form }) => {
-			const { data } = form;
+			const { acceptAnalytics, ...data } = form.data;
 			if (!captchaToken) {
 				captchaError = m.Please_complete_the_captcha();
 				return;
@@ -55,6 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			});
 			await u.authWithPassword(data.email, data.password);
 			await u.requestVerification(data.email);
+			if (acceptAnalytics) document.dispatchEvent(new Event('credimi:accept-analytics'));
 			WelcomeSession.start();
 			await goto('/my');
 		},
@@ -182,15 +185,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<CheckboxField {form} name="acceptTerms">
 		<span class="leading-snug">
 			{m.I_accept_the()}
-			<A href="https://docs.credimi.io/Legal/terms-and-conditions.html" target="_blank">
+			<A href="https://docs.credimi.io/legal/terms-and-conditions/" target="_blank">
 				{m.Terms_and_Conditions()}
 			</A>
 			{m.and()}
-			<A href="https://docs.credimi.io/Legal/privacy-policy.html" target="_blank">
+			<A href="https://docs.credimi.io/legal/privacy-policy/" target="_blank">
 				{m.privacy_policy()}
 			</A>
 		</span>
 	</CheckboxField>
+
+	<CheckboxField
+		{form}
+		name="acceptAnalytics"
+		options={{ label: m.Accept_analytics_optional() }}
+	/>
 
 	{#snippet submitButtonContent()}
 		{m.Create_an_account()}
