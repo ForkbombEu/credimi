@@ -1625,8 +1625,9 @@ func TestFCAFCoverage(t *testing.T) {
 	scope := fcafTestScope(t)
 	statuses := func() (map[string]FCAFRoleCoverage, map[string]any) {
 		t.Helper()
-		coverage, profile, err := FCAFCoverage(app, selection, scope)
+		coverage, profile, lastRun, err := FCAFCoverage(app, selection, scope)
 		require.NoError(t, err)
+		assert.Nil(t, lastRun)
 		require.Len(t, coverage, len(fcafSuiteRoles(scope)))
 		assert.Equal(t, "fcaf-reset-and-onboard", coverage[0].Role)
 		assert.Equal(t, "fcaf-issue-pid", coverage[1].Role)

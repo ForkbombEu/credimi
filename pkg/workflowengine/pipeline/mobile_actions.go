@@ -153,7 +153,9 @@ func invalidActionsError(stepID, reason string) error {
 
 // composeMobileFlow writes the actions as the `runFlow` blocks of one flow
 // and adds their own parameters to `parameters` (mutated in place) under
-// `action_<n>_<name>`. Every action keeps its screenshots.
+// `action_<n>_<name>`. Every action keeps its screenshots, and its block is
+// labeled with pipeline.ActionFlowLabelPrefix and the action's label, so
+// Maestro's output names the action a failed flow stopped in.
 func composeMobileFlow(parameters map[string]any, actions []mobileAction) (string, error) {
 	appID := ""
 	commands := &yaml.Node{Kind: yaml.SequenceNode}
@@ -198,7 +200,13 @@ func composeMobileFlow(parameters map[string]any, actions []mobileAction) (strin
 			env.Content = append(env.Content, scalarNode(name), scalarNode("${"+key+"}"))
 		}
 
-		runFlow := &yaml.Node{Kind: yaml.MappingNode}
+		runFlow := &yaml.Node{
+			Kind: yaml.MappingNode,
+			Content: []*yaml.Node{
+				scalarNode("label"),
+				scalarNode(pipeline.ActionFlowLabelPrefix + action.Label),
+			},
+		}
 		if len(env.Content) > 0 {
 			runFlow.Content = append(runFlow.Content, scalarNode("env"), env)
 		}

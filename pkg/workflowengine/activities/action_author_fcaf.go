@@ -125,7 +125,7 @@ func (a *ListActionAuthorFCAFRolesActivity) list(
 	if err != nil {
 		return ListActionAuthorFCAFRolesOutput{}, err
 	}
-	roles, profile, err := actionauthor.FCAFCoverage(a.app, selection, scope)
+	roles, profile, _, err := actionauthor.FCAFCoverage(a.app, selection, scope)
 	if err != nil {
 		return ListActionAuthorFCAFRolesOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}

@@ -2,12 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { DeviceRecord } from '$lib/pipeline/device/types';
+
 import type { BadgeVariant } from '@/components/ui/badge';
 
 import { m } from '@/i18n';
 import { createSessionStorageHandlers } from '@/utils/storage';
 
-import type { AuthoringMode, FcafReplay, FcafRoleCoverage, FcafRoleProgress } from './api';
+import type {
+	AuthorDevice,
+	AuthoringMode,
+	FcafPipelineRun,
+	FcafReplay,
+	FcafRoleCoverage,
+	FcafRoleProgress,
+	FcafRoleRun,
+	FcafRunSummary
+} from './api';
+
+import { toDeviceRecords } from './builds';
 
 //
 
@@ -164,6 +177,59 @@ export function coverageLabel(verdict: CoverageVerdict): string {
 /** The badge variant of a coverage verdict. */
 export function coverageVariant(verdict: CoverageVerdict): BadgeVariant {
 	return COVERAGE_VARIANTS[verdict];
+}
+
+/** Whether the role's action failed in the wallet's last FCAF run. */
+export function roleRunFailing(role: FcafRoleCoverage): boolean {
+	return role.run?.status === 'failing';
+}
+
+const RUN_LABELS: Record<FcafRoleRun['status'], () => string> = {
+	ok: m.Fcaf_run_role_ok,
+	failing: m.Fcaf_run_role_failing,
+	not_run: m.Fcaf_run_role_not_run
+};
+
+const RUN_VARIANTS: Record<FcafRoleRun['status'], BadgeVariant> = {
+	ok: 'secondary',
+	failing: 'destructive',
+	not_run: 'outline'
+};
+
+/** The badge of how a role's action did in the last FCAF run; none when that run did not include it. */
+export function roleRunBadge(
+	run: FcafRoleRun | null
+): { label: string; variant: BadgeVariant } | undefined {
+	if (!run || !Object.hasOwn(RUN_LABELS, run.status)) return undefined;
+	return { label: RUN_LABELS[run.status](), variant: RUN_VARIANTS[run.status] };
+}
+
+/** The last FCAF run's summary line: "N over M tests passed". */
+export function runSummaryLine(summary: FcafRunSummary): string {
+	return m.Fcaf_run_summary({ pass: summary.pass, total: summary.total });
+}
+
+/** Where to follow a queued FCAF run: the run once it started, else its pipeline. */
+export function pipelineRunLink(run: FcafPipelineRun): string {
+	return run.run_url || run.pipeline_url;
+}
+
+/** The devices an FCAF validation can run on: Android ones; a pipeline needs no agent, only an online device. */
+export function fcafDeviceRecords(devices: AuthorDevice[]): DeviceRecord[] {
+	return toDeviceRecords(devices, new Set(['android'])).map((record) => ({
+		...record,
+		unavailableReason: undefined
+	}));
+}
+
+/** The device an FCAF validation should use: an online Android one, fewest runs ahead first; ties keep list order. */
+export function fcafPreferredDevice(devices: AuthorDevice[]): AuthorDevice | undefined {
+	let preferred: AuthorDevice | undefined;
+	for (const d of devices) {
+		if (d.platform !== 'android' || !d.is_online) continue;
+		if (!preferred || (d.runs_ahead ?? 0) < (preferred.runs_ahead ?? 0)) preferred = d;
+	}
+	return preferred;
 }
 
 /** The guidance typed in the start dialog, kept until the session page sends it as the first message. */

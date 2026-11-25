@@ -24,8 +24,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		coverageLabel,
 		coverageVariant,
 		coverageVerdict,
-		percent
+		percent,
+		roleRunBadge,
+		runSummaryLine
 	} from './fcaf';
+	import FcafRunForm from './fcaf-run-form.svelte';
 
 	//
 
@@ -58,6 +61,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet content()}
+		<div class="mb-3">
+			<FcafRunForm {wallet} {walletOwner} />
+		</div>
+
 		{#await coverage}
 			<div class="flex items-center justify-center gap-2 py-6">
 				<Spinner size={16} />
@@ -74,6 +81,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<p class="break-words">{warning}</p>
 						</Alert>
 					{/each}
+
+					{#if result.run_summary}
+						<p class="flex flex-wrap items-baseline gap-x-2">
+							<span class="font-medium">{m.Fcaf_run_last()}</span>
+							<span>{runSummaryLine(result.run_summary)}</span>
+							{#if result.run_url}
+								<a
+									href={result.run_url}
+									target="_blank"
+									rel="noreferrer"
+									class="text-primary hover:underline"
+								>
+									{m.Fcaf_run_see()}
+								</a>
+							{/if}
+						</p>
+					{/if}
 
 					<div class="font-mono text-xs text-muted-foreground">
 						<p>
@@ -102,13 +126,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<ul class="space-y-2">
 						{#each result.roles as role (role.role)}
 							{@const verdict = coverageVerdict(role)}
+							{@const runBadge = roleRunBadge(role.run)}
 							<li class="space-y-1 rounded-md border p-3">
 								<div class="flex items-center justify-between gap-2">
 									<span class="truncate font-mono text-xs">{role.role}</span>
-									<Badge variant={coverageVariant(verdict)}>
-										{coverageLabel(verdict)}
-									</Badge>
+									<div class="flex shrink-0 flex-wrap justify-end gap-1">
+										{#if runBadge}
+											<Badge variant={runBadge.variant}
+												>{runBadge.label}</Badge
+											>
+										{/if}
+										<Badge variant={coverageVariant(verdict)}>
+											{coverageLabel(verdict)}
+										</Badge>
+									</div>
 								</div>
+								{#if role.run?.status === 'failing'}
+									{#if role.run.failed_command}
+										<p class="font-mono text-xs break-all">
+											{role.run.failed_command}
+										</p>
+									{/if}
+									{#if role.run.fixture_id}
+										<p
+											class="font-mono text-xs break-all text-muted-foreground"
+										>
+											{m.Fcaf_run_failed_on({ fixture: role.run.fixture_id })}
+										</p>
+									{/if}
+								{/if}
 								{#if role.summary}
 									<p class="text-xs text-muted-foreground">{role.summary}</p>
 								{/if}

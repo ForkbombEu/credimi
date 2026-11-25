@@ -59,6 +59,8 @@ func TestComposeMobileFlowRunsActionsInOrderWithParameterPrecedence(t *testing.T
 	require.Equal(t, map[string]any{"appId": "wallet"}, header)
 	require.Equal(t, []any{
 		map[string]any{"runFlow": map[string]any{
+			// The label names the action in Maestro's output.
+			"label": "action tenant/issue",
 			// The step's pin overrides the action's default, so the default
 			// is not set; the action's own deeplink overrides both.
 			"env": map[string]any{"deeplink": "${action_0_deeplink}"},
@@ -70,6 +72,7 @@ func TestComposeMobileFlowRunsActionsInOrderWithParameterPrecedence(t *testing.T
 			},
 		}},
 		map[string]any{"runFlow": map[string]any{
+			"label": "action actions[1]",
 			"env": map[string]any{
 				"deeplink": "${action_1_deeplink}",
 				"lang":     "${action_1_lang}",

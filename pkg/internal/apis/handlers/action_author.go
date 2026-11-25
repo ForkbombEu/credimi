@@ -100,7 +100,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorFCAFCoverage,
 			OperationID:    "actionAuthor.fcafCoverage",
 			Summary:        "FCAF coverage of a wallet",
-			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed, unsupported or finding) and note, with the warnings about the wallet.",
+			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed, unsupported or finding) and note, with the warnings about the wallet. run_summary (null without one) and run_url are the test summary and link of the latest finished run of the wallet's FCAF pipelines (POST /api/action-author/fcaf-pipeline), and each role's run how its action did in that run: ok, failing (the run failed inside the action, with the Maestro command and the fixture) or not_run; null when the run did not run it. A failing run changes neither status nor result.",
 			ResponseSchema: ActionAuthorFCAFCoverageResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -109,6 +109,16 @@ var ActionAuthorRoutes = routing.RouteGroup{
 					Description: "Wallet: organization/wallet (canonified names).",
 				},
 			},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/fcaf-pipeline",
+			Handler:        HandleActionAuthorFCAFPipeline,
+			OperationID:    "actionAuthor.runFCAFPipeline",
+			Summary:        "Build and run a wallet's FCAF relying-party validation",
+			Description:    "Build the FCAF relying-party validation pipeline of a wallet build (wallet_version_identifier as for sessions, Android installer or store build) from the caller organization's FCAF actions of the wallet, and queue it on device_id as POST /api/pipeline/queue does. Roles whose action is current or incomplete are the wallet's; a scenario needing another role is left out and listed in skipped with its missing roles, and its tests are not run. The pipeline record \"FCAF relying-party validation - <wallet name>\" of the caller's organization is created unpublished or its yaml replaced; scenarios (scenario file names of the suite) limits the build to those scenarios and stores it on its own record, suffixed \" - <n> scenarios\". An unknown scenario answers 422 fcaf_unknown_scenario, no scenario that can run 422 fcaf_nothing_to_run, a device that is not Android 422 fcaf_not_supported; device access and availability are checked as for pipelines.",
+			RequestSchema:  ActionAuthorFCAFPipelineRequest{},
+			ResponseSchema: ActionAuthorFCAFPipelineResponse{},
 		},
 		{
 			Method:         http.MethodGet,
@@ -793,6 +803,10 @@ type ActionAuthorFCAFCoverageResponse struct {
 	Suite    string                          `json:"suite"`
 	Roles    []actionauthor.FCAFRoleCoverage `json:"roles"`
 	Warnings []string                        `json:"warnings"`
+	// RunSummary is the test summary of the wallet's latest finished FCAF
+	// run, null without one; RunURL its link, empty without one.
+	RunSummary *actionauthor.FCAFRunSummary `json:"run_summary"`
+	RunURL     string                       `json:"run_url"`
 }
 
 // ActionAuthorTranscriptResponse is the transcript of a session's chat, in event order.
@@ -1497,7 +1511,7 @@ func HandleActionAuthorFCAFCoverage() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
 		}
-		roles, profile, err := actionauthor.FCAFCoverage(e.App, selection, scope)
+		roles, profile, lastRun, err := actionauthor.FCAFCoverage(e.App, selection, scope)
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
@@ -1505,6 +1519,10 @@ func HandleActionAuthorFCAFCoverage() func(*core.RequestEvent) error {
 			Suite:    actionauthor.FCAFRelyingPartySuite,
 			Roles:    roles,
 			Warnings: actionauthor.FCAFWarnings(profile),
+		}
+		if lastRun != nil {
+			response.RunSummary = &lastRun.Summary
+			response.RunURL = lastRun.RunURL
 		}
 		return e.JSON(http.StatusOK, response)
 	}

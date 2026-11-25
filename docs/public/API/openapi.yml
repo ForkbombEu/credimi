@@ -60,7 +60,12 @@ paths:
       description: 'Lists the FCAF relying-party roles and, for each, the caller organization''s
         action on the wallet: missing, current, stale or unmanaged, and for a saved
         FCAF action the agent''s verdict (passed, unsupported or finding) and note,
-        with the warnings about the wallet.'
+        with the warnings about the wallet. run_summary (null without one) and run_url
+        are the test summary and link of the latest finished run of the wallet''s
+        FCAF pipelines (POST /api/action-author/fcaf-pipeline), and each role''s run
+        how its action did in that run: ok, failing (the run failed inside the action,
+        with the Maestro command and the fixture) or not_run; null when the run did
+        not run it. A failing run changes neither status nor result.'
       operationId: actionAuthor.fcafCoverage
       parameters:
       - description: 'Wallet: organization/wallet (canonified names).'
@@ -96,6 +101,55 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: FCAF coverage of a wallet
+  /api/action-author/fcaf-pipeline:
+    post:
+      description: Build the FCAF relying-party validation pipeline of a wallet build
+        (wallet_version_identifier as for sessions, Android installer or store build)
+        from the caller organization's FCAF actions of the wallet, and queue it on
+        device_id as POST /api/pipeline/queue does. Roles whose action is current
+        or incomplete are the wallet's; a scenario needing another role is left out
+        and listed in skipped with its missing roles, and its tests are not run. The
+        pipeline record "FCAF relying-party validation - <wallet name>" of the caller's
+        organization is created unpublished or its yaml replaced; scenarios (scenario
+        file names of the suite) limits the build to those scenarios and stores it
+        on its own record, suffixed " - <n> scenarios". An unknown scenario answers
+        422 fcaf_unknown_scenario, no scenario that can run 422 fcaf_nothing_to_run,
+        a device that is not Android 422 fcaf_not_supported; device access and availability
+        are checked as for pipelines.
+      operationId: actionAuthor.runFCAFPipeline
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersActionAuthorFCAFPipelineRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorFCAFPipelineResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Build and run a wallet's FCAF relying-party validation
   /api/action-author/reviews:
     post:
       description: 'Deliver the human decisions on the pending review tool_id of the
@@ -1013,6 +1067,8 @@ components:
           type: string
         role_sha256:
           type: string
+        run:
+          $ref: '#/components/schemas/ActionauthorFCAFRoleRun'
         starts_from:
           items:
             type: string
@@ -1022,6 +1078,42 @@ components:
           type: string
         summary:
           type: string
+      type: object
+    ActionauthorFCAFRoleRun:
+      properties:
+        failed_command:
+          type: string
+        failed_steps:
+          type: integer
+        fixture_id:
+          type: string
+        run_url:
+          type: string
+        status:
+          type: string
+      type: object
+    ActionauthorFCAFRunSummary:
+      properties:
+        blocked:
+          type: integer
+        created:
+          type: string
+        error:
+          type: integer
+        fail:
+          type: integer
+        inconclusive:
+          type: integer
+        not_applicable:
+          type: integer
+        pass:
+          type: integer
+        pipeline:
+          type: string
+        skipped:
+          type: integer
+        total:
+          type: integer
       type: object
     ActionauthorHTTPSourceRequest:
       properties:
@@ -1138,6 +1230,16 @@ components:
         tool:
           type: string
       type: object
+    AggregateSkippedScenario:
+      properties:
+        missing_roles:
+          items:
+            type: string
+          nullable: true
+          type: array
+        scenario:
+          type: string
+      type: object
     ApierrorAPIError:
       properties:
         code:
@@ -1197,6 +1299,10 @@ components:
             $ref: '#/components/schemas/ActionauthorFCAFRoleCoverage'
           nullable: true
           type: array
+        run_summary:
+          $ref: '#/components/schemas/ActionauthorFCAFRunSummary'
+        run_url:
+          type: string
         suite:
           type: string
         warnings:
@@ -1204,6 +1310,44 @@ components:
             type: string
           nullable: true
           type: array
+      type: object
+    HandlersActionAuthorFCAFPipelineRequest:
+      properties:
+        device_id:
+          type: string
+        scenarios:
+          items:
+            type: string
+          nullable: true
+          type: array
+        wallet_version_identifier:
+          type: string
+      type: object
+    HandlersActionAuthorFCAFPipelineResponse:
+      properties:
+        device_id:
+          type: string
+        pipeline:
+          type: string
+        pipeline_url:
+          type: string
+        run_id:
+          type: string
+        run_url:
+          type: string
+        skipped:
+          items:
+            $ref: '#/components/schemas/AggregateSkippedScenario'
+          nullable: true
+          type: array
+        status:
+          type: string
+        test_count:
+          type: integer
+        ticket_id:
+          type: string
+        workflow_id:
+          type: string
       type: object
     HandlersActionAuthorFCAFProgress:
       properties:

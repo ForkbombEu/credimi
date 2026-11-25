@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package main
+package aggregate
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
@@ -108,7 +107,7 @@ func actionID(roles walletRoles, role string) map[string]any {
 // testWalletRoles loads the repository's FCAF role contract.
 func testWalletRoles(t *testing.T) walletRoles {
 	t.Helper()
-	roles, err := loadWalletRoles(filepath.Join("..", "..", "config_templates", "fcaf"))
+	roles, err := loadWalletRoles(testFCAFRoot)
 	require.NoError(t, err)
 	return roles
 }

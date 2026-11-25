@@ -135,24 +135,34 @@ type FCAFRoleCoverage struct {
 	// Replays are the saved FCAF action's fcaf_replays, which a runner merges
 	// with its replays of MissingFixtures; never nil.
 	Replays []FCAFReplay `json:"fcaf_replays"`
+	// Run is how the role's action did in the wallet's last finished FCAF
+	// pipeline run; nil when that run did not run it or there is none. A
+	// failing run changes neither Status nor Result.
+	Run *FCAFRoleRun `json:"run"`
 }
 
 // FCAFCoverage lists the roles of the session suite, the injected reset
 // first, the injected issuance second, then in contract order, with the
 // state of the caller organization's action of the same name for the
-// selected wallet. The second value is the FCAF profile of the newest FCAF
-// action that saved one, nil when none did.
+// selected wallet and how it did in the wallet's last finished FCAF run
+// (ReadFCAFLastRun). The second value is the FCAF profile of the newest FCAF
+// action that saved one, nil when none did; the third the last run, nil
+// when there is none.
 func FCAFCoverage(
 	app core.App,
 	selection Selection,
 	scope *FCAFScope,
-) ([]FCAFRoleCoverage, map[string]any, error) {
+) ([]FCAFRoleCoverage, map[string]any, *FCAFLastRun, error) {
 	records, err := app.FindAllRecords("wallet_actions", dbx.HashExp{
 		"owner":  selection.Organization.Id,
 		"wallet": selection.Wallet.Id,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("list wallet actions: %w", err)
+		return nil, nil, nil, fmt.Errorf("list wallet actions: %w", err)
+	}
+	lastRun, err := ReadFCAFLastRun(app, selection)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	byName := make(map[string]*core.Record, len(records))
 	var profile map[string]any
@@ -181,10 +191,15 @@ func FCAFCoverage(
 			MissingFixtures: []string{},
 			Replays:         []FCAFReplay{},
 		}
+		if lastRun != nil {
+			if run, ran := lastRun.Roles[role.Name]; ran {
+				entry.Run = &run
+			}
+		}
 		if record, ok := byName[role.Name]; ok {
 			entry.Action, err = walletActionPath(app, record)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			provenance := savedProvenance(record)
 			switch {
@@ -198,7 +213,7 @@ func FCAFCoverage(
 					provenance.FCAFReplays,
 				)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, nil, err
 				}
 				if len(entry.MissingFixtures) > 0 {
 					entry.Status = FCAFIncomplete
@@ -216,7 +231,7 @@ func FCAFCoverage(
 		}
 		coverage = append(coverage, entry)
 	}
-	return coverage, profile, nil
+	return coverage, profile, lastRun, nil
 }
 
 // FCAFKeyAttestationFinding is the FCAF finding about a wallet whose profile

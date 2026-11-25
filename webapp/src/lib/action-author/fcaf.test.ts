@@ -4,20 +4,35 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { FcafCoverageStatus, FcafRoleCoverage, FcafRoleProgress, FcafRoleStatus } from './api';
+import type {
+	AuthorDevice,
+	FcafCoverageStatus,
+	FcafPipelineRun,
+	FcafRoleCoverage,
+	FcafRoleProgress,
+	FcafRoleRun,
+	FcafRoleStatus,
+	FcafRunSummary
+} from './api';
 
 import {
 	coverageCounts,
 	coverageLabel,
 	coverageVariant,
 	coverageVerdict,
+	fcafDeviceRecords,
+	fcafPreferredDevice,
 	modePlatforms,
 	percent,
+	pipelineRunLink,
 	progressDone,
 	replayStatusLabel,
 	replayStatusVariant,
+	roleRunBadge,
+	roleRunFailing,
 	roleStatusLabel,
-	roleStatusVariant
+	roleStatusVariant,
+	runSummaryLine
 } from './fcaf';
 
 function progress(role: string, status: FcafRoleStatus): FcafRoleProgress {
@@ -27,7 +42,8 @@ function progress(role: string, status: FcafRoleStatus): FcafRoleProgress {
 function coverage(
 	role: string,
 	status: FcafCoverageStatus,
-	result: FcafRoleCoverage['result'] = ''
+	result: FcafRoleCoverage['result'] = '',
+	run: FcafRoleRun | null = null
 ): FcafRoleCoverage {
 	return {
 		role,
@@ -41,9 +57,137 @@ function coverage(
 		result,
 		note: '',
 		missing_fixtures: [],
-		fcaf_replays: []
+		fcaf_replays: [],
+		run
 	};
 }
+
+function roleRun(status: FcafRoleRun['status']): FcafRoleRun {
+	return { status, failed_steps: 0, failed_command: '', fixture_id: '', run_url: '' };
+}
+
+function device(
+	path: string,
+	platform: string,
+	opts: Partial<Pick<AuthorDevice, 'is_online' | 'agent_available' | 'runs_ahead'>> = {}
+): AuthorDevice {
+	return {
+		path,
+		name: path,
+		runner_name: 'runner',
+		runner_owner: 'org',
+		model: 'model',
+		type: 'android_phone',
+		platform,
+		is_online: true,
+		agent_available: true,
+		...opts
+	};
+}
+
+describe('roleRunFailing and roleRunBadge', () => {
+	it('marks a role failing in the last run with a destructive badge', () => {
+		const role = coverage('a', 'current', 'passed', roleRun('failing'));
+		expect(roleRunFailing(role)).toBe(true);
+		expect(roleRunBadge(role.run)).toEqual({
+			label: 'Failing in the last run',
+			variant: 'destructive'
+		});
+	});
+
+	it('keeps the coverage verdict of a role failing in the last run', () => {
+		const role = coverage('a', 'current', 'passed', roleRun('failing'));
+		expect(coverageVerdict(role)).toBe('passed');
+	});
+
+	it('labels a role that ran or was not run in the last run', () => {
+		expect(roleRunBadge(roleRun('ok'))).toEqual({
+			label: 'Ran in the last run',
+			variant: 'secondary'
+		});
+		expect(roleRunBadge(roleRun('not_run'))).toEqual({
+			label: 'Not run in the last run',
+			variant: 'outline'
+		});
+		expect(roleRunFailing(coverage('a', 'current', 'passed', roleRun('ok')))).toBe(false);
+	});
+
+	it('shows no badge for a role the last run did not include', () => {
+		expect(roleRunBadge(null)).toBeUndefined();
+		expect(roleRunFailing(coverage('a', 'current'))).toBe(false);
+	});
+});
+
+describe('runSummaryLine', () => {
+	it('shows the passed tests over the total', () => {
+		const summary: FcafRunSummary = {
+			pass: 10,
+			fail: 2,
+			blocked: 1,
+			skipped: 0,
+			inconclusive: 0,
+			not_applicable: 0,
+			error: 0,
+			total: 13,
+			pipeline: 'org/fcaf-relying-party-validation-w',
+			created: '2026-11-25 10:00:00.000Z'
+		};
+		expect(runSummaryLine(summary)).toBe('10 over 13 tests passed');
+	});
+});
+
+describe('pipelineRunLink', () => {
+	const run: FcafPipelineRun = {
+		pipeline: 'org/p',
+		pipeline_url: 'https://example.org/my/pipelines/org/p',
+		ticket_id: 't',
+		device_id: 'org/runner/device',
+		status: 'queued',
+		workflow_id: '',
+		run_id: '',
+		run_url: '',
+		skipped: [],
+		test_count: 3
+	};
+
+	it('links the pipeline while the run has not started', () => {
+		expect(pipelineRunLink(run)).toBe(run.pipeline_url);
+	});
+
+	it('links the run once it started', () => {
+		const url = 'https://example.org/my/tests/runs/wf/run';
+		expect(pipelineRunLink({ ...run, run_url: url })).toBe(url);
+	});
+});
+
+describe('fcafDeviceRecords', () => {
+	it('keeps the Android devices, whether their agent runs or not', () => {
+		const records = fcafDeviceRecords([
+			device('a', 'android', { agent_available: false }),
+			device('i', 'ios'),
+			device('b', 'android', { is_online: false })
+		]);
+		expect(records.map((r) => r.path)).toEqual(['a', 'b']);
+		expect(records[0].unavailableReason).toBeUndefined();
+		expect(records[1].isOnline).toBe(false);
+	});
+});
+
+describe('fcafPreferredDevice', () => {
+	it('prefers an online Android device with the fewest runs ahead, agent or not', () => {
+		const preferred = fcafPreferredDevice([
+			device('i', 'ios', { runs_ahead: 0 }),
+			device('off', 'android', { is_online: false, runs_ahead: 0 }),
+			device('busy', 'android', { runs_ahead: 2 }),
+			device('free', 'android', { agent_available: false, runs_ahead: 0 })
+		]);
+		expect(preferred?.path).toBe('free');
+	});
+
+	it('finds none without an online Android device', () => {
+		expect(fcafPreferredDevice([device('i', 'ios')])).toBeUndefined();
+	});
+});
 
 describe('modePlatforms', () => {
 	it('keeps every platform for a chat session', () => {

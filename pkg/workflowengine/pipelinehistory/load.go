@@ -8,6 +8,7 @@ package pipelinehistory
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -47,6 +48,10 @@ type Run struct {
 	// recorded its output. Steps run inside a linked block are recorded at the block's
 	// completion or failure event.
 	EventIDs map[string]int64
+	// Failures maps a main step ID to the failure that ended it. A step with an
+	// output and no failure completed; a step of a failed linked block records
+	// the block's failure only when the block names it (details.errors[0]).
+	Failures map[string]workflowengine.WorkflowError
 }
 
 // DataContext returns {stepID: {"outputs": value}}, the shape pipeline expressions resolve
@@ -101,6 +106,7 @@ func Load(
 		run: &Run{
 			Outputs:  map[string]any{},
 			EventIDs: map[string]int64{},
+			Failures: map[string]workflowengine.WorkflowError{},
 		},
 		steps:      map[string]mainStep{},
 		scheduled:  map[int64]string{},
@@ -160,13 +166,13 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 		return l.applyActivityCompleted(eventID, event.GetActivityTaskCompletedEventAttributes())
 	case enums.EVENT_TYPE_ACTIVITY_TASK_FAILED:
 		attrs := event.GetActivityTaskFailedEventAttributes()
-		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID)
+		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID, attrs.GetFailure())
 	case enums.EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT:
 		attrs := event.GetActivityTaskTimedOutEventAttributes()
-		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID)
+		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID, attrs.GetFailure())
 	case enums.EVENT_TYPE_ACTIVITY_TASK_CANCELED:
 		attrs := event.GetActivityTaskCanceledEventAttributes()
-		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID)
+		l.recordActivityFailure(attrs.GetScheduledEventId(), eventID, nil)
 
 	case enums.EVENT_TYPE_NEXUS_OPERATION_SCHEDULED,
 		enums.EVENT_TYPE_NEXUS_OPERATION_COMPLETED,
@@ -223,6 +229,7 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 		err := l.fc.FailureToError(attrs.GetFailure())
 		if l.isBlock(attrs.GetInitiatedEventId()) {
 			l.recordBlock(eventID, workflowengine.ExtractOutputFromError(err))
+			l.recordBlockFailure(err)
 			return nil
 		}
 		l.recordChildFailure(
@@ -230,21 +237,30 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 			eventID,
 			workflowengine.ExtractOutputFromError(err),
 			temporal.IsTimeoutError(err) || temporal.IsCanceledError(err),
+			stepFailure(err, "failed"),
 		)
 	// Blocks are never in l.initiated, so a terminated, unstarted, timed out or canceled
 	// block records nothing.
 	case enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_TERMINATED:
 		attrs := event.GetChildWorkflowExecutionTerminatedEventAttributes()
-		l.recordChildFailure(attrs.GetInitiatedEventId(), eventID, nil, false)
+		l.recordChildFailure(
+			attrs.GetInitiatedEventId(), eventID, nil, false, stepFailure(nil, "terminated"),
+		)
 	case enums.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_FAILED:
 		attrs := event.GetStartChildWorkflowExecutionFailedEventAttributes()
-		l.recordChildFailure(attrs.GetInitiatedEventId(), eventID, nil, false)
+		l.recordChildFailure(
+			attrs.GetInitiatedEventId(), eventID, nil, false, stepFailure(nil, "did not start"),
+		)
 	case enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_TIMED_OUT:
 		attrs := event.GetChildWorkflowExecutionTimedOutEventAttributes()
-		l.recordChildFailure(attrs.GetInitiatedEventId(), eventID, nil, true)
+		l.recordChildFailure(
+			attrs.GetInitiatedEventId(), eventID, nil, true, stepFailure(nil, "timed out"),
+		)
 	case enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_CANCELED:
 		attrs := event.GetChildWorkflowExecutionCanceledEventAttributes()
-		l.recordChildFailure(attrs.GetInitiatedEventId(), eventID, nil, true)
+		l.recordChildFailure(
+			attrs.GetInitiatedEventId(), eventID, nil, true, stepFailure(nil, "canceled"),
+		)
 	}
 	return nil
 }
@@ -345,10 +361,20 @@ func (l *loader) applyActivityCompleted(
 
 // recordActivityFailure mirrors ExecuteStep: an activity step stores the zero
 // ActivityResult returned with the error, because it is non-nil.
-func (l *loader) recordActivityFailure(scheduledEventID, eventID int64) {
-	if id, ok := l.scheduled[scheduledEventID]; ok {
-		l.record(id, eventID, workflowengine.ActivityResult{})
+func (l *loader) recordActivityFailure(
+	scheduledEventID, eventID int64,
+	failure *failurepb.Failure,
+) {
+	id, ok := l.scheduled[scheduledEventID]
+	if !ok {
+		return
 	}
+	l.record(id, eventID, workflowengine.ActivityResult{})
+	var err error
+	if failure != nil {
+		err = l.fc.FailureToError(failure)
+	}
+	l.run.Failures[id] = stepFailure(err, "canceled")
 }
 
 // recordNexusFailure mirrors runMobileStep: a mobile step stores the
@@ -362,14 +388,16 @@ func (l *loader) recordNexusFailure(
 	if !ok {
 		return
 	}
+	var err error
 	if failure != nil {
-		err := l.fc.FailureToError(failure)
-		if output := workflowengine.ExtractOutputFromError(err); output != nil {
-			l.record(id, eventID, output)
-			return
-		}
+		err = l.fc.FailureToError(failure)
 	}
-	l.record(id, eventID, workflowengine.WorkflowResult{})
+	if output := workflowengine.ExtractOutputFromError(err); output != nil {
+		l.record(id, eventID, output)
+	} else {
+		l.record(id, eventID, workflowengine.WorkflowResult{})
+	}
+	l.run.Failures[id] = stepFailure(err, "canceled or timed out")
 }
 
 // recordChildFailure mirrors executeRegularStep for task workflows, which store the failure's
@@ -380,11 +408,13 @@ func (l *loader) recordChildFailure(
 	initiatedEventID, eventID int64,
 	failureOutput map[string]any,
 	timedOutOrCanceled bool,
+	failure workflowengine.WorkflowError,
 ) {
 	id, ok := l.initiated[initiatedEventID]
 	if !ok {
 		return
 	}
+	defer func() { l.run.Failures[id] = failure }()
 	step := l.steps[id]
 	if step.use != childPipelineUse {
 		if failureOutput != nil {
@@ -402,6 +432,41 @@ func (l *loader) recordChildFailure(
 		output = failureOutput
 	}
 	l.record(id, eventID, output)
+}
+
+// stepFailure is the structured failure of err, or a failure with only
+// fallback as its message when err carries none.
+func stepFailure(err error, fallback string) workflowengine.WorkflowError {
+	if failure := workflowengine.ParseWorkflowError(err); failure.Code != "" ||
+		failure.Summary != "" || failure.Message != "" {
+		return failure
+	}
+	if err != nil {
+		return workflowengine.WorkflowError{Message: err.Error()}
+	}
+	return workflowengine.WorkflowError{Message: fallback}
+}
+
+// recordBlockFailure records the failure of the block step that stopped a
+// failed linked block: the first entry of the block failure's
+// details.errors, which carries the step's step_id.
+func (l *loader) recordBlockFailure(err error) {
+	errs, _ := workflowengine.ParseWorkflowError(err).Details["errors"].([]any)
+	if len(errs) == 0 {
+		return
+	}
+	raw, marshalErr := json.Marshal(errs[0])
+	if marshalErr != nil {
+		return
+	}
+	var failure workflowengine.WorkflowError
+	if json.Unmarshal(raw, &failure) != nil {
+		return
+	}
+	stepID, _ := failure.Details["step_id"].(string)
+	if _, main := l.steps[stepID]; main {
+		l.run.Failures[stepID] = failure
+	}
 }
 
 // isBlock reports whether a child initiated event started a Linked Steps Workflow.
@@ -424,6 +489,7 @@ func (l *loader) recordBlock(eventID int64, output map[string]any) {
 func (l *loader) record(id string, eventID int64, output any) {
 	l.run.Outputs[id] = output
 	l.run.EventIDs[id] = eventID
+	delete(l.run.Failures, id)
 }
 
 func (l *loader) decodeFirst(payloads *commonpb.Payloads, valuePtr any) error {

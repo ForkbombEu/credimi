@@ -134,3 +134,40 @@ func TestSyncFCAFWalletActionSyncsTags(t *testing.T) {
 		})
 	}
 }
+
+func TestRunWalletFCAFBuildsThePipelineOnCredimi(t *testing.T) {
+	var payload map[string]any
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/api/action-author/fcaf-pipeline", r.URL.Path)
+		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"pipeline":   "acme/fcaf-relying-party-validation-wallet-1-scenarios",
+			"ticket_id":  "ticket",
+			"device_id":  "acme/runner/pixel",
+			"status":     "completed",
+			"run_url":    "https://credimi.test/my/tests/runs/wf/run",
+			"skipped":    []any{map[string]any{"scenario": "s.yaml", "missing_roles": []any{"r"}}},
+			"test_count": 3,
+		}))
+	}))
+	defer server.Close()
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+	wallet, device, scenarios := fcafWallet, fcafDeviceID, fcafScenarios
+	t.Cleanup(func() { fcafWallet, fcafDeviceID, fcafScenarios = wallet, device, scenarios })
+	fcafWallet = "acme/wallet/1-0"
+	fcafDeviceID = "acme/runner/pixel"
+	fcafScenarios = []string{"s.yaml"}
+
+	run, err := runWalletFCAF(context.Background(), "token")
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"wallet_version_identifier": "acme/wallet/1-0",
+		"device_id":                 "acme/runner/pixel",
+		"scenarios":                 []any{"s.yaml"},
+	}, payload)
+	require.Equal(t, "completed", run.Status)
+	require.Equal(t, "fcaf-relying-party-validation-wallet-1-scenarios", run.Name)
+}

@@ -18,9 +18,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/pipelineexpr"
@@ -128,8 +130,10 @@ func (a *FCAFValidationActivity) Execute(
 	leaves := collectFCAFEvidenceLeaves(payload.Pipeline)
 	dataCtx := map[string]any{}
 	eventIDs := map[string]int64{}
+	var run *pipelinehistory.Run
 	if len(leaves) > 0 {
-		run, err := a.loadRun(ctx)
+		var err error
+		run, err = a.loadRun(ctx)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 			return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
@@ -204,7 +208,10 @@ func (a *FCAFValidationActivity) Execute(
 	report.PopulateDerivedViews()
 	full := report.PublicReport()
 
-	reportSHA256, err := a.storeReport(ctx, input.Config, full)
+	reportSHA256, err := a.storeReport(ctx, input.Config, storedFCAFReport{
+		Report:       full,
+		RoleOutcomes: fcafRoleOutcomes(run, suite),
+	})
 	if err != nil {
 		return workflowengine.ActivityResult{}, fcafReportStoreError(&a.BaseActivity, err)
 	}
@@ -233,13 +240,47 @@ func (a *FCAFValidationActivity) loadRun(ctx context.Context) (*pipelinehistory.
 	)
 }
 
+// storedFCAFReport is the stored fcaf_report: the full report and how each
+// action of the pipeline's wallet did in the run (nil without one).
+type storedFCAFReport struct {
+	engine.Report
+	RoleOutcomes *actionauthor.FCAFRoleOutcomes `json:"role_outcomes,omitempty"`
+}
+
+// fcafRoleOutcomes reads how each wallet action of the run did from its
+// definition and its steps' ends; nil without a run.
+func fcafRoleOutcomes(run *pipelinehistory.Run, suite string) *actionauthor.FCAFRoleOutcomes {
+	if run == nil {
+		return nil
+	}
+	results := make(map[string]actionauthor.FCAFStepResult, len(run.Outputs))
+	for id := range run.Outputs {
+		results[id] = actionauthor.FCAFStepResult{Completed: true}
+	}
+	for id, failure := range run.Failures {
+		stdout, _ := failure.Details["stdout"].(string)
+		results[id] = actionauthor.FCAFStepResult{
+			Failed: true,
+			Code:   failure.Code,
+			Stdout: stdout,
+		}
+	}
+	scenarioFiles := map[string]string{}
+	if paths, err := aggregate.ScenarioPaths(fcafTemplatesRoot(), suite); err == nil {
+		for _, path := range paths {
+			scenarioFiles[aggregate.ScenarioPrefix(suite, path)] = filepath.Base(path)
+		}
+	}
+	return actionauthor.FCAFRoleOutcomesOf(run.Definition, results, scenarioFiles)
+}
+
 // storeReport stores the full report on the top-level run's pipeline result and returns
 // the sha256 of the stored file. A child pipeline stores it on its root run, which owns the
 // pipeline_results row.
 func (a *FCAFValidationActivity) storeReport(
 	ctx context.Context,
 	config map[string]string,
-	report engine.Report,
+	report storedFCAFReport,
 ) (string, error) {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {

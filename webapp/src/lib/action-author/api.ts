@@ -111,6 +111,33 @@ export type FcafRoleCoverage = {
 	missing_fixtures: string[];
 	/** The saved action's replays on fixtures of its role's authoring set. */
 	fcaf_replays: FcafReplay[];
+	/** How the role's action did in the wallet's last FCAF run; null when that run did not include it, or no run. */
+	run: FcafRoleRun | null;
+};
+
+/** How a role's action did in the wallet's last FCAF run. */
+export type FcafRoleRun = {
+	status: 'ok' | 'failing' | 'not_run';
+	failed_steps: number;
+	/** The Maestro command the action failed on, empty when it did not fail. */
+	failed_command: string;
+	/** The fixture (scenario#request) the action failed on, empty when it did not fail. */
+	fixture_id: string;
+	run_url: string;
+};
+
+/** The test counts of the wallet's last FCAF run; total is the sum of every counter. */
+export type FcafRunSummary = {
+	pass: number;
+	fail: number;
+	blocked: number;
+	skipped: number;
+	inconclusive: number;
+	not_applicable: number;
+	error: number;
+	total: number;
+	pipeline: string;
+	created: string;
 };
 
 /** FCAF relying-party coverage of a wallet (GET /api/action-author/fcaf-coverage). */
@@ -118,6 +145,29 @@ export type FcafCoverage = {
 	suite: string;
 	roles: FcafRoleCoverage[];
 	warnings: string[];
+	/** The counts of the wallet's last finished FCAF run, null when none. */
+	run_summary: FcafRunSummary | null;
+	/** The link of the wallet's last finished FCAF run, empty when none. */
+	run_url: string;
+};
+
+/** A scenario an FCAF run left out, with the roles the wallet has no action for. */
+export type FcafSkippedScenario = { scenario: string; missing_roles: string[] };
+
+/** The FCAF validation pipeline queued on a device (POST /api/action-author/fcaf-pipeline). */
+export type FcafPipelineRun = {
+	pipeline: string;
+	pipeline_url: string;
+	ticket_id: string;
+	device_id: string;
+	/** Queue status of the ticket: queued, starting, running, … */
+	status: string;
+	/** Set when the run already started. */
+	workflow_id: string;
+	run_id: string;
+	run_url: string;
+	skipped: FcafSkippedScenario[];
+	test_count: number;
 };
 
 /** An authoring session and its state (GET /api/action-author/sessions/{id}). */
@@ -293,6 +343,22 @@ export async function listSessions(
 export function getFcafCoverage(walletPath: string): Promise<Result<FcafCoverage, ApiFailure>> {
 	const params = new URLSearchParams({ wallet: walletPath });
 	return call<FcafCoverage>(`/fcaf-coverage?${params.toString()}`);
+}
+
+/** Queues the wallet version's FCAF validation pipeline on an Android device; no scenarios runs every scenario. */
+export function runFcafPipeline(
+	walletVersionIdentifier: string,
+	deviceId: string,
+	scenarios?: string[]
+): Promise<Result<FcafPipelineRun, ApiFailure>> {
+	return call<FcafPipelineRun>('/fcaf-pipeline', {
+		method: 'POST',
+		body: {
+			wallet_version_identifier: walletVersionIdentifier,
+			device_id: deviceId,
+			...(scenarios?.length ? { scenarios } : {})
+		}
+	});
 }
 
 export async function getTranscript(
