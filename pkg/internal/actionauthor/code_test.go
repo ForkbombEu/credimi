@@ -916,6 +916,39 @@ func TestValidateCodeFCAF(t *testing.T) {
 				"fcaf-engagement-haip-vp, found 'com.android.chrome'"},
 			missing: true,
 		},
+		{
+			name: "when detects a screen by an enabled control",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- openLink: ${deeplink}\n" +
+				"- runFlow:\n    when:\n      visible:\n        text: \"Share\"\n        enabled: true\n" +
+				"    commands:\n      - assertTrue: false\n" +
+				"- runFlow:\n    when:\n      notVisible:\n        text: \"Share\"\n        selected: false\n" +
+				"    commands:\n      - assertVisible: \"Home\"\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{fcafStateConditionProblem},
+		},
+		{
+			name: "nested when checks a control's state",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- openLink: ${deeplink}\n" +
+				"- retry:\n    maxRetries: 2\n    commands:\n" +
+				"      - runFlow:\n          when:\n            visible: \"Home\"\n          commands:\n" +
+				"            - runFlow:\n                when:\n                  notVisible:\n" +
+				"                    id: \"eu.europa.ec.euidi:id/agree\"\n                    checked: true\n" +
+				"                commands:\n                  - tapOn: \"Close\"\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+			want: []string{fcafStateConditionProblem},
+		},
+		{
+			name: "control state outside when",
+			role: "fcaf-expect-request-rejected",
+			code: header + "- openLink: ${deeplink}\n" +
+				"- assertVisible:\n    text: \"Share\"\n    enabled: true\n" +
+				"- tapOn:\n    text: \"Share\"\n    focused: true\n" +
+				"- runFlow:\n    when:\n      visible: \"Share\"\n    commands:\n" +
+				"      - tapOn:\n          text: \"Share\"\n          enabled: true\n" +
+				"- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -221,6 +221,9 @@ func ValidateCode(code string, scope CodeScope) []string {
 	for _, problem := range codeForeignIDs(commands, scope.AppIDs) {
 		v.add(problem)
 	}
+	if scope.FCAF != nil && codeStateCondition(commands) {
+		v.add(fcafStateConditionProblem)
+	}
 
 	v.final(code, commands, scope)
 	return v.problems
@@ -886,6 +889,41 @@ func (v *codeValidator) fcafLaunch(header, commands *yaml.Node, scope *FCAFCodeS
 	case !launchesWallet && launched:
 		v.add("the role does not launch the wallet: start like the reference, without launchApp")
 	}
+}
+
+// fcafStateConditionProblem refuses a screen detected by a control's state:
+// the wallet's no-match notice shares the consent screen's title and offers
+// an enabled Share button, so only the listed data tells them apart.
+const fcafStateConditionProblem = "a when condition checks the state of a control " +
+	"(enabled, checked, focused or selected); identify the screen by what it lists, " +
+	"e.g. the requested data on a consent screen"
+
+// codeStateKeys are the selector keys that match a control's state.
+var codeStateKeys = []string{"enabled", "checked", "focused", "selected"}
+
+// codeStateCondition reports whether a runFlow `when:`, at any depth of the
+// commands, has a visible or notVisible selector that checks a control's state.
+func codeStateCondition(commands *yaml.Node) bool {
+	node := codeResolve(commands)
+	if node == nil {
+		return false
+	}
+	if node.Kind == yaml.MappingNode {
+		if run := codeLookup(node, "runFlow"); run != nil && run.Kind == yaml.MappingNode {
+			if when := codeLookup(run, "when"); when != nil && when.Kind == yaml.MappingNode {
+				for _, key := range []string{"visible", "notVisible"} {
+					selector := codeLookup(when, key)
+					if selector != nil && selector.Kind == yaml.MappingNode &&
+						slices.ContainsFunc(codeStateKeys, func(k string) bool {
+							return codeLookup(selector, k) != nil
+						}) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return slices.ContainsFunc(node.Content, codeStateCondition)
 }
 
 // fcafScreenshotPhrases says where each contract screenshot condition is taken.
