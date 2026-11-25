@@ -121,6 +121,7 @@ func TestRepositoryFixturesOfTheInjectedIssuance(t *testing.T) {
 			assert.Equal(t, "https://capture-wallet.credimi.io/sessions", fixture.Request.URL)
 			assert.Empty(t, fixture.Fetches)
 			assert.Empty(t, fixture.TestIDs)
+			assert.True(t, fixture.Complete)
 		})
 	}
 }
@@ -211,6 +212,9 @@ func TestRepositoryFixtureSetup(t *testing.T) {
 	candidate := repositoryFixture(t, contract, "fcaf-select-and-share-candidate",
 		"fcaf-wallet-solution-relying-party-pid-candidate-selection#select-and-share-candidate")
 	assert.False(t, candidate.Standalone)
+	assert.True(t, candidate.Complete)
+	// Its offers issue the sd-jwt PID its request asks for besides the start
+	// state's: no injected PID is added.
 	require.Len(t, candidate.Setup, 2)
 	for i, fixtureID := range []string{"pid_default", "pid_person_b"} {
 		setup := candidate.Setup[i]
@@ -235,6 +239,90 @@ func TestRepositoryFixtureSetup(t *testing.T) {
 	assert.Equal(t, []string{fixtures[0].PIDFormat}, RequestPIDFormats(fixtures[0].Request.Body))
 	assert.NotNil(t, fixtures[0].Setup)
 	assert.Empty(t, fixtures[0].Setup)
+}
+
+func TestRepositoryFixtureSetupSkipsRejectedOffers(t *testing.T) {
+	contract, err := Load(repositoryRoot)
+	require.NoError(t, err)
+	const rejected = "fcaf-expect-credential-rejected"
+
+	checked := 0
+	for _, role := range []string{rejected, "fcaf-expect-request-rejected"} {
+		fixtures, err := contract.Fixtures(repositoryRoot, relyingPartySuite, role)
+		require.NoError(t, err)
+		for _, fixture := range fixtures {
+			if !strings.Contains(fixture.Scenario, "status-reference-rejection") {
+				continue
+			}
+			checked++
+			for _, setup := range fixture.Setup {
+				assert.NotEqual(t, rejected, setup.Role, fixture.ID)
+			}
+		}
+	}
+	assert.Positive(t, checked)
+}
+
+func TestRepositoryFixtureCompleteness(t *testing.T) {
+	contract, err := Load(repositoryRoot)
+	require.NoError(t, err)
+
+	// The PID this step presents was issued from a credential-offer step,
+	// which no setup reproduces.
+	afterOffer := repositoryFixture(
+		t,
+		contract,
+		"fcaf-engagement-haip-vp",
+		"fcaf-wallet-solution-relying-party-dcql-credential-formats#credential-formats-036-present-pid-sdjwt",
+	)
+	assert.False(t, afterOffer.Standalone)
+	assert.False(t, afterOffer.Complete)
+
+	standalone := repositoryFixture(t, contract, "fcaf-engagement-haip-vp",
+		"fcaf-wallet-solution-relying-party-dcql-baseline#exercise-wallet")
+	assert.True(t, standalone.Complete)
+}
+
+func TestFixtureSetupCountsOfferedPIDFormats(t *testing.T) {
+	contract := &Contract{
+		ReferencePrefix: "org/wallet/",
+		Roles: []Role{
+			{Name: "fcaf-present", Parameters: []string{"deeplink"}, Category: "verify-credential"},
+			{Name: "fcaf-offer", Parameters: []string{"deeplink"}, IssuesCredential: true},
+			{Name: "fcaf-issue-pid", Parameters: []string{"deeplink"}, Injected: InjectedIssuance},
+		},
+	}
+	present, _ := contract.Role("fcaf-present")
+	createOffer := map[string]any{
+		"id":  "create-offer",
+		"use": httpRequestUse,
+		"with": map[string]any{
+			"method": "POST",
+			"url":    "https://issuer.example/sessions",
+			"body":   map[string]any{"credential_configuration_id": "urn:pid:1.mdoc"},
+		},
+	}
+	offer := map[string]any{"id": "offer", "use": mobileAutomationUse, "with": map[string]any{
+		"action_id":  "org/wallet/fcaf-offer",
+		"parameters": map[string]any{"deeplink": "${{ create-offer.outputs.body.deeplink }}"},
+	}}
+	scenario := fixtureScenario{byID: map[string]map[string]any{"create-offer": createOffer}}
+	fixture := Fixture{PIDFormat: "sd-jwt", Request: FixtureRequest{Body: map[string]any{
+		"presentation_request": map[string]any{"dcql_query": map[string]any{"credentials": []any{
+			map[string]any{"id": "a", "format": "dc+sd-jwt"},
+			map[string]any{"id": "b", "format": "mso_mdoc"},
+		}}},
+	}}}
+
+	setup, complete := contract.fixtureSetup(
+		fixture,
+		present,
+		scenario,
+		[]map[string]any{createOffer, offer},
+	)
+	assert.True(t, complete)
+	require.Len(t, setup, 1, "the mdoc offer stands for the mdoc PID")
+	assert.Equal(t, "fcaf-offer", setup[0].Role)
 }
 
 func TestRequestPIDFormats(t *testing.T) {
@@ -467,7 +555,8 @@ func TestFixturesQualifyOnlySelfContainedSteps(t *testing.T) {
 						"shots":   "${{ run-ok.outputs.flow_output.maestro_screenshot_urls | optional }}",
 					},
 				}},
-				Setup: []FixtureSetup{{Role: "fcaf-issue-pid", PIDFormat: "sd-jwt"}},
+				Setup:    []FixtureSetup{{Role: "fcaf-issue-pid", PIDFormat: "sd-jwt"}},
+				Complete: true,
 			},
 		},
 		{
@@ -488,6 +577,7 @@ func TestFixturesQualifyOnlySelfContainedSteps(t *testing.T) {
 				TestIDs:         []string{},
 				PipelineOutputs: map[string]any{},
 				Setup:           []FixtureSetup{},
+				Complete:        true,
 			},
 		},
 	}

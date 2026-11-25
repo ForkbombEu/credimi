@@ -102,9 +102,13 @@ type Fixture struct {
 	TestIDs         []string
 	PipelineOutputs map[string]any
 	// Setup lists what the start state must hold beyond the role's starting actions, in order:
-	// a PID of another format for each further format the request asks for, and the scenario's
-	// own earlier credential offers a non-standalone step depends on.
+	// a PID of another format for each further format the request asks for that no earlier
+	// offer issues, and the scenario's own earlier credential offers a non-standalone step
+	// depends on.
 	Setup []FixtureSetup `json:"setup"`
+	// Complete is set when Setup reproduces the start state: the fixture is standalone, or
+	// every earlier step that leaves a credential in the wallet is one of its offers.
+	Complete bool `json:"complete"`
 }
 
 // FixtureSetup is one credential a fixture's start state holds beyond the
@@ -385,6 +389,7 @@ func pidFixtures(role Role) []Fixture {
 				TestIDs:         []string{},
 				PipelineOutputs: map[string]any{},
 				Setup:           []FixtureSetup{},
+				Complete:        true,
 			})
 		}
 	}
@@ -440,7 +445,12 @@ func (c *Contract) scenarioFixtures(
 		fixture.ID = scenario.name + "#" + fixture.MobileStepID
 		fixture.Scenario = scenario.name
 		fixture.Standalone = standalone
-		fixture.Setup = c.fixtureSetup(fixture, role, scenario, scenario.steps[:index])
+		fixture.Setup, fixture.Complete = c.fixtureSetup(
+			fixture,
+			role,
+			scenario,
+			scenario.steps[:index],
+		)
 		if err := scenarioTests(&fixture, scenario.steps, loader); err != nil {
 			return nil, fmt.Errorf("FCAF scenario %s: %w", scenario.path, err)
 		}
@@ -450,50 +460,75 @@ func (c *Contract) scenarioFixtures(
 }
 
 // fixtureSetup returns the setup of a fixture whose role step comes after
-// earlier: for a role that starts from the injected PID, a PID of each further
-// format its request asks for; then, for a non-standalone fixture, the offers
-// of earlier steps whose role issues a credential and is not injected, when a
-// self-contained POST generates their parameter.
+// earlier, and whether it reproduces the fixture's start state. For a
+// non-standalone fixture it lists the offers of earlier steps whose role issues
+// a credential and is not injected, when a self-contained POST generates their
+// parameter; offers of a strict-rejection role or of the fixture's own role
+// leave nothing a conforming wallet holds and are skipped. For a role that
+// starts from the injected PID, a PID of each further format its request asks
+// for and no offer issues comes first. An issuing step whose offer cannot be
+// reproduced makes the setup incomplete.
 func (c *Contract) fixtureSetup(
 	fixture Fixture,
 	role Role,
 	scenario fixtureScenario,
 	earlier []map[string]any,
-) []FixtureSetup {
+) ([]FixtureSetup, bool) {
+	offers := []FixtureSetup{}
+	offered := map[string]bool{}
+	complete := true
+	if !fixture.Standalone {
+		for _, step := range earlier {
+			if use, _ := step["use"].(string); use != mobileAutomationUse {
+				continue
+			}
+			with, _ := step["with"].(map[string]any)
+			actionID, _ := with["action_id"].(string)
+			name, isReference := strings.CutPrefix(actionID, c.ReferencePrefix)
+			offerRole, known := c.Role(name)
+			if !isReference || !known || !offerRole.IssuesCredential || offerRole.Injected != "" ||
+				offerRole.Outcome == OutcomeRejection || offerRole.Name == role.Name {
+				continue
+			}
+			_, valuePath, request, ok := stepRequest(step, offerRole, scenario.byID)
+			if !ok {
+				complete = false
+				continue
+			}
+			offers = append(offers, FixtureSetup{
+				Role:      offerRole.Name,
+				Request:   &request,
+				ValuePath: valuePath,
+			})
+			offered[offerFormat(request.Body)] = true
+		}
+	}
 	setup := []FixtureSetup{}
 	issuance := c.Injected(InjectedIssuance).Name
 	if slices.Contains(c.StartsFrom(role), issuance) {
 		for _, format := range RequestPIDFormats(fixture.Request.Body) {
-			if format != fixture.PIDFormat {
+			if format != fixture.PIDFormat && !offered[format] {
 				setup = append(setup, FixtureSetup{Role: issuance, PIDFormat: format})
 			}
 		}
 	}
-	if fixture.Standalone {
-		return setup
+	return append(setup, offers...), complete
+}
+
+// offerFormat is the format of the credential an offer request issues: mdoc
+// when its credential_configuration_id or credential_id names mdoc, sd-jwt
+// otherwise, as the pipeline generator counts issued credentials.
+func offerFormat(body any) string {
+	request, _ := body.(map[string]any)
+	for _, key := range []string{"credential_configuration_id", "credential_id"} {
+		if identifier, _ := request[key].(string); strings.Contains(
+			strings.ToLower(identifier),
+			"mdoc",
+		) {
+			return pidFormatMdoc
+		}
 	}
-	for _, step := range earlier {
-		if use, _ := step["use"].(string); use != mobileAutomationUse {
-			continue
-		}
-		with, _ := step["with"].(map[string]any)
-		actionID, _ := with["action_id"].(string)
-		name, isReference := strings.CutPrefix(actionID, c.ReferencePrefix)
-		offerRole, known := c.Role(name)
-		if !isReference || !known || !offerRole.IssuesCredential || offerRole.Injected != "" {
-			continue
-		}
-		_, valuePath, request, ok := stepRequest(step, offerRole, scenario.byID)
-		if !ok {
-			continue
-		}
-		setup = append(setup, FixtureSetup{
-			Role:      offerRole.Name,
-			Request:   &request,
-			ValuePath: valuePath,
-		})
-	}
-	return setup
+	return pidFormatSDJWT
 }
 
 func substituteFixture(value any, values map[string]string) any {

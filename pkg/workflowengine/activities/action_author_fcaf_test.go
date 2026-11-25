@@ -329,6 +329,12 @@ func TestDescribeFCAFRoleFixtureSetup(t *testing.T) {
 	for _, fixture := range described.Fixtures {
 		require.NotNil(t, fixture.Setup, fixture.ID)
 	}
+	// A standalone fixture's setup reproduces its start state.
+	require.True(t, described.Fixtures[0].Standalone)
+	require.True(t, described.Fixtures[0].Complete)
+	encoded, err = json.Marshal(described.Fixtures[0])
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"complete":true`)
 }
 
 func TestCheckActionAuthorFCAFEvidence(t *testing.T) {

@@ -59,8 +59,8 @@ paths:
     get:
       description: 'Lists the FCAF relying-party roles and, for each, the caller organization''s
         action on the wallet: missing, current, stale or unmanaged, and for a saved
-        FCAF action the agent''s verdict (passed or unsupported) and note, with the
-        warnings about the wallet.'
+        FCAF action the agent''s verdict (passed, unsupported or finding) and note,
+        with the warnings about the wallet.'
       operationId: actionAuthor.fcafCoverage
       parameters:
       - description: 'Wallet: organization/wallet (canonified names).'

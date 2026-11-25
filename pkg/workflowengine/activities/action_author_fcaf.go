@@ -170,7 +170,7 @@ type DescribeActionAuthorFCAFRoleOutput struct {
 // FCAFFixtureOption is a fixture of an FCAF scenario that exercises the role,
 // with the plan whose parameter it generates. PIDIssuer is set only for the
 // injected issuance's fixtures. Setup is what the start state holds beyond
-// StartsFrom, never nil.
+// StartsFrom, never nil; Complete is set when it holds all of it.
 type FCAFFixtureOption struct {
 	ID           string                     `json:"id"`
 	Scenario     string                     `json:"scenario"`
@@ -180,6 +180,7 @@ type FCAFFixtureOption struct {
 	PIDIssuer    string                     `json:"pid_issuer"`
 	TestIDs      []string                   `json:"test_ids"`
 	Setup        []walletroles.FixtureSetup `json:"setup"`
+	Complete     bool                       `json:"complete"`
 	Plan         actionauthor.Spec          `json:"plan"`
 }
 
@@ -309,6 +310,7 @@ func describeFCAFRole(
 			PIDIssuer:    fixture.PIDIssuer,
 			TestIDs:      nonNil(fixture.TestIDs),
 			Setup:        nonNil(fixture.Setup),
+			Complete:     fixture.Complete,
 			Plan:         fixturePlan(role, fixture),
 		})
 	}

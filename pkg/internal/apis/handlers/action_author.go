@@ -100,7 +100,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorFCAFCoverage,
 			OperationID:    "actionAuthor.fcafCoverage",
 			Summary:        "FCAF coverage of a wallet",
-			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed or unsupported) and note, with the warnings about the wallet.",
+			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed, unsupported or finding) and note, with the warnings about the wallet.",
 			ResponseSchema: ActionAuthorFCAFCoverageResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
