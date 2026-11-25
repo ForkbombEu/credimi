@@ -185,7 +185,7 @@ roles:
     screenshots: []
 
   - name: fcaf-engagement-eu-eaap
-    summary: Opens a presentation link with the eu-eaap:// custom URL scheme and records whether the wallet was invoked, without aborting when no handler is registered.
+    summary: Opens a presentation link with the eu-eaap:// custom URL scheme and records whether the wallet was invoked; when no app handles the scheme, Maestro ends the flow at openLink despite optional, and its output carries the unresolved intent.
     suites: [wallet_solution/relying_party]
     outcome: tolerant
     fails_when: never on the outcome; the fcaf-engagement-eu-eaap-invoked screenshot decides

@@ -22,8 +22,8 @@ normative_references:
 evidence:
   wallet_engagement:
     from: pipeline.wallet.engagement.eu-eaap.outputs.wallet_engagement
-  visual_evidence:
-    from: pipeline.wallet.engagement.eu-eaap.outputs.visual_evidence
+  wallet_invocation:
+    from: pipeline.wallet.engagement.eu-eaap.outputs.wallet_invocation
 assertions:
 # The source's request shape: the Verifier hands the User-agent a presentation
 # link under the `eu-eaap://` custom URL scheme. Capture builds the deeplink, so
@@ -44,12 +44,17 @@ assertions:
 # Source expected results 1 and 2 ("User-agent presents option to End-user to
 # engage presentation", "Wallet is invoked successfully") are the same
 # engagement screen on the reference device, stored under one name by
-# fcaf-engagement-eu-eaap. The reference Wallet registers no `eu-eaap://`
-# handler, so this fails on it (EUDI_required) rather than reporting blocked.
+# fcaf-engagement-eu-eaap. A Wallet that registers no `eu-eaap://` handler
+# cannot be invoked through the scheme: Android cannot resolve the openLink
+# intent and Maestro stops the flow before any screenshot (optional does not
+# catch it), so that failure, read from Maestro's output, fails the test
+# (EUDI_required). A step that stored no screenshot for any other reason still
+# reports blocked.
 - id: wallet_shows_the_engagement_screen
-  validator: evidence.screenshot_named
-  input: evidence.visual_evidence
+  validator: evidence.custom_scheme_invoked
+  input: evidence.wallet_invocation
   params:
     name: fcaf-engagement-eu-eaap-invoked
+    scheme: "eu-eaap://"
 verdict:
   pass_when: all_assertions_pass

@@ -63,4 +63,11 @@ steps:
       pipeline.wallet.engagement.eu-eaap:
         output:
           wallet_engagement: ${{ fetch-capture-session.outputs.body }}
-          visual_evidence: ${{ invoke-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          # Maestro's console output tells a Wallet that registers no handler
+          # for the scheme (Android cannot resolve the openLink intent and
+          # Maestro stops the flow) from a step that stored nothing for
+          # another reason.
+          wallet_invocation:
+            wallet_screenshots: ${{ invoke-wallet.outputs.flow_output.maestro_screenshot_urls }}
+            maestro_output: ${{ invoke-wallet.outputs.flow_output.output | optional }}
+            maestro_stderr: ${{ invoke-wallet.outputs.flow_output.stderr | optional }}

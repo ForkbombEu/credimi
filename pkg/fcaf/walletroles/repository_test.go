@@ -303,7 +303,7 @@ func verdictNames(assertion dsl.AssertionDefinition) []string {
 	}
 	var names []string
 	switch assertion.Validator {
-	case "evidence.screenshot_named":
+	case "evidence.screenshot_named", "evidence.custom_scheme_invoked":
 		names = append(names, param("name", ""))
 	case "oid4vci.fixtures_stored":
 		names = append(names, param("stored_screenshot", ""))

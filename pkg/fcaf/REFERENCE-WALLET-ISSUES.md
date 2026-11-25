@@ -1181,6 +1181,11 @@ deeplink with the shared `fcaf-engagement-eu-eaap` flow.
   event exists.
 - No request-screen screenshot is stored, because the Wallet never reaches the
   request screen.
+- On a Pixel 7a with Maestro 2.7 and 2.11, the flow's `openLink` ends the whole
+  Maestro flow with `AndroidOperationFailedException`: "Activity not started,
+  unable to resolve Intent". `optional: true` (also with `browser: true`) does
+  not survive an intent no app resolves, so the step fails before it takes any
+  screenshot, and the empty screenshot evidence made the test report blocked.
 
 ### Expected
 
@@ -1191,7 +1196,11 @@ retrieve the Request Object.
 
 ### FCAF Impact
 
-- Test: `WS_RP_IA_Engagement__001b` fails on this Wallet.
+- Test: `WS_RP_IA_Engagement__001b` fails on this Wallet. The failed mobile
+  step returns Maestro's console output in its `flow_output` (`output`,
+  `stderr`), and `evidence.custom_scheme_invoked` fails the engagement
+  assertion when that output reports the unresolvable `eu-eaap:` intent. Any
+  other step that stored no screenshot still reports blocked.
 
 ## RI-WALLET-027: A Request-URI HTTP error whose body is a Request Object is processed
 

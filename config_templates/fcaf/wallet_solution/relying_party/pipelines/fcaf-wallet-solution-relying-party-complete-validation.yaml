@@ -24092,8 +24092,11 @@ steps:
                     visual_evidence: ${{ session-binding-missing-nonce-2d9d51e7-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.engagement.eu-eaap:
                 output:
-                    visual_evidence: ${{ engagement-eu-eaap-6cbe4a87-invoke-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_engagement: ${{ engagement-eu-eaap-6cbe4a87-fetch-capture-session.outputs.body | optional }}
+                    wallet_invocation:
+                        maestro_output: ${{ engagement-eu-eaap-6cbe4a87-invoke-wallet.outputs.flow_output.output | optional }}
+                        maestro_stderr: ${{ engagement-eu-eaap-6cbe4a87-invoke-wallet.outputs.flow_output.stderr | optional }}
+                        wallet_screenshots: ${{ engagement-eu-eaap-6cbe4a87-invoke-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.engagement.haip-vp:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
