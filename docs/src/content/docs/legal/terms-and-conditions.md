@@ -1,6 +1,6 @@
 ---
 title: "📄 Terms and Conditions (and EULA)"
-description: ""
+description: "Terms for using hosted Credimi and licensing information for Credimi software."
 ---
 
 **Effective Date:** May 07, 2026  
@@ -17,39 +17,33 @@ This End-User License Agreement ("Agreement") is a legal agreement between **you
 
 By accessing or using Credimi, you agree to be bound by this Agreement.
 
+The [Privacy Policy](/legal/privacy-policy/) describes how Forkbomb B.V. processes personal data when you use hosted Credimi.
+
 ---
 
 ## 2. License Grant
 
 ### 2.1 Open Source Components
 
-Parts of Credimi are released as open source under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+Parts of Credimi are released as open source under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html), or any later version where specified by the component's license notice.
 
-These components are governed by the terms of the AGPL-3.0 license available at:
-
-https://www.gnu.org/licenses/agpl-3.0.html
-
-You may use, modify, and redistribute such components in accordance with the AGPL-3.0 license.
+The license notices for each component govern your rights to use, modify and redistribute that component. This Agreement does not limit rights granted under an applicable open-source license.
 
 ### 2.2 Proprietary Components
 
 Certain components, services, infrastructure systems, orchestration technologies, integrations, and operational tooling associated with Credimi are proprietary and are not released under AGPL-3.0.
 
-These proprietary components may include, but are not limited to:
+The hosted service can combine open-source software with proprietary infrastructure, operational services and commercial extensions. Depending on the deployment and agreement, service capabilities may include:
 
-- mobile automation infrastructure
-- distributed execution systems
-- Android emulator environments
-- Redroid-based infrastructure
-- orchestration backends
-- cloud execution environments
-- deployment tooling
-- device farms
-- enterprise integrations
-- monitoring and telemetry systems
-- provisioning systems
-- commercial extensions
-- hosted APIs and operational services
+- **Mobile device labs:** Test wallets on physical Android devices, Android emulators, Redroid environments and iOS simulators. Runners can provide live device views, recordings, screenshots and logs.
+- **Distributed test execution:** Queue and schedule pipelines across runners, provision test devices, install wallet builds and clean up devices after runs.
+- **Conformance and interoperability testing:** Run OpenID and EUDI checks and end-to-end flows across issuers, wallets and verifiers, with reports and evidence for review.
+- **AI-assisted wallet automation:** Draft and test wallet actions on a runner, then review proposed changes before saving them.
+- **Hosted APIs and CI/CD integrations:** Trigger tests from build pipelines, test uploaded wallet builds and retrieve run results through APIs.
+- **Managed infrastructure and operations:** Cloud execution environments, device farm provisioning, deployment tooling, monitoring and telemetry.
+- **Enterprise integrations and commercial extensions:** Deployment, integration and support options as agreed for the organization.
+
+These examples describe service capabilities, not the license of the software that provides them. Open-source components remain subject to their own license notices.
 
 Forkbomb B.V. retains all rights, title, and interest in such proprietary components.
 
@@ -88,6 +82,8 @@ Unless explicitly stated otherwise, all Automation Content uploaded to the hoste
 By uploading Automation Content to Credimi, the User grants Forkbomb B.V. and all users of the Credimi platform a perpetual, irrevocable, worldwide, non-exclusive, royalty-free license to use, reproduce, modify, distribute, sublicense, publicly display, and create derivative works from such content.
 
 Users retain copyright ownership of their Automation Content.
+
+This license is separate from visibility in Credimi. Publishing a resource makes its published information visible in the Hub. An uploaded wallet installer is offered for download when the version is made downloadable.
 
 The Apache License 2.0 text is available at:
 
@@ -208,6 +204,8 @@ Forkbomb B.V. is not responsible for:
 
 Use of third-party services may additionally be subject to the terms and conditions of the respective providers.
 
+Pipelines and integrations may send your configured test inputs to third-party systems and runners. Use only systems and data you are authorized to test with, and review what a pipeline sends before you run it.
+
 ---
 
 ## 9. Experimental Features
@@ -229,6 +227,8 @@ Users access experimental features entirely at their own risk.
 ## 10. AI-Generated Content
 
 Credimi may include features that generate or assist in generating automation flows, scripts, configurations, or other technical content using artificial intelligence systems.
+
+When you use Action Author, the session may use the AI model provider configured on the runner. You review proposed wallet actions before they are saved. Approval to save is not a guarantee that an action is safe or suitable to run.
 
 Forkbomb B.V. does not guarantee the correctness, security, legality, reliability, or suitability of AI-generated content.
 

@@ -1,6 +1,6 @@
 ---
 title: "📜 Privacy Policy"
-description: ""
+description: "How Forkbomb B.V. handles personal data, cookies, analytics and browser storage on Credimi."
 ---
 **Effective Date:** 24 October 2026  
 **Applies to:** Credimi  
@@ -13,72 +13,57 @@ description: ""
 
 ### 1. Introduction
 
-This Privacy Policy explains how **Forkbomb B.V.** ("we", "our", "us") collects, uses, and protects your personal data when you use the **Credimi app** ("the Dashboard"). By accessing or using the Dashboard, you agree to the terms of this policy.
+This Privacy Policy explains how **Forkbomb B.V.** ("we", "our", "us") processes personal data when you visit [credimi.io](https://credimi.io/) or use its dashboard, APIs and hosted testing services.
 
 ### 2. Data Collection
 
 #### Personal Data
-The Dashboard may collect the following types of personal data:
-- Email address
-- IP address
-- Billing information
+Depending on which features you use, we process:
+
+- **Account and organization data:** name, email address, sign-in and verification information, invitations, organization memberships and roles, and billing information where applicable.
+- **Service and test data:** pipeline definitions and inputs, uploaded wallet installers, integration settings, run history, reports, logs, screenshots and recordings. These can contain personal data if it is included in your test inputs or captured during a run.
+- **Technical and diagnostic data:** IP address, browser or device information, and request and error logs. See [Cookies, local storage and diagnostics](#6-cookies-local-storage-and-diagnostics).
 
 #### Collection Methods
-Data is collected through:
-- Direct user input (e.g., registration or settings)
-- Invitations sent to new users via email
-
-The Dashboard does **not** collect personal data from third-party sources.
+We receive data from you, from other users who invite you to an organization, and from your browser and the systems involved in your tests. If you choose an available third-party sign-in provider, we also receive account information from that provider.
 
 #### Legal Basis for Processing
 The legal bases for processing your personal data are:
 
 - **Contract performance** (Art. 6(1)(b)): creating and managing your account, enabling organization access, billing.
-- **Legitimate interests** (Art. 6(1)(f)): securing access (IP logging on authentication), preventing fraud and abuse (Cloudflare Turnstile), and analytics (Matomo). We have a legitimate interest in protecting our service from automated abuse and measuring legitimate usage.
+- **Legitimate interests** (Art. 6(1)(f)): securing access, preventing fraud and abuse, and diagnosing service failures.
 - **Consent** (Art. 6(1)(a) and Art. 4(11)): where we rely on consent, we will ask you directly and you may withdraw at any time without affecting lawfulness of processing before withdrawal.
 
 ### 3. Data Processing
 
 #### Purpose
-Collected data is used for the following purposes:
-- Creating and managing user accounts
-- Enabling organization-level access and permissions
-- Personalizing the user experience
-- Administrative communication and billing
+We use this data to manage accounts and organization access; run and troubleshoot tests; store and display results; protect and improve the service; and communicate with users, including about billing where applicable. If you enable pipeline notifications, we use your browser's push subscription to send run updates through its push service. You can turn notifications off in Credimi or revoke permission in your browser.
 
 #### Automated Decision-Making
-We do **not** use your data for automated decision-making or profiling.
+We do not use personal data to make solely automated decisions that produce legal or similarly significant effects. Automated security checks can block an attempted sign-in or registration.
 
 #### Data Sharing
-We do **not** sell or share your personal data with external parties for marketing or commercial purposes.
+We do not sell your personal data or share it for third-party marketing. If you publish a resource on the Hub, its published information is visible to other visitors. Wallet installers are offered for download when the version is made downloadable.
 
-#### Subprocessors
-We engage the following subprocessors for the purposes described in this policy:
+#### Service providers
 
-| Service | Country | Purpose | Legal basis |
-|---|---|---|---|
-| Cloudflare (Turnstile) | United States / EU (Cloudflare network) | Bot detection and fraud prevention on registration and login forms | Legitimate interests |
-| Matomo (self-hosted at matomo.dyne.org) | Netherlands | Analytics to understand service usage | Legitimate interests |
+| Service | Purpose |
+|---|---|
+| [Cloudflare Turnstile](https://www.cloudflare.com/turnstile-privacy-policy/) | Bot and abuse prevention on sign-in and registration. Cloudflare receives browser and network signals such as IP address and user agent. |
 
 #### Third-Party Services for Testing and Compliance
-To ensure technical interoperability, standards compliance, and security, we may use automated testing tools that send pseudonymized or synthetic data to third-party services. For example, we use the [OpenID Conformance Test Suite](https://www.certification.openid.net/) to test compatibility with identity protocols.
+When you run a test, Credimi may send configured inputs to issuers, verifiers, other systems under test, certification services such as the [OpenID Conformance Test Suite](https://www.certification.openid.net/), or the runner that executes your test. Use synthetic or non-production data where possible. Do not include personal data or secrets unless you are authorized to use them and they are needed for the test.
 
-These activities:
-- Use non-production or synthetic test data
-- Are executed in controlled environments
-- Are strictly limited to development, testing, and certification purposes
+If you use the Action Author, session messages and test context needed to generate an action may be sent to the AI model provider configured on the runner. The session transcript and review decisions may be stored in workflow history.
 
 ### 4. Data Storage & Security
 
-#### Storage Location
-All personal data is stored on secure, cloud-based infrastructure located in the European Union.
-
 #### Data Retention
-We retain your personal data only for as long as necessary to fulfill the purposes described in this policy, or until you request deletion, whichever comes first. Pipeline result files (including evidence) are automatically deleted on a schedule configured by the operator (minimum 1 day), and you may request immediate deletion of your account data at any time.
+We retain personal data as long as needed for the purposes described in this policy. Where an operator enables pipeline retention, the configured schedule removes older result files and evidence from result records. It does not delete the run record or its separate workflow history. You may request erasure of personal data as described below.
 
 #### Security Measures
 We implement appropriate technical and organizational measures to protect your data, including:
-- Encrypted storage and communication (TLS, HTTPS)
+- Encryption in transit (TLS/HTTPS)
 - Access control and authentication
 - Regular software updates and vulnerability scans
 
@@ -105,39 +90,48 @@ At present, we do not require identity verification for exercising rights, but w
 #### Right to Lodge a Complaint
 You have the right to lodge a complaint with a supervisory authority, in particular the Dutch Data Protection Authority (Autoriteit Persoonsgegevens), if you believe your personal data has been processed in violation of the GDPR.
 
-### 6. Cookies, Local Storage & Analytics
+### 6. Cookies, local storage and diagnostics
 
-The Dashboard uses cookies, web storage and an analytics service to improve functionality and analyze usage. No personal data is read from these via third parties.
+Credimi uses browser storage for sign-in, preferences and specific features. The cookies below are set on `credimi.io` when the relevant feature is used.
 
 #### Cookies
 
 | Cookie | Domain | Purpose | Expiry |
 |---|---|---|---|
-| `pb_auth` | `credimi.io` | PocketBase authentication token and model, kept in sync with the client-side auth store. | Browser session (cleared on logout; not `httpOnly` or `secure` in the browser client export) |
-| `sidebar:state` | `credimi.io` | Remembers the collapsible sidebar state in the authenticated dashboard app. | 24 hours |
-| `PARAGLIDE_LOCALE` | `credimi.io` | Stores the active language locale chosen by the user, set by the Paraglide i18n library. | 400 days |
+| `pb_auth` | `credimi.io` | Holds your PocketBase sign-in token and account record. Also authenticates embedded views such as run history and Action Author chat. | When the sign-in token expires or you sign out |
+| `sidebar:state` | `credimi.io` | Remembers the dashboard sidebar state. | 7 days |
+| `PARAGLIDE_LOCALE` | `credimi.io` | Remembers your active language. | 400 days |
+
+Matomo measures page views and link interactions only if you select **Accept analytics** in the banner or explicitly opt in using the optional analytics checkbox at sign-up. Signing up without opting in does not grant consent. Matomo sends usage data, including page URLs and referrers, to `matomo.dyne.org`. It can set `_pk_id.12.*` (13 months), `_pk_ses.12.*` (30 minutes) and `_pk_ref.12.*` (6 months, when applicable).
+
+Credimi remembers your choice in `localStorage` under `credimi-analytics-consent`. Use **Analytics settings** to change your choice. Rejecting after acceptance stops future tracking and clears Matomo analytics cookies on this site.
 
 #### Web Storage
-The following `localStorage` and `sessionStorage` keys are used to persist non-sensitive UI and session state:
+The browser also uses local storage (no automatic expiry) and session storage (normally cleared when the tab closes). These are not cookies.
 
 | Key | Scope | Purpose | Expiry |
 |---|---|---|---|
-| `keyring` | `localStorage` | Encrypted local keypair cache for the user's identity (keypairoom). | Persistent |
-| `pipeline_custom_integration_configs` | `localStorage` | Saved configuration for custom-integration pipeline steps. | Persistent |
-| `credimi-latestCheckRuns` | `localStorage` | Recently run conformance checks, for quick recall on the start page. | Persistent |
+| `pocketbase_auth` | `localStorage` | PocketBase browser sign-in token and account record. Sign-out clears the stored credentials. | No automatic storage expiry; the token expires separately |
+| `mode-watcher-mode`, `mode-watcher-theme` | `localStorage` | Appearance state. | Persistent |
+| `dark mode` | `localStorage` | Sets embedded run history to use a light theme. | Persistent |
+| `keyring` | `localStorage` | Stores the private keyring on your device if you use Keypairoom. | Persistent |
+| `pipeline_custom_integration_configs` | `localStorage` | Remembers parameters entered for custom integrations. | Persistent |
+| `Credimi-latestCheckRuns` | `localStorage` | Remembers recent conformance check runs. | Persistent |
 | `welcome` | `sessionStorage` | Tracks whether the first-run welcome modal has been dismissed. | Session end |
 | `organization_invite` | `sessionStorage` | Temporary state for accepting an organization invite flow. | Session end |
+| `login_return_to` | `sessionStorage` | Holds a return path so you can continue after signing in. | Session end |
 | `keypairoom_regenerate` | `sessionStorage` | Tracks the regenerate-keyring session step. | Session end |
 
-#### Analytics
-We use **Matomo** (self-hosted, `matomo.dyne.org`) for analytics purposes. Matomo respects "Do Not Track" settings in your browser.
+#### Diagnostics
+
+Where browser diagnostics are enabled by the service operator, Credimi collects error reports and traces for requests to Credimi. These can include the page path, error details and your account ID if signed in. Browser diagnostics do not require an analytics cookie.
 
 #### Managing Cookies & Storage
-You can manage or disable cookies and clear web storage via your browser preferences. Clearing storage may sign you out of the Dashboard or reset UI preferences.
+You can block or clear cookies and site data in your browser. Clearing data may sign you out, reset preferences or remove a locally stored keyring.
 
 ### 7. International Data Transfers
 
-We do **not** transfer your personal data outside the European Economic Area (EEA). Cloudflare's Turnstile service (used for bot detection on login and registration forms) processes data on our behalf; Cloudflare is committed to the EU-U.S. Data Privacy Framework and Standard Contractual Clauses.
+Providers and external systems involved in sign-in, security checks or tests may process data outside the European Economic Area (EEA). Where we transfer personal data subject to the GDPR outside the EEA, the GDPR's transfer rules apply. Cloudflare describes its transfer mechanisms in its [privacy policy](https://www.cloudflare.com/privacypolicy/). Check the privacy information of external systems you choose to connect before sending personal data to them.
 
 ### 8. Minors
 
