@@ -549,7 +549,7 @@ func decoratePipelineQueueResponseURLs(
 		response.PipelineURL = buildPipelinePageURL(appURL, pipelineIdentifier)
 	}
 	if strings.TrimSpace(response.WorkflowID) != "" && strings.TrimSpace(response.RunID) != "" {
-		response.RunURL = buildPipelineRunPageURL(appURL, response.WorkflowID, response.RunID)
+		response.RunURL = pipelineinternal.RunPageURL(appURL, response.WorkflowID, response.RunID)
 	}
 }
 
@@ -560,10 +560,6 @@ func buildPipelinePageURL(appURL string, pipelineIdentifier string) string {
 		"pipelines",
 		strings.TrimPrefix(canonify.NormalizePath(pipelineIdentifier), "/"),
 	)
-}
-
-func buildPipelineRunPageURL(appURL string, workflowID string, runID string) string {
-	return utils.JoinURL(appURL, "my", "tests", "runs", workflowID, runID)
 }
 
 func buildPipelineQueueConfig(

@@ -145,13 +145,14 @@ type FCAFRoleCoverage struct {
 // first, the injected issuance second, then in contract order, with the
 // state of the caller organization's action of the same name for the
 // selected wallet and how it did in the wallet's last finished FCAF run
-// (ReadFCAFLastRun). The second value is the FCAF profile of the newest FCAF
-// action that saved one, nil when none did; the third the last run, nil
-// when there is none.
+// (ReadFCAFLastRun with state, which may be nil). The second value is the
+// FCAF profile of the newest FCAF action that saved one, nil when none did;
+// the third the last run, nil when there is none.
 func FCAFCoverage(
 	app core.App,
 	selection Selection,
 	scope *FCAFScope,
+	state FCAFRunStateFunc,
 ) ([]FCAFRoleCoverage, map[string]any, *FCAFLastRun, error) {
 	records, err := app.FindAllRecords("wallet_actions", dbx.HashExp{
 		"owner":  selection.Organization.Id,
@@ -160,7 +161,7 @@ func FCAFCoverage(
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("list wallet actions: %w", err)
 	}
-	lastRun, err := ReadFCAFLastRun(app, selection)
+	lastRun, err := ReadFCAFLastRun(app, selection, scope, state)
 	if err != nil {
 		return nil, nil, nil, err
 	}

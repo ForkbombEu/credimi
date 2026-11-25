@@ -334,6 +334,46 @@ func closeFailure(
 	), nil
 }
 
+// FCAFRunState reads how the pipeline run workflowID/runID stands: whether
+// it closed, its status and, for a failed run, the step failures of its close
+// failure (workflowengine.StepFailures) with their Maestro output.
+func FCAFRunState(
+	ctx context.Context,
+	c client.Client,
+	workflowID, runID string,
+) (actionauthor.FCAFRunState, error) {
+	described, err := temporalclient.Describe(ctx, c, workflowID, runID)
+	if err != nil {
+		return actionauthor.FCAFRunState{}, fmt.Errorf("describe run %s: %w", workflowID, err)
+	}
+	status := described.GetWorkflowExecutionInfo().GetStatus()
+	state := actionauthor.FCAFRunState{
+		Finished: status != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+		Status: strings.TrimPrefix(
+			enumspb.WorkflowExecutionStatus_name[int32(status)],
+			executionStatusPrefix,
+		),
+		Failures: map[string]actionauthor.StepFailure{},
+	}
+	if status != enumspb.WORKFLOW_EXECUTION_STATUS_FAILED {
+		return state, nil
+	}
+	failure, err := closeFailure(ctx, c, workflowID, runID)
+	if err != nil {
+		return actionauthor.FCAFRunState{}, err
+	}
+	for _, step := range workflowengine.StepFailures(failure) {
+		stepID, _ := step.Details["step_id"].(string)
+		stdout, _ := step.Details["stdout"].(string)
+		state.Failures[stepID] = actionauthor.StepFailure{
+			Code:    step.Code,
+			Message: failureMessage(step),
+			Stdout:  stdout,
+		}
+	}
+	return state, nil
+}
+
 // failureMessage is a step failure's message, or its summary without one.
 func failureMessage(failure workflowengine.WorkflowError) string {
 	if message := strings.TrimSpace(failure.Message); message != "" {

@@ -8,7 +8,6 @@ package pipelinehistory
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -448,24 +447,16 @@ func stepFailure(err error, fallback string) workflowengine.WorkflowError {
 }
 
 // recordBlockFailure records the failure of the block step that stopped a
-// failed linked block: the first entry of the block failure's
-// details.errors, which carries the step's step_id.
+// failed linked block: the first step failure of the block failure's
+// details.errors (workflowengine.StepFailures).
 func (l *loader) recordBlockFailure(err error) {
-	errs, _ := workflowengine.ParseWorkflowError(err).Details["errors"].([]any)
-	if len(errs) == 0 {
+	failures := workflowengine.StepFailures(workflowengine.ParseWorkflowError(err))
+	if len(failures) == 0 {
 		return
 	}
-	raw, marshalErr := json.Marshal(errs[0])
-	if marshalErr != nil {
-		return
-	}
-	var failure workflowengine.WorkflowError
-	if json.Unmarshal(raw, &failure) != nil {
-		return
-	}
-	stepID, _ := failure.Details["step_id"].(string)
+	stepID, _ := failures[0].Details["step_id"].(string)
 	if _, main := l.steps[stepID]; main {
-		l.run.Failures[stepID] = failure
+		l.run.Failures[stepID] = failures[0]
 	}
 }
 

@@ -62,16 +62,33 @@ func TestBuildWithDefaultsIsTheCommittedPipeline(t *testing.T) {
 	require.Len(t, built.TestIDs, 617)
 }
 
-// TestBuildMovesEveryWalletActionUnderThePrefix pins that ActionPrefix moves
-// every wallet action id, injected resets and issuances included, and
+// testActionIDs maps every role of the contract to an action path made by
+// path(role).
+func testActionIDs(t *testing.T, path func(role string) string) map[string]string {
+	t.Helper()
+	contract, err := walletroles.Load(testFCAFRoot)
+	require.NoError(t, err)
+	actions := make(map[string]string, len(contract.Roles))
+	for _, role := range contract.Roles {
+		actions[role.Name] = path(role.Name)
+	}
+	return actions
+}
+
+// TestBuildMovesEveryWalletActionToTheWalletsAction pins that ActionIDs
+// replaces every reference wallet action id, injected resets and issuances
+// included, with the wallet's action of the role, whatever its path, and
 // changes no other string; VersionID and DeviceID set the prelude version
 // and the device.
-func TestBuildMovesEveryWalletActionUnderThePrefix(t *testing.T) {
+func TestBuildMovesEveryWalletActionToTheWalletsAction(t *testing.T) {
 	paths := testScenarioPaths(t)
 	roles := testWalletRoles(t)
-	const prefix = "acme/acme-wallet/"
+	// A caller's action on another organization's wallet may carry a suffix.
+	actions := testActionIDs(t, func(role string) string {
+		return "owner/acme-wallet/" + role + "-1"
+	})
 	reference := buildComplete(t, paths, nil)
-	moved := buildComplete(t, paths, func(o *Options) { o.ActionPrefix = prefix })
+	moved := buildComplete(t, paths, func(o *Options) { o.ActionIDs = actions })
 	require.Equal(t, reference.TestIDs, moved.TestIDs)
 
 	var want, got map[string]any
@@ -111,7 +128,7 @@ func TestBuildMovesEveryWalletActionUnderThePrefix(t *testing.T) {
 				"%s changed from %q to %q",
 				path, typed, got,
 			)
-			require.Equal(t, prefix+strings.TrimPrefix(typed, roles.prefix), got, path)
+			require.Equal(t, actions[strings.TrimPrefix(typed, roles.prefix)], got, path)
 			changed++
 		default:
 			require.Equal(t, typed, got, path)
@@ -124,12 +141,13 @@ func TestBuildMovesEveryWalletActionUnderThePrefix(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal(moved.YAML, &definition))
 	for _, step := range definition.Steps {
 		for _, id := range walletActionIDs(step) {
-			require.True(t, strings.HasPrefix(id, prefix), "step %v runs %s", step["id"], id)
+			require.True(t, slices.Contains(slices.Collect(maps.Values(actions)), id),
+				"step %v runs %s", step["id"], id)
 		}
 	}
 
 	placed := buildComplete(t, paths, func(o *Options) {
-		o.ActionPrefix = prefix
+		o.ActionIDs = actions
 		o.VersionID = "acme/acme-wallet/1-0"
 		o.DeviceID = "acme/runner/pixel"
 	})
@@ -139,7 +157,7 @@ func TestBuildMovesEveryWalletActionUnderThePrefix(t *testing.T) {
 	prelude, _ := placedDefinition.Steps[0]["with"].(map[string]any)
 	require.Equal(t, PreludeStepID, placedDefinition.Steps[0]["id"])
 	require.Equal(t, "acme/acme-wallet/1-0", prelude["version_id"])
-	require.Equal(t, prefix+"fcaf-reset-and-onboard", prelude["action_id"])
+	require.Equal(t, actions["fcaf-reset-and-onboard"], prelude["action_id"])
 }
 
 // TestBuildLeavesOutTheScenariosOfAMissingRole pins that a scenario needing
@@ -148,8 +166,6 @@ func TestBuildMovesEveryWalletActionUnderThePrefix(t *testing.T) {
 func TestBuildLeavesOutTheScenariosOfAMissingRole(t *testing.T) {
 	paths := testScenarioPaths(t)
 	roles := testWalletRoles(t)
-	contract, err := walletroles.Load(testFCAFRoot)
-	require.NoError(t, err)
 
 	usedBy := map[string][]string{}
 	for _, path := range paths {
@@ -178,12 +194,12 @@ func TestBuildLeavesOutTheScenariosOfAMissingRole(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, missing)
-	have := map[string]bool{}
-	for _, role := range contract.Roles {
-		have[role.Name] = role.Name != missing
-	}
+	// The wallet's actions are the reference ones, so the pipeline of the
+	// other scenarios is the reference one.
+	have := testActionIDs(t, func(role string) string { return roles.prefix + role })
+	delete(have, missing)
 
-	built := buildComplete(t, paths, func(o *Options) { o.Roles = have })
+	built := buildComplete(t, paths, func(o *Options) { o.ActionIDs = have })
 	skipped := make([]SkippedScenario, 0, len(usedBy[missing]))
 	kept := make([]string, 0, len(paths))
 	for _, path := range paths {
@@ -203,8 +219,8 @@ func TestBuildLeavesOutTheScenariosOfAMissingRole(t *testing.T) {
 	require.Less(t, len(built.TestIDs), 617)
 
 	// Without the reset role no scenario driving the wallet can run.
-	have[strings.TrimPrefix(roles.resetActionID, roles.prefix)] = false
-	_, err = Build(testFCAFRoot, usedBy[missing][:1], Options{Suite: testSuite, Roles: have})
+	delete(have, strings.TrimPrefix(roles.resetActionID, roles.prefix))
+	_, err := Build(testFCAFRoot, usedBy[missing][:1], Options{Suite: testSuite, ActionIDs: have})
 	require.ErrorIs(t, err, ErrNothingToRun)
 }
 

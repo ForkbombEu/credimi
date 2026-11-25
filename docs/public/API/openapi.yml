@@ -1112,6 +1112,8 @@ components:
           type: string
         skipped:
           type: integer
+        status:
+          type: string
         total:
           type: integer
       type: object

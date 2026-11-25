@@ -96,6 +96,9 @@ func NewFCAFCommand() *cobra.Command {
 		Use:   "run",
 		Short: "Run FCAF pipeline YAML files sequentially",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := applyFCAFWalletFlags(cmd.Flags().Changed("timeout")); err != nil {
+				return err
+			}
 			return runFCAF(cmd.Context())
 		},
 	}
@@ -117,7 +120,7 @@ func NewFCAFCommand() *cobra.Command {
 	run.Flags().
 		StringVar(&fcafDeviceID, "device-id", "", "registered mobile device identifier for mobile-automation steps")
 	run.Flags().
-		DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline")
+		DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline (default 10h with --wallet, whose complete pipeline runs 8-9 hours)")
 	run.Flags().DurationVar(&fcafInterval, "interval", 5*time.Second, "queue polling interval")
 	run.Flags().
 		StringVar(&fcafWallet, "wallet", "", "wallet build org/wallet/version (or org/wallet for its store build): build and run the FCAF relying-party validation from the wallet's own actions on Credimi, with --device-id")
@@ -777,6 +780,25 @@ func syncFCAFWalletAction(
 			len(records),
 		)
 	}
+}
+
+// fcafWalletTimeout is the default wait of fcaf run --wallet: the complete
+// pipeline runs 8-9 hours.
+const fcafWalletTimeout = 10 * time.Hour
+
+// applyFCAFWalletFlags refuses --scenarios without --wallet and, unless
+// --timeout was given, waits fcafWalletTimeout for a --wallet run.
+func applyFCAFWalletFlags(timeoutSet bool) error {
+	if fcafWallet == "" {
+		if len(fcafScenarios) > 0 {
+			return fmt.Errorf("--scenarios needs --wallet")
+		}
+		return nil
+	}
+	if !timeoutSet {
+		fcafTimeout = fcafWalletTimeout
+	}
+	return nil
 }
 
 func runFCAF(ctx context.Context) error {

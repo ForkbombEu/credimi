@@ -4,6 +4,13 @@
 
 package pipeline
 
+import "github.com/forkbombeu/credimi/pkg/utils"
+
+// RunPageURL is the webapp page of a pipeline run.
+func RunPageURL(appURL, workflowID, runID string) string {
+	return utils.JoinURL(appURL, "my", "tests", "runs", workflowID, runID)
+}
+
 const (
 	// RunTypeMemoKey carries the pipeline run type through Temporal memo.
 	RunTypeMemoKey = "pipeline_run_type"

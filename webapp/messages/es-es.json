@@ -1171,6 +1171,7 @@
 	"Fcaf_run_see": "Ver la ejecución ↗",
 	"Fcaf_run_last": "Última ejecución FCAF:",
 	"Fcaf_run_summary": "{pass} de {total} tests superados",
+	"Fcaf_run_ended_without_report": "{status} antes de validar ningún test",
 	"Fcaf_run_role_ok": "Ejecutado en la última ejecución",
 	"Fcaf_run_role_failing": "Falla en la última ejecución",
 	"Fcaf_run_role_not_run": "No ejecutado en la última ejecución",

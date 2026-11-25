@@ -204,8 +204,14 @@ export function roleRunBadge(
 	return { label: RUN_LABELS[run.status](), variant: RUN_VARIANTS[run.status] };
 }
 
-/** The last FCAF run's summary line: "N over M tests passed". */
+/**
+ * The last FCAF run's summary line: "N over M tests passed", or how the run ended when it
+ * stopped before validating any test.
+ */
 export function runSummaryLine(summary: FcafRunSummary): string {
+	if (summary.total === 0 && summary.status) {
+		return m.Fcaf_run_ended_without_report({ status: summary.status });
+	}
 	return m.Fcaf_run_summary({ pass: summary.pass, total: summary.total });
 }
 

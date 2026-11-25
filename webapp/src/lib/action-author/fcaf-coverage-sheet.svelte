@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		coverageVerdict,
 		percent,
 		roleRunBadge,
+		roleRunFailing,
 		runSummaryLine
 	} from './fcaf';
 	import FcafRunForm from './fcaf-run-form.svelte';
@@ -141,7 +142,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										</Badge>
 									</div>
 								</div>
-								{#if role.run?.status === 'failing'}
+								{#if role.run && roleRunFailing(role)}
 									{#if role.run.failed_command}
 										<p class="font-mono text-xs break-all">
 											{role.run.failed_command}

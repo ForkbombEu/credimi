@@ -1511,7 +1511,12 @@ func HandleActionAuthorFCAFCoverage() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
 		}
-		roles, profile, lastRun, err := actionauthor.FCAFCoverage(e.App, selection, scope)
+		roles, profile, lastRun, err := actionauthor.FCAFCoverage(
+			e.App,
+			selection,
+			scope,
+			fcafRunStateReader(e, organization),
+		)
 		if err != nil {
 			return authoringAPIError(e, err)
 		}

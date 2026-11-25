@@ -105,7 +105,7 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
 		}
-		coverage, _, _, err := actionauthor.FCAFCoverage(e.App, selection, scope)
+		coverage, _, _, err := actionauthor.FCAFCoverage(e.App, selection, scope, nil)
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
@@ -117,20 +117,20 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 		if len(input.Scenarios) > 0 {
 			subset = len(paths)
 		}
-		walletName := selection.Wallet.GetString("name")
+		name := actionauthor.FCAFPipelineName(actionauthor.FCAFWalletPath(selection), subset)
 		versionID := selection.Identifier
 		if selection.Source == actionauthor.SourceStore {
 			// The store build is the wallet the device already holds.
 			versionID = actionauthor.ExternalSourceVersion
 		}
 		built, err := aggregate.Build(scope.Root, paths, aggregate.Options{
-			Suite: scope.Suite,
-			Name:  actionauthor.FCAFPipelineName(walletName, subset),
-			ActionPrefix: orgNamespace + "/" +
-				selection.Wallet.GetString("canonified_name") + "/",
+			Suite:     scope.Suite,
+			Name:      name,
 			VersionID: versionID,
 			DeviceID:  deviceID,
-			Roles:     actionauthor.FCAFWrittenRoles(coverage),
+			// Each role runs the caller organization's own action of the
+			// wallet, at the path it was saved under.
+			ActionIDs: actionauthor.FCAFWrittenActions(coverage),
 			// A subset keeps only the tests whose evidence it produces, as the
 			// happy-flow pipeline does.
 			FilterTestsByEvidence: subset > 0,
@@ -147,12 +147,7 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("build FCAF pipeline: %w", err))
 		}
-		record, err := upsertFCAFPipeline(
-			e.App,
-			org.Id,
-			actionauthor.FCAFPipelineName(walletName, subset),
-			string(built.YAML),
-		)
+		record, err := upsertFCAFPipeline(e.App, org.Id, name, string(built.YAML))
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
@@ -185,6 +180,22 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 			Skipped:     skipped,
 			TestCount:   len(built.TestIDs),
 		})
+	}
+}
+
+// fcafRunStateReader reads, for coverage, the Temporal state of the
+// organization's pipeline runs in its namespace; nil (runs without a report
+// are then left out) when there is no client. Stubbed in unit tests.
+var fcafRunStateReader = func(
+	e *core.RequestEvent,
+	namespace string,
+) actionauthor.FCAFRunStateFunc {
+	c, err := queueTemporalClient(namespace)
+	if err != nil || c == nil {
+		return nil
+	}
+	return func(workflowID, runID string) (actionauthor.FCAFRunState, error) {
+		return activities.FCAFRunState(e.Request.Context(), c, workflowID, runID)
 	}
 }
 

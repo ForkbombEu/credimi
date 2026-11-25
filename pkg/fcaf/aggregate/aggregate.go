@@ -140,16 +140,15 @@ var ErrNothingToRun = errors.New("FCAF scenarios select no tests")
 type Options struct {
 	Suite string
 	Name  string
-	// ActionPrefix is "<org>/<wallet>/": every wallet action id under the
-	// contract's ReferencePrefix moves under it. Empty keeps ReferencePrefix.
-	ActionPrefix string
 	// VersionID is the prelude's version_id; empty: DefaultVersionID.
 	VersionID string
 	// DeviceID is runtime.global_device_id; empty: DefaultDeviceID.
 	DeviceID string
-	// Roles are the roles the wallet has an action for; a scenario needing
-	// another one is skipped whole. Nil runs every scenario.
-	Roles map[string]bool
+	// ActionIDs maps each role the wallet has an action for to that action's
+	// path: every reference action id of the role (injected resets and
+	// issuances included) becomes it, and a scenario needing a role without
+	// one is skipped whole. Nil runs every scenario with the reference ids.
+	ActionIDs map[string]string
 	// TestIDs, when not nil, keeps only these tests, each owned by a
 	// selected scenario.
 	TestIDs []string
@@ -223,8 +222,8 @@ func Build(root string, paths []string, opts Options) (Result, error) {
 	}
 	// The prelude installs and onboards the wallet with the reset role and
 	// stops the run when it fails: without it no scenario runs.
-	if reset := strings.TrimPrefix(roles.resetActionID, roles.prefix); opts.Roles != nil &&
-		!opts.Roles[reset] {
+	if reset := strings.TrimPrefix(roles.resetActionID, roles.prefix); opts.ActionIDs != nil &&
+		opts.ActionIDs[reset] == "" {
 		return Result{}, fmt.Errorf("%w: the wallet has no %s action", ErrNothingToRun, reset)
 	}
 	aggregate.Steps = append(
@@ -303,7 +302,7 @@ func Build(root string, paths []string, opts Options) (Result, error) {
 			steps = append(steps, rewritten)
 			emitted[id] = rewritten
 		}
-		if missing := roles.missingRoles(steps, opts.Roles); len(missing) > 0 {
+		if missing := roles.missingRoles(steps, opts.ActionIDs); len(missing) > 0 {
 			// The next wallet scenario runs on the wallet as this one found it.
 			walletUsed = usedBefore
 			result.Skipped = append(result.Skipped, SkippedScenario{
@@ -369,9 +368,9 @@ func Build(root string, paths []string, opts Options) (Result, error) {
 			"pipeline_outputs": pipelineOutputs,
 		},
 	})
-	if opts.ActionPrefix != "" && opts.ActionPrefix != roles.prefix {
+	if opts.ActionIDs != nil {
 		for _, step := range aggregate.Steps {
-			roles.movePrefix(step, opts.ActionPrefix)
+			roles.moveActions(step, opts.ActionIDs)
 		}
 	}
 
@@ -384,16 +383,16 @@ func Build(root string, paths []string, opts Options) (Result, error) {
 }
 
 // missingRoles returns, sorted, the roles of the wallet actions a
-// scenario's steps run that are not in have, plus the reset role that
+// scenario's steps run that have no action in have, plus the reset role that
 // prepares the wallet for any of them. A nil have misses nothing.
-func (r walletRoles) missingRoles(steps []map[string]any, have map[string]bool) []string {
+func (r walletRoles) missingRoles(steps []map[string]any, have map[string]string) []string {
 	if have == nil {
 		return nil
 	}
 	missing := []string{}
 	need := func(actionID string) {
 		name, reference := strings.CutPrefix(actionID, r.prefix)
-		if reference && !have[name] && !slices.Contains(missing, name) {
+		if reference && have[name] == "" && !slices.Contains(missing, name) {
 			missing = append(missing, name)
 		}
 	}
@@ -432,25 +431,24 @@ func walletActionIDs(step map[string]any) []string {
 	return ids
 }
 
-// movePrefix moves a mobile-automation step's action ids from the
-// contract's ReferencePrefix to prefix; nothing else of the step changes.
-func (r walletRoles) movePrefix(step map[string]any, prefix string) {
+// moveActions replaces a mobile-automation step's reference action ids with
+// the wallet's action of the same role; nothing else of the step changes.
+func (r walletRoles) moveActions(step map[string]any, actions map[string]string) {
 	if use, _ := step["use"].(string); use != mobileAutomationTask {
 		return
 	}
-	move := func(fields map[string]any) {
-		if id, _ := fields["id"].(string); strings.HasPrefix(id, r.prefix) {
-			fields["id"] = prefix + strings.TrimPrefix(id, r.prefix)
+	move := func(fields map[string]any, key string) {
+		id, _ := fields[key].(string)
+		if name, reference := strings.CutPrefix(id, r.prefix); reference && actions[name] != "" {
+			fields[key] = actions[name]
 		}
 	}
 	with, _ := step["with"].(map[string]any)
-	if id, _ := with["action_id"].(string); strings.HasPrefix(id, r.prefix) {
-		with["action_id"] = prefix + strings.TrimPrefix(id, r.prefix)
-	}
+	move(with, "action_id")
 	entries, _ := with["actions"].([]any)
 	for _, raw := range entries {
 		if entry, ok := raw.(map[string]any); ok {
-			move(entry)
+			move(entry, "id")
 		}
 	}
 }

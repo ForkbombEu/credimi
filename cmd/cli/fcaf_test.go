@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -170,4 +171,18 @@ func TestRunWalletFCAFBuildsThePipelineOnCredimi(t *testing.T) {
 	}, payload)
 	require.Equal(t, "completed", run.Status)
 	require.Equal(t, "fcaf-relying-party-validation-wallet-1-scenarios", run.Name)
+}
+
+func TestApplyFCAFWalletFlags(t *testing.T) {
+	wallet, scenarios, timeout := fcafWallet, fcafScenarios, fcafTimeout
+	t.Cleanup(func() { fcafWallet, fcafScenarios, fcafTimeout = wallet, scenarios, timeout })
+
+	fcafWallet, fcafScenarios = "", []string{"s.yaml"}
+	require.ErrorContains(t, applyFCAFWalletFlags(false), "--scenarios needs --wallet")
+
+	fcafWallet, fcafTimeout = "acme/wallet/1-0", time.Minute
+	require.NoError(t, applyFCAFWalletFlags(true))
+	require.Equal(t, time.Minute, fcafTimeout, "an explicit --timeout stays")
+	require.NoError(t, applyFCAFWalletFlags(false))
+	require.Equal(t, fcafWalletTimeout, fcafTimeout)
 }

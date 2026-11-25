@@ -14,9 +14,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -37,15 +38,21 @@ const (
 const fcafPipelineNamePrefix = "FCAF relying-party validation - "
 
 // FCAFPipelineName is the name of the pipeline record that runs the FCAF
-// relying-party validation of a wallet: one per wallet, and one per number
-// of scenarios for a subset (scenarios above 0), so a subset never replaces
-// the wallet's complete pipeline.
-func FCAFPipelineName(walletName string, scenarios int) string {
-	name := fcafPipelineNamePrefix + walletName
+// relying-party validation of the wallet walletPath (FCAFWalletPath): one
+// per wallet, and one per number of scenarios for a subset (scenarios above
+// 0), so a subset never replaces the wallet's complete pipeline.
+func FCAFPipelineName(walletPath string, scenarios int) string {
+	name := fcafPipelineNamePrefix + walletPath
 	if scenarios > 0 {
 		name += " - " + strconv.Itoa(scenarios) + " scenarios"
 	}
 	return name
+}
+
+// FCAFWalletPath is "<owner>/<wallet>" of the selection's wallet, canonified.
+func FCAFWalletPath(selection Selection) string {
+	return selection.WalletOwner.GetString("canonified_name") + "/" +
+		selection.Wallet.GetString("canonified_name")
 }
 
 // FCAFStepResult is how a main step of a pipeline run ended: Completed, or
@@ -292,6 +299,8 @@ type FCAFRoleRun struct {
 }
 
 // FCAFRunSummary is the test summary of the wallet's last finished FCAF run.
+// Status is the run's Temporal status when it ended without a report (for
+// example Failed), empty otherwise.
 type FCAFRunSummary struct {
 	Pass          int    `json:"pass"`
 	Fail          int    `json:"fail"`
@@ -303,15 +312,28 @@ type FCAFRunSummary struct {
 	Total         int    `json:"total"`
 	Pipeline      string `json:"pipeline"`
 	Created       string `json:"created"`
+	Status        string `json:"status"`
 }
 
 // FCAFLastRun is the wallet's last finished FCAF run: its summary, link and
-// the outcome of each role it ran.
+// the outcome of each role.
 type FCAFLastRun struct {
 	Summary FCAFRunSummary
 	RunURL  string
 	Roles   map[string]FCAFRoleRun
 }
+
+// FCAFRunState is how a pipeline run stands in Temporal: Finished once it
+// closed, its Status (Completed, Failed, …) and, for a failed run, the step
+// failures of its close failure by step ID.
+type FCAFRunState struct {
+	Finished bool
+	Status   string
+	Failures map[string]StepFailure
+}
+
+// FCAFRunStateFunc reads the state of the pipeline run workflowID/runID.
+type FCAFRunStateFunc func(workflowID, runID string) (FCAFRunState, error)
 
 // storedFCAFReport is the part of a stored fcaf_report coverage reads.
 type storedFCAFReport struct {
@@ -319,11 +341,35 @@ type storedFCAFReport struct {
 	RoleOutcomes *FCAFRoleOutcomes `json:"role_outcomes"`
 }
 
-// ReadFCAFLastRun reads the newest pipeline result with a stored FCAF report
-// of the wallet's FCAF pipelines (FCAFPipelineName, complete or subset)
-// owned by the selection's organization; nil when there is none.
-func ReadFCAFLastRun(app core.App, selection Selection) (*FCAFLastRun, error) {
-	base := FCAFPipelineName(selection.Wallet.GetString("name"), 0)
+// fcafFinishedRun is a finished run of one of the wallet's FCAF pipelines:
+// its report, or its Temporal state when it ended without one.
+type fcafFinishedRun struct {
+	result   *core.Record
+	pipeline *core.Record
+	subset   bool
+	report   *storedFCAFReport
+	state    FCAFRunState
+	url      string
+}
+
+// ReadFCAFLastRun reads the wallet's last FCAF run from the pipeline results
+// of the selection's organization for the wallet's FCAF pipeline records
+// (FCAFPipelineName of FCAFWalletPath, complete or subset). A result with a
+// stored report finished; one without asks state, and counts only once
+// finished (a nil state skips it). A report of another wallet's actions
+// (role_outcomes.wallet_prefix) is ignored. The summary and every role come
+// from the newest finished complete run (the newest subset run without
+// one); a newer subset run replaces the outcome of each role it ran. A run
+// without a report leaves every role not_run, except the reset role, failing
+// when the prelude step failed. It returns nil when there is no finished run.
+func ReadFCAFLastRun(
+	app core.App,
+	selection Selection,
+	scope *FCAFScope,
+	state FCAFRunStateFunc,
+) (*FCAFLastRun, error) {
+	walletPath := FCAFWalletPath(selection)
+	base := FCAFPipelineName(walletPath, 0)
 	subset := regexp.MustCompile(`^` + regexp.QuoteMeta(base) + ` - [0-9]+ scenarios$`)
 	records, err := app.FindAllRecords(
 		"pipelines",
@@ -345,57 +391,133 @@ func ReadFCAFLastRun(app core.App, selection Selection) (*FCAFLastRun, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
+	// Only the organization's own runs: another organization may run its own
+	// YAML on this record.
 	results, err := app.FindAllRecords(
 		"pipeline_results",
 		dbx.In("pipeline", ids...),
-		dbx.Not(dbx.HashExp{"fcaf_report": ""}),
+		dbx.HashExp{"owner": selection.Organization.Id},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list FCAF pipeline results: %w", err)
 	}
-	var newest *core.Record
+	slices.SortFunc(results, func(a, b *core.Record) int {
+		return b.GetDateTime("created").Compare(a.GetDateTime("created"))
+	})
+	var newer []fcafFinishedRun
+	var complete *fcafFinishedRun
 	for _, result := range results {
-		if newest == nil || result.GetDateTime("created").After(newest.GetDateTime("created")) {
-			newest = result
+		run, finished, err := readFCAFFinishedRun(app, result, walletPath, state)
+		if err != nil {
+			return nil, err
 		}
+		if !finished {
+			continue
+		}
+		run.pipeline = pipelines[result.GetString("pipeline")]
+		run.subset = run.pipeline.GetString("name") != base
+		if !run.subset {
+			complete = &run
+			break
+		}
+		newer = append(newer, run)
 	}
-	if newest == nil {
-		return nil, nil
+	if complete == nil {
+		if len(newer) == 0 {
+			return nil, nil
+		}
+		complete, newer = &newer[0], nil
 	}
-	report, err := readStoredFCAFReport(app, newest)
-	if err != nil {
-		return nil, err
+	last := &FCAFLastRun{RunURL: complete.url, Roles: map[string]FCAFRoleRun{}}
+	if complete.report != nil {
+		last.Summary = complete.report.Summary
 	}
-	run := &FCAFLastRun{
-		Summary: report.Summary,
-		RunURL: utils.JoinURL(
-			app.Settings().Meta.AppURL,
-			"my", "tests", "runs",
-			newest.GetString("workflow_id"),
-			newest.GetString("run_id"),
-		),
-		Roles: map[string]FCAFRoleRun{},
-	}
-	summary := &run.Summary
+	summary := &last.Summary
 	summary.Total = summary.Pass + summary.Fail + summary.Blocked + summary.Skipped +
 		summary.Inconclusive + summary.NotApplicable + summary.Error
-	if owner := pipelines[newest.GetString("pipeline")]; owner != nil {
-		summary.Pipeline = selection.Organization.GetString("canonified_name") + "/" +
-			owner.GetString("canonified_name")
+	summary.Pipeline = selection.Organization.GetString("canonified_name") + "/" +
+		complete.pipeline.GetString("canonified_name")
+	summary.Created = complete.result.GetDateTime("created").String()
+	summary.Status = complete.state.Status
+	complete.apply(last.Roles, scope, true)
+	// Oldest first, so the newest subset run wins.
+	for i := len(newer) - 1; i >= 0; i-- {
+		newer[i].apply(last.Roles, scope, false)
 	}
-	summary.Created = newest.GetDateTime("created").String()
-	if report.RoleOutcomes != nil {
-		for _, role := range report.RoleOutcomes.Roles {
-			run.Roles[role.Role] = FCAFRoleRun{
+	return last, nil
+}
+
+// readFCAFFinishedRun reads a pipeline result as a finished run; finished
+// is false while it runs, when state cannot tell, or when its report is of
+// another wallet.
+func readFCAFFinishedRun(
+	app core.App,
+	result *core.Record,
+	walletPath string,
+	state FCAFRunStateFunc,
+) (fcafFinishedRun, bool, error) {
+	run := fcafFinishedRun{
+		result: result,
+		url: pipeline.RunPageURL(
+			app.Settings().Meta.AppURL,
+			result.GetString("workflow_id"),
+			result.GetString("run_id"),
+		),
+	}
+	if result.GetString("fcaf_report") != "" {
+		report, err := readStoredFCAFReport(app, result)
+		if err != nil {
+			return run, false, err
+		}
+		if report.RoleOutcomes != nil && report.RoleOutcomes.WalletPrefix != walletPath+"/" {
+			return run, false, nil
+		}
+		run.report = &report
+		return run, true, nil
+	}
+	if state == nil {
+		return run, false, nil
+	}
+	current, err := state(result.GetString("workflow_id"), result.GetString("run_id"))
+	if err != nil || !current.Finished {
+		// Coverage stays available when Temporal is not.
+		return run, false, nil //nolint:nilerr // an unknown state is not finished
+	}
+	run.state = current
+	return run, true, nil
+}
+
+// apply sets the outcomes of the run in roles: with all, every role of the
+// suite (a role the report did not run stays without one).
+func (r fcafFinishedRun) apply(roles map[string]FCAFRoleRun, scope *FCAFScope, all bool) {
+	if r.report != nil {
+		if r.report.RoleOutcomes == nil {
+			return
+		}
+		for _, role := range r.report.RoleOutcomes.Roles {
+			roles[role.Role] = FCAFRoleRun{
 				Status:        role.Status,
 				FailedSteps:   role.Failing,
 				FailedCommand: role.FailedCommand,
 				FixtureID:     role.FixtureID,
-				RunURL:        run.RunURL,
+				RunURL:        r.url,
 			}
 		}
+		return
 	}
-	return run, nil
+	reset := scope.Contract.Injected(walletroles.InjectedReset).Name
+	if all {
+		for _, role := range fcafSuiteRoles(scope) {
+			roles[role.Name] = FCAFRoleRun{Status: FCAFRunNotRun, RunURL: r.url}
+		}
+	}
+	if failure, failed := r.state.Failures[aggregate.PreludeStepID]; failed {
+		failing := FCAFRoleRun{Status: FCAFRunFailing, FailedSteps: 1, RunURL: r.url}
+		if failure.Code == errorcodes.MobileAutomationStepError {
+			failing.FailedCommand = failedMaestroCommand(failure.Stdout)
+		}
+		roles[reset] = failing
+	}
 }
 
 func readStoredFCAFReport(app core.App, record *core.Record) (storedFCAFReport, error) {
@@ -420,12 +542,15 @@ func readStoredFCAFReport(app core.App, record *core.Record) (storedFCAFReport, 
 	return report, nil
 }
 
-// FCAFWrittenRoles are the roles whose action is written and up to date
-// (current or incomplete); a stale, missing or unmanaged role is missing.
-func FCAFWrittenRoles(coverage []FCAFRoleCoverage) map[string]bool {
-	written := make(map[string]bool, len(coverage))
+// FCAFWrittenActions maps each role whose action is written and up to date
+// (current or incomplete) to the action's path; a stale, missing or
+// unmanaged role has none.
+func FCAFWrittenActions(coverage []FCAFRoleCoverage) map[string]string {
+	written := make(map[string]string, len(coverage))
 	for _, role := range coverage {
-		written[role.Role] = role.Status == FCAFCurrent || role.Status == FCAFIncomplete
+		if role.Action != "" && (role.Status == FCAFCurrent || role.Status == FCAFIncomplete) {
+			written[role.Role] = role.Action
+		}
 	}
 	return written
 }

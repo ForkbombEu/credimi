@@ -73,9 +73,22 @@ func setupFCAFPipelineApp(t testing.TB, without ...string) *tests.TestApp {
 	if without == nil {
 		return app
 	}
-	scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
-	require.NoError(t, err)
 	wallet, err := app.FindFirstRecordByData("wallets", "name", "Authoring handler wallet")
+	require.NoError(t, err)
+	saveFCAFActions(t, app, wallet.GetString("owner"), wallet.Id, without...)
+	return app
+}
+
+// saveFCAFActions saves, for organization owner on the wallet, a current FCAF
+// action of every role of the suite but those in without, keyed by role.
+func saveFCAFActions(
+	t testing.TB,
+	app *tests.TestApp,
+	owner, walletID string,
+	without ...string,
+) map[string]*core.Record {
+	t.Helper()
+	scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
 	require.NoError(t, err)
 	actions, err := app.FindCollectionByNameOrId("wallet_actions")
 	require.NoError(t, err)
@@ -83,13 +96,14 @@ func setupFCAFPipelineApp(t testing.TB, without ...string) *tests.TestApp {
 		actions.Fields.Add(&core.JSONField{Name: "authoring_provenance", MaxSize: 65536})
 		require.NoError(t, app.Save(actions))
 	}
+	saved := map[string]*core.Record{}
 	for _, role := range scope.Contract.Roles {
 		if slices.Contains(without, role.Name) {
 			continue
 		}
 		action := core.NewRecord(actions)
-		action.Set("owner", wallet.GetString("owner"))
-		action.Set("wallet", wallet.Id)
+		action.Set("owner", owner)
+		action.Set("wallet", walletID)
 		action.Set("name", role.Name)
 		action.Set("code", "appId: eu.wallet\n---\n- launchApp\n")
 		action.Set("category", role.Category)
@@ -98,16 +112,21 @@ func setupFCAFPipelineApp(t testing.TB, without ...string) *tests.TestApp {
 			FCAFRoleSHA256: role.SHA256(),
 		})
 		require.NoError(t, app.Save(action))
+		saved[role.Name] = action
 	}
-	return app
+	return saved
 }
 
 func fcafPipelineBody(device string, scenarios ...string) string {
+	return fcafPipelineVersionBody(authoringAndroidVersion, device, scenarios...)
+}
+
+func fcafPipelineVersionBody(version, device string, scenarios ...string) string {
 	quoted := make([]string, len(scenarios))
 	for i, scenario := range scenarios {
 		quoted[i] = `"` + scenario + `"`
 	}
-	return `{"wallet_version_identifier":"` + authoringAndroidVersion +
+	return `{"wallet_version_identifier":"` + version +
 		`","device_id":"` + device + `","scenarios":[` + strings.Join(quoted, ",") + `]}`
 }
 
@@ -238,7 +257,7 @@ func TestActionAuthorFCAFPipelineRunsTheWalletActions(t *testing.T) {
 			record, err := app.FindFirstRecordByData(
 				"pipelines",
 				"name",
-				actionauthor.FCAFPipelineName("Authoring handler wallet", 2),
+				actionauthor.FCAFPipelineName("usera-s-organization/authoring-handler-wallet", 2),
 			)
 			require.NoError(t, err)
 			require.False(t, record.GetBool("published"))
@@ -259,4 +278,70 @@ func TestActionAuthorFCAFPipelineRunsTheWalletActions(t *testing.T) {
 	require.Contains(t, response.Skipped[0].MissingRoles, missing)
 	require.Len(t, *enqueued, 1)
 	require.Equal(t, response.Pipeline, (*enqueued)[0].PipelineIdentifier)
+}
+
+// TestActionAuthorFCAFPipelineRunsTheCallersActionsOnAForeignWallet runs a
+// published wallet of another organization with the caller's own actions on
+// it, saved under the wallet owner's path with a suffix since the owner has
+// actions of the same names; the caller's same-named wallet never lends its
+// actions.
+func TestActionAuthorFCAFPipelineRunsTheCallersActionsOnAForeignWallet(t *testing.T) {
+	stubFCAFPipelineQueue(t)
+	var callers map[string]*core.Record
+	(&tests.ApiScenario{
+		Name:   "foreign published wallet",
+		Method: http.MethodPost,
+		URL:    fcafPipelineURL,
+		Body: strings.NewReader(
+			fcafPipelineVersionBody(authoringForeignVersion, fcafPipelineDevice, fcafPipelineHaipVP),
+		),
+		Headers: map[string]string{
+			"Authorization": "Bearer " + authoringToken(t, "userA"),
+			"Content-Type":  "application/json",
+		},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"status":"queued"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupFCAFPipelineApp(t)
+			shareAdminRunner(t, app)
+			foreign, err := app.FindFirstRecordByData("wallets", "name", "Foreign wallet")
+			require.NoError(t, err)
+			foreign.Set("published", true)
+			require.NoError(t, app.Save(foreign))
+			version, err := app.FindFirstRecordByData("wallet_versions", "wallet", foreign.Id)
+			require.NoError(t, err)
+			version.Set("downloadable", true)
+			require.NoError(t, app.Save(version))
+			callerOrg, err := app.FindFirstRecordByData(
+				"organizations", "name", "userA's organization",
+			)
+			require.NoError(t, err)
+			// The owner's actions come first, so the caller's get a suffix.
+			saveFCAFActions(t, app, foreign.GetString("owner"), foreign.Id)
+			callers = saveFCAFActions(t, app, callerOrg.Id, foreign.Id)
+			// The caller's own wallet of the same name.
+			wallets, err := app.FindCollectionByNameOrId("wallets")
+			require.NoError(t, err)
+			own := core.NewRecord(wallets)
+			own.Set("owner", callerOrg.Id)
+			own.Set("name", "Foreign wallet")
+			require.NoError(t, app.Save(own))
+			saveFCAFActions(t, app, callerOrg.Id, own.Id)
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+			record, err := app.FindFirstRecordByData(
+				"pipelines",
+				"name",
+				actionauthor.FCAFPipelineName("userb-s-organization/foreign-wallet", 1),
+			)
+			require.NoError(t, err)
+			yaml := record.GetString("yaml")
+			reset := callers["fcaf-reset-and-onboard"].GetString("canonified_name")
+			require.NotEqual(t, "fcaf-reset-and-onboard", reset)
+			require.Contains(t, yaml, "action_id: userb-s-organization/foreign-wallet/"+reset+"\n")
+			require.NotContains(t, yaml, "usera-s-organization/foreign-wallet")
+			require.NotRegexp(t, `foreign-wallet/fcaf-reset-and-onboard\n`, yaml)
+		},
+	}).Test(t)
 }

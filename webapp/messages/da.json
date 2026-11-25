@@ -1171,6 +1171,7 @@
 	"Fcaf_run_see": "Se kørslen ↗",
 	"Fcaf_run_last": "Seneste FCAF-kørsel:",
 	"Fcaf_run_summary": "{pass} ud af {total} tests bestået",
+	"Fcaf_run_ended_without_report": "{status} før nogen test blev valideret",
 	"Fcaf_run_role_ok": "Kørt i den seneste kørsel",
 	"Fcaf_run_role_failing": "Fejler i den seneste kørsel",
 	"Fcaf_run_role_not_run": "Ikke kørt i den seneste kørsel",

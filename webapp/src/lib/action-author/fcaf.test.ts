@@ -130,9 +130,27 @@ describe('runSummaryLine', () => {
 			error: 0,
 			total: 13,
 			pipeline: 'org/fcaf-relying-party-validation-w',
-			created: '2026-11-25 10:00:00.000Z'
+			created: '2026-11-25 10:00:00.000Z',
+			status: ''
 		};
 		expect(runSummaryLine(summary)).toBe('10 over 13 tests passed');
+	});
+
+	it('shows how a run without a report ended', () => {
+		const summary: FcafRunSummary = {
+			pass: 0,
+			fail: 0,
+			blocked: 0,
+			skipped: 0,
+			inconclusive: 0,
+			not_applicable: 0,
+			error: 0,
+			total: 0,
+			pipeline: 'org/fcaf-relying-party-validation-w',
+			created: '2026-11-25 10:00:00.000Z',
+			status: 'Failed'
+		};
+		expect(runSummaryLine(summary)).toBe('Failed before validating any test');
 	});
 });
 

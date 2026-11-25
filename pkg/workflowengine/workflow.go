@@ -594,3 +594,25 @@ func ExtractOutputFromError(err error) map[string]any {
 
 	return nil
 }
+
+// StepFailures returns the step failures a pipeline or linked steps block
+// failure lists in details.errors, in order, each with its details.step_id;
+// entries that do not decode or name no step are left out.
+func StepFailures(failure WorkflowError) []WorkflowError {
+	errs, _ := failure.Details["errors"].([]any)
+	failures := make([]WorkflowError, 0, len(errs))
+	for _, entry := range errs {
+		raw, err := json.Marshal(entry)
+		if err != nil {
+			continue
+		}
+		var step WorkflowError
+		if json.Unmarshal(raw, &step) != nil {
+			continue
+		}
+		if id, _ := step.Details["step_id"].(string); id != "" {
+			failures = append(failures, step)
+		}
+	}
+	return failures
+}

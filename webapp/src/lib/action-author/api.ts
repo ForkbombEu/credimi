@@ -138,6 +138,8 @@ export type FcafRunSummary = {
 	total: number;
 	pipeline: string;
 	created: string;
+	/** The run's Temporal status when it ended without a report (for example Failed), empty otherwise. */
+	status: string;
 };
 
 /** FCAF relying-party coverage of a wallet (GET /api/action-author/fcaf-coverage). */

@@ -1625,7 +1625,7 @@ func TestFCAFCoverage(t *testing.T) {
 	scope := fcafTestScope(t)
 	statuses := func() (map[string]FCAFRoleCoverage, map[string]any) {
 		t.Helper()
-		coverage, profile, lastRun, err := FCAFCoverage(app, selection, scope)
+		coverage, profile, lastRun, err := FCAFCoverage(app, selection, scope, nil)
 		require.NoError(t, err)
 		assert.Nil(t, lastRun)
 		require.Len(t, coverage, len(fcafSuiteRoles(scope)))
