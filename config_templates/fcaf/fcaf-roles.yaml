@@ -12,7 +12,7 @@ rules:
   - Type the wallet's fixed PIN as a literal; it is the same in every action of the wallet.
   - "Start from the state the pipeline leaves: the wallet reset and onboarded, plus the credentials issued before the step. The wallet may be locked or show any screen: launch it and unlock it yourself, also after opening a deeplink if it locks again."
   - "launch_apps lists the apps the action launches with launchApp at its start; presents is how many times the action taps the wallet's share control when the consent screen appears (0: it never shares); absence_probe means the wallet holds no credential matching the request; issues_credential means the action accepts a credential offer."
-  - Identify the consent screen by an element only it has (an enabled share control or the list of requested claims), never by a title the wallet also shows on its no-match or error screens.
+  - "Identify the consent screen by the list of requested documents or claims it shows (on the reference wallet: Requested data), never by the screen title or by the state of the share control: a wallet can show the same title and an enabled share control on its no-match notice."
 roles:
   - name: getcredential-generic-credential-without-authentication
     summary: Opens a credential offer deeplink, accepts the offer without user authentication and reaches the wallet's screen confirming that the credential was stored.
