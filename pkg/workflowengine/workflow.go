@@ -595,21 +595,34 @@ func ExtractOutputFromError(err error) map[string]any {
 	return nil
 }
 
-// StepFailures returns the step failures a pipeline or linked steps block
-// failure lists in details.errors, in order, each with its details.step_id;
-// entries that do not decode or name no step are left out.
-func StepFailures(failure WorkflowError) []WorkflowError {
-	errs, _ := failure.Details["errors"].([]any)
-	failures := make([]WorkflowError, 0, len(errs))
-	for _, entry := range errs {
-		raw, err := json.Marshal(entry)
-		if err != nil {
-			continue
-		}
+// FailureErrors returns every entry a pipeline or linked steps block failure
+// lists in details.errors, in order; entries that do not decode are left
+// out. An entry's details.step_id names its step, when it has one.
+func FailureErrors(failure WorkflowError) []WorkflowError {
+	raw, err := json.Marshal(failure.Details["errors"])
+	if err != nil {
+		return nil
+	}
+	var entries []json.RawMessage
+	if json.Unmarshal(raw, &entries) != nil {
+		return nil
+	}
+	errs := make([]WorkflowError, 0, len(entries))
+	for _, entry := range entries {
 		var step WorkflowError
-		if json.Unmarshal(raw, &step) != nil {
-			continue
+		if json.Unmarshal(entry, &step) == nil {
+			errs = append(errs, step)
 		}
+	}
+	return errs
+}
+
+// StepFailures returns the entries of FailureErrors that name their step
+// (details.step_id), in order.
+func StepFailures(failure WorkflowError) []WorkflowError {
+	errs := FailureErrors(failure)
+	failures := make([]WorkflowError, 0, len(errs))
+	for _, step := range errs {
 		if id, _ := step.Details["step_id"].(string); id != "" {
 			failures = append(failures, step)
 		}

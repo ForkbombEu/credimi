@@ -161,10 +161,6 @@ func FCAFCoverage(
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("list wallet actions: %w", err)
 	}
-	lastRun, err := ReadFCAFLastRun(app, selection, scope, state)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	byName := make(map[string]*core.Record, len(records))
 	var profile map[string]any
 	var newest *core.Record
@@ -179,6 +175,16 @@ func FCAFCoverage(
 			newest, profile = record, provenance.FCAFProfile
 		}
 	}
+	resetAction := ""
+	if record, ok := byName[scope.Contract.Injected(walletroles.InjectedReset).Name]; ok {
+		if resetAction, err = walletActionPath(app, record); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	lastRun, err := ReadFCAFLastRun(app, selection, resetAction, state)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	coverage := []FCAFRoleCoverage{}
 	for _, role := range fcafSuiteRoles(scope) {
 		entry := FCAFRoleCoverage{
@@ -192,16 +198,13 @@ func FCAFCoverage(
 			MissingFixtures: []string{},
 			Replays:         []FCAFReplay{},
 		}
-		if lastRun != nil {
-			if run, ran := lastRun.Roles[role.Name]; ran {
-				entry.Run = &run
-			}
-		}
 		if record, ok := byName[role.Name]; ok {
 			entry.Action, err = walletActionPath(app, record)
 			if err != nil {
 				return nil, nil, nil, err
 			}
+			// The run ran the action at its path, whatever its role's name.
+			entry.Run = lastRun.Run(entry.Action)
 			provenance := savedProvenance(record)
 			switch {
 			case provenance.FCAFRole != role.Name:

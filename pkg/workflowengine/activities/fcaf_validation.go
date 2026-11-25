@@ -210,7 +210,7 @@ func (a *FCAFValidationActivity) Execute(
 
 	reportSHA256, err := a.storeReport(ctx, input.Config, storedFCAFReport{
 		Report:       full,
-		RoleOutcomes: fcafRoleOutcomes(run, suite),
+		RoleOutcomes: fcafRoleOutcomes(a.app, run, suite),
 	})
 	if err != nil {
 		return workflowengine.ActivityResult{}, fcafReportStoreError(&a.BaseActivity, err)
@@ -248,8 +248,13 @@ type storedFCAFReport struct {
 }
 
 // fcafRoleOutcomes reads how each wallet action of the run did from its
-// definition and its steps' ends; nil without a run.
-func fcafRoleOutcomes(run *pipelinehistory.Run, suite string) *actionauthor.FCAFRoleOutcomes {
+// definition and its steps' ends, naming each action's role from its saved
+// fcaf_role; nil without a run.
+func fcafRoleOutcomes(
+	app core.App,
+	run *pipelinehistory.Run,
+	suite string,
+) *actionauthor.FCAFRoleOutcomes {
 	if run == nil {
 		return nil
 	}
@@ -271,7 +276,12 @@ func fcafRoleOutcomes(run *pipelinehistory.Run, suite string) *actionauthor.FCAF
 			scenarioFiles[aggregate.ScenarioPrefix(suite, path)] = filepath.Base(path)
 		}
 	}
-	return actionauthor.FCAFRoleOutcomesOf(run.Definition, results, scenarioFiles)
+	return actionauthor.FCAFRoleOutcomesOf(
+		run.Definition,
+		results,
+		scenarioFiles,
+		actionauthor.FCAFActionRoles(app),
+	)
 }
 
 // storeReport stores the full report on the top-level run's pipeline result and returns

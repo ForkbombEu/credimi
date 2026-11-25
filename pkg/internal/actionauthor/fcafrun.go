@@ -5,6 +5,7 @@
 package actionauthor
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
-	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
@@ -77,10 +78,13 @@ type FCAFStepOutcome struct {
 	FailedCommand string `json:"failed_command,omitempty"`
 }
 
-// FCAFRoleOutcome sums a role's step outcomes: failing when any step is
-// failing, else ok when any is ok, else not_run. FailedCommand, FixtureID and
-// StepID are those of its first failing step.
+// FCAFRoleOutcome sums the step outcomes of one wallet action: failing when
+// any step is failing, else ok when any is ok, else not_run. Action is the
+// action's path, which coverage matches against the wallet's actions; Role
+// is its FCAF role (the saved fcaf_role, else the path's base name).
+// FailedCommand, FixtureID and StepID are those of its first failing step.
 type FCAFRoleOutcome struct {
+	Action        string `json:"action"`
 	Role          string `json:"role"`
 	Status        string `json:"status"`
 	OK            int    `json:"ok"`
@@ -109,14 +113,16 @@ var maestroLabelFailed = regexp.MustCompile(
 // FCAFRoleOutcomesOf reads, from a pipeline definition and how its steps
 // ended, how every action of the pipeline's wallet did. The wallet is the
 // one of the first mobile-automation step's first action (the prelude's
-// reset); its actions are those under the same "<org>/<wallet>/" prefix,
-// each named after its role. scenarioFiles maps a scenario's step ID prefix
+// reset); its actions are those under the same "<org>/<wallet>/" prefix.
+// roleOf names an action's FCAF role ("" or a nil roleOf: the path's base
+// name). scenarioFiles maps a scenario's step ID prefix
 // (aggregate.ScenarioPrefix) to its file name. It returns nil when no step
 // runs a wallet action.
 func FCAFRoleOutcomesOf(
 	definition *pipeline.WorkflowDefinition,
 	results map[string]FCAFStepResult,
 	scenarioFiles map[string]string,
+	roleOf func(action string) string,
 ) *FCAFRoleOutcomes {
 	if definition == nil {
 		return nil
@@ -136,6 +142,20 @@ func FCAFRoleOutcomesOf(
 		Roles:        []FCAFRoleOutcome{},
 		Steps:        []FCAFStepOutcome{},
 	}
+	roles := map[string]string{}
+	role := func(action string) string {
+		name, known := roles[action]
+		if !known {
+			if roleOf != nil {
+				name = roleOf(action)
+			}
+			if name == "" {
+				name = path.Base(action)
+			}
+			roles[action] = name
+		}
+		return name
+	}
 	for _, step := range definition.Steps {
 		ids := stepActionIDs(step)
 		statuses, failedCommand := actionStatuses(ids, results[step.ID])
@@ -147,7 +167,7 @@ func FCAFRoleOutcomesOf(
 			outcome := FCAFStepOutcome{
 				StepID:    step.ID,
 				Action:    id,
-				Role:      path.Base(id),
+				Role:      role(id),
 				FixtureID: fixture,
 				Status:    statuses[i],
 			}
@@ -159,10 +179,13 @@ func FCAFRoleOutcomesOf(
 	}
 	for _, step := range outcomes.Steps {
 		index := slices.IndexFunc(outcomes.Roles, func(r FCAFRoleOutcome) bool {
-			return r.Role == step.Role
+			return r.Action == step.Action
 		})
 		if index < 0 {
-			outcomes.Roles = append(outcomes.Roles, FCAFRoleOutcome{Role: step.Role})
+			outcomes.Roles = append(outcomes.Roles, FCAFRoleOutcome{
+				Action: step.Action,
+				Role:   step.Role,
+			})
 			index = len(outcomes.Roles) - 1
 		}
 		role := &outcomes.Roles[index]
@@ -191,7 +214,7 @@ func FCAFRoleOutcomesOf(
 		}
 	}
 	slices.SortFunc(outcomes.Roles, func(a, b FCAFRoleOutcome) int {
-		return strings.Compare(a.Role, b.Role)
+		return cmp.Or(strings.Compare(a.Role, b.Role), strings.Compare(a.Action, b.Action))
 	})
 	return outcomes
 }
@@ -299,8 +322,9 @@ type FCAFRoleRun struct {
 }
 
 // FCAFRunSummary is the test summary of the wallet's last finished FCAF run.
-// Status is the run's Temporal status when it ended without a report (for
-// example Failed), empty otherwise.
+// Status is FCAFRunState.Status of a run that ended without a report
+// (completed, failed, canceled, terminated, timed_out or continued_as_new),
+// empty otherwise.
 type FCAFRunSummary struct {
 	Pass          int    `json:"pass"`
 	Fail          int    `json:"fail"`
@@ -316,16 +340,36 @@ type FCAFRunSummary struct {
 }
 
 // FCAFLastRun is the wallet's last finished FCAF run: its summary, link and
-// the outcome of each role.
+// the outcome of each wallet action it ran, keyed by the action's path.
+// NotRun, set when the run ended without a report, is the outcome of every
+// action Actions does not name.
 type FCAFLastRun struct {
 	Summary FCAFRunSummary
 	RunURL  string
-	Roles   map[string]FCAFRoleRun
+	Actions map[string]FCAFRoleRun
+	NotRun  *FCAFRoleRun
+}
+
+// Run is how the wallet action at path did in the last run; nil when the
+// run did not run it.
+func (l *FCAFLastRun) Run(path string) *FCAFRoleRun {
+	if l == nil || path == "" {
+		return nil
+	}
+	if run, ran := l.Actions[path]; ran {
+		return &run
+	}
+	if l.NotRun != nil {
+		run := *l.NotRun
+		return &run
+	}
+	return nil
 }
 
 // FCAFRunState is how a pipeline run stands in Temporal: Finished once it
-// closed, its Status (Completed, Failed, …) and, for a failed run, the step
-// failures of its close failure by step ID.
+// closed, its Status, the lowercase Temporal status (running, completed,
+// failed, canceled, terminated, timed_out or continued_as_new) and, for a
+// failed run, the step failures of its close failure by step ID.
 type FCAFRunState struct {
 	Finished bool
 	Status   string
@@ -357,15 +401,16 @@ type fcafFinishedRun struct {
 // (FCAFPipelineName of FCAFWalletPath, complete or subset). A result with a
 // stored report finished; one without asks state, and counts only once
 // finished (a nil state skips it). A report of another wallet's actions
-// (role_outcomes.wallet_prefix) is ignored. The summary and every role come
-// from the newest finished complete run (the newest subset run without
-// one); a newer subset run replaces the outcome of each role it ran. A run
-// without a report leaves every role not_run, except the reset role, failing
-// when the prelude step failed. It returns nil when there is no finished run.
+// (role_outcomes.wallet_prefix) is ignored. The summary and every action
+// come from the newest finished complete run (the newest subset run without
+// one); a newer subset run replaces the outcome of each action it ran. A run
+// without a report leaves every action not_run, except resetAction (the
+// path of the wallet's reset action), failing when the prelude step failed.
+// It returns nil when there is no finished run.
 func ReadFCAFLastRun(
 	app core.App,
 	selection Selection,
-	scope *FCAFScope,
+	resetAction string,
 	state FCAFRunStateFunc,
 ) (*FCAFLastRun, error) {
 	walletPath := FCAFWalletPath(selection)
@@ -428,7 +473,7 @@ func ReadFCAFLastRun(
 		}
 		complete, newer = &newer[0], nil
 	}
-	last := &FCAFLastRun{RunURL: complete.url, Roles: map[string]FCAFRoleRun{}}
+	last := &FCAFLastRun{RunURL: complete.url, Actions: map[string]FCAFRoleRun{}}
 	if complete.report != nil {
 		last.Summary = complete.report.Summary
 	}
@@ -439,10 +484,10 @@ func ReadFCAFLastRun(
 		complete.pipeline.GetString("canonified_name")
 	summary.Created = complete.result.GetDateTime("created").String()
 	summary.Status = complete.state.Status
-	complete.apply(last.Roles, scope, true)
+	complete.apply(last, resetAction, true)
 	// Oldest first, so the newest subset run wins.
 	for i := len(newer) - 1; i >= 0; i-- {
-		newer[i].apply(last.Roles, scope, false)
+		newer[i].apply(last, resetAction, false)
 	}
 	return last, nil
 }
@@ -487,36 +532,48 @@ func readFCAFFinishedRun(
 	return run, true, nil
 }
 
-// apply sets the outcomes of the run in roles: with all, every role of the
-// suite (a role the report did not run stays without one).
-func (r fcafFinishedRun) apply(roles map[string]FCAFRoleRun, scope *FCAFScope, all bool) {
+// apply sets the outcomes of the run's actions in last; with base, a run
+// without a report also leaves every other action not run.
+func (r fcafFinishedRun) apply(last *FCAFLastRun, resetAction string, base bool) {
 	if r.report != nil {
 		if r.report.RoleOutcomes == nil {
 			return
 		}
-		for _, role := range r.report.RoleOutcomes.Roles {
-			roles[role.Role] = FCAFRoleRun{
-				Status:        role.Status,
-				FailedSteps:   role.Failing,
-				FailedCommand: role.FailedCommand,
-				FixtureID:     role.FixtureID,
+		for _, outcome := range r.report.RoleOutcomes.Roles {
+			if outcome.Action == "" {
+				continue
+			}
+			last.Actions[outcome.Action] = FCAFRoleRun{
+				Status:        outcome.Status,
+				FailedSteps:   outcome.Failing,
+				FailedCommand: outcome.FailedCommand,
+				FixtureID:     outcome.FixtureID,
 				RunURL:        r.url,
 			}
 		}
 		return
 	}
-	reset := scope.Contract.Injected(walletroles.InjectedReset).Name
-	if all {
-		for _, role := range fcafSuiteRoles(scope) {
-			roles[role.Name] = FCAFRoleRun{Status: FCAFRunNotRun, RunURL: r.url}
-		}
+	if base {
+		last.NotRun = &FCAFRoleRun{Status: FCAFRunNotRun, RunURL: r.url}
 	}
-	if failure, failed := r.state.Failures[aggregate.PreludeStepID]; failed {
+	if failure, failed := r.state.Failures[aggregate.PreludeStepID]; failed && resetAction != "" {
 		failing := FCAFRoleRun{Status: FCAFRunFailing, FailedSteps: 1, RunURL: r.url}
 		if failure.Code == errorcodes.MobileAutomationStepError {
 			failing.FailedCommand = failedMaestroCommand(failure.Stdout)
 		}
-		roles[reset] = failing
+		last.Actions[resetAction] = failing
+	}
+}
+
+// FCAFActionRoles names the FCAF role of a wallet action path: the saved
+// fcaf_role of the action record, "" when the path resolves to none.
+func FCAFActionRoles(app core.App) func(action string) string {
+	return func(action string) string {
+		record, err := canonify.Resolve(app, action)
+		if err != nil || record == nil || record.Collection().Name != "wallet_actions" {
+			return ""
+		}
+		return savedProvenance(record).FCAFRole
 	}
 }
 

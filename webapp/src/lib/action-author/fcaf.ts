@@ -17,6 +17,7 @@ import type {
 	FcafRoleCoverage,
 	FcafRoleProgress,
 	FcafRoleRun,
+	FcafRunStatus,
 	FcafRunSummary
 } from './api';
 
@@ -204,13 +205,29 @@ export function roleRunBadge(
 	return { label: RUN_LABELS[run.status](), variant: RUN_VARIANTS[run.status] };
 }
 
+const RUN_STATUS_LABELS: Record<FcafRunStatus, () => string> = {
+	completed: m.Fcaf_run_status_completed,
+	failed: m.Fcaf_run_status_failed,
+	canceled: m.Fcaf_run_status_canceled,
+	terminated: m.Fcaf_run_status_terminated,
+	timed_out: m.Fcaf_run_status_timed_out,
+	continued_as_new: m.Fcaf_run_status_continued_as_new
+};
+
+/** The label of a finished run's status; the status itself for an unknown one. */
+export function runStatusLabel(status: string): string {
+	return Object.hasOwn(RUN_STATUS_LABELS, status)
+		? RUN_STATUS_LABELS[status as FcafRunStatus]()
+		: status;
+}
+
 /**
  * The last FCAF run's summary line: "N over M tests passed", or how the run ended when it
  * stopped before validating any test.
  */
 export function runSummaryLine(summary: FcafRunSummary): string {
 	if (summary.total === 0 && summary.status) {
-		return m.Fcaf_run_ended_without_report({ status: summary.status });
+		return m.Fcaf_run_ended_without_report({ status: runStatusLabel(summary.status) });
 	}
 	return m.Fcaf_run_summary({ pass: summary.pass, total: summary.total });
 }

@@ -6,6 +6,7 @@ package actionauthor
 
 import (
 	"encoding/json"
+	"path"
 	"testing"
 	"time"
 
@@ -87,7 +88,14 @@ func TestFCAFRoleOutcomesOf(t *testing.T) {
 		"dc-api-abcdef01":  "fcaf-dc-api.yaml",
 	}
 
-	outcomes := FCAFRoleOutcomesOf(definition, results, scenarios)
+	// The share action's saved role differs from its path's base name.
+	roleOf := func(action string) string {
+		if action == fcafRunPrefix+"fcaf-share" {
+			return "fcaf-z-share"
+		}
+		return ""
+	}
+	outcomes := FCAFRoleOutcomesOf(definition, results, scenarios, roleOf)
 	require.NotNil(t, outcomes)
 	assert.Equal(t, fcafRunPrefix, outcomes.WalletPrefix)
 	assert.Equal(t, []FCAFStepOutcome{
@@ -114,11 +122,11 @@ func TestFCAFRoleOutcomesOf(t *testing.T) {
 		},
 		{
 			StepID: "haip-vp-12345678-present", Action: fcafRunPrefix + "fcaf-share",
-			Role: "fcaf-share", FixtureID: "fcaf-haip-vp.yaml#present", Status: FCAFRunNotRun,
+			Role: "fcaf-z-share", FixtureID: "fcaf-haip-vp.yaml#present", Status: FCAFRunNotRun,
 		},
 		{
 			StepID: "dc-api-abcdef01-present", Action: fcafRunPrefix + "fcaf-share",
-			Role: "fcaf-share", FixtureID: "fcaf-dc-api.yaml#present", Status: FCAFRunNotRun,
+			Role: "fcaf-z-share", FixtureID: "fcaf-dc-api.yaml#present", Status: FCAFRunNotRun,
 		},
 		{
 			StepID: "dc-api-abcdef01-again", Action: fcafRunPrefix + "fcaf-engagement-haip-vp",
@@ -127,14 +135,24 @@ func TestFCAFRoleOutcomesOf(t *testing.T) {
 		},
 	}, outcomes.Steps)
 	assert.Equal(t, []FCAFRoleOutcome{
-		{Role: "fcaf-engagement-haip-vp", Status: FCAFRunNotRun, NotRun: 2},
 		{
-			Role: "fcaf-issue-pid", Status: FCAFRunFailing, Failing: 1,
+			Action: fcafRunPrefix + "fcaf-engagement-haip-vp",
+			Role:   "fcaf-engagement-haip-vp", Status: FCAFRunNotRun, NotRun: 2,
+		},
+		{
+			Action: fcafRunPrefix + "fcaf-issue-pid",
+			Role:   "fcaf-issue-pid", Status: FCAFRunFailing, Failing: 1,
 			FailedCommand: `Tap on "Accept"`, FixtureID: "fcaf-haip-vp.yaml#present",
 			StepID: "haip-vp-12345678-present",
 		},
-		{Role: "fcaf-reset-and-onboard", Status: FCAFRunOK, OK: 2},
-		{Role: "fcaf-share", Status: FCAFRunNotRun, NotRun: 2},
+		{
+			Action: fcafRunPrefix + "fcaf-reset-and-onboard",
+			Role:   "fcaf-reset-and-onboard", Status: FCAFRunOK, OK: 2,
+		},
+		{
+			Action: fcafRunPrefix + "fcaf-share",
+			Role:   "fcaf-z-share", Status: FCAFRunNotRun, NotRun: 2,
+		},
 	}, outcomes.Roles)
 }
 
@@ -152,6 +170,7 @@ func TestFCAFRoleOutcomesOfASingleActionAndAnUnlabeledFlow(t *testing.T) {
 		definition,
 		map[string]FCAFStepResult{"single": failed, "unlabeled": failed},
 		nil,
+		nil,
 	)
 	require.Len(t, outcomes.Steps, 3)
 	// A single action owns its flow's failure.
@@ -160,7 +179,7 @@ func TestFCAFRoleOutcomesOfASingleActionAndAnUnlabeledFlow(t *testing.T) {
 	// Without a label nothing says which action failed.
 	assert.Equal(t, FCAFRunNotRun, outcomes.Steps[1].Status)
 	assert.Equal(t, FCAFRunNotRun, outcomes.Steps[2].Status)
-	assert.Nil(t, FCAFRoleOutcomesOf(&pipeline.WorkflowDefinition{}, nil, nil))
+	assert.Nil(t, FCAFRoleOutcomesOf(&pipeline.WorkflowDefinition{}, nil, nil, nil))
 }
 
 // attachFCAFRun stores a pipeline result of owner for pipeline, with an
@@ -198,7 +217,7 @@ func attachFCAFRun(
 }
 
 // fcafRunFixture is a wallet selection of userA's organization with its FCAF
-// pipeline records.
+// pipeline records and its current actions of three roles.
 type fcafRunFixture struct {
 	app       *tests.TestApp
 	selection Selection
@@ -207,6 +226,7 @@ type fcafRunFixture struct {
 	complete  *core.Record
 	subset    *core.Record
 	prefix    string
+	actions   map[string]string // role → action path
 }
 
 func newFCAFRunFixture(t *testing.T) fcafRunFixture {
@@ -214,16 +234,76 @@ func newFCAFRunFixture(t *testing.T) fcafRunFixture {
 	app, request, namespace := authoringFixture(t)
 	selection, err := Select(app, namespace, request)
 	require.NoError(t, err)
+	return fcafRunFixtureOf(t, app, selection, namespace)
+}
+
+func fcafRunFixtureOf(
+	t *testing.T,
+	app *tests.TestApp,
+	selection Selection,
+	namespace string,
+) fcafRunFixture {
+	t.Helper()
 	fixture := fcafRunFixture{
 		app:       app,
 		selection: selection,
 		scope:     fcafTestScope(t),
 		namespace: namespace,
 		prefix:    FCAFWalletPath(selection) + "/",
+		actions:   map[string]string{},
 	}
 	fixture.complete = fixture.pipeline(t, FCAFPipelineName(FCAFWalletPath(selection), 0))
 	fixture.subset = fixture.pipeline(t, FCAFPipelineName(FCAFWalletPath(selection), 3))
+	for _, role := range []string{"fcaf-reset-and-onboard", "fcaf-issue-pid", "fcaf-engagement-haip-vp"} {
+		fixture.actions[role] = saveFCAFRunAction(t, app, selection.Organization.Id,
+			selection.Wallet.Id, fixture.scope, role)
+	}
 	return fixture
+}
+
+// saveFCAFRunAction saves owner's current FCAF action of role on the wallet
+// and returns its path.
+func saveFCAFRunAction(
+	t *testing.T,
+	app *tests.TestApp,
+	owner, walletID string,
+	scope *FCAFScope,
+	roleName string,
+) string {
+	t.Helper()
+	role, ok := scope.Contract.Role(roleName)
+	require.True(t, ok, roleName)
+	collection, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	action := core.NewRecord(collection)
+	action.Set("owner", owner)
+	action.Set("wallet", walletID)
+	action.Set("name", roleName)
+	action.Set("code", "appId: eu.wallet\n---\n- launchApp\n")
+	action.Set("category", role.Category)
+	action.Set(
+		"authoring_provenance",
+		Provenance{FCAFRole: roleName, FCAFRoleSHA256: role.SHA256()},
+	)
+	require.NoError(t, app.Save(action))
+	path, err := walletActionPath(app, action)
+	require.NoError(t, err)
+	return path
+}
+
+// outcome is how the fixture's action of role did.
+func (f fcafRunFixture) outcome(role, status string, counts ...int) FCAFRoleOutcome {
+	outcome := FCAFRoleOutcome{Action: f.actions[role], Role: role, Status: status}
+	switch status {
+	case FCAFRunFailing:
+		outcome.Failing = 1
+	case FCAFRunOK:
+		outcome.OK = 1
+	}
+	if len(counts) > 0 && status == FCAFRunFailing {
+		outcome.Failing = counts[0]
+	}
+	return outcome
 }
 
 func (f fcafRunFixture) pipeline(t *testing.T, name string) *core.Record {
@@ -272,12 +352,10 @@ func (f fcafRunFixture) coverage(
 func TestFCAFCoverageReadsOnlyTheWalletsOwnRuns(t *testing.T) {
 	f := newFCAFRunFixture(t)
 	orgID := f.selection.Organization.Id
+	failing := f.outcome("fcaf-issue-pid", FCAFRunFailing, 2)
+	failing.FailedCommand, failing.FixtureID = `Tap on "Accept"`, "f.yaml#present"
 	attachFCAFRun(t, f.app, orgID, f.complete, "own", f.report(7, f.prefix,
-		FCAFRoleOutcome{Role: "fcaf-reset-and-onboard", Status: FCAFRunOK, OK: 3},
-		FCAFRoleOutcome{
-			Role: "fcaf-issue-pid", Status: FCAFRunFailing, Failing: 2, OK: 1,
-			FailedCommand: `Tap on "Accept"`, FixtureID: "f.yaml#present",
-		},
+		f.outcome("fcaf-reset-and-onboard", FCAFRunOK), failing,
 	))
 
 	// Another organization queued its own YAML on this record.
@@ -302,7 +380,7 @@ func TestFCAFCoverageReadsOnlyTheWalletsOwnRuns(t *testing.T) {
 	attachFCAFRun(t, f.app, orgID, f.complete, "running", nil)
 
 	byRole, lastRun := f.coverage(t, func(string, string) (FCAFRunState, error) {
-		return FCAFRunState{Status: "Running"}, nil
+		return FCAFRunState{Status: "running"}, nil
 	})
 	require.NotNil(t, lastRun)
 	assert.Equal(t, 7, lastRun.Summary.Pass)
@@ -321,8 +399,9 @@ func TestFCAFCoverageReadsOnlyTheWalletsOwnRuns(t *testing.T) {
 		FixtureID:     "f.yaml#present",
 		RunURL:        lastRun.RunURL,
 	}, *byRole["fcaf-issue-pid"].Run)
-	assert.Equal(t, FCAFMissing, byRole["fcaf-issue-pid"].Status)
+	assert.Equal(t, FCAFCurrent, byRole["fcaf-issue-pid"].Status)
 	assert.Nil(t, byRole["fcaf-engagement-haip-vp"].Run)
+	assert.Nil(t, byRole["fcaf-expect-request-rejected"].Run, "a role without an action")
 }
 
 // TestFCAFCoverageReadsARunThatEndedWithoutAReport pins that a finished run
@@ -332,26 +411,26 @@ func TestFCAFCoverageReadsARunThatEndedWithoutAReport(t *testing.T) {
 	f := newFCAFRunFixture(t)
 	orgID := f.selection.Organization.Id
 	attachFCAFRun(t, f.app, orgID, f.complete, "older", f.report(7, f.prefix,
-		FCAFRoleOutcome{Role: "fcaf-issue-pid", Status: FCAFRunOK, OK: 1},
+		f.outcome("fcaf-issue-pid", FCAFRunOK),
 	))
 	attachFCAFRun(t, f.app, orgID, f.complete, "prelude-failed", nil)
 	attachFCAFRun(t, f.app, orgID, f.complete, "running", nil)
 	states := map[string]FCAFRunState{
 		"prelude-failed": {
 			Finished: true,
-			Status:   "Failed",
+			Status:   "failed",
 			Failures: map[string]StepFailure{"onboard-reference-wallet": {
 				Code:   errorcodes.MobileAutomationStepError,
 				Stdout: "Launch app \"eu.wallet\"... FAILED\n",
 			}},
 		},
-		"running": {Status: "Running"},
+		"running": {Status: "running"},
 	}
 	byRole, lastRun := f.coverage(t, func(workflowID, _ string) (FCAFRunState, error) {
 		return states[workflowID], nil
 	})
 	require.NotNil(t, lastRun)
-	assert.Equal(t, "Failed", lastRun.Summary.Status)
+	assert.Equal(t, "failed", lastRun.Summary.Status)
 	assert.Zero(t, lastRun.Summary.Total)
 	assert.Contains(t, lastRun.RunURL, "/prelude-failed/")
 	assert.Equal(t, FCAFRoleRun{
@@ -361,7 +440,11 @@ func TestFCAFCoverageReadsARunThatEndedWithoutAReport(t *testing.T) {
 		RunURL:        lastRun.RunURL,
 	}, *byRole["fcaf-reset-and-onboard"].Run)
 	for name, role := range byRole {
-		if name != "fcaf-reset-and-onboard" {
+		switch {
+		case name == "fcaf-reset-and-onboard":
+		case role.Action == "":
+			assert.Nil(t, role.Run, name)
+		default:
 			require.NotNil(t, role.Run, name)
 			assert.Equal(t, FCAFRunNotRun, role.Run.Status, name)
 		}
@@ -379,18 +462,15 @@ func TestFCAFCoverageKeepsTheCompleteRunUnderNewerSubsets(t *testing.T) {
 	f := newFCAFRunFixture(t)
 	orgID := f.selection.Organization.Id
 	attachFCAFRun(t, f.app, orgID, f.subset, "subset-old", f.report(1, f.prefix,
-		FCAFRoleOutcome{Role: "fcaf-engagement-haip-vp", Status: FCAFRunFailing, Failing: 1},
+		f.outcome("fcaf-engagement-haip-vp", FCAFRunFailing),
 	))
 	attachFCAFRun(t, f.app, orgID, f.complete, "complete", f.report(20, f.prefix,
-		FCAFRoleOutcome{Role: "fcaf-reset-and-onboard", Status: FCAFRunOK, OK: 9},
-		FCAFRoleOutcome{Role: "fcaf-issue-pid", Status: FCAFRunOK, OK: 9},
-		FCAFRoleOutcome{Role: "fcaf-engagement-haip-vp", Status: FCAFRunOK, OK: 1},
+		f.outcome("fcaf-reset-and-onboard", FCAFRunOK),
+		f.outcome("fcaf-issue-pid", FCAFRunOK),
+		f.outcome("fcaf-engagement-haip-vp", FCAFRunOK),
 	))
 	attachFCAFRun(t, f.app, orgID, f.subset, "subset-new", f.report(2, f.prefix,
-		FCAFRoleOutcome{
-			Role: "fcaf-issue-pid", Status: FCAFRunFailing, Failing: 1,
-			FailedCommand: `Tap on "Accept"`,
-		},
+		f.outcome("fcaf-issue-pid", FCAFRunFailing),
 	))
 	byRole, lastRun := f.coverage(t, nil)
 	require.NotNil(t, lastRun)
@@ -401,6 +481,48 @@ func TestFCAFCoverageKeepsTheCompleteRunUnderNewerSubsets(t *testing.T) {
 	assert.Equal(t, FCAFRunOK, byRole["fcaf-reset-and-onboard"].Run.Status)
 	// The subset older than the complete run changes nothing.
 	assert.Equal(t, FCAFRunOK, byRole["fcaf-engagement-haip-vp"].Run.Status)
+}
+
+// TestFCAFCoverageMatchesRunsByActionPath reads back a run of the caller's
+// actions on another organization's published wallet: they live under the
+// wallet owner's path with a suffix (the owner has actions of the same
+// names), and coverage matches the run's outcomes by that path.
+func TestFCAFCoverageMatchesRunsByActionPath(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	owner, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
+	require.NoError(t, err)
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", owner.Id)
+	wallet.Set("name", "Published FCAF wallet")
+	wallet.Set("published", true)
+	require.NoError(t, app.Save(wallet))
+	scope := fcafTestScope(t)
+	ownersPath := saveFCAFRunAction(t, app, owner.Id, wallet.Id, scope, "fcaf-issue-pid")
+	selection, err := SelectWallet(
+		app,
+		namespace,
+		request.Actor,
+		owner.GetString("canonified_name")+"/"+wallet.GetString("canonified_name"),
+	)
+	require.NoError(t, err)
+	f := fcafRunFixtureOf(t, app, selection, namespace)
+	require.NotEqual(t, ownersPath, f.actions["fcaf-issue-pid"])
+	require.Equal(t, path.Dir(ownersPath), path.Dir(f.actions["fcaf-issue-pid"]))
+	require.NotEqual(t, "fcaf-issue-pid", path.Base(f.actions["fcaf-issue-pid"]))
+
+	attachFCAFRun(t, app, selection.Organization.Id, f.complete, "foreign", f.report(3, f.prefix,
+		f.outcome("fcaf-issue-pid", FCAFRunFailing),
+		// The owner's action of the same role is not the caller's.
+		FCAFRoleOutcome{Action: ownersPath, Role: "fcaf-issue-pid", Status: FCAFRunOK, OK: 1},
+	))
+	byRole, lastRun := f.coverage(t, nil)
+	require.NotNil(t, lastRun)
+	require.Equal(t, f.actions["fcaf-issue-pid"], byRole["fcaf-issue-pid"].Action)
+	require.NotNil(t, byRole["fcaf-issue-pid"].Run)
+	assert.Equal(t, FCAFRunFailing, byRole["fcaf-issue-pid"].Run.Status)
+	assert.Nil(t, byRole["fcaf-reset-and-onboard"].Run)
 }
 
 func TestFCAFWrittenActions(t *testing.T) {

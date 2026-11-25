@@ -226,12 +226,6 @@ func pipelineIdentifier(fields map[string]*commonpb.Payload) string {
 	return workflowengine.NormalizePipelineIdentifier(identifier)
 }
 
-// pipelineFailureDetails is the details of a pipeline's close failure:
-// one WorkflowError per failed step, carrying its details.step_id.
-type pipelineFailureDetails struct {
-	Errors []workflowengine.WorkflowError `json:"errors"`
-}
-
 // readFailures reads the failed run's close failure and sorts the failed
 // steps, in pipeline order, into wallet action failures and other failures.
 func (a *ReadActionAuthorPipelineRunActivity) readFailures(
@@ -245,12 +239,10 @@ func (a *ReadActionAuthorPipelineRunActivity) readFailures(
 		return lookupError(&a.BaseActivity, err)
 	}
 	// A failure without step errors, such as a definition that did not
-	// parse, has only its own message.
-	details, decodeErr := workflowengine.DecodePayload[pipelineFailureDetails](failure.Details)
-	if decodeErr != nil {
-		details.Errors = nil
-	}
-	if len(details.Errors) == 0 {
+	// parse, has only its own message. An entry without a step_id is kept,
+	// as an unknown step.
+	stepErrors := workflowengine.FailureErrors(failure)
+	if len(stepErrors) == 0 {
 		output.OtherFailures = append(output.OtherFailures, failureMessage(failure))
 		return nil
 	}
@@ -258,8 +250,8 @@ func (a *ReadActionAuthorPipelineRunActivity) readFailures(
 	if err != nil {
 		return lookupError(&a.BaseActivity, err)
 	}
-	byStep := make(map[string]workflowengine.WorkflowError, len(details.Errors))
-	for _, stepError := range details.Errors {
+	byStep := make(map[string]workflowengine.WorkflowError, len(stepErrors))
+	for _, stepError := range stepErrors {
 		stepID, _ := stepError.Details["step_id"].(string)
 		if _, seen := byStep[stepID]; !seen {
 			byStep[stepID] = stepError
@@ -294,7 +286,7 @@ func (a *ReadActionAuthorPipelineRunActivity) readFailures(
 		}
 		output.Failures = append(output.Failures, described)
 	}
-	for _, stepError := range details.Errors {
+	for _, stepError := range stepErrors {
 		stepID, _ := stepError.Details["step_id"].(string)
 		if _, unmatched := byStep[stepID]; unmatched {
 			delete(byStep, stepID)
@@ -349,10 +341,7 @@ func FCAFRunState(
 	status := described.GetWorkflowExecutionInfo().GetStatus()
 	state := actionauthor.FCAFRunState{
 		Finished: status != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
-		Status: strings.TrimPrefix(
-			enumspb.WorkflowExecutionStatus_name[int32(status)],
-			executionStatusPrefix,
-		),
+		Status:   fcafRunStatus(status),
 		Failures: map[string]actionauthor.StepFailure{},
 	}
 	if status != enumspb.WORKFLOW_EXECUTION_STATUS_FAILED {
@@ -372,6 +361,16 @@ func FCAFRunState(
 		}
 	}
 	return state, nil
+}
+
+// fcafRunStatus is the lowercase status name of FCAFRunState.Status:
+// running, completed, failed, canceled, terminated, timed_out or
+// continued_as_new.
+func fcafRunStatus(status enumspb.WorkflowExecutionStatus) string {
+	return strings.ToLower(strings.TrimPrefix(
+		enumspb.WorkflowExecutionStatus_name[int32(status)],
+		executionStatusPrefix,
+	))
 }
 
 // failureMessage is a step failure's message, or its summary without one.

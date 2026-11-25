@@ -258,12 +258,36 @@ func TestFCAFValidationActivityStoresRoleOutcomes(t *testing.T) {
 	}, stored.RoleOutcomes.Steps)
 	require.Equal(t, []actionauthor.FCAFRoleOutcome{
 		{
-			Role: "fcaf-engagement-haip-vp", Status: actionauthor.FCAFRunFailing, Failing: 1,
+			Action: outcomeWallet + "fcaf-engagement-haip-vp",
+			Role:   "fcaf-engagement-haip-vp", Status: actionauthor.FCAFRunFailing, Failing: 1,
 			FailedCommand: `Tap on "Share"`, FixtureID: fixture + "present",
 			StepID: prefix + "-present",
 		},
-		{Role: "fcaf-expect-request-rejected", Status: actionauthor.FCAFRunNotRun, NotRun: 1},
-		{Role: "fcaf-issue-pid", Status: actionauthor.FCAFRunOK, OK: 1},
-		{Role: "fcaf-reset-and-onboard", Status: actionauthor.FCAFRunOK, OK: 1},
+		{
+			Action: outcomeWallet + "fcaf-expect-request-rejected",
+			Role:   "fcaf-expect-request-rejected", Status: actionauthor.FCAFRunNotRun, NotRun: 1,
+		},
+		{
+			Action: outcomeWallet + "fcaf-issue-pid",
+			Role:   "fcaf-issue-pid", Status: actionauthor.FCAFRunOK, OK: 1,
+		},
+		{
+			Action: outcomeWallet + "fcaf-reset-and-onboard",
+			Role:   "fcaf-reset-and-onboard", Status: actionauthor.FCAFRunOK, OK: 1,
+		},
 	}, stored.RoleOutcomes.Roles)
+}
+
+func TestFCAFRunStatusIsTheLowercaseTemporalStatus(t *testing.T) {
+	for status, want := range map[enums.WorkflowExecutionStatus]string{
+		enums.WORKFLOW_EXECUTION_STATUS_RUNNING:          "running",
+		enums.WORKFLOW_EXECUTION_STATUS_COMPLETED:        "completed",
+		enums.WORKFLOW_EXECUTION_STATUS_FAILED:           "failed",
+		enums.WORKFLOW_EXECUTION_STATUS_CANCELED:         "canceled",
+		enums.WORKFLOW_EXECUTION_STATUS_TERMINATED:       "terminated",
+		enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT:        "timed_out",
+		enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW: "continued_as_new",
+	} {
+		require.Equal(t, want, fcafRunStatus(status))
+	}
 }

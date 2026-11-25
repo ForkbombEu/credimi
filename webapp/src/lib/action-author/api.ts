@@ -138,9 +138,18 @@ export type FcafRunSummary = {
 	total: number;
 	pipeline: string;
 	created: string;
-	/** The run's Temporal status when it ended without a report (for example Failed), empty otherwise. */
-	status: string;
+	/** How a run that ended without a report ended (empty otherwise): the lowercase Temporal status. */
+	status: '' | FcafRunStatus;
 };
+
+/** The lowercase Temporal status of a finished FCAF run. */
+export type FcafRunStatus =
+	| 'completed'
+	| 'failed'
+	| 'canceled'
+	| 'terminated'
+	| 'timed_out'
+	| 'continued_as_new';
 
 /** FCAF relying-party coverage of a wallet (GET /api/action-author/fcaf-coverage). */
 export type FcafCoverage = {

@@ -148,9 +148,12 @@ describe('runSummaryLine', () => {
 			total: 0,
 			pipeline: 'org/fcaf-relying-party-validation-w',
 			created: '2026-11-25 10:00:00.000Z',
-			status: 'Failed'
+			status: 'timed_out'
 		};
-		expect(runSummaryLine(summary)).toBe('Failed before validating any test');
+		expect(runSummaryLine(summary)).toBe('Timed out before validating any test');
+		expect(runSummaryLine({ ...summary, status: 'failed' })).toBe(
+			'Failed before validating any test'
+		);
 	});
 });
 
