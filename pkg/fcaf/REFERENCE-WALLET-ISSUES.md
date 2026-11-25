@@ -1450,3 +1450,44 @@ Resolved on production by 27/10/2026: in the Credimi run of that day
 credential-request-denied session was status `400` with media type
 `application/json` and `error: credential_request_denied`, and
 `WS_AP_IA_MainInteraction_031b_UF` passed.
+
+## RI-WALLET-032: A claims-path no-match is not returned to the verifier
+
+### Summary
+
+When a DCQL query asks for a claim no held credential has, the reference
+Android wallet shows its no-match notice but never answers the verifier: it
+posts no `access_denied` Authorization Error Response.
+
+### Reproduction
+
+25/11/2026, Pixel 7a, wallet 2026.09.42, production Capture, during an action
+author FCAF campaign on the EUDI test wallet: replay `fcaf-expect-no-matching-document`
+on the `claims-path-no-match` request of
+`scenarios/fcaf-wallet-solution-relying-party-dcql-claims-path-no-match.yaml`
+(credential query for `claim_that_does_not_exist`, with `claim_sets:
+[[missing_claim]]`) after a PID issuance.
+
+### Observed
+
+- The wallet fetches the Request Object and shows its no-match notice (the
+  action's `no-match-notice` screenshot is stored). On this version the notice
+  is the "Data sharing request" screen with "The requested document is not
+  available in your EUDI Wallet.", an enabled Share and no "Requested data"
+  list (seen on the device for an mdoc request the wallet cannot match).
+- The Capture session stays at `request_retrieved`; no POST reaches
+  `response_uri`.
+
+### Expected
+
+`WS_RP_MS_ProtocolMessages__106` source, expected result 3: "The Wallet
+correctly identifies that no credentials satisfy the query and returns
+access_denied (with the description that no credentials match)."
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_ProtocolMessages__106` fails on
+  `ws_rp_ms_protocolmessages__106_returns_access_denied`
+  (`dcql.response_satisfies_constraints` mode `access_denied_required`); the
+  no-match notice screenshot is captured.
+- Same behaviour class as RI-WALLET-006 (no error returned to the verifier).

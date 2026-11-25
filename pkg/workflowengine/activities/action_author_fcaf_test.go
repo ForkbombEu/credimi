@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
+	"github.com/forkbombeu/credimi/pkg/fcaf/validators"
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -546,4 +548,30 @@ func TestSaveAuthoredWalletActionBindsTheFCAFProfileAndResult(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, profile, receipt.Provenance.FCAFProfile)
 	require.Equal(t, result, receipt.Provenance.FCAFResult)
+}
+
+func TestFCAFEvidenceStatusIgnoresNotApplicableAndSkippedTests(t *testing.T) {
+	report := func(statuses ...validators.Status) engine.Report {
+		r := engine.Report{Status: "failed"}
+		for i, status := range statuses {
+			r.Tests = append(r.Tests, engine.TestResult{ID: string(rune('a' + i)), Status: status})
+		}
+		return r
+	}
+	// The pipeline report says failed whenever a test did not pass; a not
+	// applicable or skipped test is not a wallet finding.
+	require.Equal(t, "passed", evidenceOutput(report(
+		validators.StatusPass, validators.StatusNotApplicable, validators.StatusSkipped,
+	)).Status)
+	for _, status := range []validators.Status{
+		validators.StatusFail, validators.StatusBlocked, validators.StatusError,
+		validators.StatusInconclusive,
+	} {
+		require.Equal(
+			t,
+			"failed",
+			evidenceOutput(report(validators.StatusPass, status)).Status,
+			status,
+		)
+	}
 }

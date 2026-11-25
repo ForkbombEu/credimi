@@ -617,10 +617,12 @@ func (a *CheckActionAuthorFCAFEvidenceActivity) evidenceContext(
 }
 
 // evidenceOutput is the verdict of every test of report and its assertions
-// that did not pass.
+// that did not pass. Its status is "failed" only when a test failed, errored,
+// was blocked or inconclusive: unlike the pipeline report, a test that is
+// skipped or not applicable is not a wallet finding.
 func evidenceOutput(report engine.Report) CheckActionAuthorFCAFEvidenceOutput {
 	output := CheckActionAuthorFCAFEvidenceOutput{
-		Status: report.Status,
+		Status: "passed",
 		Tests:  make([]FCAFEvidenceTestResult, 0, len(report.Tests)),
 	}
 	for _, test := range report.Tests {
@@ -642,6 +644,11 @@ func evidenceOutput(report engine.Report) CheckActionAuthorFCAFEvidenceOutput {
 			})
 		}
 		output.Tests = append(output.Tests, result)
+		switch test.Status {
+		case validators.StatusPass, validators.StatusSkipped, validators.StatusNotApplicable:
+		default:
+			output.Status = "failed"
+		}
 	}
 	return output
 }
