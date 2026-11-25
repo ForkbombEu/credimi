@@ -710,8 +710,10 @@ func TestValidateCodeAcceptsFCAFReferences(t *testing.T) {
 
 func TestValidateCodeFCAF(t *testing.T) {
 	scope := fcafTestScope(t)
-	// Every role that launches the wallet starts with launchApp.
+	// Every role that launches the wallet starts with launchApp; one that launches
+	// nothing starts without it.
 	const header = "appId: eu.europa.ec.euidi\n---\n- launchApp\n"
+	const unlaunched = "appId: eu.europa.ec.euidi\n---\n"
 	cases := []struct {
 		name    string
 		role    string
@@ -743,7 +745,7 @@ func TestValidateCodeFCAF(t *testing.T) {
 		{
 			name: "missing contract screenshot",
 			role: "fcaf-engagement-haip-vp",
-			code: header + "- openLink: ${deeplink}\n- assertVisible: \"Share\"\n" +
+			code: unlaunched + "- openLink: ${deeplink}\n- assertVisible: \"Share\"\n" +
 				"- takeScreenshot: fcaf-engagement-haip-vp-invoked\n- tapOn: \"Share\"\n" +
 				"- assertVisible: \"shared\"\n",
 			want: []string{"the FCAF role fcaf-engagement-haip-vp must store the screenshot " +
@@ -753,7 +755,7 @@ func TestValidateCodeFCAF(t *testing.T) {
 		{
 			name: "gated screenshot before any check",
 			role: "fcaf-engagement-haip-vp",
-			code: header + "- openLink: ${deeplink}\n" +
+			code: unlaunched + "- openLink: ${deeplink}\n" +
 				"- takeScreenshot: fcaf-engagement-haip-vp-invoked\n- tapOn: \"Share\"\n" +
 				"- assertVisible: \"shared\"\n- takeScreenshot: fcaf-engagement-haip-vp-shared\n",
 			want: []string{"screenshot fcaf-engagement-haip-vp-invoked must be taken after a " +
@@ -831,6 +833,16 @@ func TestValidateCodeFCAF(t *testing.T) {
 			want: []string{
 				"the role launches the wallet: start the action with launchApp of eu.europa.ec.euidi",
 				"commands[0]: launchApp targets 'com.android.chrome', not the app under test",
+			},
+		},
+		{
+			name: "launch of the wallet in a role that launches nothing",
+			role: "fcaf-engagement-haip-vp",
+			code: header + "- openLink: ${deeplink}\n- assertVisible: \"Share\"\n" +
+				"- takeScreenshot: fcaf-engagement-haip-vp-invoked\n- tapOn: \"Share\"\n" +
+				"- assertVisible: \"shared\"\n- takeScreenshot: fcaf-engagement-haip-vp-shared\n",
+			want: []string{
+				"the role does not launch the wallet: start like the reference, without launchApp",
 			},
 		},
 		{

@@ -843,11 +843,15 @@ func (v *codeValidator) fcafHeader(header *yaml.Node, scope *FCAFCodeScope) {
 
 // fcafLaunch requires a role that launches the wallet to run, at top level, a
 // launchApp whose target is the wallet package: its scalar argument, else its
-// appId, else the header appId.
+// appId, else the header appId. A role that launches nothing must not run one:
+// it starts like its reference flow.
 func (v *codeValidator) fcafLaunch(header, commands *yaml.Node, scope *FCAFCodeScope) {
 	wallet := scope.Packages[walletroles.AppWallet]
-	if commands == nil || wallet == "" ||
-		!slices.Contains(scope.Role.LaunchApps, walletroles.AppWallet) {
+	if commands == nil || wallet == "" {
+		return
+	}
+	launchesWallet := slices.Contains(scope.Role.LaunchApps, walletroles.AppWallet)
+	if !launchesWallet && len(scope.Role.LaunchApps) > 0 {
 		return
 	}
 	headerApp := ""
@@ -856,6 +860,7 @@ func (v *codeValidator) fcafLaunch(header, commands *yaml.Node, scope *FCAFCodeS
 			headerApp = appID.Value
 		}
 	}
+	launched := false
 	for _, item := range commands.Content {
 		name, arg, ok := codeCommand(item)
 		if !ok || name != "launchApp" {
@@ -871,10 +876,16 @@ func (v *codeValidator) fcafLaunch(header, commands *yaml.Node, scope *FCAFCodeS
 			}
 		}
 		if target == wallet {
-			return
+			launched = true
+			break
 		}
 	}
-	v.add("the role launches the wallet: start the action with launchApp of " + wallet)
+	switch {
+	case launchesWallet && !launched:
+		v.add("the role launches the wallet: start the action with launchApp of " + wallet)
+	case !launchesWallet && launched:
+		v.add("the role does not launch the wallet: start like the reference, without launchApp")
+	}
 }
 
 // fcafScreenshotPhrases says where each contract screenshot condition is taken.
