@@ -11,6 +11,7 @@ import {
 	canAccept,
 	canSend,
 	decidedActions,
+	fcafReplays,
 	reviewDecisions,
 	startingName,
 	type Choices
@@ -252,5 +253,19 @@ describe('reviewDecisions', () => {
 		expect(decisions[1]).not.toHaveProperty('fcaf_replays');
 		expect(decisions[2]).not.toHaveProperty('fcaf_replays');
 		expect(decisions[3]).not.toHaveProperty('fcaf_replays');
+	});
+});
+
+describe('fcafReplays', () => {
+	const replays = [{ fixture: 's#a', class: 'mso_mdoc, openid4vp://', status: 'passed' as const }];
+
+	it('lists the replays of an FCAF action', () => {
+		expect(fcafReplays({ plan: { fcaf_role: 'fcaf-x' }, fcaf_replays: replays })).toEqual(replays);
+		expect(fcafReplays({ plan: { fcaf_role: 'fcaf-x' } })).toEqual([]);
+	});
+
+	it('lists none for another action', () => {
+		expect(fcafReplays({ plan: { slot: 'onboarding' }, fcaf_replays: replays })).toEqual([]);
+		expect(fcafReplays({ plan: null, fcaf_replays: replays })).toEqual([]);
 	});
 });

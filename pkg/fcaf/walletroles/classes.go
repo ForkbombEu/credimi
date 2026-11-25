@@ -12,8 +12,9 @@ import (
 )
 
 // The request fields a fixture's behaviour class can be built from: what the
-// wallet can show for a verifier request. A request without a scheme asks
-// for Capture's default, OpenID4VPRequestScheme.
+// wallet can show for a verifier request or a credential offer. A request
+// without a scheme asks for Capture's default, OpenID4VPRequestScheme; an
+// offer without offer_scheme for CredentialOfferScheme.
 const (
 	// ClassFieldFormats: the formats of dcql_query.credentials, sorted, with counts.
 	ClassFieldFormats = "dcql_query.credentials.format"
@@ -27,7 +28,15 @@ const (
 	ClassFieldResponseContentType = "response_scenario.content_type"
 	// ClassFieldRedirectURI: whether the verifier sends the wallet a redirect_uri.
 	ClassFieldRedirectURI = "redirect_uri"
+	// ClassFieldOfferFormat: the format of the credential an offer issues.
+	ClassFieldOfferFormat = "offer_format"
+	// ClassFieldOfferScheme: the URL scheme of the offer deeplink.
+	ClassFieldOfferScheme = "offer_scheme"
 )
+
+// CredentialOfferScheme is the offer deeplink scheme Capture uses when an
+// offer names no offer_scheme.
+const CredentialOfferScheme = "openid-credential-offer://"
 
 // ClassFields lists the known class fields, in the order a class label
 // names them.
@@ -38,6 +47,8 @@ var ClassFields = []string{
 	ClassFieldResponseStatus,
 	ClassFieldResponseContentType,
 	ClassFieldRedirectURI,
+	ClassFieldOfferFormat,
+	ClassFieldOfferScheme,
 }
 
 // anyRequestClass is the class of a request none of the class fields tells
@@ -46,17 +57,21 @@ const anyRequestClass = "any request"
 
 // Class returns the behaviour class of a fixture request body: a short
 // label built only from the contract's authoring_class_fields, never empty.
-// The DCQL query is presentation_request.dcql_query when present, else the
-// top-level dcql_query; the scheme is the top-level one, else the
-// presentation request's, else OpenID4VPRequestScheme.
+// A body without presentation_request and dcql_query is a credential offer
+// (offerClass). The DCQL query is presentation_request.dcql_query when
+// present, else the top-level dcql_query; the scheme is the top-level one,
+// else OpenID4VPRequestScheme (Capture ignores a nested scheme).
 func (c *Contract) Class(body any) string {
 	request, _ := body.(map[string]any)
-	presentation, _ := request["presentation_request"].(map[string]any)
+	listed := func(field string) bool { return slices.Contains(c.AuthoringClassFields, field) }
+	presentation, isPresentation := request["presentation_request"].(map[string]any)
 	query, ok := presentation["dcql_query"].(map[string]any)
 	if !ok {
-		query, _ = request["dcql_query"].(map[string]any)
+		query, ok = request["dcql_query"].(map[string]any)
 	}
-	listed := func(field string) bool { return slices.Contains(c.AuthoringClassFields, field) }
+	if !isPresentation && !ok {
+		return offerClass(request, listed)
+	}
 	parts := []string{}
 	if listed(ClassFieldFormats) {
 		parts = append(parts, credentialFormats(query))
@@ -65,7 +80,7 @@ func (c *Contract) Class(body any) string {
 		parts = append(parts, "with credential_sets")
 	}
 	if listed(ClassFieldScheme) {
-		parts = append(parts, requestScheme(request, presentation))
+		parts = append(parts, requestScheme(request))
 	}
 	response, _ := request["response_scenario"].(map[string]any)
 	reply := []string{}
@@ -117,14 +132,33 @@ func credentialFormats(query map[string]any) string {
 
 // requestScheme is the scheme a request asks for, Capture's default when it
 // names none.
-func requestScheme(request, presentation map[string]any) string {
+func requestScheme(request map[string]any) string {
 	if scheme, _ := request["scheme"].(string); scheme != "" {
 		return scheme
 	}
-	if scheme, _ := presentation["scheme"].(string); scheme != "" {
-		return scheme
-	}
 	return OpenID4VPRequestScheme
+}
+
+// offerClass is the class of a credential offer body: "credential offer",
+// then the format of the credential it issues (mso_mdoc or dc+sd-jwt, from
+// offerFormat) and its offer_scheme, CredentialOfferScheme when absent.
+func offerClass(request map[string]any, listed func(string) bool) string {
+	parts := []string{"credential offer"}
+	if listed(ClassFieldOfferFormat) {
+		format := "dc+sd-jwt"
+		if offerFormat(request) == pidFormatMdoc {
+			format = "mso_mdoc"
+		}
+		parts = append(parts, format)
+	}
+	if listed(ClassFieldOfferScheme) {
+		scheme, _ := request["offer_scheme"].(string)
+		if scheme == "" {
+			scheme = CredentialOfferScheme
+		}
+		parts = append(parts, scheme)
+	}
+	return strings.Join(parts, ", ")
 }
 
 // AuthoringFixtures returns one representative fixture per behaviour class:
@@ -191,8 +225,8 @@ func startRank(fixture Fixture) int {
 // the wallet's PID issuer among them), for any other role AuthoringFixtures
 // then the role's pinned authoring_fixtures that are not representatives,
 // in Fixtures order. A pinned ID that is not a fixture of the role is an error.
-func (c *Contract) AuthoringSet(suite, roleName string) ([]Fixture, error) {
-	fixtures, err := c.Fixtures(c.root, suite, roleName)
+func (c *Contract) AuthoringSet(fcafRoot, suite, roleName string) ([]Fixture, error) {
+	fixtures, err := c.Fixtures(fcafRoot, suite, roleName)
 	if err != nil {
 		return nil, err
 	}

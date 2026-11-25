@@ -17,9 +17,10 @@ const fcafTestSuite = "wallet_solution/relying_party"
 // fcafTestScope is the relying-party scope of the repository contract.
 func fcafTestScope(t *testing.T) *FCAFScope {
 	t.Helper()
-	contract, err := walletroles.Load("../../../config_templates/fcaf")
+	const root = "../../../config_templates/fcaf"
+	contract, err := walletroles.Load(root)
 	require.NoError(t, err)
-	return &FCAFScope{Contract: contract, Suite: fcafTestSuite}
+	return &FCAFScope{Contract: contract, Root: root, Suite: fcafTestSuite}
 }
 
 func deeplinkParameter() []ParameterSpec {

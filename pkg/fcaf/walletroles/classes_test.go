@@ -48,12 +48,12 @@ func TestClass(t *testing.T) {
 				"verifier replies 400 application/json, with redirect_uri",
 		},
 		{
-			name:     "scheme of the presentation request",
+			name:     "a nested scheme is ignored",
 			contract: all,
 			body: map[string]any{"presentation_request": map[string]any{
 				"scheme": "eu-eaap://", "dcql_query": nil,
 			}},
-			want: "no dcql credentials, eu-eaap://",
+			want: "no dcql credentials, openid4vp://",
 		},
 		{
 			name:     "only listed fields",
@@ -67,8 +67,32 @@ func TestClass(t *testing.T) {
 		{
 			name:     "nothing listed tells it apart",
 			contract: &Contract{AuthoringClassFields: []string{ClassFieldRedirectURI}},
-			body:     map[string]any{},
+			body:     map[string]any{"presentation_request": map[string]any{}},
 			want:     "any request",
+		},
+		{
+			name:     "mdoc offer, default offer scheme",
+			contract: all,
+			body: map[string]any{
+				"credential_configuration_id": "eu.europa.ec.eudi.pid_mdoc",
+				"tx_code":                     "1234",
+			},
+			want: "credential offer, mso_mdoc, openid-credential-offer://",
+		},
+		{
+			name:     "sd-jwt offer, offer scheme",
+			contract: all,
+			body: map[string]any{
+				"credential_configuration_id": "eu.europa.ec.eudi.pid_vc_sd_jwt",
+				"offer_scheme":                "haip-vci://",
+			},
+			want: "credential offer, dc+sd-jwt, haip-vci://",
+		},
+		{
+			name:     "offer without listed offer fields",
+			contract: &Contract{AuthoringClassFields: []string{ClassFieldScheme}},
+			body:     map[string]any{"credential_configuration_id": "x_mdoc"},
+			want:     "credential offer",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -102,14 +126,14 @@ func TestAuthoringSet(t *testing.T) {
 	const suite, roleName = "wallet_solution/relying_party", "fcaf-engagement-haip-vp"
 
 	issuance := contract.Injected(InjectedIssuance).Name
-	pids, err := contract.AuthoringSet(suite, issuance)
+	pids, err := contract.AuthoringSet(repositoryRoot, suite, issuance)
 	require.NoError(t, err)
 	all, err := contract.Fixtures(repositoryRoot, suite, issuance)
 	require.NoError(t, err)
 	assert.Equal(t, all, pids, "the PID issuance keeps every fixture, in order")
 	assert.Equal(t, PIDIssuerKeyAttestation, pids[0].PIDIssuer)
 
-	set, err := contract.AuthoringSet(suite, roleName)
+	set, err := contract.AuthoringSet(repositoryRoot, suite, roleName)
 	require.NoError(t, err)
 	fixtures, err := contract.Fixtures(repositoryRoot, suite, roleName)
 	require.NoError(t, err)
@@ -126,7 +150,7 @@ func TestAuthoringSet(t *testing.T) {
 			contract.Roles[i].AuthoringFixtures = []string{pinned}
 		}
 	}
-	withPin, err := contract.AuthoringSet(suite, roleName)
+	withPin, err := contract.AuthoringSet(repositoryRoot, suite, roleName)
 	require.NoError(t, err)
 	require.Len(t, withPin, len(set)+1)
 	assert.Equal(t, pinned, withPin[len(set)].ID)
@@ -136,6 +160,6 @@ func TestAuthoringSet(t *testing.T) {
 			contract.Roles[i].AuthoringFixtures = []string{"unknown#step"}
 		}
 	}
-	_, err = contract.AuthoringSet(suite, roleName)
+	_, err = contract.AuthoringSet(repositoryRoot, suite, roleName)
 	require.ErrorContains(t, err, `authoring fixture "unknown#step"`)
 }

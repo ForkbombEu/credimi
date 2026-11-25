@@ -250,7 +250,7 @@ func TestRepositoryContract(t *testing.T) {
 					return f.ID == id
 				}), "role %q pins %q, which is not one of its fixtures", role.Name, id)
 			}
-			set, err := contract.AuthoringSet(suite, role.Name)
+			set, err := contract.AuthoringSet(repositoryRoot, suite, role.Name)
 			require.NoError(t, err, role.Name)
 			represented := map[string]bool{}
 			for _, fixture := range set {

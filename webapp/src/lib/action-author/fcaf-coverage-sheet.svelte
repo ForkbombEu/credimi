@@ -120,6 +120,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									<p class="text-xs break-words whitespace-pre-wrap">
 										{m.Review_agent_note()}: {role.note}
 									</p>
+								{:else if verdict === 'incomplete' && role.missing_fixtures.length}
+									<p class="font-mono text-xs break-all text-muted-foreground">
+										{m.Fcaf_coverage_missing_fixtures({
+											fixtures: role.missing_fixtures.join(', ')
+										})}
+									</p>
 								{:else if verdict === 'stale'}
 									<p class="text-xs text-muted-foreground">
 										{m.Fcaf_coverage_stale_hint()}

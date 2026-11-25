@@ -23,11 +23,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type ReviewAction,
 		type Session
 	} from './api';
-	import { roleStatusLabel, roleStatusVariant } from './fcaf';
+	import {
+		replayStatusLabel,
+		replayStatusVariant,
+		roleStatusLabel,
+		roleStatusVariant
+	} from './fcaf';
 	import {
 		blockedBy,
 		canAccept,
 		canSend,
+		fcafReplays,
 		hasPlan,
 		isFCAF,
 		reviewDecisions,
@@ -201,6 +207,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<p class="font-bold">{m.Review_agent_note()}</p>
 						<p class="break-words whitespace-pre-wrap">{action.note}</p>
 					</Alert>
+				{/if}
+
+				{#if fcafReplays(action).length}
+					<section class="space-y-1" aria-label={m.Review_fcaf_replays()}>
+						<p class="font-medium">{m.Review_fcaf_replays()}</p>
+						<ul class="space-y-1">
+							{#each fcafReplays(action) as replay (replay.fixture)}
+								<li class="flex flex-wrap items-center gap-2">
+									<span class="break-words">{replay.class}</span>
+									<span class="font-mono text-xs break-all text-muted-foreground"
+										>{replay.fixture}</span
+									>
+									<Badge variant={replayStatusVariant(replay.status)}>
+										{replayStatusLabel(replay.status)}
+									</Badge>
+								</li>
+							{/each}
+						</ul>
+					</section>
 				{/if}
 
 				<div class="space-y-1">

@@ -2,7 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Decision, PendingReview, ReviewAction, ReviewDecisionItem } from './api';
+import type {
+	Decision,
+	FcafReplay,
+	PendingReview,
+	ReviewAction,
+	ReviewDecisionItem
+} from './api';
 
 //
 
@@ -94,6 +100,11 @@ export function isFCAF(action: Pick<ReviewAction, 'plan'>): boolean {
 	return typeof role === 'string' && role !== '';
 }
 
+/** The replays an FCAF action carries, which an accept binds; empty for any other action. */
+export function fcafReplays(action: Pick<ReviewAction, 'plan' | 'fcaf_replays'>): FcafReplay[] {
+	return isFCAF(action) ? (action.fcaf_replays ?? []) : [];
+}
+
 /**
  * The decisions the review sends, in review order. Every accepted FCAF action carries the
  * review's profile and the agent's verdict on it, which the approval binds.
@@ -118,8 +129,8 @@ export function reviewDecisions(
 			...(decision === 'accept' && isFCAF(action) && action.fcaf_status
 				? { fcaf_result: { status: action.fcaf_status, note: action.note ?? '' } }
 				: {}),
-			...(decision === 'accept' && isFCAF(action) && action.fcaf_replays?.length
-				? { fcaf_replays: action.fcaf_replays }
+			...(decision === 'accept' && fcafReplays(action).length
+				? { fcaf_replays: fcafReplays(action) }
 				: {})
 		};
 	});

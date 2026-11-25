@@ -72,11 +72,17 @@ func FCAFScope(ref ActionAuthorSessionRef) (*actionauthor.FCAFScope, error) {
 	if ref.Mode != actionauthor.SessionModeFCAF {
 		return nil, nil
 	}
+	return LoadFCAFScope(ref.FCAFSuite)
+}
+
+// LoadFCAFScope returns the scope of the suite over the role contract of
+// LoadFCAFContract and its templates root.
+func LoadFCAFScope(suite string) (*actionauthor.FCAFScope, error) {
 	contract, err := LoadFCAFContract()
 	if err != nil {
 		return nil, err
 	}
-	return &actionauthor.FCAFScope{Contract: contract, Suite: ref.FCAFSuite}, nil
+	return &actionauthor.FCAFScope{Contract: contract, Root: fcafTemplatesRoot(), Suite: suite}, nil
 }
 
 // fcafContract is the role contract, loaded once per process; it also keeps

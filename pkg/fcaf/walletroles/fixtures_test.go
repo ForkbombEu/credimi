@@ -580,7 +580,7 @@ func TestFixturesQualifyOnlySelfContainedSteps(t *testing.T) {
 				PipelineOutputs: map[string]any{},
 				Setup:           []FixtureSetup{},
 				Complete:        true,
-				Class:           "no dcql credentials, openid4vp://",
+				Class:           "credential offer, dc+sd-jwt, openid-credential-offer://",
 			},
 		},
 	}

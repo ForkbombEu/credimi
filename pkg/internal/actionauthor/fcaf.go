@@ -5,8 +5,6 @@
 package actionauthor
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"path"
 	"slices"
@@ -17,10 +15,11 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// FCAFScope is the role contract and suite of a session that authors FCAF
-// actions.
+// FCAFScope is the role contract, its templates root and the suite of a
+// session that authors FCAF actions.
 type FCAFScope struct {
 	Contract *walletroles.Contract
+	Root     string // the FCAF templates root the contract was loaded from
 	Suite    string // e.g. "wallet_solution/relying_party"
 }
 
@@ -204,15 +203,15 @@ func FCAFCoverage(
 				if len(entry.MissingFixtures) > 0 {
 					entry.Status = FCAFIncomplete
 				}
+				if len(provenance.FCAFReplays) > 0 {
+					entry.Replays = provenance.FCAFReplays
+				}
 			default:
 				entry.Status = FCAFStale
 			}
 			if provenance.FCAFRole == role.Name && provenance.FCAFResult != nil {
 				entry.Result = provenance.FCAFResult.Status
 				entry.Note = provenance.FCAFResult.Note
-			}
-			if provenance.FCAFRole == role.Name && len(provenance.FCAFReplays) > 0 {
-				entry.Replays = provenance.FCAFReplays
 			}
 		}
 		coverage = append(coverage, entry)
@@ -249,12 +248,12 @@ type FCAFReplay struct {
 	Status  string `json:"status"`
 }
 
-// FCAF replay statuses, and the bound of an action's replays.
+// FCAF replay statuses, and MaxFCAFReplays the bound of an action's replays.
 const (
 	FCAFReplayPassed       = "passed"
 	FCAFReplayFinding      = "finding"
 	FCAFReplayActionFailed = "action_failed"
-	maxFCAFReplays         = 64
+	MaxFCAFReplays         = 64
 )
 
 // CheckFCAFReplays refuses replays of an action without an FCAF role, more
@@ -268,10 +267,10 @@ func CheckFCAFReplays(scope *FCAFScope, replays []FCAFReplay, fcafRole string) e
 	if fcafRole == "" || scope == nil {
 		return fmt.Errorf("%w: fcaf_replays: only FCAF actions carry replays", ErrInvalid)
 	}
-	if len(replays) > maxFCAFReplays {
-		return fmt.Errorf("%w: fcaf_replays: at most %d replays", ErrInvalid, maxFCAFReplays)
+	if len(replays) > MaxFCAFReplays {
+		return fmt.Errorf("%w: fcaf_replays: at most %d replays", ErrInvalid, MaxFCAFReplays)
 	}
-	set, err := scope.Contract.AuthoringSet(scope.Suite, fcafRole)
+	set, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, fcafRole)
 	if err != nil {
 		return fmt.Errorf("fcaf_replays: %w", err)
 	}
@@ -305,18 +304,6 @@ func CheckFCAFReplays(scope *FCAFScope, replays []FCAFReplay, fcafRole string) e
 	return nil
 }
 
-// FCAFFixturesSHA256 hashes a role's authoring set: the lowercase hex sha256
-// of its fixture IDs, sorted, each followed by a newline.
-func FCAFFixturesSHA256(fixtures []walletroles.Fixture) string {
-	ids := make([]string, 0, len(fixtures))
-	for _, fixture := range fixtures {
-		ids = append(ids, fixture.ID+"\n")
-	}
-	slices.Sort(ids)
-	digest := sha256.Sum256([]byte(strings.Join(ids, "")))
-	return hex.EncodeToString(digest[:])
-}
-
 // fcafMissingFixtures returns the fixtures of the role's authoring set that
 // no replay covers, in authoring set order, never nil. The injected PID
 // issuance needs none: its fixtures are alternative PID issuers.
@@ -329,7 +316,7 @@ func fcafMissingFixtures(
 	if role.Injected != "" || len(role.Parameters) == 0 {
 		return missing, nil
 	}
-	set, err := scope.Contract.AuthoringSet(scope.Suite, role.Name)
+	set, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, role.Name)
 	if err != nil {
 		return nil, err
 	}

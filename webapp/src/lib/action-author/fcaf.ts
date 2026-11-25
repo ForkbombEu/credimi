@@ -7,7 +7,7 @@ import type { BadgeVariant } from '@/components/ui/badge';
 import { m } from '@/i18n';
 import { createSessionStorageHandlers } from '@/utils/storage';
 
-import type { AuthoringMode, FcafRoleCoverage, FcafRoleProgress } from './api';
+import type { AuthoringMode, FcafReplay, FcafRoleCoverage, FcafRoleProgress } from './api';
 
 //
 
@@ -50,6 +50,32 @@ const STATUS_LABELS: Record<string, () => string> = {
 /** The label of a role's campaign status; the status itself for an unknown one. */
 export function roleStatusLabel(status: string): string {
 	return Object.hasOwn(STATUS_LABELS, status) ? STATUS_LABELS[status]() : status;
+}
+
+const REPLAY_LABELS: Record<FcafReplay['status'], () => string> = {
+	passed: m.Fcaf_role_passed,
+	finding: m.Fcaf_role_finding,
+	action_failed: m.Fcaf_replay_action_failed
+};
+
+const REPLAY_VARIANTS: Record<FcafReplay['status'], BadgeVariant> = {
+	passed: 'default',
+	finding: 'destructive',
+	action_failed: 'outline'
+};
+
+/** The label of a replay's status; the status itself for an unknown one. */
+export function replayStatusLabel(status: string): string {
+	return Object.hasOwn(REPLAY_LABELS, status)
+		? REPLAY_LABELS[status as FcafReplay['status']]()
+		: status;
+}
+
+/** The badge variant of a replay's status; outline for an unknown one. */
+export function replayStatusVariant(status: string): BadgeVariant {
+	return Object.hasOwn(REPLAY_VARIANTS, status)
+		? REPLAY_VARIANTS[status as FcafReplay['status']]
+		: 'outline';
 }
 
 /** What the wallet's coverage says of a role. */

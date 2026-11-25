@@ -14,6 +14,8 @@ import {
 	modePlatforms,
 	percent,
 	progressDone,
+	replayStatusLabel,
+	replayStatusVariant,
 	roleStatusLabel,
 	roleStatusVariant
 } from './fcaf';
@@ -93,6 +95,22 @@ describe('roleStatusLabel', () => {
 
 	it('labels a wallet finding', () => {
 		expect(roleStatusLabel('finding')).toBe('Wallet finding');
+	});
+});
+
+describe('replayStatusLabel and replayStatusVariant', () => {
+	it('labels and colours every replay status', () => {
+		expect(replayStatusLabel('passed')).toBe('Passed');
+		expect(replayStatusLabel('finding')).toBe('Wallet finding');
+		expect(replayStatusLabel('action_failed')).toBe('Action failed');
+		expect(replayStatusVariant('passed')).toBe('default');
+		expect(replayStatusVariant('finding')).toBe('destructive');
+		expect(replayStatusVariant('action_failed')).toBe('outline');
+	});
+
+	it('keeps an unknown status as is', () => {
+		expect(replayStatusLabel('blocked')).toBe('blocked');
+		expect(replayStatusVariant('blocked')).toBe('outline');
 	});
 });
 

@@ -1130,12 +1130,11 @@ func fcafProgress(
 	in ActionAuthorFCAFProgress,
 	suite string,
 ) *ActionAuthorFCAFProgress {
-	contract, err := activities.LoadFCAFContract()
+	scope, err := activities.LoadFCAFScope(suite)
 	if err != nil {
 		e.App.Logger().Warn("action author fcaf progress contract", "error", err)
 		return nil
 	}
-	scope := &actionauthor.FCAFScope{Contract: contract, Suite: suite}
 	out := &ActionAuthorFCAFProgress{Roles: []ActionAuthorFCAFRole{}}
 	seen := map[string]bool{}
 	for _, r := range in.Roles[:min(len(in.Roles), actionAuthorProgressMaxRoles)] {
@@ -1237,12 +1236,13 @@ func fcafReviewStatus(status string) string {
 }
 
 // fcafReviewReplays returns the replays of an FCAF review action whose
-// fixture, class and status are strings, at most actionAuthorReviewReplays;
-// nil when none. Credimi checks them when the review accepts the action.
+// fixture, class and status are strings, at most actionauthor.MaxFCAFReplays
+// as Save allows; nil when none. Credimi checks them when the review accepts
+// the action.
 func fcafReviewReplays(value any) []actionauthor.FCAFReplay {
 	items, _ := value.([]any)
 	var replays []actionauthor.FCAFReplay
-	for _, item := range items[:min(len(items), actionAuthorReviewReplays)] {
+	for _, item := range items[:min(len(items), actionauthor.MaxFCAFReplays)] {
 		fields, _ := item.(map[string]any)
 		fixture, fixtureOK := fields["fixture"].(string)
 		class, classOK := fields["class"].(string)
@@ -1257,9 +1257,6 @@ func fcafReviewReplays(value any) []actionauthor.FCAFReplay {
 	}
 	return replays
 }
-
-// actionAuthorReviewReplays bounds the replays of a review action, as Save does.
-const actionAuthorReviewReplays = 64
 
 // actionAuthorNoteRunes bounds the agent's note on a review action.
 const actionAuthorNoteRunes = 2000
@@ -1496,14 +1493,11 @@ func HandleActionAuthorFCAFCoverage() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
-		contract, err := activities.LoadFCAFContract()
+		scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
 		}
-		roles, profile, err := actionauthor.FCAFCoverage(e.App, selection, &actionauthor.FCAFScope{
-			Contract: contract,
-			Suite:    actionauthor.FCAFRelyingPartySuite,
-		})
+		roles, profile, err := actionauthor.FCAFCoverage(e.App, selection, scope)
 		if err != nil {
 			return authoringAPIError(e, err)
 		}

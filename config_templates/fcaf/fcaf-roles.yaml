@@ -5,7 +5,8 @@ reference:
     wallet: eu.europa.ec.euidi
     browser: com.android.chrome
 # The request fields a fixture's behaviour class is built from: what the wallet can show
-# (credential formats, credential sets, scheme, the verifier's reply after Share, a redirect).
+# (credential formats, credential sets, scheme, the verifier's reply after Share, a redirect;
+# for a credential offer the issued credential's format and the offer deeplink scheme).
 # Encryption, request_uri_method, request_delivery, client id prefix and nonce/state/aud defects
 # are collapsed: the user never sees them, so one replay per class proves the action and the
 # pipeline judges the wallet on every fixture.
@@ -16,6 +17,8 @@ authoring_class_fields:
   - response_scenario.status
   - response_scenario.content_type
   - redirect_uri
+  - offer_format
+  - offer_scheme
 rules:
   - Take a screenshot of the reached screen before every wait or assertion that can fail, so a failed step still shows where the wallet stopped.
   - Silent roles take no screenshot at all; they run inside another step's actions and must never count as that step's evidence.

@@ -127,8 +127,6 @@ type Contract struct {
 	// ReferencePrefix is "<organization>/<wallet>/" of the reference
 	// manifest: the action_id prefix of the reference flows in scenarios.
 	ReferencePrefix string `yaml:"-" json:"-"`
-	// root is the FCAF templates root the contract was loaded from.
-	root string
 
 	// fixturesMu guards fixtureSuites, the scenarios Fixtures reads per
 	// (fcafRoot, suite).
@@ -194,7 +192,6 @@ func Load(fcafRoot string) (*Contract, error) {
 	if err := contract.loadReference(fcafRoot); err != nil {
 		return nil, fmt.Errorf("fcaf roles: %w", err)
 	}
-	contract.root = fcafRoot
 	return &contract, nil
 }
 

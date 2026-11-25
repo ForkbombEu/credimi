@@ -284,7 +284,7 @@ func describeFCAFRole(
 		return output, nil
 	}
 	// One fixture per behaviour class (the issuance role: every PID issuer and format).
-	fixtures, err := scope.Contract.AuthoringSet(scope.Suite, role.Name)
+	fixtures, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, role.Name)
 	if err != nil {
 		return DescribeActionAuthorFCAFRoleOutput{}, err
 	}

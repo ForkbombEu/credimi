@@ -586,11 +586,8 @@ type Provenance struct {
 	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
 	// FCAFResult is the agent's verdict on the FCAF action, given with the save.
 	FCAFResult *FCAFResult `json:"fcaf_result,omitempty"`
-	// FCAFReplays are the action's replays the save carried, and
-	// FCAFFixturesSHA256 the FCAFFixturesSHA256 of the role's authoring set
-	// when it was saved.
-	FCAFReplays        []FCAFReplay `json:"fcaf_replays,omitempty"`
-	FCAFFixturesSHA256 string       `json:"fcaf_fixtures_sha256,omitempty"`
+	// FCAFReplays are the action's replays the save carried.
+	FCAFReplays []FCAFReplay `json:"fcaf_replays,omitempty"`
 }
 
 // Receipt describes the saved record and its validation provenance.
@@ -804,11 +801,6 @@ func fcafProvenance(provenance *Provenance, in *SaveRequest, role walletroles.Ro
 	provenance.FCAFProfile = in.FCAFProfile
 	provenance.FCAFResult = in.FCAFResult
 	provenance.FCAFReplays = in.FCAFReplays
-	set, err := in.FCAF.Contract.AuthoringSet(in.FCAF.Suite, role.Name)
-	if err != nil {
-		return err
-	}
-	provenance.FCAFFixturesSHA256 = FCAFFixturesSHA256(set)
 	return nil
 }
 
