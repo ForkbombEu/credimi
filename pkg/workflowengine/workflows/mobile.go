@@ -199,10 +199,18 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 		// Screenshots taken before the flow failed are evidence too, so they are
 		// returned as the failed step's flow_output, where pipelines read them
 		// for a successful step. Storing them is best effort: the flow failure is
-		// what the step reports.
-		failedPaths := workflowengine.AsSliceOfStrings(
-			workflowengine.ParseWorkflowError(executeErr).Details["maestro_screenshot_paths"],
-		)
+		// what the step reports. Maestro's console output says which command
+		// stopped the flow and why, so it is returned as well: stdout under
+		// `output`, the key a successful flow uses, and stderr under `stderr`.
+		failure := workflowengine.ParseWorkflowError(executeErr)
+		failedOutput := map[string]any{}
+		if stdout, _ := failure.Details["stdout"].(string); stdout != "" {
+			failedOutput["output"] = stdout
+		}
+		if stderr, _ := failure.Details["stderr"].(string); stderr != "" {
+			failedOutput["stderr"] = stderr
+		}
+		failedPaths := workflowengine.AsSliceOfStrings(failure.Details["maestro_screenshot_paths"])
 		if len(failedPaths) > 0 {
 			stored, err := storeMobileFlowScreenshots(
 				ctx,
@@ -214,10 +222,11 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 				workflow.GetLogger(ctx).
 					Warn("store screenshots of failed mobile flow", "error", err)
 			} else {
-				output.FlowOutput = map[string]any{
-					"maestro_screenshot_urls": stored["maestro_screenshot_urls"],
-				}
+				failedOutput["maestro_screenshot_urls"] = stored["maestro_screenshot_urls"]
 			}
+		}
+		if len(failedOutput) > 0 {
+			output.FlowOutput = failedOutput
 		}
 
 		return workflowengine.WorkflowResult{}, newMobileWorkflowError(

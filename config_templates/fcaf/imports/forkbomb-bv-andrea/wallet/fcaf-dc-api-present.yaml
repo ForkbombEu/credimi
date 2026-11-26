@@ -85,11 +85,13 @@ tags:
       - inputText: "12345"
       - tapOn: "6"
 - extendedWaitUntil:
-    visible: "Share|Oups! Something went wrong|invalid request|.*(did not complete|answered without a presentation).*"
+    visible: "Requested data|Share|Oups! Something went wrong|invalid request|.*(did not complete|answered without a presentation).*"
     timeout: 30000
     optional: true
 - takeScreenshot: dc-api-wallet-consent
-- assertVisible: "Share"
+# The consent screen is proven by the requested data it lists, never by the
+# Share control the flow taps (the no-match notice offers Share too).
+- assertVisible: "Requested data"
 - tapOn:
     text: "Share"
     waitToSettleTimeoutMs: 1000

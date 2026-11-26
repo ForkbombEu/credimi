@@ -6,6 +6,7 @@ package pipeline
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipelineexpr"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,8 +60,8 @@ steps:
 `)
 	require.NoError(t, err)
 	require.NoError(t, ApplyFixture(wf))
-	require.Equal(t, "https://capture-wallet.credimi.io", DefaultVerifierURL)
-	require.Equal(t, DefaultVerifierURL+"/requests", wf.Steps[0].With.Payload["url"])
+	require.Equal(t, "https://capture-wallet.credimi.io", pipelineexpr.DefaultVerifierURL)
+	require.Equal(t, pipelineexpr.DefaultVerifierURL+"/requests", wf.Steps[0].With.Payload["url"])
 }
 
 func TestApplyFixtureValuesCannotChangeWorkflowStructure(t *testing.T) {

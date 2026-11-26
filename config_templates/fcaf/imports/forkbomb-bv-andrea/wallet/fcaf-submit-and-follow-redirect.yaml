@@ -32,13 +32,14 @@ tags:
     - inputText: "12345"
     - tapOn: "6"
 # The consent screen, or whatever the Wallet shows instead: optional wait, then
-# the screenshot, then the strict `Share` assertion.
+# the screenshot, then the strict assertion of the requested-data list, which
+# only the consent screen shows (the no-match notice has the same title and Share).
 - extendedWaitUntil:
-    visible: "Share|Oups! Something went wrong|invalid request|Presentation blocked"
+    visible: "Requested data|Oups! Something went wrong|invalid request|Presentation blocked"
     timeout: 30000
     optional: true
 - takeScreenshot: fcaf-supportive-consent
-- assertVisible: "Share"
+- assertVisible: "Requested data"
 - tapOn:
     text: "Share"
     enabled: true
@@ -59,7 +60,7 @@ tags:
     optional: true
 - takeScreenshot: fcaf-supportive-shared
 - extendedWaitUntil:
-    visible: "Close"
+    visible: ".*successfully shared.*"
     timeout: 30000
 - tapOn: "Close"
 # The Verifier's redirect landed on its page, or the Wallet never left its own

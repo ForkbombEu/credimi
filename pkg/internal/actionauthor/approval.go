@@ -5,6 +5,9 @@
 package actionauthor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -34,6 +37,54 @@ type Approval struct {
 	PlanSHA256 string `json:"plan_sha256"`
 	// Key binds the approval to the candidate key the session saves it as.
 	Key string `json:"key"`
+	// ProfileSHA256 binds the approval to the FCAF profile the user saw
+	// (ProfileSHA256), empty without one.
+	ProfileSHA256 string `json:"profile_sha256,omitempty"`
+	// ResultSHA256 binds the approval to the FCAF result the user saw
+	// (FCAFResultSHA256), empty without one.
+	ResultSHA256 string `json:"result_sha256,omitempty"`
+	// ReplaysSHA256 binds the approval to the FCAF replays the user saw
+	// (FCAFReplaysSHA256), empty without any.
+	ReplaysSHA256 string `json:"replays_sha256,omitempty"`
+}
+
+// FCAFResultSHA256 hashes an FCAF result: the lowercase hex sha256 of its JSON
+// encoding, "" for a nil result.
+func FCAFResultSHA256(result *FCAFResult) string {
+	if result == nil {
+		return ""
+	}
+	return jsonSHA256(result)
+}
+
+// FCAFReplaysSHA256 hashes FCAF replays: the lowercase hex sha256 of their
+// JSON encoding, "" for none.
+func FCAFReplaysSHA256(replays []FCAFReplay) string {
+	if len(replays) == 0 {
+		return ""
+	}
+	return jsonSHA256(replays)
+}
+
+// jsonSHA256 is the lowercase hex sha256 of value's JSON encoding, "" when
+// it does not encode.
+func jsonSHA256(value any) string {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:])
+}
+
+// ProfileSHA256 hashes an FCAF profile: the lowercase hex sha256 of its JSON
+// encoding (encoding/json sorts map keys), "" for a nil or empty profile or
+// one that does not encode, which Save refuses.
+func ProfileSHA256(profile map[string]any) string {
+	if len(profile) == 0 {
+		return ""
+	}
+	return jsonSHA256(profile)
 }
 
 // SignApproval returns the token base64url(json).base64url(hmac).
@@ -81,6 +132,13 @@ type SessionGrant struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
+	// Mode is SessionModeFCAF for an FCAF authoring session, empty for chat.
+	Mode string `json:"mode,omitempty"`
+	// FCAFSuite is the suite an FCAF session authors, empty for chat.
+	FCAFSuite string `json:"fcaf_suite,omitempty"`
+	// FCAFFix is set for an FCAF session that fixes the roles failing in the
+	// wallet's last FCAF pipeline run.
+	FCAFFix bool `json:"fcaf_fix,omitempty"`
 }
 
 // SignSession returns the token base64url(json).base64url(hmac) of g.

@@ -18,11 +18,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/aggregate"
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/pipelineexpr"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
@@ -127,8 +130,10 @@ func (a *FCAFValidationActivity) Execute(
 	leaves := collectFCAFEvidenceLeaves(payload.Pipeline)
 	dataCtx := map[string]any{}
 	eventIDs := map[string]int64{}
+	var run *pipelinehistory.Run
 	if len(leaves) > 0 {
-		run, err := a.loadRun(ctx)
+		var err error
+		run, err = a.loadRun(ctx)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 			return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
@@ -203,7 +208,10 @@ func (a *FCAFValidationActivity) Execute(
 	report.PopulateDerivedViews()
 	full := report.PublicReport()
 
-	reportSHA256, err := a.storeReport(ctx, input.Config, full)
+	reportSHA256, err := a.storeReport(ctx, input.Config, storedFCAFReport{
+		Report:       full,
+		RoleOutcomes: fcafRoleOutcomes(a.app, run, suite),
+	})
 	if err != nil {
 		return workflowengine.ActivityResult{}, fcafReportStoreError(&a.BaseActivity, err)
 	}
@@ -232,13 +240,57 @@ func (a *FCAFValidationActivity) loadRun(ctx context.Context) (*pipelinehistory.
 	)
 }
 
+// storedFCAFReport is the stored fcaf_report: the full report and how each
+// action of the pipeline's wallet did in the run (nil without one).
+type storedFCAFReport struct {
+	engine.Report
+	RoleOutcomes *actionauthor.FCAFRoleOutcomes `json:"role_outcomes,omitempty"`
+}
+
+// fcafRoleOutcomes reads how each wallet action of the run did from its
+// definition and its steps' ends, naming each action's role from its saved
+// fcaf_role; nil without a run.
+func fcafRoleOutcomes(
+	app core.App,
+	run *pipelinehistory.Run,
+	suite string,
+) *actionauthor.FCAFRoleOutcomes {
+	if run == nil {
+		return nil
+	}
+	results := make(map[string]actionauthor.FCAFStepResult, len(run.Outputs))
+	for id := range run.Outputs {
+		results[id] = actionauthor.FCAFStepResult{Completed: true}
+	}
+	for id, failure := range run.Failures {
+		stdout, _ := failure.Details["stdout"].(string)
+		results[id] = actionauthor.FCAFStepResult{
+			Failed: true,
+			Code:   failure.Code,
+			Stdout: stdout,
+		}
+	}
+	scenarioFiles := map[string]string{}
+	if paths, err := aggregate.ScenarioPaths(fcafTemplatesRoot(), suite); err == nil {
+		for _, path := range paths {
+			scenarioFiles[aggregate.ScenarioPrefix(suite, path)] = filepath.Base(path)
+		}
+	}
+	return actionauthor.FCAFRoleOutcomesOf(
+		run.Definition,
+		results,
+		scenarioFiles,
+		actionauthor.FCAFActionRoles(app),
+	)
+}
+
 // storeReport stores the full report on the top-level run's pipeline result and returns
 // the sha256 of the stored file. A child pipeline stores it on its root run, which owns the
 // pipeline_results row.
 func (a *FCAFValidationActivity) storeReport(
 	ctx context.Context,
 	config map[string]string,
-	report engine.Report,
+	report storedFCAFReport,
 ) (string, error) {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -281,7 +333,7 @@ func collectFCAFEvidenceLeaves(pipelineOutputs map[string]any) []fcafEvidenceLea
 	walk = func(source string, path []any, value any) {
 		switch typed := value.(type) {
 		case string:
-			if refs := pipelineinternal.ExpressionRefs(typed); len(refs) > 0 {
+			if refs := pipelineexpr.ExpressionRefs(typed); len(refs) > 0 {
 				leaves = append(leaves, fcafEvidenceLeaf{
 					source: source,
 					path:   slices.Clone(path),
@@ -402,11 +454,21 @@ func normalizeValidationTestIDs(payload FCAFValidationActivityInput) []string {
 	return ids
 }
 
-// resolveDefaultFCAFValidationCatalogRoot returns the suite's catalog directory,
-// looked up from the working directory and each of its parents so tests run
-// from a package directory find the repository templates.
+// resolveDefaultFCAFValidationCatalogRoot returns the suite's catalog directory.
 func resolveDefaultFCAFValidationCatalogRoot(suite string) string {
-	relative := filepath.Join(fcafValidationTemplatesRoot, filepath.FromSlash(suite))
+	return findTemplatesPath(filepath.Join(fcafValidationTemplatesRoot, filepath.FromSlash(suite)))
+}
+
+// fcafTemplatesRoot returns the FCAF templates root, which holds the role
+// contract and one catalog per suite.
+func fcafTemplatesRoot() string {
+	return findTemplatesPath(fcafValidationTemplatesRoot)
+}
+
+// findTemplatesPath returns relative, looked up from the working directory
+// and each of its parents so tests run from a package directory find the
+// repository templates.
+func findTemplatesPath(relative string) string {
 	if _, err := os.Stat(relative); err == nil {
 		return relative
 	}

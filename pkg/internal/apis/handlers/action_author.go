@@ -73,7 +73,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the device runner's namespace, runner-<runner record id>. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of a wallet of the caller's organization or a published wallet of another organization (downloadable versions only), or, on an Android device only, organization/wallet for its wallet installed from the Play Store at session start (the device needs the Play Store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. Saved actions are owned by the caller's organization. The iOS simulator has no App Store: organization/wallet on an iOS simulator answers 400 invalid_request before anything is queued. An unpublished wallet of another organization, or a non-downloadable version of one, answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the runner's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. The runner owner sets two daily limits of model tokens (UTC day) in the runner's configuration: one for sessions of the runner's own organization (0: no limit) and one shared by every other organization (0: the agent is not offered to them). A start after the day's tokens of the caller's pool reach its limit answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the device runner's namespace, runner-<runner record id>. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of a wallet of the caller's organization or a published wallet of another organization (downloadable versions only), or, on an Android device only, organization/wallet for its wallet installed from the Play Store at session start (the device needs the Play Store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. Saved actions are owned by the caller's organization. The iOS simulator has no App Store: organization/wallet on an iOS simulator answers 400 invalid_request before anything is queued. An unpublished wallet of another organization, or a non-downloadable version of one, answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the runner's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. mode fcaf (Android devices only, else 422 fcaf_not_supported) authors the wallet's FCAF actions of the relying-party suite; with fcaf_fix true (only with mode fcaf, else 400 invalid_request) the session fixes only the roles whose action failed in the wallet's last FCAF pipeline run (their coverage verdict is failing), starting from their saved actions and replaying them on the requests they failed on, and answers 422 fcaf_nothing_to_fix when no role failed. The runner owner sets two daily limits of model tokens (UTC day) in the runner's configuration: one for sessions of the runner's own organization (0: no limit) and one shared by every other organization (0: the agent is not offered to them). A start after the day's tokens of the caller's pool reach its limit answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -84,7 +84,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSessions,
 			OperationID:    "actionAuthor.listSessions",
 			Summary:        "List a wallet's recent authoring sessions",
-			Description:    "List the ten latest authoring sessions the caller started for their organization on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
+			Description:    "List the ten latest authoring sessions the caller started for their organization on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, mode (chat or fcaf), device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
 			ResponseSchema: ActionAuthorSessionsResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -96,11 +96,37 @@ var ActionAuthorRoutes = routing.RouteGroup{
 		},
 		{
 			Method:         http.MethodGet,
+			Path:           "/fcaf-coverage",
+			Handler:        HandleActionAuthorFCAFCoverage,
+			OperationID:    "actionAuthor.fcafCoverage",
+			Summary:        "FCAF coverage of a wallet",
+			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, incomplete, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed, unsupported or finding) and note, with the warnings about the wallet. run_summary (null without one) and run_url are the test summary and link of the latest finished complete run of the wallet's FCAF pipelines (POST /api/action-author/fcaf-pipeline), else of its latest finished subset run, and each role's run how its action did in the latest finished run that ran it (the complete run, or a newer subset run): status ok, failing (the run failed inside the action, with the Maestro command and the fixture of its first failing step; failed_fixtures lists the fixtures <scenario>#<step> of every failing step, at most 32) or not_run, and the role's verdict from the run: failing, finding (the action ran and one of the role's tests failed, failed_tests lists at most 20), blocked, passed or not_run, with tests_run; null when no such run ran it. Test statuses merge across runs like the outcomes. A current or incomplete action the run covered has verdict_source pipeline and the run's verdict as verdict; otherwise a recorded agent verdict is the verdict with verdict_source authoring (not verified yet). Only the 20 newest runs of the caller's organization on the wallet's FCAF records are read. A failing run changes neither status nor result.",
+			ResponseSchema: ActionAuthorFCAFCoverageResponse{},
+			QuerySearchAttributes: []routing.QuerySearchAttribute{
+				{
+					Name:        "wallet",
+					Required:    true,
+					Description: "Wallet: organization/wallet (canonified names).",
+				},
+			},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/fcaf-pipeline",
+			Handler:        HandleActionAuthorFCAFPipeline,
+			OperationID:    "actionAuthor.runFCAFPipeline",
+			Summary:        "Build and run a wallet's FCAF relying-party validation",
+			Description:    "Build the FCAF relying-party validation pipeline of a wallet build (wallet_version_identifier as for sessions, Android installer or store build) from the caller organization's FCAF actions of the wallet, and queue it on device_id as POST /api/pipeline/queue does. Only an owner of the caller's organization may (403 forbidden otherwise). Roles whose action is current or incomplete are the wallet's; a scenario needing another role is left out and listed in skipped with its missing roles, and only its tests are dropped: every build keeps only the tests whose evidence it produces. The pipeline record \"FCAF relying-party validation - <wallet owner>/<wallet>\" (the canonified wallet path) of the caller's organization is created unpublished or its yaml replaced (a published one answers 409 conflict); scenarios (scenario file names of the suite, with or without .yaml) limits the build to those scenarios and stores it on the record of that set of scenarios, suffixed \" - scenarios <hash>\" (the first 8 hex digits of the sha256 of the sorted file names joined by newlines). The pipeline runs the scenarios' reference credentials and use cases, which must be the caller organization's own or published: 422 fcaf_credential_unavailable lists the others. An unknown or repeated scenario answers 422 fcaf_unknown_scenario, no scenario that can run 422 fcaf_nothing_to_run, a device that is not Android 422 fcaf_not_supported; device access and availability are checked as for pipelines.",
+			RequestSchema:  ActionAuthorFCAFPipelineRequest{},
+			ResponseSchema: ActionAuthorFCAFPipelineResponse{},
+		},
+		{
+			Method:         http.MethodGet,
 			Path:           "/sessions/{session_id}",
 			Handler:        HandleActionAuthorSession,
 			OperationID:    "actionAuthor.getSession",
 			Summary:        "Read an authoring session",
-			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started for their organization, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started for their organization, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, fcaf_progress the campaign of an FCAF session (the role being written and each role's status: pending, working, passed, unsupported, blocked or skipped, with the agent's note), null otherwise or when the agent does not answer it, and pending_review the review waiting for the caller's decisions (POST /api/action-author/reviews), null otherwise: its tool_id and its actions, one per candidate key, each with its name, build, code, candidate_sha256, plan, the candidate keys among its plan's prerequisites (starts_from) and their names (starts_from_names: the review's action of that key, else the action the session saved for it, else the key), the action it replaces with the pipelines using it (used_by), and why its previous accept did not save (error). A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
@@ -304,6 +330,12 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 type ActionAuthorStartRequest struct {
 	DeviceID                string `json:"device_id"                 validate:"required"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
+	// Mode is "fcaf" for a session that authors the FCAF wallet actions of
+	// the relying-party suite; "chat" or empty starts a chat session.
+	Mode string `json:"mode" validate:"omitempty,oneof=chat fcaf"`
+	// FCAFFix, only with mode fcaf, starts a session that fixes the roles
+	// whose action failed in the wallet's last FCAF pipeline run.
+	FCAFFix bool `json:"fcaf_fix"`
 }
 
 // ActionAuthorStartResponse identifies the queued session ticket.
@@ -386,6 +418,39 @@ func authoringAPIError(e *core.RequestEvent, err error) *apierror.APIError {
 	}
 }
 
+// requireFCAFFixRoles answers 422 fcaf_nothing_to_fix unless the selected
+// wallet's coverage has a role whose pipeline verdict is failing, the roles
+// a fix session fixes (actionauthor.FCAFFixCoverage as of now).
+func requireFCAFFixRoles(
+	e *core.RequestEvent,
+	selection actionauthor.Selection,
+	organization string,
+) *apierror.APIError {
+	scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
+	if err != nil {
+		return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
+	}
+	coverage, _, err := actionauthor.FCAFFixCoverage(
+		e.App,
+		selection,
+		scope,
+		fcafRunStateReader(e, organization),
+		time.Now(),
+	)
+	if err != nil {
+		return authoringAPIError(e, err)
+	}
+	if len(actionauthor.FCAFFixRoles(coverage)) == 0 {
+		return apierror.New(
+			http.StatusUnprocessableEntity,
+			"action_author",
+			"fcaf_nothing_to_fix",
+			"no FCAF role of this wallet failed in its last FCAF pipeline run",
+		)
+	}
+	return nil
+}
+
 // HandleActionAuthorStart queues a session, in the runner's namespace
 // for the caller's organization, on a device of a runner that offers the agent to the caller's
 // organization.
@@ -441,6 +506,20 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 				"the action author supports Android devices and iOS simulators",
 			)
 		}
+		fcaf := input.Mode == actionauthor.SessionModeFCAF
+		if input.FCAFFix && !fcaf {
+			return authoringAPIError(e, fmt.Errorf(
+				"%w: fcaf_fix needs mode fcaf", actionauthor.ErrInvalid,
+			))
+		}
+		if fcaf && platform != actionauthor.PlatformAndroid {
+			return apierror.New(
+				http.StatusUnprocessableEntity,
+				"action_author",
+				"fcaf_not_supported",
+				"FCAF sessions run on Android devices only",
+			)
+		}
 		// The device list hides disabled runners; starting on one answers as
 		// starting on an offline runner.
 		if runner.GetBool("disabled") {
@@ -455,6 +534,11 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		})
 		if err != nil {
 			return authoringAPIError(e, err)
+		}
+		if input.FCAFFix {
+			if apiErr := requireFCAFFixRoles(e, selection, orgNamespace); apiErr != nil {
+				return apiErr
+			}
 		}
 		if apiErr := requireMobileDeviceRunnersOnline(
 			e.Request.Context(),
@@ -479,6 +563,11 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Namespace:               runnerNamespace,
 			Organization:            orgNamespace,
 		}
+		if fcaf {
+			sessionInput.Mode = actionauthor.SessionModeFCAF
+			sessionInput.FCAFSuite = actionauthor.FCAFRelyingPartySuite
+			sessionInput.FCAFFix = input.FCAFFix
+		}
 		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
 			SessionWorkflowID:       actionauthor.SessionWorkflowID(runner.Id, ticketID),
 			Namespace:               sessionInput.Namespace,
@@ -487,6 +576,9 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                sessionInput.Platform,
 			WalletVersionIdentifier: sessionInput.WalletVersionIdentifier,
 			ActorID:                 sessionInput.ActorID,
+			Mode:                    sessionInput.Mode,
+			FCAFSuite:               sessionInput.FCAFSuite,
+			FCAFFix:                 sessionInput.FCAFFix,
 		})
 		if err != nil {
 			return authoringAPIError(e, err)
@@ -618,8 +710,9 @@ func rollbackActionAuthorTicket(e *core.RequestEvent, deviceID, ticketID, namesp
 // Agent chat workflow queries and signal of the Temporal Agent Harness that
 // the session page reads and sends.
 const (
-	actionAuthorIdleStateQuery   = "idle_state"
-	actionAuthorAgentStatusQuery = "agent_status"
+	actionAuthorIdleStateQuery    = "idle_state"
+	actionAuthorFCAFProgressQuery = "fcaf_progress"
+	actionAuthorAgentStatusQuery  = "agent_status"
 	// actionAuthorStreamPollQuery reads the chat's retained stream events
 	// (temporalio's workflow streams); the chat UI's attach replays a closed
 	// chat through it.
@@ -651,12 +744,15 @@ type ActionAuthorSessionResponse struct {
 	CloseTime               string `json:"close_time,omitempty"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	Platform                string `json:"platform"`
-	DeviceID                string `json:"device_id"`
-	DeviceName              string `json:"device_name"`
-	RunnerName              string `json:"runner_name"`
-	RunnerOwner             string `json:"runner_owner"`
-	Model                   string `json:"model"`
-	// LiveView reports a running session on an Android device that streams its screen.
+	// Mode is "fcaf" for an FCAF authoring session, else "chat".
+	Mode        string `json:"mode"`
+	DeviceID    string `json:"device_id"`
+	DeviceName  string `json:"device_name"`
+	RunnerName  string `json:"runner_name"`
+	RunnerOwner string `json:"runner_owner"`
+	Model       string `json:"model"`
+	// LiveView reports a running session on an Android device that streams its
+	// screen and that the session still holds (its release ends the live view).
 	LiveView bool `json:"live_view"`
 	// ChatReady reports that the agent chat has started its first turn; it
 	// stays true once the chat or the session ended.
@@ -666,13 +762,39 @@ type ActionAuthorSessionResponse struct {
 	// ClosesAt is when the idle session closes, empty when unknown or while a turn runs.
 	ClosesAt      string                     `json:"closes_at"`
 	PendingReview *ActionAuthorPendingReview `json:"pending_review"`
+	// FCAFProgress is the campaign of an FCAF session while its chat runs,
+	// null otherwise.
+	FCAFProgress *ActionAuthorFCAFProgress `json:"fcaf_progress"`
 }
 
 // ActionAuthorPendingReview is the review waiting for the caller's
 // decisions: one action per candidate key, in key order.
 type ActionAuthorPendingReview struct {
-	ToolID  string                     `json:"tool_id"`
-	Actions []ActionAuthorReviewAction `json:"actions"`
+	ToolID string `json:"tool_id"`
+	// Profile is the FCAF profile the agent saves with every action of an
+	// FCAF review (wallet UI notes, never secrets); an accept binds it.
+	Profile map[string]any `json:"profile,omitempty"`
+	// Warnings are the agent's FCAF findings about the wallet itself (such
+	// as actionauthor.FCAFKeyAttestationFinding), shown above the actions:
+	// at most actionAuthorWarningCount of actionAuthorWarningRunes runes
+	// each, never nil.
+	Warnings []string                   `json:"warnings"`
+	Actions  []ActionAuthorReviewAction `json:"actions"`
+}
+
+// ActionAuthorFCAFProgress is where an FCAF session's campaign stands.
+type ActionAuthorFCAFProgress struct {
+	CurrentRole string                 `json:"current_role"`
+	Roles       []ActionAuthorFCAFRole `json:"roles"`
+}
+
+// ActionAuthorFCAFRole is one role of the campaign: pending, working,
+// passed, unsupported, blocked or skipped, with the agent's note.
+type ActionAuthorFCAFRole struct {
+	Role   string `json:"role"`
+	Status string `json:"status"`
+	Key    string `json:"key"`
+	Note   string `json:"note"`
 }
 
 // ActionAuthorReviewAction is one action of a pending review.
@@ -686,6 +808,14 @@ type ActionAuthorReviewAction struct {
 	Replaces string `json:"replaces"`
 	// Error is why the previous accept of this action did not save, empty when none.
 	Error string `json:"error"`
+	// Note is the agent's note on the action (wallet findings, or why the
+	// wallet cannot do an FCAF role), empty when none.
+	Note string `json:"note,omitempty"`
+	// FCAFStatus is passed, unsupported or finding for an FCAF action; empty otherwise.
+	FCAFStatus string `json:"fcaf_status,omitempty"`
+	// FCAFReplays are an FCAF action's replays on fixtures of its role's
+	// authoring set, which the review sends back with an accept; absent otherwise.
+	FCAFReplays []actionauthor.FCAFReplay `json:"fcaf_replays,omitempty"`
 	// Plan is nil when the action has no object plan.
 	Plan map[string]any `json:"plan"`
 	// StartsFrom lists the candidate keys among the plan's prerequisites.
@@ -711,6 +841,20 @@ type ActionAuthorSessionListItem struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	DeviceID                string `json:"device_id"`
 	DeviceName              string `json:"device_name"`
+	// Mode is "fcaf" for an FCAF authoring session, else "chat".
+	Mode string `json:"mode"`
+}
+
+// ActionAuthorFCAFCoverageResponse is the FCAF relying-party coverage of a
+// wallet by the caller organization's actions.
+type ActionAuthorFCAFCoverageResponse struct {
+	Suite    string                          `json:"suite"`
+	Roles    []actionauthor.FCAFRoleCoverage `json:"roles"`
+	Warnings []string                        `json:"warnings"`
+	// RunSummary is the test summary of the wallet's latest finished FCAF
+	// run, null without one; RunURL its link, empty without one.
+	RunSummary *actionauthor.FCAFRunSummary `json:"run_summary"`
+	RunURL     string                       `json:"run_url"`
 }
 
 // ActionAuthorTranscriptResponse is the transcript of a session's chat, in event order.
@@ -816,6 +960,7 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			StartTime:               info.StartTime.UTC().Format(time.RFC3339),
 			WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
 			Platform:                info.Session.Platform,
+			Mode:                    actionAuthorSessionMode(info.Mode),
 			DeviceID:                info.DeviceID,
 		}
 		if !info.CloseTime.IsZero() {
@@ -834,10 +979,31 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			response.LiveView = running &&
 				info.Session.Platform == actionauthor.PlatformAndroid &&
 				device.GetBool("live_stream")
+			if response.LiveView {
+				// The live view stops with the device release; a failed
+				// query only hides it.
+				held, err := actionAuthorSessionHoldsDevice(
+					e.Request.Context(),
+					e.App,
+					c,
+					info.SessionWorkflowID,
+					info.SessionRunID,
+					runner.Id,
+				)
+				response.LiveView = err == nil && held
+			}
 		}
-		readActionAuthorChat(e, c, response.ChatWorkflowID, running, &response)
+		readActionAuthorChat(e, c, response.ChatWorkflowID, running, info.FCAFSuite, &response)
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+// actionAuthorSessionMode names a session's mode, "chat" when it has none.
+func actionAuthorSessionMode(mode string) string {
+	if mode == "" {
+		return "chat"
+	}
+	return mode
 }
 
 // HandleActionAuthorSessionTranscript reads the transcript of the chat of a
@@ -921,11 +1087,13 @@ func actionAuthorChatReplayable(ctx context.Context, c client.Client, chatID str
 // readActionAuthorChat fills the chat state of a session in any state. The
 // idle state and the pending review are read only while the session and its
 // started chat run. A missing chat, or a query that fails, leaves them empty.
+// fcafSuite is the suite of an FCAF session, which bounds its progress.
 func readActionAuthorChat(
 	e *core.RequestEvent,
 	c client.Client,
 	chatID string,
 	sessionRunning bool,
+	fcafSuite string,
 	response *ActionAuthorSessionResponse,
 ) {
 	ctx := e.Request.Context()
@@ -951,6 +1119,21 @@ func readActionAuthorChat(
 		e.App.Logger().Warn("action author chat idle state", "chat", chatID, "error", err)
 	} else {
 		response.ClosesAt = idle.ClosesAt
+	}
+	if response.Mode == actionauthor.SessionModeFCAF {
+		// A runner without the query answers an error: no progress shows.
+		var progress ActionAuthorFCAFProgress
+		if err := queryActionAuthorChat(
+			ctx,
+			c,
+			chatID,
+			actionAuthorFCAFProgressQuery,
+			&progress,
+		); err != nil {
+			e.App.Logger().Warn("action author fcaf progress", "chat", chatID, "error", err)
+		} else {
+			response.FCAFProgress = fcafProgress(e, progress, fcafSuite)
+		}
 	}
 	var status struct {
 		PendingCallbacks []struct {
@@ -983,6 +1166,57 @@ func readActionAuthorChat(
 	}
 }
 
+// actionAuthorProgressNoteRunes caps a role's note in the progress, as the agent does.
+const actionAuthorProgressNoteRunes = 500
+
+// actionAuthorProgressMaxRoles caps the roles read from the runner's answer.
+const actionAuthorProgressMaxRoles = 64
+
+// fcafProgressStatuses are the statuses of a role in an FCAF campaign.
+var fcafProgressStatuses = map[string]bool{
+	"pending":     true,
+	"working":     true,
+	"passed":      true,
+	"unsupported": true,
+	"finding":     true,
+	"blocked":     true,
+	"skipped":     true,
+}
+
+// fcafProgress keeps, from the first actionAuthorProgressMaxRoles roles of the runner's
+// answer, the roles of the session's suite once each with a known status, each note cut to
+// actionAuthorProgressNoteRunes and each key a candidate key; current_role only when it is a
+// kept role. Nil when the contract does not load.
+func fcafProgress(
+	e *core.RequestEvent,
+	in ActionAuthorFCAFProgress,
+	suite string,
+) *ActionAuthorFCAFProgress {
+	scope, err := activities.LoadFCAFScope(suite)
+	if err != nil {
+		e.App.Logger().Warn("action author fcaf progress contract", "error", err)
+		return nil
+	}
+	out := &ActionAuthorFCAFProgress{Roles: []ActionAuthorFCAFRole{}}
+	seen := map[string]bool{}
+	for _, r := range in.Roles[:min(len(in.Roles), actionAuthorProgressMaxRoles)] {
+		if _, err := actionauthor.FCAFSuiteRole(scope, r.Role); err != nil ||
+			seen[r.Role] || !fcafProgressStatuses[r.Status] {
+			continue
+		}
+		seen[r.Role] = true
+		if !actionauthor.IsCandidateKey(r.Key) {
+			r.Key = ""
+		}
+		r.Note = truncateRunes(r.Note, actionAuthorProgressNoteRunes)
+		out.Roles = append(out.Roles, r)
+	}
+	if seen[in.CurrentRole] {
+		out.CurrentRole = in.CurrentRole
+	}
+	return out
+}
+
 // actionAuthorPendingReview decodes the actions of a review callback's
 // input of the chat chatID; an action without a string key or code is
 // skipped. Each action starts from the candidate prerequisites of its plan.
@@ -996,7 +1230,13 @@ func actionAuthorPendingReview(
 	if err != nil {
 		e.App.Logger().Warn("action author pending review organization", "error", err)
 	}
-	review := &ActionAuthorPendingReview{ToolID: toolID, Actions: []ActionAuthorReviewAction{}}
+	profile, _ := input["profile"].(map[string]any)
+	review := &ActionAuthorPendingReview{
+		ToolID:   toolID,
+		Profile:  profile,
+		Warnings: actionAuthorWarnings(input["warnings"]),
+		Actions:  []ActionAuthorReviewAction{},
+	}
 	names := map[string]string{}
 	items, _ := input["actions"].([]any)
 	for _, item := range items {
@@ -1019,6 +1259,9 @@ func actionAuthorPendingReview(
 			CandidateSHA256: text("candidate_sha256"),
 			Replaces:        text("replaces"),
 			Error:           text("error"),
+			Note:            truncateRunes(text("note"), actionAuthorNoteRunes),
+			FCAFStatus:      fcafReviewStatus(text("fcaf_status")),
+			FCAFReplays:     fcafReviewReplays(fields["fcaf_replays"]),
 			Plan:            plan,
 			StartsFrom:      planCandidates(plan),
 			StartsFromNames: map[string]string{},
@@ -1043,6 +1286,77 @@ func actionAuthorPendingReview(
 		}
 	}
 	return review
+}
+
+// fcafReviewStatus keeps an FCAF review action's status when it is passed,
+// unsupported or finding, empty otherwise.
+func fcafReviewStatus(status string) string {
+	if actionauthor.IsFCAFResultStatus(status) {
+		return status
+	}
+	return ""
+}
+
+// fcafReviewReplays returns the replays of an FCAF review action whose
+// fixture, class and status are strings, at most actionauthor.MaxFCAFReplays
+// as Save allows; nil when none. Credimi checks them when the review accepts
+// the action.
+func fcafReviewReplays(value any) []actionauthor.FCAFReplay {
+	items, _ := value.([]any)
+	var replays []actionauthor.FCAFReplay
+	for _, item := range items[:min(len(items), actionauthor.MaxFCAFReplays)] {
+		fields, _ := item.(map[string]any)
+		fixture, fixtureOK := fields["fixture"].(string)
+		class, classOK := fields["class"].(string)
+		status, statusOK := fields["status"].(string)
+		if fixtureOK && classOK && statusOK {
+			replays = append(replays, actionauthor.FCAFReplay{
+				Fixture: fixture,
+				Class:   class,
+				Status:  status,
+			})
+		}
+	}
+	return replays
+}
+
+// actionAuthorNoteRunes bounds the agent's note on a review action.
+const actionAuthorNoteRunes = 2000
+
+// Bounds of the agent's review warnings: at most actionAuthorWarningCount
+// warnings of actionAuthorWarningRunes runes each.
+const (
+	actionAuthorWarningCount = 10
+	actionAuthorWarningRunes = 1000
+)
+
+// actionAuthorWarnings returns the string items of a review's warnings, at
+// most actionAuthorWarningCount, each cut at actionAuthorWarningRunes runes;
+// empty, never nil.
+func actionAuthorWarnings(value any) []string {
+	items, _ := value.([]any)
+	warnings := []string{}
+	for _, item := range items {
+		if len(warnings) == actionAuthorWarningCount {
+			break
+		}
+		if text, ok := item.(string); ok {
+			warnings = append(warnings, truncateRunes(text, actionAuthorWarningRunes))
+		}
+	}
+	return warnings
+}
+
+// truncateRunes keeps the first limit runes of text.
+func truncateRunes(text string, limit int) string {
+	count := 0
+	for index := range text {
+		if count == limit {
+			return text[:index]
+		}
+		count++
+	}
+	return text
 }
 
 // planCandidates lists the candidate keys among plan's prerequisites, in
@@ -1205,11 +1519,63 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 				StartTime:               info.StartTime.UTC().Format(time.RFC3339),
 				WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
 				DeviceID:                info.DeviceID,
+				Mode:                    actionAuthorSessionMode(info.Mode),
 			}
 			if device, _, err := mobilerunner.ResolveDevice(e.App, info.DeviceID); err == nil {
 				item.DeviceName = device.GetString("name")
 			}
 			response.Sessions = append(response.Sessions, item)
+		}
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+// HandleActionAuthorFCAFCoverage reports the FCAF relying-party coverage of
+// a wallet the caller can author: each role's action of the caller's
+// organization, the newest FCAF wallet profile and its warnings.
+func HandleActionAuthorFCAFCoverage() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		organization, apiErr := actionAuthorCallerNamespace(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		wallet := e.Request.URL.Query().Get("wallet")
+		if !actionAuthorWalletPattern.MatchString(wallet) {
+			return authoringAPIError(e, fmt.Errorf(
+				"%w: wallet must be organization/wallet",
+				actionauthor.ErrInvalid,
+			))
+		}
+		selection, err := actionauthor.SelectWallet(
+			e.App,
+			organization,
+			authoringActor(e.Auth),
+			wallet,
+		)
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
+		scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
+		if err != nil {
+			return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
+		}
+		roles, profile, lastRun, err := actionauthor.FCAFCoverageWithRun(
+			e.App,
+			selection,
+			scope,
+			fcafRunStateReader(e, organization),
+		)
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
+		response := ActionAuthorFCAFCoverageResponse{
+			Suite:    actionauthor.FCAFRelyingPartySuite,
+			Roles:    roles,
+			Warnings: actionauthor.FCAFWarnings(profile),
+		}
+		if lastRun != nil {
+			response.RunSummary = &lastRun.Summary
+			response.RunURL = lastRun.RunURL
 		}
 		return e.JSON(http.StatusOK, response)
 	}

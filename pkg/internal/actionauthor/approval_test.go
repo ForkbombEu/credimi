@@ -13,6 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestProfileSHA256(t *testing.T) {
+	assert.Empty(t, ProfileSHA256(nil))
+	assert.Empty(t, ProfileSHA256(map[string]any{}))
+	// The sha256 of {"a":"2","b":"1"} whatever the map's insertion order.
+	got := ProfileSHA256(map[string]any{"b": "1", "a": "2"})
+	assert.Equal(t, CodeSHA256(`{"a":"2","b":"1"}`), got)
+	assert.Equal(t, got, ProfileSHA256(map[string]any{"a": "2", "b": "1"}))
+}
+
+func TestFCAFResultSHA256(t *testing.T) {
+	assert.Empty(t, FCAFResultSHA256(nil))
+	passed := FCAFResultSHA256(&FCAFResult{Status: FCAFResultPassed})
+	unsupported := FCAFResultSHA256(&FCAFResult{Status: FCAFResultUnsupported})
+	assert.Equal(t, CodeSHA256(`{"status":"passed","note":""}`), passed)
+	assert.NotEqual(t, passed, unsupported)
+}
+
 func TestApprovalSignAndVerify(t *testing.T) {
 	app, _, _ := authoringFixture(t)
 	now := time.Unix(1_800_000_000, 0)
@@ -118,6 +135,9 @@ func TestSessionSignAndVerify(t *testing.T) {
 		"platform":  func(g *SessionGrant) { g.Platform = "ios" },
 		"wallet":    func(g *SessionGrant) { g.WalletVersionIdentifier = "org-a/wallet/v2" },
 		"actor":     func(g *SessionGrant) { g.ActorID = "user-2" },
+		"mode":      func(g *SessionGrant) { g.Mode = SessionModeFCAF },
+		"suite":     func(g *SessionGrant) { g.FCAFSuite = FCAFRelyingPartySuite },
+		"fix":       func(g *SessionGrant) { g.FCAFFix = true },
 	}
 	for name, change := range changed {
 		t.Run(name, func(t *testing.T) {
@@ -135,6 +155,43 @@ func TestSessionSignAndVerify(t *testing.T) {
 			assert.ErrorContains(t, err, "action author session was not started by Credimi")
 		})
 	}
+}
+
+func TestFCAFSessionTokenIsNotAChatSession(t *testing.T) {
+	app, _, _ := authoringFixture(t)
+	grant := SessionGrant{
+		SessionWorkflowID:       "ActionAuthorSession-ticket",
+		Namespace:               "runner-abc",
+		Organization:            "org-a",
+		DeviceID:                "org-a/runner/pixel",
+		Platform:                "android",
+		WalletVersionIdentifier: "org-a/wallet/v1",
+		ActorID:                 "user-1",
+		Mode:                    SessionModeFCAF,
+		FCAFSuite:               FCAFRelyingPartySuite,
+	}
+	token, err := SignSession(app, grant)
+	require.NoError(t, err)
+	require.NoError(t, VerifySession(app, token, grant))
+
+	chat := grant
+	chat.Mode = ""
+	err = VerifySession(app, token, chat)
+	require.ErrorIs(t, err, ErrForbidden)
+	assert.ErrorContains(t, err, "action author session was not started by Credimi")
+
+	// A session started to author is not a fix session, and the reverse.
+	fix := grant
+	fix.FCAFFix = true
+	err = VerifySession(app, token, fix)
+	require.ErrorIs(t, err, ErrForbidden)
+	fixToken, err := SignSession(app, fix)
+	require.NoError(t, err)
+	require.NoError(t, VerifySession(app, fixToken, fix))
+	require.ErrorIs(t, VerifySession(app, fixToken, grant), ErrForbidden)
+	ticket, err := SignTicket(app, grant)
+	require.NoError(t, err)
+	require.ErrorIs(t, VerifyTicket(app, ticket, fix), ErrForbidden)
 }
 
 func TestTicketAndSessionTokensAreNotInterchangeable(t *testing.T) {
@@ -193,4 +250,17 @@ func TestRunSignAndVerify(t *testing.T) {
 			assert.ErrorContains(t, err, "action author session run was not started by Credimi")
 		})
 	}
+}
+
+func TestFCAFReplaysSHA256(t *testing.T) {
+	assert.Empty(t, FCAFReplaysSHA256(nil))
+	assert.Empty(t, FCAFReplaysSHA256([]FCAFReplay{}))
+	replays := []FCAFReplay{
+		{Fixture: "s#a", Class: "dc+sd-jwt, haip-vp://", Status: FCAFReplayPassed},
+	}
+	assert.Equal(
+		t,
+		CodeSHA256(`[{"fixture":"s#a","class":"dc+sd-jwt, haip-vp://","status":"passed"}]`),
+		FCAFReplaysSHA256(replays),
+	)
 }

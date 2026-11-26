@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { yaml } from '@codemirror/lang-yaml';
 	import { UploadIcon } from '@lucide/svelte';
 	import { Wallet } from '$lib';
+	import FcafCoverageSheet from '$lib/action-author/fcaf-coverage-sheet.svelte';
 	import SessionsSheet from '$lib/action-author/sessions-sheet.svelte';
 	import StartSessionButton from '$lib/action-author/start-session-button.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
@@ -83,6 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#snippet actions()}
 				{#if walletOwner}
 					<SessionsSheet {wallet} {walletOwner} />
+					<FcafCoverageSheet {wallet} {walletOwner} {organization} />
 					<StartSessionButton {wallet} {walletOwner} {organization} />
 				{/if}
 			{/snippet}

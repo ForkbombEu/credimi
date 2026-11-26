@@ -329,6 +329,23 @@ func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
 			status:   http.StatusServiceUnavailable,
 			expected: []string{"device runner is offline"},
 		},
+		{
+			name: "FCAF session on an iOS simulator",
+			body: `{"device_id":"` + authoringAdminRunner + `/ios-simulator",` +
+				`"wallet_version_identifier":"` + authoringBothVersion + `","mode":"fcaf"}`,
+			status: http.StatusUnprocessableEntity,
+			expected: []string{
+				`"fcaf_not_supported"`,
+				"FCAF sessions run on Android devices only",
+			},
+		},
+		{
+			name: "unknown mode",
+			body: `{"device_id":"` + authoringAdminRunner + `/android-emulator",` +
+				`"wallet_version_identifier":"` + authoringAndroidVersion + `","mode":"x"}`,
+			status:   http.StatusBadRequest,
+			expected: []string{"ActionAuthorStartRequest.Mode", "'oneof' tag"},
+		},
 	}
 	for _, scenario := range scenarios {
 		enqueued := stubActionAuthorQueue(t, scenario.reachable)
@@ -411,6 +428,60 @@ func TestActionAuthorStartQueuesSessionForMember(t *testing.T) {
 	}).Test(t)
 	require.NotEmpty(t, enqueued.TicketID)
 	require.Equal(t, authoringNamespace, enqueued.OwnerNamespace)
+}
+
+func TestActionAuthorStartQueuesFCAFSession(t *testing.T) {
+	token := authoringToken(t, "userA")
+	enqueued := stubActionAuthorQueue(t, true)
+	deviceID := authoringAdminRunner + "/android-emulator"
+	var response ActionAuthorStartResponse
+	(&tests.ApiScenario{
+		Name:   "FCAF session on an Android device",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(
+			`{"device_id":"` + deviceID + `","wallet_version_identifier":"` +
+				authoringAndroidVersion + `","mode":"fcaf"}`,
+		),
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusAccepted,
+		ExpectedContent: []string{`"status":"queued"`},
+		TestAppFactory:  setupActionAuthorApp,
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+			body, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &response))
+			runnerNamespace := authoringRunnerNamespace(t, app, path.Base(authoringAdminRunner))
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			want := actionauthor.SessionGrant{
+				SessionWorkflowID: actionauthor.SessionWorkflowID(
+					strings.TrimPrefix(runnerNamespace, "runner-"),
+					response.TicketID,
+				),
+				Namespace:               runnerNamespace,
+				Organization:            "usera-s-organization",
+				DeviceID:                deviceID,
+				Platform:                "android",
+				WalletVersionIdentifier: authoringAndroidVersion,
+				ActorID:                 user.Id,
+				Mode:                    actionauthor.SessionModeFCAF,
+				FCAFSuite:               actionauthor.FCAFRelyingPartySuite,
+			}
+			ticketGrant, _ := enqueued.ActionAuthor["ticket_grant"].(string)
+			require.NoError(t, actionauthor.VerifyTicket(app, ticketGrant, want))
+			chat := want
+			chat.Mode = ""
+			chat.FCAFSuite = ""
+			require.ErrorIs(
+				t,
+				actionauthor.VerifyTicket(app, ticketGrant, chat),
+				actionauthor.ErrForbidden,
+			)
+		},
+	}).Test(t)
+	require.Equal(t, actionauthor.SessionModeFCAF, enqueued.ActionAuthor["mode"])
+	require.Equal(t, actionauthor.FCAFRelyingPartySuite, enqueued.ActionAuthor["fcaf_suite"])
 }
 
 func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {

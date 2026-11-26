@@ -55,6 +55,119 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: List devices available for authoring
+  /api/action-author/fcaf-coverage:
+    get:
+      description: 'Lists the FCAF relying-party roles and, for each, the caller organization''s
+        action on the wallet: missing, current, incomplete, stale or unmanaged, and
+        for a saved FCAF action the agent''s verdict (passed, unsupported or finding)
+        and note, with the warnings about the wallet. run_summary (null without one)
+        and run_url are the test summary and link of the latest finished complete
+        run of the wallet''s FCAF pipelines (POST /api/action-author/fcaf-pipeline),
+        else of its latest finished subset run, and each role''s run how its action
+        did in the latest finished run that ran it (the complete run, or a newer subset
+        run): status ok, failing (the run failed inside the action, with the Maestro
+        command and the fixture of its first failing step; failed_fixtures lists the
+        fixtures <scenario>#<step> of every failing step, at most 32) or not_run,
+        and the role''s verdict from the run: failing, finding (the action ran and
+        one of the role''s tests failed, failed_tests lists at most 20), blocked,
+        passed or not_run, with tests_run; null when no such run ran it. Test statuses
+        merge across runs like the outcomes. A current or incomplete action the run
+        covered has verdict_source pipeline and the run''s verdict as verdict; otherwise
+        a recorded agent verdict is the verdict with verdict_source authoring (not
+        verified yet). Only the 20 newest runs of the caller''s organization on the
+        wallet''s FCAF records are read. A failing run changes neither status nor
+        result.'
+      operationId: actionAuthor.fcafCoverage
+      parameters:
+      - description: 'Wallet: organization/wallet (canonified names).'
+        in: query
+        name: wallet
+        required: true
+        schema:
+          description: 'Wallet: organization/wallet (canonified names).'
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorFCAFCoverageResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: FCAF coverage of a wallet
+  /api/action-author/fcaf-pipeline:
+    post:
+      description: 'Build the FCAF relying-party validation pipeline of a wallet build
+        (wallet_version_identifier as for sessions, Android installer or store build)
+        from the caller organization''s FCAF actions of the wallet, and queue it on
+        device_id as POST /api/pipeline/queue does. Only an owner of the caller''s
+        organization may (403 forbidden otherwise). Roles whose action is current
+        or incomplete are the wallet''s; a scenario needing another role is left out
+        and listed in skipped with its missing roles, and only its tests are dropped:
+        every build keeps only the tests whose evidence it produces. The pipeline
+        record "FCAF relying-party validation - <wallet owner>/<wallet>" (the canonified
+        wallet path) of the caller''s organization is created unpublished or its yaml
+        replaced (a published one answers 409 conflict); scenarios (scenario file
+        names of the suite, with or without .yaml) limits the build to those scenarios
+        and stores it on the record of that set of scenarios, suffixed " - scenarios
+        <hash>" (the first 8 hex digits of the sha256 of the sorted file names joined
+        by newlines). The pipeline runs the scenarios'' reference credentials and
+        use cases, which must be the caller organization''s own or published: 422
+        fcaf_credential_unavailable lists the others. An unknown or repeated scenario
+        answers 422 fcaf_unknown_scenario, no scenario that can run 422 fcaf_nothing_to_run,
+        a device that is not Android 422 fcaf_not_supported; device access and availability
+        are checked as for pipelines.'
+      operationId: actionAuthor.runFCAFPipeline
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersActionAuthorFCAFPipelineRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorFCAFPipelineResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Build and run a wallet's FCAF relying-party validation
   /api/action-author/reviews:
     post:
       description: 'Deliver the human decisions on the pending review tool_id of the
@@ -114,9 +227,9 @@ paths:
       description: List the ten latest authoring sessions the caller started for their
         organization on the wallet organization/wallet (its Play Store build and every
         version), newest first, with their Temporal status (for example Running or
-        Completed), start time (RFC 3339), build, device path and device name (empty
-        when the device no longer exists). A session Temporal cannot describe is left
-        out.
+        Completed), start time (RFC 3339), build, mode (chat or fcaf), device path
+        and device name (empty when the device no longer exists). A session Temporal
+        cannot describe is left out.
       operationId: actionAuthor.listSessions
       parameters:
       - description: 'Wallet of the sessions: organization/wallet (canonified names).'
@@ -175,8 +288,14 @@ paths:
         answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor
         in the runner''s namespace in the last two minutes answers 503 agent_unavailable.
         The agent sets each action''s plan in the chat and Credimi checks it on every
-        call that uses it; the session can save several actions. The runner owner
-        sets two daily limits of model tokens (UTC day) in the runner''s configuration:
+        call that uses it; the session can save several actions. mode fcaf (Android
+        devices only, else 422 fcaf_not_supported) authors the wallet''s FCAF actions
+        of the relying-party suite; with fcaf_fix true (only with mode fcaf, else
+        400 invalid_request) the session fixes only the roles whose action failed
+        in the wallet''s last FCAF pipeline run (their coverage verdict is failing),
+        starting from their saved actions and replaying them on the requests they
+        failed on, and answers 422 fcaf_nothing_to_fix when no role failed. The runner
+        owner sets two daily limits of model tokens (UTC day) in the runner''s configuration:
         one for sessions of the runner''s own organization (0: no limit) and one shared
         by every other organization (0: the agent is not offered to them). A start
         after the day''s tokens of the caller''s pool reach its limit answers 429
@@ -228,15 +347,18 @@ paths:
         screen (POST /api/pipeline/live-view opens it with the session ID and run).
         For a running session, chat_ready reports whether the agent chat has started
         its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown)
-        when the idle session closes to free the device, and pending_review the review
-        waiting for the caller''s decisions (POST /api/action-author/reviews), null
-        otherwise: its tool_id and its actions, one per candidate key, each with its
-        name, build, code, candidate_sha256, plan, the candidate keys among its plan''s
-        prerequisites (starts_from) and their names (starts_from_names: the review''s
-        action of that key, else the action the session saved for it, else the key),
-        the action it replaces with the pipelines using it (used_by), and why its
-        previous accept did not save (error). A session that has not started yet,
-        an unknown session and one another user started all answer 404 session_not_found
+        when the idle session closes to free the device, fcaf_progress the campaign
+        of an FCAF session (the role being written and each role''s status: pending,
+        working, passed, unsupported, blocked or skipped, with the agent''s note),
+        null otherwise or when the agent does not answer it, and pending_review the
+        review waiting for the caller''s decisions (POST /api/action-author/reviews),
+        null otherwise: its tool_id and its actions, one per candidate key, each with
+        its name, build, code, candidate_sha256, plan, the candidate keys among its
+        plan''s prerequisites (starts_from) and their names (starts_from_names: the
+        review''s action of that key, else the action the session saved for it, else
+        the key), the action it replaces with the pipelines using it (used_by), and
+        why its previous accept did not save (error). A session that has not started
+        yet, an unknown session and one another user started all answer 404 session_not_found
         (follow a queued session''s ticket in the device queue).'
       operationId: actionAuthor.getSession
       parameters:
@@ -927,6 +1049,124 @@ components:
         wallet_name:
           type: string
       type: object
+    ActionauthorFCAFReplay:
+      properties:
+        class:
+          type: string
+        fixture:
+          type: string
+        status:
+          type: string
+      type: object
+    ActionauthorFCAFResult:
+      properties:
+        note:
+          type: string
+        status:
+          type: string
+      type: object
+    ActionauthorFCAFRoleCoverage:
+      properties:
+        action:
+          type: string
+        category:
+          type: string
+        failed_command:
+          type: string
+        fcaf_replays:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFReplay'
+          nullable: true
+          type: array
+        fix:
+          type: boolean
+        fix_fixtures:
+          items:
+            type: string
+          type: array
+        missing_fixtures:
+          items:
+            type: string
+          nullable: true
+          type: array
+        note:
+          type: string
+        outcome:
+          type: string
+        result:
+          type: string
+        role:
+          type: string
+        role_sha256:
+          type: string
+        run:
+          $ref: '#/components/schemas/ActionauthorFCAFRoleRun'
+        starts_from:
+          items:
+            type: string
+          nullable: true
+          type: array
+        status:
+          type: string
+        summary:
+          type: string
+        verdict:
+          type: string
+        verdict_source:
+          type: string
+      type: object
+    ActionauthorFCAFRoleRun:
+      properties:
+        failed_command:
+          type: string
+        failed_fixtures:
+          items:
+            type: string
+          nullable: true
+          type: array
+        failed_steps:
+          type: integer
+        failed_tests:
+          items:
+            type: string
+          nullable: true
+          type: array
+        fixture_id:
+          type: string
+        run_url:
+          type: string
+        status:
+          type: string
+        tests_run:
+          type: integer
+        verdict:
+          type: string
+      type: object
+    ActionauthorFCAFRunSummary:
+      properties:
+        blocked:
+          type: integer
+        created:
+          type: string
+        error:
+          type: integer
+        fail:
+          type: integer
+        inconclusive:
+          type: integer
+        not_applicable:
+          type: integer
+        pass:
+          type: integer
+        pipeline:
+          type: string
+        skipped:
+          type: integer
+        status:
+          type: string
+        total:
+          type: integer
+      type: object
     ActionauthorHTTPSourceRequest:
       properties:
         body: {}
@@ -985,6 +1225,8 @@ components:
       type: object
     ActionauthorSpec:
       properties:
+        fcaf_role:
+          type: string
         outcome:
           type: string
         parameters:
@@ -1040,6 +1282,16 @@ components:
         tool:
           type: string
       type: object
+    AggregateSkippedScenario:
+      properties:
+        missing_roles:
+          items:
+            type: string
+          nullable: true
+          type: array
+        scenario:
+          type: string
+      type: object
     ApierrorAPIError:
       properties:
         code:
@@ -1092,6 +1344,84 @@ components:
           nullable: true
           type: array
       type: object
+    HandlersActionAuthorFCAFCoverageResponse:
+      properties:
+        roles:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFRoleCoverage'
+          nullable: true
+          type: array
+        run_summary:
+          $ref: '#/components/schemas/ActionauthorFCAFRunSummary'
+        run_url:
+          type: string
+        suite:
+          type: string
+        warnings:
+          items:
+            type: string
+          nullable: true
+          type: array
+      type: object
+    HandlersActionAuthorFCAFPipelineRequest:
+      properties:
+        device_id:
+          type: string
+        scenarios:
+          items:
+            type: string
+          nullable: true
+          type: array
+        wallet_version_identifier:
+          type: string
+      type: object
+    HandlersActionAuthorFCAFPipelineResponse:
+      properties:
+        device_id:
+          type: string
+        pipeline:
+          type: string
+        pipeline_url:
+          type: string
+        run_id:
+          type: string
+        run_url:
+          type: string
+        skipped:
+          items:
+            $ref: '#/components/schemas/AggregateSkippedScenario'
+          nullable: true
+          type: array
+        status:
+          type: string
+        test_count:
+          type: integer
+        ticket_id:
+          type: string
+        workflow_id:
+          type: string
+      type: object
+    HandlersActionAuthorFCAFProgress:
+      properties:
+        current_role:
+          type: string
+        roles:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorFCAFRole'
+          nullable: true
+          type: array
+      type: object
+    HandlersActionAuthorFCAFRole:
+      properties:
+        key:
+          type: string
+        note:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+      type: object
     HandlersActionAuthorPendingReview:
       properties:
         actions:
@@ -1099,8 +1429,16 @@ components:
             $ref: '#/components/schemas/HandlersActionAuthorReviewAction'
           nullable: true
           type: array
+        profile:
+          additionalProperties: {}
+          type: object
         tool_id:
           type: string
+        warnings:
+          items:
+            type: string
+          nullable: true
+          type: array
       type: object
     HandlersActionAuthorReplayResponse:
       properties:
@@ -1117,9 +1455,17 @@ components:
           type: string
         error:
           type: string
+        fcaf_replays:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFReplay'
+          type: array
+        fcaf_status:
+          type: string
         key:
           type: string
         name:
+          type: string
+        note:
           type: string
         plan:
           additionalProperties: {}
@@ -1148,12 +1494,21 @@ components:
           type: string
         decision:
           type: string
+        fcaf_replays:
+          items:
+            $ref: '#/components/schemas/ActionauthorFCAFReplay'
+          type: array
+        fcaf_result:
+          $ref: '#/components/schemas/ActionauthorFCAFResult'
         key:
           type: string
         name:
           type: string
         plan:
           $ref: '#/components/schemas/ActionauthorSpec'
+        profile:
+          additionalProperties: {}
+          type: object
       type: object
     HandlersActionAuthorReviewRequest:
       properties:
@@ -1195,6 +1550,8 @@ components:
           type: string
         device_name:
           type: string
+        mode:
+          type: string
         session_id:
           type: string
         start_time:
@@ -1220,8 +1577,12 @@ components:
           type: string
         device_name:
           type: string
+        fcaf_progress:
+          $ref: '#/components/schemas/HandlersActionAuthorFCAFProgress'
         live_view:
           type: boolean
+        mode:
+          type: string
         model:
           type: string
         pending_review:
@@ -1254,6 +1615,10 @@ components:
     HandlersActionAuthorStartRequest:
       properties:
         device_id:
+          type: string
+        fcaf_fix:
+          type: boolean
+        mode:
           type: string
         wallet_version_identifier:
           type: string

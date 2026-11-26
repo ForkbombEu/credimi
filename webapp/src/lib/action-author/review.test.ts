@@ -11,6 +11,8 @@ import {
 	canAccept,
 	canSend,
 	decidedActions,
+	fcafReplays,
+	reviewDecisions,
 	startingName,
 	type Choices
 } from './review';
@@ -153,5 +155,117 @@ describe('canSend', () => {
 				a2: { decision: 'accept', comment: '' }
 			})
 		).toBe(true);
+	});
+});
+
+describe('reviewDecisions', () => {
+	const profile = { pin: '123456' };
+	const fcaf = action({ key: 'a1', plan: { slot: 'onboarding', fcaf_role: 'fcaf-reset' } });
+	const chat = action({ key: 'a2', plan: { slot: 'onboarding' } });
+	const refused = action({ key: 'a3', plan: { slot: 'onboarding', fcaf_role: 'fcaf-x' } });
+	const choices: Choices = {
+		a1: { decision: 'accept', comment: '' },
+		a2: { decision: 'accept', comment: '' },
+		a3: { decision: 'refuse', comment: '' }
+	};
+
+	it('sends the review profile with every accepted FCAF action only', () => {
+		const decisions = reviewDecisions({ actions: [fcaf, chat, refused], profile }, choices);
+		expect(decisions.map((decision) => decision.profile)).toEqual([
+			profile,
+			undefined,
+			undefined
+		]);
+	});
+
+	it('sends no profile when the review has none', () => {
+		const decisions = reviewDecisions({ actions: [fcaf] }, choices);
+		expect(decisions[0]).not.toHaveProperty('profile');
+	});
+
+	it('sends the verdict with an accepted FCAF action only', () => {
+		const unsupported = action({
+			key: 'a1',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-reset' },
+			fcaf_status: 'unsupported',
+			note: 'no Deny button'
+		});
+		const chatWithStatus = action({
+			key: 'a2',
+			plan: { slot: 'onboarding' },
+			fcaf_status: 'passed'
+		});
+		const refusedWithStatus = action({
+			key: 'a3',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-x' },
+			fcaf_status: 'passed'
+		});
+		const decisions = reviewDecisions(
+			{ actions: [unsupported, chatWithStatus, refusedWithStatus], profile },
+			choices
+		);
+		expect(decisions[0].fcaf_result).toEqual({
+			status: 'unsupported',
+			note: 'no Deny button'
+		});
+		expect(decisions[1]).not.toHaveProperty('fcaf_result');
+		expect(decisions[2]).not.toHaveProperty('fcaf_result');
+	});
+
+	it('sends a wallet finding with an accepted FCAF action', () => {
+		const finding = action({
+			key: 'a1',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-expect-credential-rejected' },
+			fcaf_status: 'finding',
+			note: 'Wallet finding: stored the credential'
+		});
+		const decisions = reviewDecisions({ actions: [finding], profile }, choices);
+		expect(decisions[0].fcaf_result?.status).toBe('finding');
+	});
+
+	it('sends the replays with an accepted FCAF action only', () => {
+		const replays = [
+			{ fixture: 's#a', class: 'dc+sd-jwt, haip-vp://', status: 'passed' as const },
+			{ fixture: 's#b', class: 'mso_mdoc, openid4vp://', status: 'finding' as const }
+		];
+		const accepted = action({
+			key: 'a1',
+			plan: { slot: 'verify-credential', fcaf_role: 'fcaf-engagement-haip-vp' },
+			fcaf_status: 'passed',
+			fcaf_replays: replays
+		});
+		const chat = action({ key: 'a2', plan: { slot: 'onboarding' }, fcaf_replays: replays });
+		const refused = action({
+			key: 'a3',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-x' },
+			fcaf_replays: replays
+		});
+		const noReplays = action({
+			key: 'a4',
+			plan: { slot: 'onboarding', fcaf_role: 'fcaf-reset' },
+			fcaf_replays: []
+		});
+		const decisions = reviewDecisions(
+			{ actions: [accepted, chat, refused, noReplays], profile },
+			{ ...choices, a4: { decision: 'accept', comment: '' } }
+		);
+		expect(decisions[0].fcaf_replays).toEqual(replays);
+		expect(decisions[1]).not.toHaveProperty('fcaf_replays');
+		expect(decisions[2]).not.toHaveProperty('fcaf_replays');
+		expect(decisions[3]).not.toHaveProperty('fcaf_replays');
+	});
+});
+
+describe('fcafReplays', () => {
+	const replays = [{ fixture: 's#a', class: 'mso_mdoc, openid4vp://', status: 'passed' as const }];
+
+	it('lists the replays of an FCAF action', () => {
+		expect(fcafReplays({ plan: { fcaf_role: 'fcaf-x' }, fcaf_replays: replays })).toEqual(replays);
+		expect(fcafReplays({ plan: { fcaf_role: 'fcaf-x' } })).toEqual([]);
+	});
+
+	it('lists none for another action', () => {
+		expect(fcafReplays({ plan: { slot: 'onboarding' }, fcaf_replays: replays })).toEqual([]);
+		expect(fcafReplays({ plan: null, fcaf_replays: replays })).toEqual([]);
 	});
 });

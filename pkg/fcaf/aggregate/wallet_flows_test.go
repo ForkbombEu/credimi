@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package main
+package aggregate
 
 import (
-	"path/filepath"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,79 +20,96 @@ import (
 // later presentation of the same scenario, whose no-match or rejection evidence
 // would then only prove an empty Wallet.
 func TestWalletActionShareConsumption(t *testing.T) {
-	actions, err := loadWalletActions(
-		filepath.Join("..", "..", "config_templates", "fcaf", "imports"),
-	)
-	require.NoError(t, err)
+	roles := testWalletRoles(t)
 
 	for _, testCase := range []struct {
 		name   string
-		action string
+		with   map[string]any
 		want   int
+		errMsg string
 	}{
 		{
-			name:   "conditional consent share of a refused request",
-			action: walletActionNamespace + "fcaf-expect-request-rejected",
-			want:   1,
+			name: "conditional consent share of a refused request",
+			with: actionID(roles, "fcaf-expect-request-rejected"),
+			want: 1,
 		},
 		{
-			name:   "request observation never presents",
-			action: walletActionNamespace + "fcaf-observe-request",
-			want:   0,
+			name: "request observation never presents",
+			with: actionID(roles, "fcaf-observe-request"),
+			want: 0,
 		},
 		{
-			name:   "conditional consent share of a no-match request",
-			action: walletActionNamespace + "fcaf-expect-no-matching-document",
-			want:   1,
+			name: "conditional consent share of a no-match request",
+			with: actionID(roles, "fcaf-expect-no-matching-document"),
+			want: 1,
 		},
 		{
-			name:   "consent share of an accepted request",
-			action: walletActionNamespace + "fcaf-exercise-wallet-generic",
-			want:   1,
+			name: "multi-line Share tap of a presentation that must complete",
+			with: actionID(roles, "fcaf-engagement-haip-vp"),
+			want: 1,
 		},
 		{
-			name:   "multi-line Share tap of a presentation that must complete",
-			action: walletActionNamespace + "fcaf-engagement-haip-vp",
-			want:   1,
+			name: "consent share of an accepted DC API request",
+			with: actionID(roles, "fcaf-dc-api-present"),
+			want: 1,
 		},
 		{
-			name:   "consent share of an accepted DC API request",
-			action: walletActionNamespace + "fcaf-dc-api-present",
-			want:   1,
+			name: "DC API refusal never shares",
+			with: actionID(roles, "fcaf-dc-api-expect-rejected"),
+			want: 0,
 		},
 		{
-			name:   "DC API refusal never shares",
-			action: walletActionNamespace + "fcaf-dc-api-expect-rejected",
-			want:   0,
+			name: "credential refusal never presents",
+			with: actionID(roles, "fcaf-expect-credential-rejected"),
+			want: 0,
 		},
 		{
-			name:   "credential refusal never presents",
-			action: walletActionNamespace + "fcaf-expect-credential-rejected",
-			want:   0,
+			name: "issuance never presents",
+			with: actionID(roles, "getcredential-generic-credential-without-authentication"),
+			want: 0,
 		},
 		{
-			name:   "issuance never presents",
-			action: issuanceActionID,
-			want:   0,
+			name: "injected issuance never presents",
+			with: map[string]any{"action_id": roles.issuanceActionID},
+			want: 0,
 		},
 		{
-			name:   "injected issuance never presents",
-			action: injectedIssuanceActionID,
-			want:   0,
+			name:   "an action outside the contract is refused",
+			with:   actionID(roles, "not-a-role"),
+			errMsg: "is not a role of fcaf-roles.yaml",
+		},
+		{
+			name:   "inline action code is refused",
+			with:   map[string]any{"action_code": "appId: x\n---\n- launchApp\n"},
+			errMsg: "inline action_code is not supported",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			consumed, err := credentialInstancesConsumed(
-				map[string]any{
-					"use":  mobileAutomationTask,
-					"with": map[string]any{"action_id": testCase.action},
-				},
-				actions,
+				map[string]any{"use": mobileAutomationTask, "with": testCase.with},
+				roles,
 			)
+			if testCase.errMsg != "" {
+				require.ErrorContains(t, err, testCase.errMsg)
+				return
+			}
 			require.NoError(t, err)
 			require.Equal(t, testCase.want, consumed)
 		})
 	}
+}
+
+// actionID is the `with` of a step running a reference wallet action.
+func actionID(roles walletRoles, role string) map[string]any {
+	return map[string]any{"action_id": roles.prefix + role}
+}
+
+// testWalletRoles loads the repository's FCAF role contract.
+func testWalletRoles(t *testing.T) walletRoles {
+	t.Helper()
+	roles, err := loadWalletRoles(testFCAFRoot)
+	require.NoError(t, err)
+	return roles
 }
 
 // TestMultipleTruePresentationSpendsEveryHeldInstance pins that a Share of a
@@ -101,6 +118,7 @@ func TestWalletActionShareConsumption(t *testing.T) {
 // one is issued for it. Counting such a Share as one instance once let an
 // inventory query empty the wallet before the query it was meant to prepare.
 func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
+	roles := testWalletRoles(t)
 	session := func(multiple bool) map[string]any {
 		credential := map[string]any{"id": "pid", "format": "dc+sd-jwt"}
 		if multiple {
@@ -130,13 +148,14 @@ func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
 				1,
 				available,
 				nil,
+				roles,
 			)
 			require.NoError(t, err)
 			require.Empty(t, sessions)
 			require.Empty(t, issuances)
 			require.Equal(t, testCase.wantRemaining, available[formatSDJWT])
 
-			_, next, err := pidIssuancesBefore(present, session(false), 1, available, nil)
+			_, next, err := pidIssuancesBefore(present, session(false), 1, available, nil, roles)
 			require.NoError(t, err)
 			if testCase.wantRemaining == 0 {
 				require.NotEmpty(t, next, "a later Share must get a freshly issued PID")
@@ -152,14 +171,17 @@ func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
 // when the Wallet kept that credential gets no injected PID, which could never
 // match the probe's pinned value. Without the offer the same probe gets one.
 func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
+	roles := testWalletRoles(t)
 	offer := map[string]any{
-		"id":   "offer-malformed-credential",
-		"use":  mobileAutomationTask,
-		"with": map[string]any{"action_id": rejectedOfferActionID},
+		"id":  "offer-malformed-credential",
+		"use": mobileAutomationTask,
+		"with": map[string]any{
+			"action_id": roles.prefix + "fcaf-expect-credential-rejected",
+		},
 	}
-	offerSession := map[string]any{"with": map[string]any{"body": map[string]any{
-		"credential_configuration_id": pidSDJWTConfigID,
-	}}}
+	offerSession := map[string]any{"with": map[string]any{
+		"body": walletroles.PIDIssuance(walletroles.PIDIssuerKeyAttestation, "sd-jwt").Body,
+	}}
 	probeSession := map[string]any{"with": map[string]any{"body": map[string]any{
 		"presentation_request": map[string]any{"dcql_query": map[string]any{
 			"credentials": []any{map[string]any{"id": "pid", "format": "dc+sd-jwt"}},
@@ -168,9 +190,9 @@ func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
 	probe := map[string]any{"id": "probe-malformed-credential", "use": mobileAutomationTask}
 
 	available := map[credentialFormat]int{}
-	_, _, err := pidIssuancesBefore(offer, offerSession, 0, available, nil)
+	_, _, err := pidIssuancesBefore(offer, offerSession, 0, available, nil, roles)
 	require.NoError(t, err)
-	sessions, _, err := pidIssuancesBefore(probe, probeSession, 1, available, nil)
+	sessions, _, err := pidIssuancesBefore(probe, probeSession, 1, available, nil, roles)
 	require.NoError(t, err)
 	require.Empty(t, sessions, "the refused offer is the credential the probe targets")
 
@@ -180,6 +202,7 @@ func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
 		1,
 		map[credentialFormat]int{},
 		nil,
+		roles,
 	)
 	require.NoError(t, err)
 	require.Len(t, sessions, 1, "a probe with no earlier offer gets an injected PID")
@@ -191,7 +214,10 @@ func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
 // for that type can match. A type the scenario never issued is a near-miss
 // request, answered by the PID the wallet holds.
 func TestPresentationsSpendTheirOwnCredentialType(t *testing.T) {
+	roles := testWalletRoles(t)
 	const degree = "urn:credimi:degree:1"
+	issuanceActionID := roles.prefix +
+		"getcredential-generic-credential-without-authentication"
 	issueDegree := map[string]any{
 		"id":   "obtain-degree",
 		"use":  mobileAutomationTask,
@@ -214,14 +240,14 @@ func TestPresentationsSpendTheirOwnCredentialType(t *testing.T) {
 	present := map[string]any{"id": "present", "use": mobileAutomationTask}
 
 	available := map[credentialFormat]int{}
-	_, _, err := pidIssuancesBefore(issueDegree, degreeOffer, 0, available, nil)
+	_, _, err := pidIssuancesBefore(issueDegree, degreeOffer, 0, available, nil, roles)
 	require.NoError(t, err)
 
-	sessions, _, err := pidIssuancesBefore(present, request(degree), 1, available, nil)
+	sessions, _, err := pidIssuancesBefore(present, request(degree), 1, available, nil, roles)
 	require.NoError(t, err)
 	require.Empty(t, sessions, "the issued degree answers the first degree presentation")
 
-	_, _, err = pidIssuancesBefore(present, request(degree), 1, available, nil)
+	_, _, err = pidIssuancesBefore(present, request(degree), 1, available, nil, roles)
 	require.ErrorContains(t, err, degree, "a spent degree must not be replaced by a PID")
 
 	sessions, _, err = pidIssuancesBefore(
@@ -230,6 +256,7 @@ func TestPresentationsSpendTheirOwnCredentialType(t *testing.T) {
 		1,
 		available,
 		nil,
+		roles,
 	)
 	require.NoError(t, err)
 	require.Len(t, sessions, 1, "a type the scenario never issued falls back to a PID")

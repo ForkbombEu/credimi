@@ -158,6 +158,39 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	requireRunGrantSignal(t, act.app, captured, "run-author")
 }
 
+func TestStartQueuedPipelineActivityStartsFCAFSessionWithLongerTimeout(t *testing.T) {
+	act, captured := newCapturingQueuedPipelineActivity(
+		t,
+		queuedSessionID,
+		"run-author",
+	)
+	payload := actionAuthorTicketInput()
+	payload.ActionAuthor["mode"] = actionauthor.SessionModeFCAF
+	payload.ActionAuthor["fcaf_suite"] = actionauthor.FCAFRelyingPartySuite
+	signActionAuthorTicket(t, act.app, &payload)
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: payload})
+	require.NoError(t, err)
+
+	require.Equal(t, 9*time.Hour, captured.lastOptions.WorkflowExecutionTimeout)
+	input, ok := captured.lastArgs[0].(workflowengine.WorkflowInput)
+	require.True(t, ok)
+	started, ok := input.Payload.(map[string]any)
+	require.True(t, ok)
+	grant, _ := started["grant"].(string)
+	require.NoError(t, actionauthor.VerifySession(act.app, grant, actionauthor.SessionGrant{
+		SessionWorkflowID:       queuedSessionID,
+		Namespace:               testRunnerNamespace,
+		Organization:            testOrgANamespace,
+		DeviceID:                "tenant/runner-1/device-1",
+		Platform:                "android",
+		WalletVersionIdentifier: testOrgANamespace + "/wallet/v1",
+		ActorID:                 "user-1",
+		Mode:                    actionauthor.SessionModeFCAF,
+		FCAFSuite:               actionauthor.FCAFRelyingPartySuite,
+	}))
+}
+
 // requireRunGrantSignal requires that the start sent exactly one signal: the
 // run grant of the session run runID.
 func requireRunGrantSignal(

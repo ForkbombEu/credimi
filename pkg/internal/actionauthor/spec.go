@@ -79,6 +79,9 @@ const (
 	OutcomeSuccess   = "success"
 	OutcomeRejection = "rejection"
 	OutcomeWait      = "wait"
+	// OutcomeTolerant is only for FCAF roles: the step never fails on the
+	// outcome, the protocol evidence decides.
+	OutcomeTolerant = "tolerant"
 )
 
 // MaxWaitSeconds bounds the wait of a wait action.
@@ -110,6 +113,7 @@ var (
 	actionParameter = regexp.MustCompile(actionParameterRef)
 	// candidateKey is the key the runner gives each action a session writes.
 	candidateKey    = regexp.MustCompile(candidateKeyRule)
+	fcafRoleName    = regexp.MustCompile(`^[a-z0-9-]+$`)
 	statusReference = regexp.MustCompile(`\$\{([^}]*)\}`)
 	// allowedHeaders are the http source request headers, lower case: the
 	// session input is stored in Temporal history, so no header may carry a
@@ -127,12 +131,14 @@ var (
 // condition, optional: true and timeout: WaitSeconds * 1000 (see ValidateCode).
 type Spec struct {
 	Slot          string             `json:"slot"`
-	Outcome       string             `json:"outcome,omitempty"` // "success" (default) | "rejection" | "wait"
+	Outcome       string             `json:"outcome,omitempty"` // "success" (default) | "rejection" | "wait" | "tolerant"
 	WaitSeconds   int                `json:"wait_seconds,omitempty"`
 	Prerequisites []PrerequisiteSpec `json:"prerequisites,omitempty"`
 	Parameters    []ParameterSpec    `json:"parameters,omitempty"`
 	// Replaces names the caller's own action this plan rewrites in place.
 	Replaces *ReplaceSpec `json:"replaces,omitempty"`
+	// FCAFRole binds the plan to a role of the FCAF wallet role contract.
+	FCAFRole string `json:"fcaf_role,omitempty"`
 }
 
 // ReplaceSpec is the existing action a plan rewrites in place, and the hash
@@ -348,6 +354,10 @@ func (s *Spec) Normalize() error {
 	if !ok {
 		return invalidf("slot: must be one of %s", slotNames())
 	}
+	s.FCAFRole = strings.TrimSpace(s.FCAFRole)
+	if s.FCAFRole != "" && !fcafRoleName.MatchString(s.FCAFRole) {
+		return invalidf("fcaf_role: must be an FCAF role name")
+	}
 	switch s.Outcome {
 	case OutcomeSuccess:
 	case OutcomeRejection:
@@ -358,8 +368,12 @@ func (s *Spec) Normalize() error {
 		if !rule.Wait {
 			return invalidf("outcome: the %s slot has no wait outcome", s.Slot)
 		}
+	case OutcomeTolerant:
+		if s.FCAFRole == "" {
+			return invalidf("outcome: tolerant is only for FCAF roles")
+		}
 	default:
-		return invalidf("outcome: must be success, rejection or wait")
+		return invalidf("outcome: must be success, rejection, wait or tolerant")
 	}
 	if s.Outcome == OutcomeWait {
 		if s.WaitSeconds < 1 || s.WaitSeconds > MaxWaitSeconds {

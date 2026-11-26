@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -33,6 +35,8 @@ var (
 	fcafTimeout    time.Duration
 	fcafInterval   time.Duration
 	fcafImportsDir string
+	fcafWallet     string
+	fcafScenarios  []string
 )
 
 // defaultFCAFSuite is the FCAF suite whose pipelines run and sync by default.
@@ -92,6 +96,9 @@ func NewFCAFCommand() *cobra.Command {
 		Use:   "run",
 		Short: "Run FCAF pipeline YAML files sequentially",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := applyFCAFWalletFlags(cmd.Flags().Changed("timeout")); err != nil {
+				return err
+			}
 			return runFCAF(cmd.Context())
 		},
 	}
@@ -113,8 +120,12 @@ func NewFCAFCommand() *cobra.Command {
 	run.Flags().
 		StringVar(&fcafDeviceID, "device-id", "", "registered mobile device identifier for mobile-automation steps")
 	run.Flags().
-		DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline")
+		DurationVar(&fcafTimeout, "timeout", 30*time.Minute, "maximum time allowed for each pipeline (default 10h with --wallet, whose complete pipeline runs 8-9 hours)")
 	run.Flags().DurationVar(&fcafInterval, "interval", 5*time.Second, "queue polling interval")
+	run.Flags().
+		StringVar(&fcafWallet, "wallet", "", "wallet build org/wallet/version (or org/wallet for its store build): build and run the FCAF relying-party validation from the wallet's own actions on Credimi, with --device-id")
+	run.Flags().
+		StringSliceVar(&fcafScenarios, "scenarios", nil, "with --wallet, run only these scenario file names, with or without .yaml (comma separated)")
 	syncCmd.Flags().
 		StringVar(&fcafImportsDir, "imports-dir", "config_templates/fcaf/imports", "directory containing repository-backed FCAF imports")
 	syncCmd.Flags().
@@ -726,10 +737,14 @@ func syncFCAFWalletAction(
 	action fcafWalletActionRef,
 	code string,
 ) error {
+	// Actions are unique per wallet, not per organization: another wallet of
+	// the organization (e.g. one the action author wrote FCAF actions for)
+	// holds actions of the same names.
 	records, err := fcafListRecords(ctx, token, "wallet_actions",
 		fmt.Sprintf(
-			`owner="%s" && name="%s"`,
+			`owner="%s" && wallet="%s" && name="%s"`,
 			pocketBaseFilterString(orgID),
+			pocketBaseFilterString(walletID),
 			pocketBaseFilterString(action.Name),
 		),
 	)
@@ -767,6 +782,25 @@ func syncFCAFWalletAction(
 	}
 }
 
+// fcafWalletTimeout is the default wait of fcaf run --wallet: the complete
+// pipeline runs 8-9 hours.
+const fcafWalletTimeout = 10 * time.Hour
+
+// applyFCAFWalletFlags refuses --scenarios without --wallet and, unless
+// --timeout was given, waits fcafWalletTimeout for a --wallet run.
+func applyFCAFWalletFlags(timeoutSet bool) error {
+	if fcafWallet == "" {
+		if len(fcafScenarios) > 0 {
+			return fmt.Errorf("--scenarios needs --wallet")
+		}
+		return nil
+	}
+	if !timeoutSet {
+		fcafTimeout = fcafWalletTimeout
+	}
+	return nil
+}
+
 func runFCAF(ctx context.Context) error {
 	if strings.TrimSpace(apiKey) == "" {
 		apiKey = strings.TrimSpace(os.Getenv("CREDIMI_API_KEY"))
@@ -775,6 +809,16 @@ func runFCAF(ctx context.Context) error {
 		return fmt.Errorf(
 			"CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key",
 		)
+	}
+	if fcafWallet != "" {
+		if strings.TrimSpace(fcafDeviceID) == "" {
+			return fmt.Errorf("--wallet needs --device-id")
+		}
+		token, err := authenticate(ctx)
+		if err != nil {
+			return err
+		}
+		return runWalletFCAFReport(ctx, token)
 	}
 	pipelinesDir, err := fcafPipelinesDir()
 	if err != nil {
@@ -796,8 +840,7 @@ func runFCAF(ctx context.Context) error {
 	if len(paths) == 0 {
 		return fmt.Errorf("no YAML pipelines found in %s", pipelinesDir)
 	}
-	runs := make([]fcafRun, 0, len(paths))
-	report := fcafReport{}
+	report := fcafReport{Runs: make([]fcafRun, 0, len(paths))}
 	for _, path := range paths {
 		if fcafFilter != "" && !strings.Contains(filepath.Base(path), fcafFilter) {
 			continue
@@ -806,42 +849,157 @@ func runFCAF(ctx context.Context) error {
 		if err != nil {
 			run.Status, run.Error = "error", err.Error()
 		}
-		switch run.Status {
-		case "completed", "success", "passed":
-			report.Passed++
-		case "failed", "canceled":
-			report.Failed++
-		case "queued", "starting", "running":
-			report.Blocked++
-		default:
-			report.Errors++
+		name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		if err := recordFCAFRun(&report, run, name); err != nil {
+			return err
 		}
-		runs = append(runs, run)
-		if localFCAFOutputEnabled() {
-			b, _ := json.MarshalIndent(run, "", "  ")
-			name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)) + ".json"
-			if err := os.MkdirAll(fcafOutput, 0o755); err != nil {
-				return err
-			}
-			if err := os.WriteFile(filepath.Join(fcafOutput, name), b, 0o644); err != nil {
-				return err
-			}
-		}
-		fmt.Printf("%-8s %s\n", run.Status, run.Name)
 	}
+	return writeFCAFRunsReport(report)
+}
+
+// runWalletFCAFReport runs --wallet (runWalletFCAF), records it in the
+// report and, when it failed, prints its error and returns it, so the
+// command exits non-zero.
+func runWalletFCAFReport(ctx context.Context, token string) error {
+	var report fcafReport
+	run, runErr := runWalletFCAF(ctx, token)
+	if runErr != nil {
+		run.Status, run.Error = "error", runErr.Error()
+	}
+	if err := recordFCAFRun(&report, run, run.Name); err != nil {
+		return err
+	}
+	if err := writeFCAFRunsReport(report); err != nil {
+		return err
+	}
+	if runErr != nil {
+		fmt.Println(run.Error)
+	}
+	return runErr
+}
+
+// recordFCAFRun counts a finished run in the report, writes its JSON as
+// <name>.json with --output and prints its status.
+func recordFCAFRun(report *fcafReport, run fcafRun, name string) error {
+	switch run.Status {
+	case "completed", "success", "passed":
+		report.Passed++
+	case "failed", "canceled":
+		report.Failed++
+	case "queued", "starting", "running":
+		report.Blocked++
+	default:
+		report.Errors++
+	}
+	report.Runs = append(report.Runs, run)
+	if localFCAFOutputEnabled() {
+		b, _ := json.MarshalIndent(run, "", "  ")
+		if err := os.MkdirAll(fcafOutput, 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(fcafOutput, name+".json"), b, 0o644); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("%-8s %s\n", run.Status, run.Name)
+	return nil
+}
+
+// writeFCAFRunsReport writes the HTML report of the runs with --output,
+// generated now.
+func writeFCAFRunsReport(report fcafReport) error {
 	if !localFCAFOutputEnabled() {
 		return nil
 	}
-	return writeFCAFReport(
-		fcafReport{
-			GeneratedAt: time.Now(),
-			Runs:        runs,
-			Passed:      report.Passed,
-			Failed:      report.Failed,
-			Blocked:     report.Blocked,
-			Errors:      report.Errors,
-		},
+	report.GeneratedAt = time.Now()
+	return writeFCAFReport(report)
+}
+
+// fcafWalletPipelineResponse is the answer of POST
+// /api/action-author/fcaf-pipeline.
+type fcafWalletPipelineResponse struct {
+	Pipeline    string `json:"pipeline"`
+	PipelineURL string `json:"pipeline_url"`
+	TicketID    string `json:"ticket_id"`
+	DeviceID    string `json:"device_id"`
+	Status      string `json:"status"`
+	WorkflowID  string `json:"workflow_id"`
+	RunID       string `json:"run_id"`
+	RunURL      string `json:"run_url"`
+	Skipped     []struct {
+		Scenario     string   `json:"scenario"`
+		MissingRoles []string `json:"missing_roles"`
+	} `json:"skipped"`
+	TestCount int `json:"test_count"`
+}
+
+// runWalletFCAF asks Credimi to build and queue the FCAF relying-party
+// validation of --wallet from the wallet's own actions on --device-id, then
+// follows its ticket as runOneFCAF does.
+func runWalletFCAF(ctx context.Context, token string) (fcafRun, error) {
+	run := fcafRun{
+		Name:      strings.ReplaceAll(fcafWallet, "/", "-"),
+		Path:      fcafWallet,
+		StartedAt: time.Now(),
+	}
+	body, err := json.Marshal(map[string]any{
+		"wallet_version_identifier": fcafWallet,
+		"device_id":                 fcafDeviceID,
+		"scenarios":                 fcafScenarios,
+	})
+	if err != nil {
+		return run, err
+	}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		utils.JoinURL(instanceURL, "api", "action-author", "fcaf-pipeline"),
+		bytes.NewReader(body),
 	)
+	if err != nil {
+		return run, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return run, err
+	}
+	defer resp.Body.Close()
+	response, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return run, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return run, fmt.Errorf("fcaf-pipeline returned HTTP %d: %s", resp.StatusCode, response)
+	}
+	var built fcafWalletPipelineResponse
+	if err := json.Unmarshal(response, &built); err != nil {
+		return run, err
+	}
+	// The pipeline's own name, without its organization, names output files.
+	run.Name = path.Base(built.Pipeline)
+	for _, skipped := range built.Skipped {
+		fmt.Printf(
+			"skipped  %s (missing %s)\n",
+			skipped.Scenario,
+			strings.Join(skipped.MissingRoles, ", "),
+		)
+	}
+	fmt.Printf("queued   %s: %d tests on %s\n", built.Pipeline, built.TestCount, built.DeviceID)
+	if built.TicketID == "" {
+		return run, fmt.Errorf("fcaf-pipeline returned no ticket_id")
+	}
+	err = waitFCAFTicket(ctx, token, &run, pipelineQueueResponse{
+		Status:      built.Status,
+		TicketID:    built.TicketID,
+		DeviceIDs:   []string{built.DeviceID},
+		WorkflowID:  built.WorkflowID,
+		RunID:       built.RunID,
+		PipelineURL: built.PipelineURL,
+		RunURL:      built.RunURL,
+	})
+	return run, err
 }
 
 func localFCAFOutputEnabled() bool {
@@ -899,6 +1057,18 @@ func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, e
 	if queued.TicketID == "" {
 		return run, fmt.Errorf("queue returned no ticket_id")
 	}
+	err = waitFCAFTicket(ctx, token, &run, queued)
+	return run, err
+}
+
+// waitFCAFTicket follows a queued pipeline ticket until its run ends, then
+// records its status and, with --output, its screenshots and details.
+func waitFCAFTicket(
+	ctx context.Context,
+	token string,
+	run *fcafRun,
+	queued pipelineQueueResponse,
+) error {
 	deadline := time.NewTimer(fcafTimeout)
 	defer deadline.Stop()
 	lastQueueStatusWarning := ""
@@ -918,28 +1088,28 @@ func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, e
 					run.Name,
 				)
 			}
-			return run, nil
+			return nil
 		}
 		select {
 		case <-ctx.Done():
-			return run, ctx.Err()
+			return ctx.Err()
 		case <-deadline.C:
 			if lastQueueStatusWarning != "" {
-				return run, fmt.Errorf(
+				return fmt.Errorf(
 					"timed out waiting for ticket %s; last polling error: %s",
 					queued.TicketID,
 					lastQueueStatusWarning,
 				)
 			}
-			return run, fmt.Errorf("timed out waiting for ticket %s", queued.TicketID)
+			return fmt.Errorf("timed out waiting for ticket %s", queued.TicketID)
 		case <-time.After(fcafInterval):
 		}
 		query := url.Values{}
 		query.Set("device_ids", strings.Join(queued.DeviceIDs, ","))
-		status, response, err = getPipeline(ctx, token, "queue/"+queued.TicketID, query)
+		status, response, err := getPipeline(ctx, token, "queue/"+queued.TicketID, query)
 		if err != nil {
 			if ctx.Err() != nil {
-				return run, ctx.Err()
+				return ctx.Err()
 			}
 			lastQueueStatusWarning = err.Error()
 			continue
@@ -949,11 +1119,11 @@ func runOneFCAF(ctx context.Context, token, orgID, org, path string) (fcafRun, e
 				lastQueueStatusWarning = fmt.Sprintf("HTTP %d: %s", status, response)
 				continue
 			}
-			return run, fmt.Errorf("queue status returned HTTP %d: %s", status, response)
+			return fmt.Errorf("queue status returned HTTP %d: %s", status, response)
 		}
 		lastQueueStatusWarning = ""
 		if err := json.Unmarshal(response, &queued); err != nil {
-			return run, err
+			return err
 		}
 		if queued.RunURL != "" {
 			run.DetailsURL = queued.RunURL

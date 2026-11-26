@@ -49,6 +49,12 @@ export type ReviewAction = {
 	replaces: string;
 	/** Why the previous Accept of this action did not save, empty when none. */
 	error: string;
+	/** The agent's note on the action (wallet findings, why the wallet cannot do the role). */
+	note?: string;
+	/** The agent's verdict on an FCAF action: passed, unsupported or finding; absent otherwise. */
+	fcaf_status?: 'passed' | 'unsupported' | 'finding';
+	/** An FCAF action's replays on the fixtures of its role's authoring set; absent otherwise. */
+	fcaf_replays?: FcafReplay[];
 	/** Candidate keys among the prerequisites of the action's plan. */
 	starts_from: string[];
 	/** Name of each key of starts_from: the review's action, else the one the session saved, else the key. */
@@ -60,7 +66,140 @@ export type ReviewAction = {
 /** The review waiting for the user's decisions, one action per tab. */
 export type PendingReview = {
 	tool_id: string;
+	/** FCAF wallet profile saved with every FCAF action of the review; an accept binds it. */
+	profile?: Record<string, unknown>;
+	/** The agent's FCAF findings about the wallet itself, in English; empty when none. */
+	warnings: string[];
 	actions: ReviewAction[];
+};
+
+export type AuthoringMode = 'chat' | 'fcaf';
+
+/** Where a role of an FCAF campaign stands. */
+export type FcafRoleStatus =
+	| 'pending'
+	| 'working'
+	| 'passed'
+	| 'unsupported'
+	| 'finding'
+	| 'blocked'
+	| 'skipped';
+
+/** A role of an FCAF campaign, with the agent's note. */
+export type FcafRoleProgress = { role: string; status: FcafRoleStatus; key: string; note: string };
+
+/** The campaign of an FCAF session while its chat runs. */
+export type FcafProgress = { current_role: string; roles: FcafRoleProgress[] };
+
+/** The state of the caller organization's action for an FCAF role on a wallet. */
+export type FcafCoverageStatus = 'missing' | 'current' | 'incomplete' | 'stale' | 'unmanaged';
+
+export type FcafRoleCoverage = {
+	role: string;
+	summary: string;
+	outcome: string;
+	category: string;
+	starts_from: string[];
+	status: FcafCoverageStatus;
+	action: string;
+	role_sha256: string;
+	/** The agent's verdict on the saved FCAF action, empty when not recorded or no action. */
+	result: '' | 'passed' | 'unsupported' | 'finding';
+	/** The agent's note on the saved action. */
+	note: string;
+	/** The fixtures of the role's authoring set an incomplete action was not replayed on. */
+	missing_fixtures: string[];
+	/** The saved action's replays on fixtures of its role's authoring set. */
+	fcaf_replays: FcafReplay[];
+	/** How the role's action did in the wallet's last FCAF run; null when that run did not include it, or no run. */
+	run: FcafRoleRun | null;
+	/**
+	 * The role's verdict: the pipeline's when the last run covered the role's current or
+	 * incomplete action, else the agent's recorded verdict (not verified yet); empty otherwise.
+	 */
+	verdict: '' | FcafPipelineVerdict | 'unsupported';
+	/** Where the verdict comes from; empty without one. */
+	verdict_source: '' | 'pipeline' | 'authoring';
+};
+
+/** The verdict the pipeline gives a role it covered. */
+export type FcafPipelineVerdict = 'passed' | 'finding' | 'failing' | 'blocked';
+
+/** How a role's action did in the wallet's last FCAF run. */
+export type FcafRoleRun = {
+	status: 'ok' | 'failing' | 'not_run';
+	/** The role's verdict from the run: the action's failure, else its tests' results. */
+	verdict: FcafPipelineVerdict | 'not_run';
+	failed_steps: number;
+	/** The Maestro command the action failed on, empty when it did not fail. */
+	failed_command: string;
+	/** The fixture (scenario#request) the action failed on, empty when it did not fail. */
+	fixture_id: string;
+	/**
+	 * The fixtures (scenario#request) of every step where the role's action failed in the run,
+	 * empty when it did not fail.
+	 */
+	failed_fixtures: string[];
+	/** The role's failed tests (at most 20). */
+	failed_tests: string[];
+	/** How many of the role's tests passed, failed or were blocked. */
+	tests_run: number;
+	run_url: string;
+};
+
+/** The test counts of the wallet's last FCAF run; total is the sum of every counter. */
+export type FcafRunSummary = {
+	pass: number;
+	fail: number;
+	blocked: number;
+	skipped: number;
+	inconclusive: number;
+	not_applicable: number;
+	error: number;
+	total: number;
+	pipeline: string;
+	created: string;
+	/** How a run that ended without a report ended (empty otherwise): the lowercase Temporal status. */
+	status: '' | FcafRunStatus;
+};
+
+/** The lowercase Temporal status of a finished FCAF run. */
+export type FcafRunStatus =
+	| 'completed'
+	| 'failed'
+	| 'canceled'
+	| 'terminated'
+	| 'timed_out'
+	| 'continued_as_new';
+
+/** FCAF relying-party coverage of a wallet (GET /api/action-author/fcaf-coverage). */
+export type FcafCoverage = {
+	suite: string;
+	roles: FcafRoleCoverage[];
+	warnings: string[];
+	/** The counts of the wallet's last finished FCAF run, null when none. */
+	run_summary: FcafRunSummary | null;
+	/** The link of the wallet's last finished FCAF run, empty when none. */
+	run_url: string;
+};
+
+/** A scenario an FCAF run left out, with the roles the wallet has no action for. */
+export type FcafSkippedScenario = { scenario: string; missing_roles: string[] };
+
+/** The FCAF validation pipeline queued on a device (POST /api/action-author/fcaf-pipeline). */
+export type FcafPipelineRun = {
+	pipeline: string;
+	pipeline_url: string;
+	ticket_id: string;
+	device_id: string;
+	/** Queue status of the ticket: queued, starting, running, … */
+	status: string;
+	/** Set only when the run already started. */
+	workflow_id?: string;
+	run_id?: string;
+	run_url?: string;
+	skipped: FcafSkippedScenario[];
+	test_count: number;
 };
 
 /** An authoring session and its state (GET /api/action-author/sessions/{id}). */
@@ -84,6 +223,9 @@ export type Session = {
 	chat_running: boolean;
 	closes_at: string;
 	pending_review: PendingReview | null;
+	mode: AuthoringMode;
+	/** The campaign of an FCAF session while its chat runs, null otherwise. */
+	fcaf_progress: FcafProgress | null;
 };
 
 /** A row of GET /api/action-author/sessions?wallet=… */
@@ -94,6 +236,7 @@ export type SessionListItem = {
 	wallet_version_identifier: string;
 	device_id: string;
 	device_name: string;
+	mode: AuthoringMode;
 };
 
 /** An item of a chat's transcript (GET /api/action-author/sessions/{id}/transcript). */
@@ -118,6 +261,16 @@ export type StartedSession = { session_id: string; ticket_id: string; device_id:
 
 export type ApiFailure = { status: number; reason: string; message: string };
 
+/** The agent's verdict on an FCAF action, as the review showed it. */
+export type FcafResult = { status: 'passed' | 'unsupported' | 'finding'; note: string };
+
+/** How an FCAF action did on one fixture of its role's authoring set. */
+export type FcafReplay = {
+	fixture: string;
+	class: string;
+	status: 'passed' | 'finding' | 'action_failed';
+};
+
 export type Decision = 'accept' | 'refuse' | 'change';
 
 /** The user's decision on one action of a review. */
@@ -129,6 +282,12 @@ export type ReviewDecisionItem = {
 	/** What to change, only for a change decision. */
 	comment: string;
 	plan: Record<string, unknown> | null;
+	/** The FCAF profile the review showed, only for an accepted FCAF action. */
+	profile?: Record<string, unknown>;
+	/** The agent's verdict the review showed, only for an accepted FCAF action. */
+	fcaf_result?: FcafResult;
+	/** The replays the review showed, only for an accepted FCAF action. */
+	fcaf_replays?: FcafReplay[];
 };
 
 /** POST /api/action-author/reviews: the decisions on every action of a review. */
@@ -188,13 +347,24 @@ export async function listBuilds(): Promise<Result<BuildOption[], ApiFailure>> {
 	return res.map((r) => r.wallet_versions ?? []);
 }
 
+/**
+ * Starts an authoring session. fcafFix (FCAF mode only) makes the session work only on the roles
+ * whose actions failed in the wallet's last FCAF run.
+ */
 export function startSession(
 	deviceId: string,
-	walletVersionIdentifier: string
+	walletVersionIdentifier: string,
+	mode: AuthoringMode,
+	fcafFix = false
 ): Promise<Result<StartedSession, ApiFailure>> {
 	return call<StartedSession>('/sessions', {
 		method: 'POST',
-		body: { device_id: deviceId, wallet_version_identifier: walletVersionIdentifier }
+		body: {
+			device_id: deviceId,
+			wallet_version_identifier: walletVersionIdentifier,
+			mode,
+			...(mode === 'fcaf' && fcafFix ? { fcaf_fix: true } : {})
+		}
 	});
 }
 
@@ -210,6 +380,27 @@ export async function listSessions(
 		`/sessions?${params.toString()}`
 	);
 	return res.map((r) => r.sessions ?? []);
+}
+
+export function getFcafCoverage(walletPath: string): Promise<Result<FcafCoverage, ApiFailure>> {
+	const params = new URLSearchParams({ wallet: walletPath });
+	return call<FcafCoverage>(`/fcaf-coverage?${params.toString()}`);
+}
+
+/** Queues the wallet version's FCAF validation pipeline on an Android device; no scenarios runs every scenario. */
+export function runFcafPipeline(
+	walletVersionIdentifier: string,
+	deviceId: string,
+	scenarios?: string[]
+): Promise<Result<FcafPipelineRun, ApiFailure>> {
+	return call<FcafPipelineRun>('/fcaf-pipeline', {
+		method: 'POST',
+		body: {
+			wallet_version_identifier: walletVersionIdentifier,
+			device_id: deviceId,
+			...(scenarios?.length ? { scenarios } : {})
+		}
+	});
 }
 
 export async function getTranscript(
@@ -265,4 +456,38 @@ export function endOnExit(sessionId: string, deviceId: string, queued: boolean):
 
 export function sendReview(request: ReviewRequest): Promise<Result<ReviewResponse, ApiFailure>> {
 	return call<ReviewResponse>('/reviews', { method: 'POST', body: request });
+}
+
+/**
+ * Sends the chat's first message through the session's chat proxy. request_id makes the
+ * harness's update ID msg-<session id>, so a repeated send never starts a second turn.
+ */
+export async function sendFirstMessage(
+	sessionId: string,
+	chatId: string,
+	text: string
+): Promise<Result<void, ApiFailure>> {
+	try {
+		const res = await fetch(`/action-author-ui/${encodeURIComponent(sessionId)}/api/messages`, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ session_id: chatId, message: text, request_id: sessionId })
+		});
+		if (res.ok) return ok(undefined);
+		let body: { error?: unknown; message?: unknown } | undefined;
+		try {
+			body = await res.json();
+		} catch {
+			body = undefined;
+		}
+		return err({
+			status: res.status,
+			reason: typeof body?.error === 'string' ? body.error : '',
+			message:
+				typeof body?.message === 'string' && body.message ? body.message : res.statusText
+		});
+	} catch (e) {
+		return err({ status: 0, reason: '', message: getExceptionMessage(e) });
+	}
 }

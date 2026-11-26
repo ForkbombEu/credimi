@@ -10,20 +10,25 @@ tags:
 # scheme (WS_RP_IA_Engagement__001b).
 #
 # A Wallet that registers no handler for the scheme is not invoked at all: the
-# openLink intent resolves to no activity and the Wallet stays where it was.
-# That is a property of the Wallet under test, not a reason to abort the run, so
-# openLink is optional and every wait below is bounded and optional. The step
-# therefore cannot hang the pipeline and always stores a screenshot.
+# openLink intent resolves to no activity. On Android, Maestro (verified with
+# 2.7 and 2.11 on a Pixel 7a) then aborts the whole flow with
+# AndroidOperationFailedException "Activity not started, unable to resolve
+# Intent" even though openLink is optional, so neither screenshot below is
+# taken. WS_RP_IA_Engagement__001b reads that failure from Maestro's output and
+# reports the Wallet as not invokable through the scheme; every other way this
+# step can end without a screenshot reports blocked.
 #
-# The engagement screenshot is taken only while the Wallet shows the request
-# screen, so its presence - not the flow's success - is the evidence that the
-# Wallet was invoked; the terminal screenshot is taken whatever screen the
-# Wallet ends on, so a Wallet that ignored the link is still evidenced. The
-# test's assertions decide the verdict.
+# When the intent resolves, every wait below is bounded and optional, so the
+# step cannot hang the pipeline. The engagement screenshot is taken only while
+# the Wallet shows the request screen, so its presence - not the flow's
+# success - is the evidence that the Wallet was invoked; the terminal
+# screenshot is taken whatever screen the Wallet ends on, so a Wallet that
+# ignored the link is still evidenced. The test's assertions decide the
+# verdict.
 #
-# The pre-openLink waits are optional too: this flow must always reach its
-# terminal screenshot, so a Wallet that is slow to launch or stops on a screen
-# this flow does not know cannot end it before the evidence is stored.
+# The pre-openLink waits are optional too: this flow must reach openLink and
+# its terminal screenshot, so a Wallet that is slow to launch or stops on a
+# screen this flow does not know cannot end it before the evidence is stored.
 - launchApp:
     stopApp: true
     clearState: false
@@ -54,9 +59,8 @@ tags:
     visible: "Home|Documents|Add document|Welcome, .*"
     timeout: 30000
     optional: true
-# The reference build registers no `eu-eaap://` handler, so this intent may
-# resolve to nothing; `optional` keeps that from ending the flow before its
-# screenshots.
+# A Wallet without an `eu-eaap://` handler makes this intent resolve to
+# nothing, and Maestro ends the flow here despite `optional` (see the header).
 - openLink:
     link: "${deeplink}"
     autoVerify: false

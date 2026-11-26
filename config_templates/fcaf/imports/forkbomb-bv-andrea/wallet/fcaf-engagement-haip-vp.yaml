@@ -29,6 +29,9 @@ tags:
     timeout: 30000
     optional: true
 - takeScreenshot: fcaf-engagement-haip-vp-request
+# The consent screen is proven by the requested data it lists, never by the
+# Share control the flow taps; the scroll then brings Share on screen.
+- assertVisible: "Requested data"
 - scrollUntilVisible:
     element: "Share"
 # Taken only while the consent screen is up: tests use it as evidence that the

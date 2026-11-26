@@ -1181,6 +1181,11 @@ deeplink with the shared `fcaf-engagement-eu-eaap` flow.
   event exists.
 - No request-screen screenshot is stored, because the Wallet never reaches the
   request screen.
+- On a Pixel 7a with Maestro 2.7 and 2.11, the flow's `openLink` ends the whole
+  Maestro flow with `AndroidOperationFailedException`: "Activity not started,
+  unable to resolve Intent". `optional: true` (also with `browser: true`) does
+  not survive an intent no app resolves, so the step fails before it takes any
+  screenshot, and the empty screenshot evidence made the test report blocked.
 
 ### Expected
 
@@ -1191,7 +1196,11 @@ retrieve the Request Object.
 
 ### FCAF Impact
 
-- Test: `WS_RP_IA_Engagement__001b` fails on this Wallet.
+- Test: `WS_RP_IA_Engagement__001b` fails on this Wallet. The failed mobile
+  step returns Maestro's console output in its `flow_output` (`output`,
+  `stderr`), and `evidence.custom_scheme_invoked` fails the engagement
+  assertion when that output reports the unresolvable `eu-eaap:` intent. Any
+  other step that stored no screenshot still reports blocked.
 
 ## RI-WALLET-027: A Request-URI HTTP error whose body is a Request Object is processed
 
@@ -1441,3 +1450,95 @@ Resolved on production by 27/10/2026: in the Credimi run of that day
 credential-request-denied session was status `400` with media type
 `application/json` and `error: credential_request_denied`, and
 `WS_AP_IA_MainInteraction_031b_UF` passed.
+
+## RI-WALLET-032: A claims-path no-match is not returned to the verifier
+
+### Summary
+
+When a DCQL query asks for a claim no held credential has, the reference
+Android wallet shows its no-match notice but never answers the verifier: it
+posts no `access_denied` Authorization Error Response.
+
+### Reproduction
+
+25/11/2026, Pixel 7a, wallet 2026.09.42, production Capture, during an action
+author FCAF campaign on the EUDI test wallet: replay `fcaf-expect-no-matching-document`
+on the `claims-path-no-match` request of
+`scenarios/fcaf-wallet-solution-relying-party-dcql-claims-path-no-match.yaml`
+(credential query for `claim_that_does_not_exist`, with `claim_sets:
+[[missing_claim]]`) after a PID issuance.
+
+### Observed
+
+- The wallet fetches the Request Object and shows its no-match notice (the
+  action's `no-match-notice` screenshot is stored). On this version the notice
+  is the "Data sharing request" screen with "The requested document is not
+  available in your EUDI Wallet.", an enabled Share and no "Requested data"
+  list (seen on the device for an mdoc request the wallet cannot match).
+- The Capture session stays at `request_retrieved`; no POST reaches
+  `response_uri`.
+
+### Expected
+
+`WS_RP_MS_ProtocolMessages__106` source, expected result 3: "The Wallet
+correctly identifies that no credentials satisfy the query and returns
+access_denied (with the description that no credentials match)."
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_ProtocolMessages__106` fails on
+  `ws_rp_ms_protocolmessages__106_returns_access_denied`
+  (`dcql.response_satisfies_constraints` mode `access_denied_required`); the
+  no-match notice screenshot is captured.
+- Same behaviour class as RI-WALLET-006 (no error returned to the verifier).
+
+## RI-WALLET-033: A plain request with the `redirect_uri` Client Identifier is refused
+
+### Summary
+
+The reference Android wallet refuses an unsigned Authorization Request passed as
+URL-encoded parameters with a `redirect_uri:` Client Identifier: it shows its
+generic error screen right after the PIN and never reaches the consent screen.
+OpenID4VP Section 5 allows such a request; the wallet probably accepts only
+signed requests by design (HAIP), but `WS_RP_MS_ProtocolMessages__002` is
+`EUDI_generic` and cites OpenID4VP core, so the suite reports it.
+
+### Reproduction
+
+26/11/2026, Pixel 7a (Android 16), wallet 2026.09.42-demo onboarded with the
+reference flows and holding an mdoc PID from production Capture
+(`eu-pid-device-bound`). Create the session of
+`scenarios/fcaf-wallet-solution-relying-party-plain-redirect-uri.yaml`
+(`request_delivery: plain`, `client_id_scheme: redirect_uri`,
+`response_mode: direct_post.jwt`, one mdoc PID query for `given_name`) and open
+its deeplink. The deeplink carries `client_id=redirect_uri:<response_uri>`,
+`response_uri`, `response_mode`, `client_metadata` (encryption JWK), `nonce`,
+`state` and `dcql_query`.
+
+### Observed
+
+- After the PIN the wallet shows "Oups! Something went wrong / If the issue
+  persists, please contact customer support / TRY AGAIN"; no consent screen.
+- The Capture session stays at `created` (events `vp_session_created`,
+  `vp_deeplink_generated`); nothing reaches `response_uri`.
+- The same request with `response_mode: direct_post` gives the same screen, so
+  the response encryption is not the cause.
+- Control: the default signed request (`request_delivery: by_reference`,
+  `client_id_scheme: x509_hash`, `direct_post.jwt`, same query) reaches the
+  consent screen ("Requested data", the mdoc PID, Share) and Capture records
+  `vp_request_retrieved`. Capture refuses `redirect_uri` with any delivery other
+  than `plain` (`redirect_uri_client_id_requires_plain_delivery`).
+
+### Expected
+
+`WS_RP_MS_ProtocolMessages__002`: the wallet processes the plain request and
+POSTs an Authorization Response with the requested credential.
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_ProtocolMessages__002` fails on
+  `wallet_submitted_the_authorization_response` and
+  `wallet_returned_the_requested_credential`; its `fcaf-engagement-haip-vp-shared`
+  screenshot is never taken.
+- The action author reports it as a wallet finding of `fcaf-engagement-haip-vp`
+  on the `plain-redirect-uri` request.

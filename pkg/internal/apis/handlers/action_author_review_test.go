@@ -43,6 +43,10 @@ type reviewStub struct {
 	result       map[string]any
 	session      actionauthor.BuildRequest
 	organization string
+	// mode is the session's mode; fcaf authors the relying-party suite, and
+	// fix makes it a fix session.
+	mode string
+	fix  bool
 }
 
 // stubActionAuthorReview answers the session lookup with an Android session
@@ -80,11 +84,17 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 		require.Equal(t, stub.namespaces[len(stub.namespaces)-1], namespace)
 		require.Equal(t, reviewAuthorWorkflow, authorWorkflowID)
 		require.Empty(t, authorRunID)
-		return activities.ActionAuthorSessionRef{
+		ref := activities.ActionAuthorSessionRef{
 			Namespace:    namespace,
 			Organization: stub.organization,
 			Session:      stub.session,
-		}, lookupErr
+			Mode:         stub.mode,
+			FCAFFix:      stub.fix,
+		}
+		if stub.mode == actionauthor.SessionModeFCAF {
+			ref.FCAFSuite = actionauthor.FCAFRelyingPartySuite
+		}
+		return ref, lookupErr
 	}
 	updateActionAuthorWorkflow = func(
 		_ context.Context,
@@ -124,6 +134,18 @@ func reviewDecision(
 		Comment:         comment,
 		Plan:            plan,
 	}
+}
+
+// tooManyReviewDecisions returns n refusals of distinct keys.
+func tooManyReviewDecisions(n int, plan actionauthor.Spec) []ActionAuthorReviewDecision {
+	decisions := make([]ActionAuthorReviewDecision, 0, n)
+	for i := range n {
+		decisions = append(
+			decisions,
+			reviewDecision(fmt.Sprintf("a%d", i+1), reviewSHA1, "refuse", plan, ""),
+		)
+	}
+	return decisions
 }
 
 // deliveredDecisions returns the decisions the stub delivered to the agent.
@@ -332,6 +354,12 @@ func TestActionAuthorReviewDecisions(t *testing.T) {
 			expected: []string{"Validation failed", "ActionAuthorReviewRequest.Decisions"},
 		},
 		{
+			name:     "more decisions than a suite",
+			body:     reviewBody(t, tooManyReviewDecisions(41, onboarding)...),
+			status:   http.StatusBadRequest,
+			expected: []string{"Validation failed", "ActionAuthorReviewRequest.Decisions"},
+		},
+		{
 			name:     "invalid candidate digest",
 			body:     reviewBody(t, reviewDecision("a1", "short", "refuse", onboarding, "")),
 			status:   http.StatusBadRequest,
@@ -350,6 +378,19 @@ func TestActionAuthorReviewDecisions(t *testing.T) {
 			body:     reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", onboarding, "")),
 			status:   http.StatusNotFound,
 			expected: []string{`"session_not_found"`},
+		},
+		{
+			name: "profile on a chat action",
+			body: func() string {
+				decision := reviewDecision("a1", reviewSHA1, "accept", onboarding, "")
+				decision.Profile = map[string]any{"pin": "123456"}
+				return reviewBody(t, decision)
+			}(),
+			status: http.StatusBadRequest,
+			expected: []string{
+				`"invalid_request"`,
+				"profile: only FCAF actions carry a profile",
+			},
 		},
 		{
 			name:      "update rejected",
@@ -454,6 +495,258 @@ func TestActionAuthorReviewRejectsSessionsTheCallerCannotReview(t *testing.T) {
 			TestAppFactory:  setupActionAuthorApp,
 		}).Test(t)
 		require.Empty(t, stub.workflowID, tc.name)
+	}
+}
+
+// An accept of an FCAF action binds the profile the review showed.
+func TestActionAuthorReviewBindsTheFCAFProfile(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	plan := actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"}
+	profile := map[string]any{"pin": "123456", "notes": []any{"fresh test wallet"}}
+	oversized := map[string]any{"notes": strings.Repeat("x", 8192)}
+	for _, tc := range []struct {
+		name     string
+		profile  map[string]any
+		status   int
+		expected string
+	}{
+		{name: "with a profile", profile: profile, status: http.StatusOK},
+		{name: "without a profile", status: http.StatusOK},
+		{
+			name:     "profile over 8 KiB",
+			profile:  oversized,
+			status:   http.StatusBadRequest,
+			expected: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+		{
+			name:     "profile off the schema",
+			profile:  map[string]any{"pin": "123456", "wallet": "x"},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_profile: must be {pin: 4-8 digits",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode = actionauthor.SessionModeFCAF
+			decision := reviewDecision("a1", reviewSHA1, "accept", plan, "")
+			decision.Profile = tc.profile
+			expected := []string{`"decision":"accept"`}
+			if tc.expected != "" {
+				expected = []string{`"invalid_request"`, tc.expected}
+			}
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body:   strings.NewReader(reviewBody(t, decision)),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: expected,
+				TestAppFactory:  setupActionAuthorApp,
+				AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+					if tc.status != http.StatusOK {
+						require.Empty(t, stub.workflowID)
+						return
+					}
+					decisions := deliveredDecisions(t, stub)
+					require.Len(t, decisions, 1)
+					requireApproval(t, app, decisions[0], reviewSHA1, plan, user.Id)
+					token, _ := decisions[0]["approval"].(string)
+					approval, err := actionauthor.VerifyApproval(
+						app, token, reviewAuthorWorkflow, reviewSHA1, time.Now(),
+					)
+					require.NoError(t, err)
+					require.Equal(t, actionauthor.ProfileSHA256(tc.profile), approval.ProfileSHA256)
+				},
+			}).Test(t)
+		})
+	}
+}
+
+// An accept of an FCAF action binds the agent's verdict the review showed; a
+// chat action carries none.
+func TestActionAuthorReviewBindsTheFCAFResult(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	result := &actionauthor.FCAFResult{Status: actionauthor.FCAFResultUnsupported, Note: "x"}
+	for _, tc := range []struct {
+		name     string
+		mode     string
+		plan     actionauthor.Spec
+		status   int
+		expected string
+	}{
+		{
+			name:   "fcaf action",
+			mode:   actionauthor.SessionModeFCAF,
+			plan:   actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"},
+			status: http.StatusOK,
+		},
+		{
+			name:     "chat action",
+			plan:     actionauthor.Spec{Slot: "onboarding"},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_result: only FCAF actions carry a result",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode = tc.mode
+			decision := reviewDecision("a1", reviewSHA1, "accept", tc.plan, "")
+			decision.FCAFResult = result
+			expected := []string{`"decision":"accept"`}
+			if tc.expected != "" {
+				expected = []string{`"invalid_request"`, tc.expected}
+			}
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body:   strings.NewReader(reviewBody(t, decision)),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: expected,
+				TestAppFactory:  setupActionAuthorApp,
+				AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+					if tc.status != http.StatusOK {
+						require.Empty(t, stub.workflowID)
+						return
+					}
+					decisions := deliveredDecisions(t, stub)
+					require.Len(t, decisions, 1)
+					token, _ := decisions[0]["approval"].(string)
+					approval, err := actionauthor.VerifyApproval(
+						app, token, reviewAuthorWorkflow, reviewSHA1, time.Now(),
+					)
+					require.NoError(t, err)
+					require.Equal(t, actionauthor.FCAFResultSHA256(result), approval.ResultSHA256)
+				},
+			}).Test(t)
+		})
+	}
+}
+
+// The review checks the replays of an accepted FCAF action against the role's
+// authoring set; a chat action carries none.
+func TestActionAuthorReviewChecksTheFCAFReplays(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name     string
+		mode     string
+		plan     actionauthor.Spec
+		replays  []actionauthor.FCAFReplay
+		status   int
+		expected string
+	}{
+		{
+			name:   "fcaf action without replays",
+			mode:   actionauthor.SessionModeFCAF,
+			plan:   actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"},
+			status: http.StatusOK,
+		},
+		{
+			name: "replay off the authoring set",
+			mode: actionauthor.SessionModeFCAF,
+			plan: actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"},
+			replays: []actionauthor.FCAFReplay{
+				{Fixture: "s#a", Class: "x", Status: actionauthor.FCAFReplayPassed},
+			},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_replays: s#a is not a fixture of the authoring set",
+		},
+		{
+			name: "chat action",
+			plan: actionauthor.Spec{Slot: "onboarding"},
+			replays: []actionauthor.FCAFReplay{
+				{Fixture: "s#a", Class: "x", Status: actionauthor.FCAFReplayPassed},
+			},
+			status:   http.StatusBadRequest,
+			expected: "fcaf_replays: only FCAF actions carry replays",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode = tc.mode
+			decision := reviewDecision("a1", reviewSHA1, "accept", tc.plan, "")
+			decision.FCAFReplays = tc.replays
+			expected := []string{`"decision":"accept"`}
+			if tc.expected != "" {
+				expected = []string{`"invalid_request"`, tc.expected}
+			}
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body:   strings.NewReader(reviewBody(t, decision)),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: expected,
+				TestAppFactory:  setupActionAuthorApp,
+				AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+					if tc.status != http.StatusOK {
+						require.Empty(t, stub.workflowID)
+						return
+					}
+					decisions := deliveredDecisions(t, stub)
+					require.Len(t, decisions, 1)
+					token, _ := decisions[0]["approval"].(string)
+					approval, err := actionauthor.VerifyApproval(
+						app, token, reviewAuthorWorkflow, reviewSHA1, time.Now(),
+					)
+					require.NoError(t, err)
+					require.Empty(t, approval.ReplaysSHA256)
+				},
+			}).Test(t)
+		})
+	}
+}
+
+func TestActionAuthorReviewApprovesOnlyTheFixTargets(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	plan := actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"}
+	for _, tc := range []struct {
+		name     string
+		failing  string
+		status   int
+		expected string
+	}{
+		{name: "the reset failed", failing: "fcaf-reset-and-onboard", status: http.StatusOK,
+			expected: `"decision":"accept"`},
+		{name: "another role failed", failing: "fcaf-expect-request-rejected",
+			status: http.StatusForbidden, expected: `"forbidden"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode, stub.fix = actionauthor.SessionModeFCAF, true
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body: strings.NewReader(
+					reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", plan, "")),
+				),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: []string{tc.expected},
+				TestAppFactory: func(t testing.TB) *tests.TestApp {
+					return setupFixSessionApp(t, tc.failing)
+				},
+			}).Test(t)
+			if tc.status != http.StatusOK {
+				require.Empty(t, stub.workflowID)
+			}
+		})
 	}
 }
 

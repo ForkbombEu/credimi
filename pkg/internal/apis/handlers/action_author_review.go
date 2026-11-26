@@ -32,20 +32,27 @@ const actionAuthorReviewUpdate = "provide_callback_result"
 type ActionAuthorReviewRequest struct {
 	AuthorWorkflowID string                       `json:"author_workflow_id" validate:"required"`
 	ToolID           string                       `json:"tool_id"            validate:"required"`
-	Decisions        []ActionAuthorReviewDecision `json:"decisions"          validate:"required,min=1,max=10,dive"`
+	Decisions        []ActionAuthorReviewDecision `json:"decisions"          validate:"required,min=1,max=40,dive"`
 }
 
 // ActionAuthorReviewDecision is the decision on one action of the review:
 // accept, refuse or change (with a comment saying what to change). Plan is
 // the action's plan as the review shows it, with its candidate prerequisites
 // unresolved; Credimi checks it again and binds an accept's approval to it.
+// Profile is the FCAF profile the review showed, which an accept also binds.
+// FCAFResult is the agent's verdict on an FCAF action the review showed, and
+// FCAFReplays its replays on fixtures of the role's authoring set, which an
+// accept also binds.
 type ActionAuthorReviewDecision struct {
-	Key             string            `json:"key"              validate:"required"`
-	Name            string            `json:"name"             validate:"max=200"`
-	CandidateSHA256 string            `json:"candidate_sha256" validate:"required,len=64,hexadecimal"`
-	Decision        string            `json:"decision"         validate:"required,oneof=accept refuse change"`
-	Comment         string            `json:"comment"          validate:"max=2000"`
-	Plan            actionauthor.Spec `json:"plan"`
+	Key             string                    `json:"key"                    validate:"required"`
+	Name            string                    `json:"name"                   validate:"max=200"`
+	CandidateSHA256 string                    `json:"candidate_sha256"       validate:"required,len=64,hexadecimal"`
+	Decision        string                    `json:"decision"               validate:"required,oneof=accept refuse change"`
+	Comment         string                    `json:"comment"                validate:"max=2000"`
+	Plan            actionauthor.Spec         `json:"plan"`
+	Profile         map[string]any            `json:"profile,omitempty"`
+	FCAFResult      *actionauthor.FCAFResult  `json:"fcaf_result,omitempty"`
+	FCAFReplays     []actionauthor.FCAFReplay `json:"fcaf_replays,omitempty"`
 }
 
 // ActionAuthorReviewResponse confirms the decisions the agent received.
@@ -262,8 +269,9 @@ func checkReviewDecisions(decisions []ActionAuthorReviewDecision) error {
 	return nil
 }
 
-// signReviewApproval checks an accepted action's plan again for the session
-// and signs the caller's approval of its code and plan.
+// signReviewApproval checks an accepted action's plan, FCAF profile, FCAF
+// result and FCAF replays again for the session and signs the caller's
+// approval of its code, plan, profile, result and replays.
 func signReviewApproval(
 	e *core.RequestEvent,
 	ref activities.ActionAuthorSessionRef,
@@ -271,12 +279,54 @@ func signReviewApproval(
 	authorWorkflowID string,
 	decision ActionAuthorReviewDecision,
 ) (string, error) {
+	if len(decision.Profile) > 0 && decision.Plan.FCAFRole == "" {
+		return "", fmt.Errorf(
+			"%w: profile: only FCAF actions carry a profile", actionauthor.ErrInvalid,
+		)
+	}
+	if err := actionauthor.CheckFCAFProfile(decision.Profile, decision.Plan.FCAFRole); err != nil {
+		return "", err
+	}
+	if err := actionauthor.CheckFCAFResult(
+		decision.FCAFResult,
+		decision.Plan.FCAFRole,
+	); err != nil {
+		return "", err
+	}
 	selection, err := actionauthor.Select(e.App, ref.Organization, ref.Session)
 	if err != nil {
 		return "", err
 	}
-	plan, err := activities.SessionPlan(e.App, selection, decision.Plan)
+	scope, err := activities.FCAFScope(ref)
 	if err != nil {
+		return "", err
+	}
+	// A fix session approves only actions of the roles it fixes, whose
+	// replays may also cover the fixtures each failed on.
+	if ref.FCAFFix {
+		scope, err = activities.FCAFFixScope(
+			e.App,
+			ref,
+			selection,
+			scope,
+			fcafRunStateReader(e, ref.Organization),
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+	plan, err := activities.SessionPlan(e.App, selection, decision.Plan, scope)
+	if err != nil {
+		return "", err
+	}
+	if err := actionauthor.CheckFCAFFixRole(scope, plan.FCAFRole); err != nil {
+		return "", err
+	}
+	if err := actionauthor.CheckFCAFReplays(
+		scope,
+		decision.FCAFReplays,
+		plan.FCAFRole,
+	); err != nil {
 		return "", err
 	}
 	return actionauthor.SignApproval(e.App, actionauthor.Approval{
@@ -286,6 +336,9 @@ func signReviewApproval(
 		ApprovedAt:       time.Now().Unix(),
 		PlanSHA256:       actionauthor.PlanSHA256(plan),
 		Key:              decision.Key,
+		ProfileSHA256:    actionauthor.ProfileSHA256(decision.Profile),
+		ResultSHA256:     actionauthor.FCAFResultSHA256(decision.FCAFResult),
+		ReplaysSHA256:    actionauthor.FCAFReplaysSHA256(decision.FCAFReplays),
 	})
 }
 

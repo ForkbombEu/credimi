@@ -150,6 +150,12 @@ Share are stored before the waits and assertions that can fail. Updating a
 flow's `takeScreenshot` commands therefore also requires re-syncing its
 `wallet_actions` record (`fcaf sync`) on the Credimi instance.
 
+Every flow the scenarios or `cmd/fcaf-pipeline-gen` run is also a role of the
+wallet role contract `config_templates/fcaf/fcaf-roles.yaml`, which describes
+it for any wallet. Changing a flow's verdict screenshots, Share taps,
+parameters, launched apps or wait also requires updating its role there; the
+`pkg/fcaf/walletroles` tests fail until the two agree.
+
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers
 must resolve the organization and wallet on the target Credimi instance, create

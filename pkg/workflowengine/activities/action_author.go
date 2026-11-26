@@ -205,12 +205,26 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
-	plan, err := SessionPlan(a.app, selection, payload.Spec)
+	scope, err := FCAFScope(ref)
 	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
+	// A fix session saves only actions of the roles it fixes, also with
+	// replays of the fixtures each failed on.
+	scope, err = FCAFFixScope(a.app, ref, selection, scope, a.fcafRunState(ctx, ref.Organization))
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
+	plan, err := SessionPlan(a.app, selection, payload.Spec, scope)
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
+	if err := actionauthor.CheckFCAFFixRole(scope, plan.FCAFRole); err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	payload.BuildRequest = session
 	payload.Spec = plan
+	payload.FCAF = scope
 	approval, err := actionauthor.VerifyApproval(
 		a.app,
 		payload.Approval,
@@ -229,6 +243,21 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if approval.PlanSHA256 != actionauthor.PlanSHA256(payload.Spec) {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
 			"%w: approval is for another plan", actionauthor.ErrForbidden,
+		))
+	}
+	if approval.ProfileSHA256 != actionauthor.ProfileSHA256(payload.FCAFProfile) {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: approval is for another profile", actionauthor.ErrForbidden,
+		))
+	}
+	if approval.ResultSHA256 != actionauthor.FCAFResultSHA256(payload.FCAFResult) {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: approval is for another result", actionauthor.ErrForbidden,
+		))
+	}
+	if approval.ReplaysSHA256 != actionauthor.FCAFReplaysSHA256(payload.FCAFReplays) {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: approval is for another replay set", actionauthor.ErrForbidden,
 		))
 	}
 	if approval.Key == "" {
@@ -358,6 +387,15 @@ type ActionAuthorSessionRef struct {
 	Organization string
 	Session      actionauthor.BuildRequest
 	DeviceID     string
+	// Mode is actionauthor.SessionModeFCAF for an FCAF authoring session,
+	// empty for chat; FCAFSuite is the suite an FCAF session authors;
+	// FCAFFix is set for an FCAF session that fixes the roles failing in the
+	// wallet's last FCAF pipeline run.
+	Mode      string
+	FCAFSuite string
+	FCAFFix   bool
+	// Started is when the session's run started.
+	Started time.Time
 }
 
 // LookupActionAuthorSession returns the running session whose ActionAuthor
@@ -409,6 +447,9 @@ type sessionStart struct {
 	Organization            string `json:"organization"`
 	TicketGrant             string `json:"ticket_grant"`
 	Grant                   string `json:"grant"`
+	Mode                    string `json:"mode"`
+	FCAFSuite               string `json:"fcaf_suite"`
+	FCAFFix                 bool   `json:"fcaf_fix"`
 }
 
 // grant is what Credimi signs for the session workflowID in namespace that
@@ -422,6 +463,9 @@ func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGr
 		Platform:                s.Platform,
 		WalletVersionIdentifier: s.WalletVersionIdentifier,
 		ActorID:                 s.ActorID,
+		Mode:                    s.Mode,
+		FCAFSuite:               s.FCAFSuite,
+		FCAFFix:                 s.FCAFFix,
 	}
 }
 
@@ -506,7 +550,7 @@ func TrustedActionAuthorSession(
 		return ActionAuthorSessionRef{}, err
 	case signed:
 		return run.ref, nil
-	case time.Since(run.startTime) < runGrantGrace:
+	case time.Since(run.ref.Started) < runGrantGrace:
 		return ActionAuthorSessionRef{}, actionauthor.ErrSessionNotVisible
 	default:
 		return ActionAuthorSessionRef{}, sessionForbidden(
@@ -518,8 +562,7 @@ func TrustedActionAuthorSession(
 // startedRun is the earliest run of a session, which carries Credimi's
 // session grant, and the rest of its history.
 type startedRun struct {
-	ref       ActionAuthorSessionRef
-	startTime time.Time
+	ref ActionAuthorSessionRef
 	// history continues after the run's start event.
 	history client.HistoryEventIterator
 }
@@ -601,11 +644,8 @@ func readCredimiRun(
 	if err != nil {
 		return startedRun{}, err
 	}
-	return startedRun{
-		ref:       ref,
-		startTime: run.GetStartTime().AsTime(),
-		history:   history,
-	}, nil
+	ref.Started = run.GetStartTime().AsTime()
+	return startedRun{ref: ref, history: history}, nil
 }
 
 // hasRunGrant reports whether history holds an ActionAuthorRunGrantSignal
@@ -731,6 +771,9 @@ func readSessionStart(
 		Organization:      start.Organization,
 		Session:           session,
 		DeviceID:          start.DeviceID,
+		Mode:              start.Mode,
+		FCAFSuite:         start.FCAFSuite,
+		FCAFFix:           start.FCAFFix,
 	}, nil
 }
 

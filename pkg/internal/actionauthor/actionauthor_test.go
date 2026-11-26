@@ -6,6 +6,7 @@ package actionauthor
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1295,4 +1296,504 @@ func TestPublicWalletOfAnotherOrganization(t *testing.T) {
 			tc.run(t, app, owner, caller, org)
 		})
 	}
+}
+
+// fcafResetRequest is an accepted save of the reference fcaf-reset-and-onboard
+// action in an FCAF session.
+func fcafResetRequest(
+	t *testing.T,
+	request BuildRequest,
+	digest string,
+	scope *FCAFScope,
+) SaveRequest {
+	t.Helper()
+	role, ok := scope.Contract.Role("fcaf-reset-and-onboard")
+	require.True(t, ok)
+	in := acceptedRequest(request, digest)
+	in.Name = role.Name
+	in.Code = role.ReferenceCode
+	in.CandidateSHA256 = CodeSHA256(in.Code)
+	in.Spec = Spec{Slot: "onboarding", Outcome: OutcomeSuccess, FCAFRole: role.Name}
+	in.FCAF = scope
+	in.FCAFProfile = map[string]any{"pin": "123456"}
+	return in
+}
+
+func TestAuthoringSaveFCAFAction(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	scope := fcafTestScope(t)
+	role, ok := scope.Contract.Role("fcaf-reset-and-onboard")
+	require.True(t, ok)
+
+	refused := []struct {
+		name    string
+		edit    func(*SaveRequest)
+		message string
+	}{
+		{
+			name:    "named otherwise",
+			edit:    func(in *SaveRequest) { in.Name = "Reset the wallet" },
+			message: "an FCAF action is named after its role: fcaf-reset-and-onboard",
+		},
+		{
+			name:    "chat session",
+			edit:    func(in *SaveRequest) { in.FCAF = nil },
+			message: "fcaf_role needs an FCAF session",
+		},
+		{
+			name:    "plan off the contract",
+			edit:    func(in *SaveRequest) { in.Spec.FCAFRole = "fcaf-engagement-haip-vp" },
+			message: "fcaf_role: fcaf-engagement-haip-vp is a verify-credential action",
+		},
+		{
+			name: "profile over 8 KiB",
+			edit: func(in *SaveRequest) {
+				notes := make([]any, 20)
+				for index := range notes {
+					notes[index] = strings.Repeat("€", 300)
+				}
+				in.FCAFProfile = map[string]any{"notes": notes}
+			},
+			message: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+		{
+			name: "profile off the schema",
+			edit: func(in *SaveRequest) {
+				in.FCAFProfile = map[string]any{"pin": "12"}
+			},
+			message: "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, " +
+				"pid_issuer: key-attestation or jwt-proof, request_scheme: openid4vp://}",
+		},
+		{
+			name: "profile of a chat plan",
+			edit: func(in *SaveRequest) {
+				*in = acceptedRequest(request, build.InstallerSHA256)
+				in.FCAFProfile = map[string]any{"pin": "123456"}
+			},
+			message: "fcaf_profile is only for FCAF actions, at most 8 KiB",
+		},
+		{
+			name: "result of a chat plan",
+			edit: func(in *SaveRequest) {
+				*in = acceptedRequest(request, build.InstallerSHA256)
+				in.FCAFResult = &FCAFResult{Status: FCAFResultPassed}
+			},
+			message: "fcaf_result: only FCAF actions carry a result",
+		},
+		{
+			name: "result off the statuses",
+			edit: func(in *SaveRequest) {
+				in.FCAFResult = &FCAFResult{Status: "blocked"}
+			},
+			message: "fcaf_result: status must be passed, unsupported or finding",
+		},
+		{
+			name: "replays of a chat plan",
+			edit: func(in *SaveRequest) {
+				*in = acceptedRequest(request, build.InstallerSHA256)
+				in.FCAFReplays = []FCAFReplay{{Fixture: "x#y", Status: FCAFReplayPassed}}
+			},
+			message: "fcaf_replays: only FCAF actions carry replays",
+		},
+		{
+			name: "replay off the authoring set",
+			edit: func(in *SaveRequest) {
+				in.FCAFReplays = []FCAFReplay{{Fixture: "x#y", Status: FCAFReplayPassed}}
+			},
+			message: "fcaf_replays: x#y is not a fixture of the authoring set of fcaf-reset-and-onboard",
+		},
+		{
+			name: "code off the contract",
+			edit: func(in *SaveRequest) {
+				in.Code += "- takeScreenshot: home\n"
+				in.CandidateSHA256 = CodeSHA256(in.Code)
+			},
+			message: "the FCAF role fcaf-reset-and-onboard takes no screenshot",
+		},
+	}
+	for _, tc := range refused {
+		t.Run(tc.name, func(t *testing.T) {
+			in := fcafResetRequest(t, request, build.InstallerSHA256, scope)
+			tc.edit(&in)
+			_, err := Save(app, namespace, "workflow", "run", in, testApproval)
+			require.ErrorIs(t, err, ErrInvalid)
+			assert.ErrorContains(t, err, tc.message)
+		})
+	}
+
+	in := fcafResetRequest(t, request, build.InstallerSHA256, scope)
+	in.FCAFResult = &FCAFResult{Status: FCAFResultUnsupported, Note: "no Deny button"}
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, "fcaf, ws_rp, ws_ap", record.GetString("tags"))
+	provenance := savedProvenance(record)
+	assert.Equal(t, role.Name, provenance.FCAFRole)
+	assert.Equal(t, role.SHA256(), provenance.FCAFRoleSHA256)
+	assert.Equal(t, map[string]any{"pin": "123456"}, provenance.FCAFProfile)
+	assert.Equal(t, in.FCAFResult, provenance.FCAFResult)
+	assert.Empty(t, provenance.FCAFReplays)
+	assert.Equal(t, provenance, receipt.Provenance)
+
+	// A replacing save merges the FCAF tags into the record's own.
+	record.Set("tags", "mine")
+	require.NoError(t, app.Save(record))
+	path, err := walletActionPath(app, record)
+	require.NoError(t, err)
+	replacing := fcafResetRequest(t, request, build.InstallerSHA256, scope)
+	replacing.BatchKey = "a2"
+	replacing.Spec.Replaces = &ReplaceSpec{Action: path, CodeSHA256: CodeSHA256(in.Code)}
+	replaced, err := Save(app, namespace, "workflow-2", "run-2", replacing, testApproval)
+	require.NoError(t, err)
+	assert.True(t, replaced.Replaced)
+	record, err = app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, "mine, fcaf, ws_rp, ws_ap", record.GetString("tags"))
+
+	// Chat plans write no tags.
+	chat, err := Save(app, namespace, "workflow-3", "run-3",
+		acceptedRequest(request, build.InstallerSHA256), testApproval)
+	require.NoError(t, err)
+	record, err = app.FindRecordById("wallet_actions", chat.RecordID)
+	require.NoError(t, err)
+	assert.Empty(t, record.GetString("tags"))
+	assert.Empty(t, savedProvenance(record).FCAFRole)
+}
+
+func TestCheckFCAFReplays(t *testing.T) {
+	scope := fcafTestScope(t)
+	const role = "fcaf-dc-api-present" // one authoring fixture and two pins
+	set, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, role)
+	require.NoError(t, err)
+	require.Greater(t, len(set), 1)
+	first, second := set[0], set[1]
+	valid := []FCAFReplay{
+		{Fixture: first.ID, Class: first.Class, Status: FCAFReplayPassed},
+		{Fixture: second.ID, Class: second.Class, Status: FCAFReplayFinding},
+	}
+	require.NoError(t, CheckFCAFReplays(scope, valid, role))
+	require.NoError(t, CheckFCAFReplays(scope, nil, ""))
+	many := make([]FCAFReplay, 65)
+	for name, tc := range map[string]struct {
+		replays []FCAFReplay
+		role    string
+		message string
+	}{
+		"no role":  {valid, "", "fcaf_replays: only FCAF actions carry replays"},
+		"too many": {many, role, "fcaf_replays: at most 64 replays"},
+		"twice":    {append(slices.Clone(valid), valid[0]), role, "is replayed twice"},
+		"off class": {
+			[]FCAFReplay{{Fixture: first.ID, Class: "x", Status: FCAFReplayPassed}},
+			role,
+			"the class of",
+		},
+		"status": {
+			[]FCAFReplay{{Fixture: first.ID, Class: first.Class, Status: "blocked"}},
+			role,
+			"status must be passed, finding or action_failed",
+		},
+		"unknown fixture": {
+			[]FCAFReplay{{Fixture: "x#y", Class: first.Class, Status: FCAFReplayActionFailed}},
+			role,
+			"x#y is not a fixture of the authoring set",
+		},
+	} {
+		err := CheckFCAFReplays(scope, tc.replays, tc.role)
+		require.ErrorIs(t, err, ErrInvalid, name)
+		assert.ErrorContains(t, err, tc.message, name)
+	}
+}
+
+func TestCheckFCAFResultStatuses(t *testing.T) {
+	const role = "fcaf-expect-credential-rejected"
+	for _, status := range []string{FCAFResultPassed, FCAFResultUnsupported, FCAFResultFinding} {
+		require.NoError(
+			t,
+			CheckFCAFResult(&FCAFResult{Status: status, Note: "RI-WALLET-009"}, role),
+			status,
+		)
+	}
+	err := CheckFCAFResult(&FCAFResult{Status: "blocked"}, role)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "fcaf_result: status must be passed, unsupported or finding")
+}
+
+func TestCheckFCAFProfile(t *testing.T) {
+	const role = "fcaf-reset-and-onboard"
+	const schema = "fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, " +
+		"pid_issuer: key-attestation or jwt-proof, request_scheme: openid4vp://}"
+	manyNotes := make([]any, 21)
+	for index := range manyNotes {
+		manyNotes[index] = "note"
+	}
+	accepted := []map[string]any{
+		nil,
+		{},
+		{"pin": "1234"},
+		{"pin": "12345678"},
+		{"notes": []any{}},
+		{"notes": []any{"a", strings.Repeat("x", 300)}},
+		{"pin": "123456", "notes": manyNotes[:20]},
+		{"pid_issuer": "key-attestation"},
+		{"pid_issuer": "jwt-proof"},
+		{"pin": "1234", "notes": []any{"a"}, "pid_issuer": "jwt-proof"},
+		{"request_scheme": "openid4vp://"},
+		{"pin": "1234", "pid_issuer": "jwt-proof", "request_scheme": "openid4vp://"},
+	}
+	for _, profile := range accepted {
+		assert.NoError(t, CheckFCAFProfile(profile, role), "%v", profile)
+	}
+	refused := map[string]map[string]any{
+		"unknown key":         {"pin": "1234", "wallet": "x"},
+		"short pin":           {"pin": "123"},
+		"long pin":            {"pin": "123456789"},
+		"pin with letters":    {"pin": "12a4"},
+		"pin with newline":    {"pin": "1234\n"},
+		"numeric pin":         {"pin": float64(1234)},
+		"notes not a list":    {"notes": "a note"},
+		"too many notes":      {"notes": manyNotes},
+		"empty note":          {"notes": []any{""}},
+		"long note":           {"notes": []any{strings.Repeat("x", 301)}},
+		"unknown issuer":      {"pid_issuer": "eu-pid-jwt-proof-only"},
+		"empty issuer":        {"pid_issuer": ""},
+		"issuer not a string": {"pid_issuer": []any{"jwt-proof"}},
+		"haip scheme":         {"request_scheme": "haip-vp://"},
+		"empty scheme":        {"request_scheme": ""},
+		"other scheme":        {"request_scheme": "eu-eaap://"},
+		"scheme not a string": {"request_scheme": []any{"openid4vp://"}},
+		"note not a string":   {"notes": []any{float64(1)}},
+	}
+	for name, profile := range refused {
+		t.Run(name, func(t *testing.T) {
+			err := CheckFCAFProfile(profile, role)
+			require.ErrorIs(t, err, ErrInvalid)
+			assert.ErrorContains(t, err, schema)
+		})
+	}
+}
+
+// Save checks the resolved starting actions of an FCAF action against the
+// contract: a candidate that resolves to another action is refused.
+func TestAuthoringSaveFCAFActionChecksItsResolvedStarts(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	scope := fcafTestScope(t)
+	role, ok := scope.Contract.Role("getcredential-generic-credential-without-authentication")
+	require.True(t, ok)
+	slot, ok := SlotForCategory(role.Category)
+	require.True(t, ok)
+
+	// The session saved a1, a chat onboarding action, not the reset role.
+	saved, err := Save(app, namespace, "workflow", "run",
+		acceptedRequest(request, build.InstallerSHA256), testApproval)
+	require.NoError(t, err)
+
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = role.Name
+	in.Code = role.ReferenceCode
+	in.CandidateSHA256 = CodeSHA256(in.Code)
+	in.BatchKey = "a2"
+	in.Spec = Spec{
+		Slot:          slot,
+		Outcome:       FCAFOutcome(role.Outcome),
+		Prerequisites: []PrerequisiteSpec{{Candidate: "a1"}},
+		Parameters:    deeplinkParameter(),
+		FCAFRole:      role.Name,
+	}
+	in.FCAF = scope
+	in.Candidates = map[string]string{"a1": saved.RecordID}
+	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(
+		t,
+		err,
+		"an FCAF getcredential-generic-credential-without-authentication action "+
+			"starts from [fcaf-reset-and-onboard]",
+	)
+}
+
+func TestFCAFCoverage(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	scope := fcafTestScope(t)
+	statuses := func() (map[string]FCAFRoleCoverage, map[string]any) {
+		t.Helper()
+		coverage, profile, err := FCAFCoverage(app, selection, scope)
+		require.NoError(t, err)
+		require.Len(t, coverage, len(fcafSuiteRoles(scope)))
+		assert.Equal(t, "fcaf-reset-and-onboard", coverage[0].Role)
+		assert.Equal(t, "fcaf-issue-pid", coverage[1].Role)
+		byRole := map[string]FCAFRoleCoverage{}
+		for _, entry := range coverage {
+			byRole[entry.Role] = entry
+		}
+		return byRole, profile
+	}
+
+	coverage, profile := statuses()
+	assert.Nil(t, profile)
+	reset, issue := coverage["fcaf-reset-and-onboard"], coverage["fcaf-issue-pid"]
+	role, _ := scope.Contract.Role("fcaf-reset-and-onboard")
+	assert.Equal(t, FCAFRoleCoverage{
+		Role:            role.Name,
+		Summary:         role.Summary,
+		Outcome:         OutcomeSuccess,
+		Category:        "onboarding",
+		StartsFrom:      []string{},
+		Status:          FCAFMissing,
+		Result:          "",
+		Note:            "",
+		RoleSHA256:      role.SHA256(),
+		MissingFixtures: []string{},
+		Replays:         []FCAFReplay{},
+	}, reset)
+	assert.Equal(t, FCAFMissing, issue.Status)
+	assert.Equal(t, []string{"fcaf-reset-and-onboard"}, issue.StartsFrom)
+	assert.Equal(t, []string{"fcaf-reset-and-onboard", "fcaf-issue-pid"},
+		coverage["fcaf-engagement-haip-vp"].StartsFrom)
+	assert.NotContains(t, coverage, "fcaf-engage-credential-offer")
+
+	receipt, err := Save(app, namespace, "workflow", "run",
+		fcafResetRequest(t, request, build.InstallerSHA256, scope), testApproval)
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	path, err := walletActionPath(app, record)
+	require.NoError(t, err)
+	coverage, profile = statuses()
+	assert.Equal(t, FCAFCurrent, coverage["fcaf-reset-and-onboard"].Status)
+	assert.Equal(t, path, coverage["fcaf-reset-and-onboard"].Action)
+	assert.Equal(t, map[string]any{"pin": "123456"}, profile)
+
+	// The agent's verdict, recorded with the save, shows with the action.
+	provenance := savedProvenance(record)
+	provenance.FCAFResult = &FCAFResult{Status: FCAFResultUnsupported, Note: "no Deny button"}
+	record.Set("authoring_provenance", provenance)
+	require.NoError(t, app.Save(record))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFCurrent, coverage["fcaf-reset-and-onboard"].Status)
+	assert.Equal(t, FCAFResultUnsupported, coverage["fcaf-reset-and-onboard"].Result)
+	assert.Equal(t, "no Deny button", coverage["fcaf-reset-and-onboard"].Note)
+
+	provenance.FCAFRoleSHA256 = strings.Repeat("0", 64)
+	record.Set("authoring_provenance", provenance)
+	require.NoError(t, app.Save(record))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFStale, coverage["fcaf-reset-and-onboard"].Status)
+
+	_, issuePath := seedWalletAction(
+		t,
+		app,
+		selection.Organization.Id,
+		selection.Wallet,
+		"fcaf-issue-pid",
+		"get-credential-generic",
+		"appId: eu.europa.ec.euidi\n---\n- back\n",
+		false,
+	)
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFUnmanaged, coverage["fcaf-issue-pid"].Status)
+	assert.Equal(t, issuePath, coverage["fcaf-issue-pid"].Action)
+	assert.Equal(t, FCAFMissing, coverage["fcaf-engagement-haip-vp"].Status)
+	assert.Equal(t, []string{}, coverage["fcaf-issue-pid"].MissingFixtures)
+
+	// A current action is incomplete until it has replayed on its whole authoring set.
+	const haip = "fcaf-engagement-haip-vp"
+	haipRole, _ := scope.Contract.Role(haip)
+	set, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, haip)
+	require.NoError(t, err)
+	haipRecord, _ := seedWalletAction(
+		t,
+		app,
+		selection.Organization.Id,
+		selection.Wallet,
+		haip,
+		"verify-credential",
+		"appId: eu.europa.ec.euidi\n---\n- back\n",
+		false,
+	)
+	replays := make([]FCAFReplay, 0, len(set))
+	for _, fixture := range set[1:] {
+		replays = append(replays, FCAFReplay{
+			Fixture: fixture.ID, Class: fixture.Class, Status: FCAFReplayPassed,
+		})
+	}
+	haipProvenance := Provenance{FCAFRole: haip, FCAFRoleSHA256: haipRole.SHA256()}
+	haipRecord.Set("authoring_provenance", haipProvenance)
+	require.NoError(t, app.Save(haipRecord))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFIncomplete, coverage[haip].Status, "saved before fcaf_replays")
+	assert.Len(t, coverage[haip].MissingFixtures, len(set))
+	haipProvenance.FCAFReplays = replays
+	haipRecord.Set("authoring_provenance", haipProvenance)
+	require.NoError(t, app.Save(haipRecord))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFIncomplete, coverage[haip].Status)
+	assert.Equal(t, []string{set[0].ID}, coverage[haip].MissingFixtures)
+	replays = append(replays, FCAFReplay{
+		Fixture: set[0].ID, Class: set[0].Class, Status: FCAFReplayActionFailed,
+	})
+	haipProvenance.FCAFReplays = replays
+	haipRecord.Set("authoring_provenance", haipProvenance)
+	require.NoError(t, app.Save(haipRecord))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFCurrent, coverage[haip].Status)
+	assert.Equal(t, []string{}, coverage[haip].MissingFixtures)
+	assert.Equal(t, replays, coverage[haip].Replays)
+
+	// A stale action's replays were made under another contract: coverage drops them.
+	haipProvenance.FCAFRoleSHA256 = strings.Repeat("0", 64)
+	haipRecord.Set("authoring_provenance", haipProvenance)
+	require.NoError(t, app.Save(haipRecord))
+	coverage, _ = statuses()
+	assert.Equal(t, FCAFStale, coverage[haip].Status)
+	assert.Equal(t, []FCAFReplay{}, coverage[haip].Replays)
+	assert.Equal(t, []string{}, coverage[haip].MissingFixtures)
+}
+
+func TestSelectWallet(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	segments := strings.Split(request.WalletVersionIdentifier, "/")
+	walletPath := strings.Join(segments[:2], "/")
+
+	selection, err := SelectWallet(app, namespace, request.Actor, walletPath)
+	require.NoError(t, err)
+	assert.Equal(t, namespace, selection.Organization.GetString("canonified_name"))
+	assert.Equal(t, walletPath, selection.Identifier)
+	assert.Nil(t, selection.Version)
+	assert.Empty(t, selection.Platform)
+
+	for _, path := range []string{request.WalletVersionIdentifier, ""} {
+		_, err := SelectWallet(app, namespace, request.Actor, path)
+		require.ErrorIs(t, err, ErrInvalid, path)
+	}
+	// An unknown wallet is forbidden, as an unpublished one of another organization.
+	_, err = SelectWallet(app, namespace, request.Actor, segments[0]+"/unknown")
+	require.ErrorIs(t, err, ErrForbidden)
+	_, err = SelectWallet(app, "", request.Actor, walletPath)
+	require.ErrorIs(t, err, ErrForbidden)
+
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, other.Id)
+	require.NoError(t, err)
+	otherOrg, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	otherNamespace := otherOrg.GetString("canonified_name")
+	_, err = SelectWallet(app, otherNamespace, Actor{ActorID: other.Id}, walletPath)
+	require.ErrorIs(t, err, ErrForbidden)
+
+	// A published wallet of another organization is selected for the caller's own.
+	setRecordFields(t, app, selection.Wallet, map[string]any{"published": true})
+	foreign, err := SelectWallet(app, otherNamespace, Actor{ActorID: other.Id}, walletPath)
+	require.NoError(t, err)
+	assert.Equal(t, otherOrg.Id, foreign.Organization.Id)
+	assert.Equal(t, selection.Organization.Id, foreign.WalletOwner.Id)
 }

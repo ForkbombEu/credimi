@@ -10,7 +10,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
@@ -39,6 +42,127 @@ func (l authorSessionLookup) sessionSelection(
 		return actionauthor.Selection{}, actionAuthorError(base, err)
 	}
 	return selection, nil
+}
+
+// sessionScope reauthorizes the build of the caller's session and returns
+// its selection and its FCAF scope, nil for a chat session.
+func (l authorSessionLookup) sessionScope(
+	ctx context.Context,
+	base *workflowengine.BaseActivity,
+	app core.App,
+	caller authorCaller,
+) (actionauthor.Selection, *actionauthor.FCAFScope, error) {
+	_, selection, scope, err := l.sessionRefScope(ctx, base, app, caller)
+	return selection, scope, err
+}
+
+// sessionRefScope is sessionScope that also returns the session.
+func (l authorSessionLookup) sessionRefScope(
+	ctx context.Context,
+	base *workflowengine.BaseActivity,
+	app core.App,
+	caller authorCaller,
+) (ActionAuthorSessionRef, actionauthor.Selection, *actionauthor.FCAFScope, error) {
+	ref, err := l.callerSession(ctx, base, caller)
+	if err != nil {
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, err
+	}
+	selection, err := actionauthor.Select(app, ref.Organization, ref.Session)
+	if err != nil {
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, actionAuthorError(base, err)
+	}
+	scope, err := FCAFScope(ref)
+	if err != nil {
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, actionAuthorError(base, err)
+	}
+	return ref, selection, scope, nil
+}
+
+// FCAFScope returns the role contract and suite of an FCAF session, nil for
+// a chat session. A contract that fails to load is a transient error.
+func FCAFScope(ref ActionAuthorSessionRef) (*actionauthor.FCAFScope, error) {
+	if ref.Mode != actionauthor.SessionModeFCAF {
+		return nil, nil
+	}
+	return LoadFCAFScope(ref.FCAFSuite)
+}
+
+// FCAFFixScope returns scope with the roles a fix session (ref.FCAFFix)
+// fixes and the fixtures each failed on (actionauthor.FCAFFixCoverage since
+// the session started, reading the Temporal state of runs without a report
+// through state, which may be nil); scope itself for any other session.
+func FCAFFixScope(
+	app core.App,
+	ref ActionAuthorSessionRef,
+	selection actionauthor.Selection,
+	scope *actionauthor.FCAFScope,
+	state actionauthor.FCAFRunStateFunc,
+) (*actionauthor.FCAFScope, error) {
+	if scope == nil || !ref.FCAFFix {
+		return scope, nil
+	}
+	coverage, _, err := actionauthor.FCAFFixCoverage(app, selection, scope, state, ref.Started)
+	if err != nil {
+		return nil, err
+	}
+	fixed := *scope
+	fixed.Fix = actionauthor.FCAFFixRoles(coverage)
+	return &fixed, nil
+}
+
+// fcafRunStateTimeout bounds each Temporal read of a pipeline run's state.
+const fcafRunStateTimeout = 5 * time.Second
+
+// fcafRunState reads the Temporal state of the pipeline runs of the
+// organization (a canonified_name) in its namespace, each read within
+// fcafRunStateTimeout. It gets the namespace's client on its first read, so
+// a session that reads no run without a report never asks for it; without
+// a client every such run is left out, as unfinished.
+func (l authorSessionLookup) fcafRunState(
+	ctx context.Context,
+	organization string,
+) actionauthor.FCAFRunStateFunc {
+	return func(workflowID, runID string) (actionauthor.FCAFRunState, error) {
+		c, err := l.temporalClient(organization)
+		if err != nil {
+			return actionauthor.FCAFRunState{}, err
+		}
+		ctx, cancel := context.WithTimeout(ctx, fcafRunStateTimeout)
+		defer cancel()
+		return FCAFRunState(ctx, c, workflowID, runID)
+	}
+}
+
+// LoadFCAFScope returns the scope of the suite over the role contract of
+// LoadFCAFContract and its templates root.
+func LoadFCAFScope(suite string) (*actionauthor.FCAFScope, error) {
+	contract, err := LoadFCAFContract()
+	if err != nil {
+		return nil, err
+	}
+	return &actionauthor.FCAFScope{Contract: contract, Root: fcafTemplatesRoot(), Suite: suite}, nil
+}
+
+// fcafContract is the role contract, loaded once per process; it also keeps
+// the scenarios its Fixtures read.
+var fcafContract struct {
+	mu       sync.Mutex
+	contract *walletroles.Contract
+}
+
+// LoadFCAFContract returns the FCAF role contract, loading it once per
+// process; a failed load is retried on the next call.
+func LoadFCAFContract() (*walletroles.Contract, error) {
+	fcafContract.mu.Lock()
+	defer fcafContract.mu.Unlock()
+	if fcafContract.contract == nil {
+		contract, err := walletroles.Load(fcafTemplatesRoot())
+		if err != nil {
+			return nil, err
+		}
+		fcafContract.contract = contract
+	}
+	return fcafContract.contract, nil
 }
 
 // ListActionAuthorWalletActionsInput optionally filters by category.
@@ -180,12 +304,12 @@ func (a *CheckActionAuthorPlanActivity) check(
 	caller authorCaller,
 	payload CheckActionAuthorPlanInput,
 ) (CheckActionAuthorPlanOutput, error) {
-	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, scope, err := a.sessionScope(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return CheckActionAuthorPlanOutput{}, err
 	}
 	plan := payload.Plan
-	checked, err := checkPlan(a.app, selection, &plan)
+	checked, err := checkPlan(a.app, selection, &plan, scope)
 	if errors.Is(err, actionauthor.ErrInvalid) {
 		return checkPlanProblems(
 			strings.TrimPrefix(err.Error(), actionauthor.ErrInvalid.Error()+": "),
@@ -220,16 +344,23 @@ type checkedPlan struct {
 	target        *core.Record
 }
 
-// checkPlan normalizes the plan, resolves its prerequisites and checks the
-// action it replaces, filling its code hash; an invalid plan wraps
-// actionauthor.ErrInvalid.
+// checkPlan normalizes the plan, checks it against the FCAF contract when it
+// is bound to a role, resolves its prerequisites and checks the action it
+// replaces, filling its code hash; an invalid plan wraps
+// actionauthor.ErrInvalid. fcaf is the session's FCAF scope, nil for chat.
 func checkPlan(
 	app core.App,
 	selection actionauthor.Selection,
 	plan *actionauthor.Spec,
+	fcaf *actionauthor.FCAFScope,
 ) (checkedPlan, error) {
 	if err := plan.Normalize(); err != nil {
 		return checkedPlan{}, err
+	}
+	if plan.FCAFRole != "" {
+		if _, err := actionauthor.CheckFCAFPlan(fcaf, plan); err != nil {
+			return checkedPlan{}, err
+		}
 	}
 	target, err := actionauthor.CheckReplaceTarget(app, selection, plan)
 	if err != nil {
@@ -243,20 +374,22 @@ func checkPlan(
 }
 
 // SessionPlan checks a plan the agent sends for its session exactly as
-// Check action author plan does: normalized, its prerequisites resolved
-// and its replaced action checked for the session's build. An empty plan is
-// ErrInvalid.
+// Check action author plan does: normalized, checked against the FCAF
+// contract (fcaf is the session's scope, nil for chat), its prerequisites
+// resolved and its replaced action checked for the session's build. An
+// empty plan is ErrInvalid.
 func SessionPlan(
 	app core.App,
 	selection actionauthor.Selection,
 	plan actionauthor.Spec,
+	fcaf *actionauthor.FCAFScope,
 ) (actionauthor.Spec, error) {
 	if plan.Slot == "" {
 		return actionauthor.Spec{}, fmt.Errorf(
 			"%w: no plan: describe the action with describe_action", actionauthor.ErrInvalid,
 		)
 	}
-	if _, err := checkPlan(app, selection, &plan); err != nil {
+	if _, err := checkPlan(app, selection, &plan, fcaf); err != nil {
 		return actionauthor.Spec{}, err
 	}
 	return plan, nil

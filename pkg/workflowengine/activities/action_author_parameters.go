@@ -149,11 +149,11 @@ func (a *GenerateActionAuthorParametersActivity) generate(
 		Values:   map[string]string{},
 		Captures: map[string]map[string]string{},
 	}
-	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, scope, err := a.sessionScope(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return output, err
 	}
-	plan, err := SessionPlan(a.app, selection, payload.Plan)
+	plan, err := SessionPlan(a.app, selection, payload.Plan, scope)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -380,11 +380,11 @@ func (a *CheckActionAuthorProtocolOutcomeActivity) check(
 	payload CheckActionAuthorProtocolOutcomeInput,
 ) (CheckActionAuthorProtocolOutcomeOutput, error) {
 	var output CheckActionAuthorProtocolOutcomeOutput
-	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, scope, err := a.sessionScope(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return output, err
 	}
-	plan, err := SessionPlan(a.app, selection, payload.Plan)
+	plan, err := SessionPlan(a.app, selection, payload.Plan, scope)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}

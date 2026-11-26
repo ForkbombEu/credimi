@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
@@ -69,7 +70,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="flex items-center justify-between gap-3 rounded-md border p-3 text-sm"
 						>
 							<div class="min-w-0 space-y-1">
-								<WorkflowStatusBadge status={session.status} />
+								<div class="flex flex-wrap items-center gap-2">
+									<WorkflowStatusBadge status={session.status} />
+									{#if session.mode === 'fcaf'}
+										<Badge variant="outline">{m.Authoring_mode_fcaf()}</Badge>
+									{/if}
+								</div>
 								<p>
 									{formatExecutionTimestamp(session.start_time, timezone) ?? '-'}
 								</p>

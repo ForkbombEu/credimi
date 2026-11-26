@@ -14,11 +14,15 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/pocketbase/dbx"
@@ -299,16 +303,7 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 	if err != nil {
 		return selection, err
 	}
-	segments := strings.Split(
-		strings.Trim(canonify.NormalizePath(in.WalletVersionIdentifier), "/"),
-		"/",
-	)
-	for _, segment := range segments {
-		if segment == "" {
-			segments = nil
-			break
-		}
-	}
+	segments := pathSegments(in.WalletVersionIdentifier)
 	var version, wallet *core.Record
 	switch len(segments) {
 	case 3:
@@ -339,21 +334,9 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 			ErrInvalid,
 		)
 	}
-	walletOwner, err := app.FindRecordById("organizations", wallet.GetString("owner"))
-	if err != nil || walletOwner.GetString("canonified_name") == "" {
-		return selection, ErrForbidden
-	}
-	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
+	caller, walletOwner, foreign, err := walletAccess(app, organization, actor, wallet)
 	if err != nil {
-		return selection, ErrForbidden
-	}
-	caller, err := app.FindRecordById("organizations", orgID)
-	if err != nil || (organization != "" && organization != caller.GetString("canonified_name")) {
-		return selection, ErrForbidden
-	}
-	foreign := walletOwner.Id != caller.Id
-	if foreign && !wallet.GetBool("published") {
-		return selection, ErrForbidden
+		return selection, err
 	}
 	installer, ok := installerFields[in.Platform]
 	if !ok {
@@ -392,6 +375,91 @@ func Select(app core.App, organization string, in BuildRequest) (Selection, erro
 		return Selection{}, fmt.Errorf("%w: %s", ErrInvalid, installer.missing)
 	}
 	return selection, nil
+}
+
+// SelectWallet authorizes the caller on the wallet walletPath
+// (organization/wallet, canonified) as Select does, without a build: the
+// selection has no version, platform or package. The FCAF coverage endpoint
+// uses it. organization must not be empty. A wallet that is not found is
+// ErrForbidden, as one the caller cannot author.
+func SelectWallet(
+	app core.App,
+	organization string,
+	in Actor,
+	walletPath string,
+) (Selection, error) {
+	if organization == "" {
+		return Selection{}, fmt.Errorf("%w: no organization", ErrForbidden)
+	}
+	actor, err := findActor(app, in)
+	if err != nil {
+		return Selection{}, err
+	}
+	segments := pathSegments(walletPath)
+	if len(segments) != 2 {
+		return Selection{}, fmt.Errorf("%w: expected organization/wallet", ErrInvalid)
+	}
+	wallet, err := app.FindFirstRecordByFilter(
+		"wallets",
+		"canonified_name = {:wallet} && owner.canonified_name = {:org}",
+		dbx.Params{"wallet": segments[1], "org": segments[0]},
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Selection{}, fmt.Errorf("%w: wallet not found", ErrForbidden)
+	}
+	if err != nil {
+		return Selection{}, fmt.Errorf("find wallet: %w", err)
+	}
+	caller, walletOwner, _, err := walletAccess(app, organization, actor, wallet)
+	if err != nil {
+		return Selection{}, err
+	}
+	return Selection{
+		Wallet:       wallet,
+		Organization: caller,
+		WalletOwner:  walletOwner,
+		Actor:        in,
+		Identifier:   strings.Join(segments, "/"),
+	}, nil
+}
+
+// pathSegments splits a canonified build or wallet path; any empty segment
+// gives none.
+func pathSegments(path string) []string {
+	segments := strings.Split(strings.Trim(canonify.NormalizePath(path), "/"), "/")
+	for _, segment := range segments {
+		if segment == "" {
+			return nil
+		}
+	}
+	return segments
+}
+
+// walletAccess authorizes actor, acting for organization (empty: any), on
+// wallet: their organization's own wallet, or another's published one.
+func walletAccess(
+	app core.App,
+	organization string,
+	actor *core.Record,
+	wallet *core.Record,
+) (caller, walletOwner *core.Record, foreign bool, err error) {
+	walletOwner, err = app.FindRecordById("organizations", wallet.GetString("owner"))
+	if err != nil || walletOwner.GetString("canonified_name") == "" {
+		return nil, nil, false, ErrForbidden
+	}
+	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
+	if err != nil {
+		return nil, nil, false, ErrForbidden
+	}
+	caller, err = app.FindRecordById("organizations", orgID)
+	if err != nil || (organization != "" && organization != caller.GetString("canonified_name")) {
+		return nil, nil, false, ErrForbidden
+	}
+	foreign = walletOwner.Id != caller.Id
+	if foreign && !wallet.GetBool("published") {
+		return nil, nil, false, ErrForbidden
+	}
+	return caller, walletOwner, foreign, nil
 }
 
 // installerDigest streams the selected platform's installer rather than retaining it in memory.
@@ -461,7 +529,19 @@ type SaveRequest struct {
 	Spec             Spec              `json:"plan"`
 	BatchKey         string            `json:"batch_key"`
 	Candidates       map[string]string `json:"candidates,omitempty"`
+	// FCAF is the FCAF scope of the session, set by the activity.
+	FCAF *FCAFScope `json:"-"`
+	// FCAFProfile is the agent's notes on the wallet, kept with an FCAF action.
+	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
+	// FCAFResult is the agent's verdict on an FCAF action, kept with it.
+	FCAFResult *FCAFResult `json:"fcaf_result,omitempty"`
+	// FCAFReplays are the action's replays on fixtures of its role's
+	// authoring set, kept with it.
+	FCAFReplays []FCAFReplay `json:"fcaf_replays,omitempty"`
 }
+
+// maxFCAFProfileBytes bounds the JSON encoding of an FCAF profile.
+const maxFCAFProfileBytes = 8192
 
 // ProvenanceParameter records a parameter's name and source kind, never its
 // values. Source is the record path of a credential_offer or
@@ -498,6 +578,16 @@ type Provenance struct {
 	ReplacedCodeSHA256 string `json:"replaced_code_sha256,omitempty"`
 	// BatchKey is the candidate key the session gave the action.
 	BatchKey string `json:"batch_key,omitempty"`
+	// FCAFRole is the FCAF role the action implements, and FCAFRoleSHA256
+	// the role's hash when the action was saved.
+	FCAFRole       string `json:"fcaf_role,omitempty"`
+	FCAFRoleSHA256 string `json:"fcaf_role_sha256,omitempty"`
+	// FCAFProfile is the agent's notes on the wallet, given with the save.
+	FCAFProfile map[string]any `json:"fcaf_profile,omitempty"`
+	// FCAFResult is the agent's verdict on the FCAF action, given with the save.
+	FCAFResult *FCAFResult `json:"fcaf_result,omitempty"`
+	// FCAFReplays are the action's replays the save carried.
+	FCAFReplays []FCAFReplay `json:"fcaf_replays,omitempty"`
 }
 
 // Receipt describes the saved record and its validation provenance.
@@ -516,15 +606,143 @@ func CodeSHA256(code string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func validateAcceptedAction(in *SaveRequest, selection Selection) error {
+// fcafProfilePIN is the shape of an FCAF profile's PIN.
+var fcafProfilePIN = regexp.MustCompile(`^[0-9]{4,8}$`)
+
+// Bounds of an FCAF profile's notes.
+const (
+	maxFCAFProfileNotes     = 20
+	maxFCAFProfileNoteRunes = 300
+)
+
+// CheckFCAFProfile refuses a profile for an action without an FCAF role, a
+// profile whose JSON encoding exceeds 8 KiB, and one off the profile schema:
+// an optional pin of 4-8 digits, optional notes, at most 20 strings of
+// 1-300 characters, an optional pid_issuer, one of walletroles.PIDIssuers,
+// an optional request_scheme, only walletroles.OpenID4VPRequestScheme, and
+// nothing else.
+func CheckFCAFProfile(profile map[string]any, fcafRole string) error {
+	if profile == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(profile)
+	if fcafRole == "" || err != nil || len(encoded) > maxFCAFProfileBytes {
+		return fmt.Errorf("%w: fcaf_profile is only for FCAF actions, at most 8 KiB", ErrInvalid)
+	}
+	if !validFCAFProfile(profile) {
+		return fmt.Errorf(
+			"%w: fcaf_profile: must be {pin: 4-8 digits, notes: at most 20 notes of up to 300 characters, "+
+				"pid_issuer: key-attestation or jwt-proof, request_scheme: openid4vp://}",
+			ErrInvalid,
+		)
+	}
+	return nil
+}
+
+func validFCAFProfile(profile map[string]any) bool {
+	for key, value := range profile {
+		switch key {
+		case "pin":
+			pin, ok := value.(string)
+			if !ok || !fcafProfilePIN.MatchString(pin) {
+				return false
+			}
+		case "notes":
+			if !validFCAFProfileNotes(value) {
+				return false
+			}
+		case "pid_issuer":
+			issuer, ok := value.(string)
+			if !ok || !slices.Contains(walletroles.PIDIssuers, issuer) {
+				return false
+			}
+		case "request_scheme":
+			if value != walletroles.OpenID4VPRequestScheme {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func validFCAFProfileNotes(value any) bool {
+	notes, ok := value.([]any)
+	if !ok || len(notes) > maxFCAFProfileNotes {
+		return false
+	}
+	for _, raw := range notes {
+		note, ok := raw.(string)
+		length := utf8.RuneCountInString(note)
+		if !ok || length < 1 || length > maxFCAFProfileNoteRunes {
+			return false
+		}
+	}
+	return true
+}
+
+// FCAFResult is what the agent found when it wrote an FCAF action: the wallet
+// did the role (passed), cannot do it (unsupported) or does not conform
+// (finding), and its note.
+type FCAFResult struct {
+	Status string `json:"status"`
+	Note   string `json:"note"`
+}
+
+// FCAF result statuses, and the bound of a result's note.
+const (
+	FCAFResultPassed      = "passed"
+	FCAFResultUnsupported = "unsupported"
+	// FCAFResultFinding: the action is right and the wallet does not conform:
+	// it does what the role forbids, or misbehaves on a feature it has.
+	FCAFResultFinding      = "finding"
+	maxFCAFResultNoteRunes = 2000
+)
+
+// IsFCAFResultStatus reports whether status is passed, unsupported or finding.
+func IsFCAFResultStatus(status string) bool {
+	return status == FCAFResultPassed || status == FCAFResultUnsupported ||
+		status == FCAFResultFinding
+}
+
+// CheckFCAFResult refuses a result for an action without an FCAF role, a
+// status other than passed, unsupported or finding, and a note over 2000 characters.
+func CheckFCAFResult(result *FCAFResult, fcafRole string) error {
+	switch {
+	case result == nil:
+		return nil
+	case fcafRole == "":
+		return fmt.Errorf("%w: fcaf_result: only FCAF actions carry a result", ErrInvalid)
+	case !IsFCAFResultStatus(result.Status):
+		return fmt.Errorf(
+			"%w: fcaf_result: status must be passed, unsupported or finding",
+			ErrInvalid,
+		)
+	case utf8.RuneCountInString(result.Note) > maxFCAFResultNoteRunes:
+		return fmt.Errorf("%w: fcaf_result: note is longer than 2000 characters", ErrInvalid)
+	}
+	return nil
+}
+
+// validateAcceptedAction checks the accepted candidate and its code; for an
+// FCAF plan it also checks the plan and code against the role, which it
+// returns, nil otherwise.
+func validateAcceptedAction(in *SaveRequest, selection Selection) (*walletroles.Role, error) {
 	if _, ok := Slots[in.Spec.Slot]; !ok || strings.TrimSpace(in.Name) == "" ||
 		in.ReplayCount != 1 || in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
-		return fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
+		return nil, fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
 	}
 	if !candidateKey.MatchString(in.BatchKey) {
-		return fmt.Errorf("%w: batch_key must match a<number>", ErrInvalid)
+		return nil, fmt.Errorf("%w: batch_key must match a<number>", ErrInvalid)
 	}
-	problems := ValidateCode(in.Code, CodeScope{
+	if err := CheckFCAFProfile(in.FCAFProfile, in.Spec.FCAFRole); err != nil {
+		return nil, err
+	}
+	if err := CheckFCAFResult(in.FCAFResult, in.Spec.FCAFRole); err != nil {
+		return nil, err
+	}
+	scope := CodeScope{
 		AppIDs:     AllowedAppIDs(in.PackageID, in.Spec.Slot, selection.Platform),
 		Parameters: ParameterNames(in.Spec.Parameters),
 		StoreLinks: StoreLinks(
@@ -534,11 +752,64 @@ func validateAcceptedAction(in *SaveRequest, selection Selection) error {
 			selection.StoreURL,
 		),
 		WaitSeconds: in.Spec.WaitSeconds,
-	})
-	if len(problems) > 0 {
-		return fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
 	}
+	var role *walletroles.Role
+	if in.Spec.FCAFRole != "" {
+		if in.FCAF == nil {
+			return nil, fmt.Errorf("%w: fcaf_role needs an FCAF session", ErrInvalid)
+		}
+		checked, err := CheckFCAFPlan(in.FCAF, &in.Spec)
+		if err != nil {
+			return nil, err
+		}
+		if in.Name != checked.Name {
+			return nil, fmt.Errorf(
+				"%w: an FCAF action is named after its role: %s", ErrInvalid, checked.Name,
+			)
+		}
+		role = &checked
+		packages := map[walletroles.App]string{
+			walletroles.AppWallet:  in.PackageID,
+			walletroles.AppBrowser: in.FCAF.Contract.Reference.AppIDs[walletroles.AppBrowser],
+		}
+		scope.AppIDs = FCAFAppIDs(checked, packages)
+		scope.StoreLinks = nil
+		scope.FCAF = &FCAFCodeScope{Role: checked, Packages: packages}
+	}
+	if err := CheckFCAFReplays(in.FCAF, in.FCAFReplays, in.Spec.FCAFRole); err != nil {
+		return nil, err
+	}
+	if problems := ValidateCode(in.Code, scope); len(problems) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
+	}
+	return role, nil
+}
+
+// fcafProvenance checks the resolved starting actions of an FCAF action
+// against its role and records the role in the provenance.
+func fcafProvenance(provenance *Provenance, in *SaveRequest, role walletroles.Role) error {
+	starts := in.FCAF.Contract.StartsFrom(role)
+	matches := len(provenance.Prerequisites) == len(starts)
+	for i := 0; matches && i < len(starts); i++ {
+		matches = path.Base(provenance.Prerequisites[i]) == starts[i]
+	}
+	if !matches {
+		return fmt.Errorf("%w: an FCAF %s action starts from %v", ErrInvalid, role.Name, starts)
+	}
+	provenance.FCAFRole = role.Name
+	provenance.FCAFRoleSHA256 = role.SHA256()
+	provenance.FCAFProfile = in.FCAFProfile
+	provenance.FCAFResult = in.FCAFResult
+	provenance.FCAFReplays = in.FCAFReplays
 	return nil
+}
+
+// setFCAFTags merges the FCAF tags of the role into the record's tags; other
+// actions (nil role) keep their tags.
+func setFCAFTags(record *core.Record, role *walletroles.Role) {
+	if role != nil {
+		record.Set("tags", mergeTags(record.GetString("tags"), fcafTags(*role)))
+	}
 }
 
 // provenanceSpec records the session spec without parameter values.
@@ -580,16 +851,10 @@ func resolveCandidates(
 		if err != nil {
 			return err
 		}
-		path, err := canonify.BuildPath(
-			app,
-			record,
-			canonify.CanonifyPaths["wallet_actions"],
-			record.GetString("canonified_name"),
-		)
+		prerequisite.Action, err = walletActionPath(app, record)
 		if err != nil {
-			return fmt.Errorf("build wallet action path: %w", err)
+			return err
 		}
-		prerequisite.Action = path
 		resolved = true
 	}
 	if !resolved {
@@ -675,7 +940,8 @@ func Save(
 	if err := checkStoreSlot(in.Spec.Slot, selection); err != nil {
 		return receipt, err
 	}
-	if err := validateAcceptedAction(&in, selection); err != nil {
+	role, err := validateAcceptedAction(&in, selection)
+	if err != nil {
 		return receipt, err
 	}
 	if in.Spec.Replaces != nil && in.Spec.Replaces.CodeSHA256 == "" {
@@ -717,6 +983,11 @@ func Save(
 		return receipt, err
 	}
 	provenanceSpec(&provenance, in.Spec)
+	if role != nil {
+		if err := fcafProvenance(&provenance, &in, *role); err != nil {
+			return receipt, err
+		}
+	}
 	err = app.RunInTransaction(func(tx core.App) error {
 		// Recheck authorization and record binding inside the write transaction.
 		current, err := Select(tx, organization, in.BuildRequest)
@@ -733,7 +1004,7 @@ func Save(
 			return fmt.Errorf("%w: selected version changed", ErrConflict)
 		}
 		if in.Spec.Replaces != nil {
-			receipt, err = replaceAction(tx, current, workflowID, runID, &in, provenance)
+			receipt, err = replaceAction(tx, current, workflowID, runID, &in, provenance, role)
 			return err
 		}
 		record, err := tx.FindFirstRecordByFilter(
@@ -777,6 +1048,7 @@ func Save(
 		record.Set("code", in.Code)
 		record.Set("category", SlotCategory(in.Spec.Slot))
 		record.Set("authoring_provenance", provenance)
+		setFCAFTags(record, role)
 		if err := tx.Save(record); err != nil {
 			return fmt.Errorf("save authored action: %w", err)
 		}
@@ -813,6 +1085,7 @@ func replaceAction(
 	workflowID, runID string,
 	in *SaveRequest,
 	provenance Provenance,
+	role *walletroles.Role,
 ) (Receipt, error) {
 	record, err := replaceTarget(tx, current, &in.Spec)
 	if err != nil {
@@ -860,6 +1133,7 @@ func replaceAction(
 	record.Set("code", in.Code)
 	record.Set("category", SlotCategory(in.Spec.Slot))
 	record.Set("authoring_provenance", provenance)
+	setFCAFTags(record, role)
 	if err := tx.Save(record); err != nil {
 		return Receipt{}, fmt.Errorf("replace authored action: %w", err)
 	}

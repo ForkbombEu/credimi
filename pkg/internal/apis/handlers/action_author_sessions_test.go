@@ -22,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -64,10 +65,12 @@ func (v jsonEncodedValue) Get(valuePtr any) error {
 
 // authoringSessionGrant is the start input of a session as the start
 // activity signs it: Credimi's grant binds it to sessionID, the namespace
-// its ID names (or namespace, when set), and the rest of the input.
+// its ID names (or namespace, when set), and the rest of the input. mode
+// actionauthor.SessionModeFCAF makes it an FCAF session.
 type authoringSessionGrant struct {
 	sessionID, organization, device, version, actorID string
 	namespace                                         string
+	mode                                              string
 }
 
 // history returns the history of the session's run: its start input, and
@@ -94,18 +97,25 @@ func (g authoringSessionGrant) history(
 		"namespace":                 namespace,
 		"organization":              g.organization,
 	}
+	grant := actionauthor.SessionGrant{
+		SessionWorkflowID:       g.sessionID,
+		Namespace:               namespace,
+		Organization:            g.organization,
+		DeviceID:                g.device,
+		Platform:                actionauthor.PlatformAndroid,
+		WalletVersionIdentifier: g.version,
+		ActorID:                 g.actorID,
+	}
+	if g.mode == actionauthor.SessionModeFCAF {
+		payload["mode"] = g.mode
+		payload["fcaf_suite"] = actionauthor.FCAFRelyingPartySuite
+		grant.Mode = g.mode
+		grant.FCAFSuite = actionauthor.FCAFRelyingPartySuite
+	}
 	if signed {
-		grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
-			SessionWorkflowID:       g.sessionID,
-			Namespace:               namespace,
-			Organization:            g.organization,
-			DeviceID:                g.device,
-			Platform:                actionauthor.PlatformAndroid,
-			WalletVersionIdentifier: g.version,
-			ActorID:                 g.actorID,
-		})
+		token, err := actionauthor.SignSession(app, grant)
 		require.NoError(t, err)
-		payload["grant"] = grant
+		payload["grant"] = token
 	}
 	input, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
 		Payload: payload,
@@ -152,14 +162,26 @@ func runGrantSignal(
 }
 
 // startAuthoringSession fakes, as the start activity leaves it in Temporal,
-// the session authoringSessionID that userA started for organization on the
-// admin runner's emulator: its run authoringSessionRun, listed as its only
-// run, and its signed start input.
+// the chat session authoringSessionID that userA started for organization
+// on the admin runner's emulator: its run authoringSessionRun, listed as its
+// only run, and its signed start input.
 func startAuthoringSession(
 	t testing.TB,
 	app *tests.TestApp,
 	c *temporalmocks.Client,
 	organization string,
+) {
+	t.Helper()
+	startAuthoringSessionWithMode(t, app, c, organization, "")
+}
+
+// startAuthoringSessionWithMode fakes the session as startAuthoringSession
+// does, in mode (empty for chat).
+func startAuthoringSessionWithMode(
+	t testing.TB,
+	app *tests.TestApp,
+	c *temporalmocks.Client,
+	organization, mode string,
 ) {
 	t.Helper()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
@@ -178,6 +200,7 @@ func startAuthoringSession(
 		device:       authoringSessionDevice,
 		version:      authoringAndroidVersion,
 		actorID:      user.Id,
+		mode:         mode,
 	}.history(t, app, authoringSessionRun, true))
 }
 
@@ -301,6 +324,24 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 				"tool_name": "review_wallet_actions",
 				"tool_input": map[string]any{
 					"author_workflow_id": authoringSessionChat,
+					"profile":            map[string]any{"pin": "123456"},
+					// Only strings, at most 10 of 1000 runes each.
+					"warnings": append(
+						[]any{
+							actionauthor.FCAFKeyAttestationFinding,
+							42,
+							strings.Repeat("ü", 1001),
+						},
+						"w2",
+						"w3",
+						"w4",
+						"w5",
+						"w6",
+						"w7",
+						"w8",
+						"w9",
+						"w10",
+					),
 					"actions": []any{
 						map[string]any{
 							"key":              "a1",
@@ -311,6 +352,15 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							"plan":             map[string]any{"slot": "install-app"},
 							"replaces":         "usera-s-organization/authoring-handler-wallet/install",
 							"error":            "save failed: try again",
+							"note":             "Wallet findings: dcql-1 failed: no match",
+							"fcaf_status":      "finding",
+							// Replays whose fields are not all strings are dropped.
+							"fcaf_replays": []any{
+								map[string]any{"fixture": "s#a", "class": "c", "status": "passed"},
+								map[string]any{"fixture": "s#b", "class": 1, "status": "passed"},
+							},
+							// A per-action profile is ignored: the review carries one.
+							"profile": map[string]any{"pin": "000000"},
 							// The agent's starts_from is ignored: the plan says it.
 							"starts_from": []any{"a7"},
 						},
@@ -332,12 +382,20 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							},
 							"replaces":    "",
 							"error":       "",
+							"note":        strings.Repeat("é", 2001),
+							"fcaf_status": "bogus",
 							"starts_from": []any{},
 						},
 					},
 				},
 			},
 		}}}, nil)
+	// The session still holds its device, so its live view shows.
+	c.On("QueryWorkflow", mock.Anything, authoringSessionID, authoringSessionRun,
+		pipeline.PipelineMobileDevicesQuery).
+		Return(jsonEncodedValue{map[string]any{
+			authoringSessionDevice: map[string]any{"type": "android_emulator"},
+		}}, nil)
 	var response ActionAuthorSessionResponse
 	var orgLookups atomic.Int32
 	(&tests.ApiScenario{
@@ -407,6 +465,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		StartTime:               "2026-01-02T03:04:05Z",
 		WalletVersionIdentifier: authoringAndroidVersion,
 		Platform:                actionauthor.PlatformAndroid,
+		Mode:                    "chat",
 		DeviceID:                authoringSessionDevice,
 		DeviceName:              "android-emulator",
 		RunnerName:              "admin-runner",
@@ -417,7 +476,13 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		ChatRunning:             true,
 		ClosesAt:                "2026-01-02T04:00:00Z",
 		PendingReview: &ActionAuthorPendingReview{
-			ToolID: "tool-1",
+			ToolID:  "tool-1",
+			Profile: map[string]any{"pin": "123456"},
+			Warnings: []string{
+				actionauthor.FCAFKeyAttestationFinding,
+				strings.Repeat("ü", 1000),
+				"w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9",
+			},
 			Actions: []ActionAuthorReviewAction{
 				{
 					Key:             "a1",
@@ -428,6 +493,11 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					Plan:            map[string]any{"slot": "install-app"},
 					Replaces:        "usera-s-organization/authoring-handler-wallet/install",
 					Error:           "save failed: try again",
+					Note:            "Wallet findings: dcql-1 failed: no match",
+					FCAFStatus:      actionauthor.FCAFResultFinding,
+					FCAFReplays: []actionauthor.FCAFReplay{
+						{Fixture: "s#a", Class: "c", Status: actionauthor.FCAFReplayPassed},
+					},
 					StartsFrom:      []string{},
 					StartsFromNames: map[string]string{},
 					UsedBy:          2,
@@ -447,6 +517,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 							map[string]any{"candidate": "a5"},
 						},
 					},
+					Note:       strings.Repeat("é", 2000),
 					StartsFrom: []string{"a1", "a3", "a4", "a5"},
 					StartsFromNames: map[string]string{
 						"a1": "install",
@@ -458,6 +529,151 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			},
 		},
 	}, response)
+	c.AssertNotCalled(t, "QueryWorkflow", mock.Anything, authoringSessionChat, "", "fcaf_progress")
+}
+
+func TestActionAuthorSessionReadsTheFCAFProgress(t *testing.T) {
+	progress := map[string]any{
+		"current_role": "fcaf-issue-pid",
+		"roles": []map[string]any{
+			{"role": "fcaf-reset-and-onboard", "status": "passed", "key": "a1", "note": ""},
+			{"role": "fcaf-issue-pid", "status": "working", "key": "", "note": ""},
+			{
+				"role":   "fcaf-expect-credential-rejected",
+				"status": "finding",
+				"key":    "a2",
+				"note":   "RI-WALLET-009",
+			},
+		},
+	}
+	// A runner's answer off the contract keeps only the suite's roles, once each.
+	hostile := map[string]any{
+		"current_role": "evil",
+		"roles": []map[string]any{
+			{"role": "evil", "status": "passed", "key": "a1", "note": ""},
+			{
+				"role":   "fcaf-reset-and-onboard",
+				"status": "unsupported",
+				"key":    "../x",
+				"note":   strings.Repeat("é", 600),
+			},
+			{"role": "fcaf-reset-and-onboard", "status": "passed", "key": "a2", "note": ""},
+			{"role": "fcaf-issue-pid", "status": "done", "key": "a3", "note": ""},
+		},
+	}
+	// A role past the first actionAuthorProgressMaxRoles is not read.
+	for i := range 100 {
+		hostile["roles"] = append(
+			hostile["roles"].([]map[string]any),
+			map[string]any{"role": fmt.Sprintf("evil-%d", i), "status": "passed"},
+		)
+	}
+	hostile["roles"] = append(
+		hostile["roles"].([]map[string]any),
+		map[string]any{"role": "fcaf-issue-pid", "status": "working"},
+	)
+	for _, tc := range []struct {
+		name     string
+		progress map[string]any
+		err      error
+		want     *ActionAuthorFCAFProgress
+	}{
+		{
+			name:     "progress",
+			progress: progress,
+			want: &ActionAuthorFCAFProgress{
+				CurrentRole: "fcaf-issue-pid",
+				Roles: []ActionAuthorFCAFRole{
+					{Role: "fcaf-reset-and-onboard", Status: "passed", Key: "a1"},
+					{Role: "fcaf-issue-pid", Status: "working"},
+					{Role: "fcaf-expect-credential-rejected", Status: "finding", Key: "a2", Note: "RI-WALLET-009"},
+				},
+			},
+		},
+		{
+			name:     "hostile progress",
+			progress: hostile,
+			want: &ActionAuthorFCAFProgress{
+				Roles: []ActionAuthorFCAFRole{
+					{
+						Role:   "fcaf-reset-and-onboard",
+						Status: "unsupported",
+						Note:   strings.Repeat("é", 500),
+					},
+				},
+			},
+		},
+		// A runner without the query: no progress, the rest is read.
+		{name: "unknown query", err: fmt.Errorf("unknown queryType fcaf_progress")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &temporalmocks.Client{}
+			stubAuthoringSessionTemporal(t, c)
+			c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+				Return(temporalclient.Description(authoringExecution(
+					activities.ActionAuthorWorkflowType,
+					enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+					5,
+				)), nil)
+			c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "idle_state").
+				Return(jsonEncodedValue{map[string]any{"closes_at": "2026-01-02T04:00:00Z"}}, nil)
+			c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "agent_status").
+				Return(jsonEncodedValue{map[string]any{"pending_callbacks": []any{}}}, nil)
+			if tc.err != nil {
+				c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "fcaf_progress").
+					Return(nil, tc.err)
+			} else {
+				c.On("QueryWorkflow", mock.Anything, authoringSessionChat, "", "fcaf_progress").
+					Return(jsonEncodedValue{tc.progress}, nil)
+			}
+			var response ActionAuthorSessionResponse
+			(&tests.ApiScenario{
+				Name:           "fcaf session",
+				Method:         http.MethodGet,
+				URL:            "/api/action-author/sessions/" + authoringSessionID,
+				Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+				ExpectedStatus: http.StatusOK,
+				ExpectedContent: []string{
+					`"mode":"fcaf"`,
+				},
+				TestAppFactory: func(t testing.TB) *tests.TestApp {
+					app := setupActionAuthorApp(t)
+					c.On("DescribeWorkflow", mock.Anything, authoringSessionID, authoringSessionRun).
+						Return(temporalclient.Description(authoringExecution(
+							activities.ActionAuthorSessionWorkflowName,
+							enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+							0,
+						)), nil)
+					startAuthoringSessionWithMode(
+						t, app, c, authoringNamespace, actionauthor.SessionModeFCAF,
+					)
+					return app
+				},
+				AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+					decodeBody(t, res, &response)
+				},
+			}).Test(t)
+
+			require.Equal(t, ActionAuthorSessionResponse{
+				SessionID:               authoringSessionID,
+				RunID:                   authoringSessionRun,
+				ChatWorkflowID:          authoringSessionChat,
+				Status:                  "Running",
+				StartTime:               "2026-01-02T03:04:05Z",
+				WalletVersionIdentifier: authoringAndroidVersion,
+				Platform:                actionauthor.PlatformAndroid,
+				Mode:                    actionauthor.SessionModeFCAF,
+				DeviceID:                authoringSessionDevice,
+				DeviceName:              "android-emulator",
+				RunnerName:              "admin-runner",
+				RunnerOwner:             "userA's organization",
+				ChatReady:               true,
+				ChatRunning:             true,
+				ClosesAt:                "2026-01-02T04:00:00Z",
+				FCAFProgress:            tc.want,
+			}, response)
+		})
+	}
 }
 
 // seedUsedByPipeline adds a pipeline of the organization whose step runs action.
@@ -604,6 +820,45 @@ func TestActionAuthorSessionReadsAClosedSessionWithoutItsChat(t *testing.T) {
 	require.False(t, response.ChatRunning)
 	require.False(t, response.LiveView)
 	require.Nil(t, response.PendingReview)
+}
+
+// A session that released its device (ReleaseDeviceSignal) reports no
+// devices, so its live view is gone while the chat still runs.
+func TestActionAuthorSessionHidesTheLiveViewAfterTheRelease(t *testing.T) {
+	c := &temporalmocks.Client{}
+	stubAuthoringSessionTemporal(t, c)
+	c.On("DescribeWorkflow", mock.Anything, authoringSessionChat, "").
+		Return(nil, serviceerror.NewNotFound("no chat"))
+	c.On("QueryWorkflow", mock.Anything, authoringSessionID, authoringSessionRun,
+		pipeline.PipelineMobileDevicesQuery).
+		Return(jsonEncodedValue{map[string]any{}}, nil).Once()
+	var response ActionAuthorSessionResponse
+	(&tests.ApiScenario{
+		Name:            "released session",
+		Method:          http.MethodGet,
+		URL:             "/api/action-author/sessions/" + authoringSessionID,
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"status":"Running"`, `"live_view":false`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			device, err := app.FindFirstRecordByFilter(
+				"mobile_devices",
+				"name = 'android-emulator' && runner.name = 'admin-runner'",
+			)
+			require.NoError(t, err)
+			device.Set("live_stream", true)
+			require.NoError(t, app.Save(device))
+			runningAuthoringSession(app, t, c, enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING)
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			decodeBody(t, res, &response)
+		},
+	}).Test(t)
+
+	require.False(t, response.LiveView)
+	c.AssertExpectations(t)
 }
 
 // Another member of the organization gets the answer of a session that does not exist.
@@ -930,6 +1185,7 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 			WalletVersionIdentifier: wallet + "/v2",
 			DeviceID:                authoringSessionDevice,
 			DeviceName:              "android-emulator",
+			Mode:                    "chat",
 		},
 		{
 			SessionID:               oldest,
@@ -937,6 +1193,7 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 			StartTime:               "2026-01-01T00:00:00Z",
 			WalletVersionIdentifier: authoringAndroidVersion,
 			DeviceID:                "usera-s-organization/removed-runner/phone",
+			Mode:                    "chat",
 		},
 	}, response.Sessions)
 }
@@ -1212,6 +1469,97 @@ func TestActionAuthorSessionsValidatesTheWallet(t *testing.T) {
 		ExpectedContent: []string{`"sessions":[]`},
 		TestAppFactory:  setupActionAuthorApp,
 	}).Test(t)
+}
+
+func TestActionAuthorFCAFCoverage(t *testing.T) {
+	wallet := strings.Join(strings.Split(authoringAndroidVersion, "/")[:2], "/")
+	var response ActionAuthorFCAFCoverageResponse
+	(&tests.ApiScenario{
+		Name:           "own wallet",
+		Method:         http.MethodGet,
+		URL:            "/api/action-author/fcaf-coverage?wallet=" + wallet,
+		Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"warnings":[]`,
+		},
+		NotExpectedContent: []string{`"profile"`},
+		TestAppFactory:     setupActionAuthorApp,
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			decodeBody(t, res, &response)
+		},
+	}).Test(t)
+	require.Equal(t, actionauthor.FCAFRelyingPartySuite, response.Suite)
+	require.NotEmpty(t, response.Roles)
+	require.Equal(t, "fcaf-reset-and-onboard", response.Roles[0].Role)
+	for _, role := range response.Roles {
+		require.Equal(t, actionauthor.FCAFMissing, role.Status, role.Role)
+	}
+	require.Equal(t, []string{}, response.Warnings)
+
+	for _, tc := range []struct{ wallet, user, reason string }{
+		{"bad", "userA", "invalid_request"},
+		// An unknown wallet is forbidden, as another organization's unpublished one.
+		{"org/unknown", "userA", "forbidden"},
+		{wallet, "userB", "forbidden"},
+	} {
+		status := http.StatusBadRequest
+		if tc.reason == "forbidden" {
+			status = http.StatusForbidden
+		}
+		(&tests.ApiScenario{
+			Name:            "wallet " + tc.wallet + " for " + tc.user,
+			Method:          http.MethodGet,
+			URL:             "/api/action-author/fcaf-coverage?wallet=" + tc.wallet,
+			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, tc.user)},
+			ExpectedStatus:  status,
+			ExpectedContent: []string{`"reason":"` + tc.reason + `"`},
+			TestAppFactory:  setupActionAuthorApp,
+		}).Test(t)
+	}
+
+	// A published wallet of another organization: the owner's actions do not
+	// count for the caller's organization.
+	var foreign ActionAuthorFCAFCoverageResponse
+	(&tests.ApiScenario{
+		Name:            "published wallet of another organization",
+		Method:          http.MethodGet,
+		URL:             "/api/action-author/fcaf-coverage?wallet=" + wallet,
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userB")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"status":"missing"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			record, err := app.FindFirstRecordByData(
+				"wallets", "canonified_name", strings.Split(wallet, "/")[1],
+			)
+			require.NoError(t, err)
+			record.Set("published", true)
+			require.NoError(t, app.Save(record))
+			actions, err := app.FindCollectionByNameOrId("wallet_actions")
+			require.NoError(t, err)
+			action := core.NewRecord(actions)
+			action.Set("owner", record.GetString("owner"))
+			action.Set("wallet", record.Id)
+			action.Set("name", "fcaf-reset-and-onboard")
+			action.Set("code", "appId: eu.wallet\n---\n- launchApp\n")
+			action.Set("category", "onboarding")
+			action.Set("authoring_provenance", actionauthor.Provenance{
+				FCAFRole:   "fcaf-reset-and-onboard",
+				FCAFResult: &actionauthor.FCAFResult{Status: actionauthor.FCAFResultPassed},
+			})
+			require.NoError(t, app.Save(action))
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			decodeBody(t, res, &foreign)
+		},
+	}).Test(t)
+	require.Len(t, foreign.Roles, len(response.Roles))
+	for _, role := range foreign.Roles {
+		require.Equal(t, actionauthor.FCAFMissing, role.Status, role.Role)
+		require.Empty(t, role.Result, role.Role)
+	}
 }
 
 func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T) {

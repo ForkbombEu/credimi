@@ -7,15 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/forkbombeu/credimi/pkg/internal/pipelineexpr"
 )
 
 const fixtureTokenPrefix = "${fixture."
-
-const (
-	DefaultIssuerURL   = "https://issuer-backend.eudiw.dev"
-	DefaultVerifierURL = "https://capture-wallet.credimi.io"
-	DefaultLogChecker  = "eudiw"
-)
 
 // ApplyFixture substitutes service-profile values throughout a workflow.
 // Keeping this at the parsed workflow boundary lets one FCAF scenario run
@@ -24,11 +20,7 @@ func ApplyFixture(workflow *WorkflowDefinition) error {
 	if workflow == nil {
 		return nil
 	}
-	fixture := map[string]string{
-		"issuer_url":   DefaultIssuerURL,
-		"verifier_url": DefaultVerifierURL,
-		"log_checker":  DefaultLogChecker,
-	}
+	fixture := pipelineexpr.FixtureDefaults()
 	for key, value := range workflow.Runtime.Fixture {
 		fixture[key] = value
 	}

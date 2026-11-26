@@ -33,14 +33,15 @@ tags:
       - inputText: "12345"
       - tapOn: "6"
 # The consent screen, or whatever the Wallet shows instead: optional wait, then the
-# screenshot, then the strict `Share` wait.
+# screenshot, then the strict wait on the requested data, which only the consent
+# screen lists (never on the Share control the flow taps).
 - extendedWaitUntil:
-    visible: "Share|Oups! Something went wrong|invalid request|Presentation blocked"
+    visible: "Requested data|Share|Oups! Something went wrong|invalid request|Presentation blocked"
     timeout: 100000
     optional: true
 - takeScreenshot: fcaf-by-value-request
 - extendedWaitUntil:
-    visible: "Share"
+    visible: "Requested data"
     timeout: 100000
 - takeScreenshot: fcaf-request-object-by-value-consent
 - tapOn:

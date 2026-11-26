@@ -57,10 +57,14 @@ type sessionHarness struct {
 
 	releaseErr error
 
-	childErr       error
-	childBlocks    bool
-	childSilent    bool
-	childRuns      time.Duration
+	childErr    error
+	childBlocks bool
+	childSilent bool
+	childRuns   time.Duration
+	// childReleases signals ReleaseDeviceSignal after ready, before running.
+	childReleases bool
+	// childEndCalls snapshots the recorded activity names when the child ends.
+	childEndCalls  []string
 	childRan       bool
 	childTaskQueue string
 	childTimeout   time.Duration
@@ -230,11 +234,20 @@ func (h *sessionHarness) child(
 			return err
 		}
 	}
+	if h.childReleases {
+		parent := info.ParentWorkflowExecution
+		if err := workflow.SignalExternalWorkflow(
+			ctx, parent.ID, parent.RunID, ReleaseDeviceSignal, nil,
+		).Get(ctx, nil); err != nil {
+			return err
+		}
+	}
 	if h.childRuns > 0 {
 		if err := workflow.Sleep(ctx, h.childRuns); err != nil {
 			return err
 		}
 		h.childRan = true
+		h.childEndCalls = h.names()
 	}
 	if h.childBlocks {
 		// The agent runs until the session cancels it.
@@ -654,5 +667,155 @@ func TestSessionDrainsTheRunGrantSignal(t *testing.T) {
 	defer h.logs.mu.Unlock()
 	for _, warning := range h.logs.warnings {
 		require.NotContains(t, warning, "unhandled signals")
+	}
+}
+
+// fcafSessionInput is an FCAF session of the relying-party suite on Android.
+func fcafSessionInput() SessionInput {
+	session := sessionInput(actionauthor.PlatformAndroid)
+	session.Mode = actionauthor.SessionModeFCAF
+	session.FCAFSuite = actionauthor.FCAFRelyingPartySuite
+	return session
+}
+
+func TestSessionReleasesDeviceOnSignalWhileAgentRuns(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childReleases = true
+	h.childRuns = time.Hour
+	var devices map[string]any
+	var queryErr error
+	h.env.RegisterDelayedCallback(func() {
+		// A second signal is a no-op.
+		h.env.SignalWorkflow(ReleaseDeviceSignal, nil)
+		value, err := h.env.QueryWorkflow(pipeline.PipelineMobileDevicesQuery)
+		if err == nil {
+			err = value.Get(&devices)
+		}
+		queryErr = err
+	}, 30*time.Minute)
+
+	require.NoError(t, h.run(fcafSessionInput()))
+
+	require.True(t, h.childRan)
+	require.NoError(t, queryErr)
+	require.Empty(t, devices)
+	cleanup := activities.NewCleanupDeviceActivity().Name()
+	done := activities.NewReportMobileDeviceSemaphoreDoneActivity(nil).Name()
+	for _, name := range []string{cleanup, done, ReleaseDeviceActivityName} {
+		count := 0
+		for _, called := range h.names() {
+			if called == name {
+				count++
+			}
+		}
+		require.Equal(t, 1, count, "%s must run once: %v", name, h.names())
+		require.Contains(t, h.childEndCalls, name, "%s must run before the agent ends", name)
+	}
+	h.requireReleasedAfter(ReleaseDeviceActivityName, "success")
+}
+
+// A chat session drains ReleaseDeviceSignal and keeps its device until the
+// agent ends.
+func TestSessionChatIgnoresReleaseSignal(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childReleases = true
+	h.childRuns = time.Hour
+	var devices map[string]any
+	var queryErr error
+	h.env.RegisterDelayedCallback(func() {
+		value, err := h.env.QueryWorkflow(pipeline.PipelineMobileDevicesQuery)
+		if err == nil {
+			err = value.Get(&devices)
+		}
+		queryErr = err
+	}, 30*time.Minute)
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
+
+	require.True(t, h.childRan)
+	require.NoError(t, queryErr)
+	require.NotEmpty(t, devices)
+	for _, name := range []string{
+		activities.NewCleanupDeviceActivity().Name(),
+		ReleaseDeviceActivityName,
+	} {
+		require.NotContains(t, h.childEndCalls, name, "%s must wait for the agent", name)
+	}
+	h.requireReleasedAfter("", "success")
+	h.logs.mu.Lock()
+	defer h.logs.mu.Unlock()
+	for _, warning := range h.logs.warnings {
+		require.NotContains(t, warning, "unhandled signals")
+	}
+}
+
+func TestSessionFCAFModeUsesLongerAgentTimeout(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+
+	require.NoError(t, h.run(fcafSessionInput()))
+
+	require.Equal(t, 8*time.Hour, h.childTimeout)
+	require.NotNil(t, h.childContext)
+	require.Equal(t, actionauthor.SessionModeFCAF, h.childContext.Mode)
+	require.Equal(t, actionauthor.FCAFRelyingPartySuite, h.childContext.FCAFSuite)
+}
+
+func TestSessionFixModeReachesTheAgent(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	session := fcafSessionInput()
+	session.FCAFFix = true
+
+	require.NoError(t, h.run(session))
+
+	require.NotNil(t, h.childContext)
+	require.True(t, h.childContext.FCAFFix)
+}
+
+func TestSessionRejectsInvalidMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		platform string
+		mode     string
+		suite    string
+		fix      bool
+		want     string
+	}{
+		{
+			name:     "unknown mode",
+			platform: actionauthor.PlatformAndroid,
+			mode:     "chat",
+			want:     "mode must be fcaf or empty",
+		},
+		{
+			name:     "fcaf without suite",
+			platform: actionauthor.PlatformAndroid,
+			mode:     actionauthor.SessionModeFCAF,
+			want:     "FCAF sessions run the relying-party suite on Android",
+		},
+		{
+			name:     "fcaf on ios",
+			platform: actionauthor.PlatformIOS,
+			mode:     actionauthor.SessionModeFCAF,
+			suite:    actionauthor.FCAFRelyingPartySuite,
+			want:     "FCAF sessions run the relying-party suite on Android",
+		},
+		{
+			name:     "fix in a chat",
+			platform: actionauthor.PlatformAndroid,
+			fix:      true,
+			want:     "fcaf_fix needs mode fcaf",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newSessionHarness(t, "android_emulator")
+			session := sessionInput(tc.platform)
+			session.Mode = tc.mode
+			session.FCAFSuite = tc.suite
+			session.FCAFFix = tc.fix
+
+			require.ErrorContains(t, h.run(session), tc.want)
+			require.Nil(t, h.childContext)
+		})
 	}
 }

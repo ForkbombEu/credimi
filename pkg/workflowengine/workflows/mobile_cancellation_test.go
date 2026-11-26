@@ -196,6 +196,8 @@ func TestMobileAutomationWorkflowStoresScreenshotsOfFailedFlow(t *testing.T) {
 				Message: "Maestro flow failed.",
 				Details: map[string]any{
 					"maestro_screenshot_paths": []string{"/tmp/before-failure.png"},
+					"stdout":                   "Open eu-eaap://?client_id=x FAILED",
+					"stderr":                   "Activity not started, unable to resolve Intent",
 				},
 			},
 		))
@@ -230,6 +232,8 @@ func TestMobileAutomationWorkflowStoresScreenshotsOfFailedFlow(t *testing.T) {
 		[]string{"https://app.example/api/files/before-failure.png"},
 		workflowengine.AsSliceOfStrings(flowOutput["maestro_screenshot_urls"]),
 	)
+	require.Equal(t, "Open eu-eaap://?client_id=x FAILED", flowOutput["output"])
+	require.Equal(t, "Activity not started, unable to resolve Intent", flowOutput["stderr"])
 	env.AssertExpectations(t)
 }
 

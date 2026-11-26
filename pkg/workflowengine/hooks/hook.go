@@ -371,6 +371,9 @@ var runnerNamespaceActivityNames = []string{
 	activities.CheckActionAuthorPlanActivityName,
 	activities.ReadActionAuthorPipelineRunActivityName,
 	activities.ResolveActionAuthorReferenceActivityName,
+	activities.ListActionAuthorFCAFRolesActivityName,
+	activities.DescribeActionAuthorFCAFRoleActivityName,
+	activities.CheckActionAuthorFCAFEvidenceActivityName,
 }
 
 // runnerNamespaceActivities returns the activities named in
@@ -388,6 +391,9 @@ func runnerNamespaceActivities(app core.App) []workflowengine.ExecutableActivity
 		activities.NewCheckActionAuthorPlanActivity(app),
 		activities.NewReadActionAuthorPipelineRunActivity(app),
 		activities.NewResolveActionAuthorReferenceActivity(app),
+		activities.NewListActionAuthorFCAFRolesActivity(app),
+		activities.NewDescribeActionAuthorFCAFRoleActivity(app),
+		activities.NewCheckActionAuthorFCAFEvidenceActivity(app),
 	}
 }
 

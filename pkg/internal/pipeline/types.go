@@ -46,6 +46,13 @@ type StepDefinition struct {
 // LinkedStepsWorkflowName is the Temporal workflow type that runs a block of linked steps.
 const LinkedStepsWorkflowName = "Run linked steps"
 
+// ActionFlowLabelPrefix starts the label of the `runFlow` block each action of
+// a mobile-automation step's `actions` runs in: "action <id>", the stored
+// action's canonified path, or "action actions[<n>]" for inline code. Maestro
+// prints a block's label instead of "Run flow", so a failed composed flow
+// names the action it failed in ("action <id>... FAILED").
+const ActionFlowLabelPrefix = "action "
+
 // LinkedStepsBlockID is the workflow ID of the linked steps block that starts with
 // firstStepID in the pipeline run pipelineWorkflowID. The engine starts the block with it,
 // and readers of the run's history rebuild it to recognize the block.

@@ -25,6 +25,9 @@ func PlanSummary(
 	replaces *ReplaceTarget,
 ) []string {
 	lines := []string{"Category: " + SlotCategory(s.Slot)}
+	if s.FCAFRole != "" {
+		lines = append(lines, "FCAF role: "+s.FCAFRole)
+	}
 	if replaces != nil {
 		lines = append(lines, "Replaces: "+replaces.Name+" ("+replaces.Action+")")
 	}
@@ -33,6 +36,8 @@ func PlanSummary(
 		lines = append(lines, "Outcome: the wallet rejects the flow")
 	case OutcomeWait:
 		lines = append(lines, fmt.Sprintf("Outcome: waits %d s", s.WaitSeconds))
+	case OutcomeTolerant:
+		lines = append(lines, "Outcome: tolerant; the protocol evidence decides")
 	default:
 		lines = append(lines, "Outcome: success")
 	}

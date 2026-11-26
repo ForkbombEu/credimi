@@ -86,14 +86,9 @@ func ListWalletActions(app core.App, selection Selection, category string) ([]Wa
 	}
 	actions := make([]WalletAction, 0, len(records))
 	for _, record := range records {
-		path, err := canonify.BuildPath(
-			app,
-			record,
-			canonify.CanonifyPaths["wallet_actions"],
-			record.GetString("canonified_name"),
-		)
+		path, err := walletActionPath(app, record)
 		if err != nil {
-			return nil, fmt.Errorf("build wallet action path: %w", err)
+			return nil, err
 		}
 		provenance := savedProvenance(record)
 		actions = append(actions, WalletAction{
@@ -108,4 +103,19 @@ func ListWalletActions(app core.App, selection Selection, category string) ([]Wa
 		})
 	}
 	return actions, nil
+}
+
+// walletActionPath returns the canonified org/wallet/action path of a
+// wallet action record.
+func walletActionPath(app core.App, record *core.Record) (string, error) {
+	path, err := canonify.BuildPath(
+		app,
+		record,
+		canonify.CanonifyPaths["wallet_actions"],
+		record.GetString("canonified_name"),
+	)
+	if err != nil {
+		return "", fmt.Errorf("build wallet action path: %w", err)
+	}
+	return path, nil
 }

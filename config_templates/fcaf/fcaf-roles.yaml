@@ -1,0 +1,434 @@
+version: 1
+reference:
+  manifest: imports/forkbomb-bv-andrea/wallet-actions.yaml
+  app_ids:
+    wallet: eu.europa.ec.euidi
+    browser: com.android.chrome
+# The request fields a fixture's behaviour class is built from: what the wallet can show
+# (credential formats, credential sets, scheme, the verifier's reply after Share, a redirect;
+# for a credential offer the issued credential's format and the offer deeplink scheme).
+# Encryption, request_uri_method, request_delivery, client id prefix and nonce/state/aud defects
+# are collapsed: the user never sees them. Classes label fixtures for replays and fix
+# sessions; authoring replays one request per role (plus its authoring_fixtures pins), and the
+# pipeline judges the wallet on every fixture.
+authoring_class_fields:
+  - dcql_query.credentials.format
+  - dcql_query.credential_sets
+  - scheme
+  - response_scenario.status
+  - response_scenario.content_type
+  - redirect_uri
+  - offer_format
+  - offer_scheme
+rules:
+  - Take a screenshot of the reached screen before every wait or assertion that can fail, so a failed step still shows where the wallet stopped.
+  - Silent roles take no screenshot at all; they run inside another step's actions and must never count as that step's evidence.
+  - Verdict screenshots keep exactly the contract name and condition; their names are read by FCAF tests.
+  - Diagnostic screenshot names are free but at most diagnostic_name_budget characters.
+  - Type the wallet's fixed PIN as a literal; it is the same in every action of the wallet.
+  - "Start from the state the pipeline leaves: the wallet reset and onboarded, plus the credentials issued before the step. The wallet may be locked or show any screen: launch it and unlock it yourself, also after opening a deeplink if it locks again."
+  - "launch_apps lists the apps the action launches with launchApp at its start; presents is how many times the action taps the wallet's share control when the consent screen appears (0: it never shares); absence_probe means the wallet holds no credential matching the request; issues_credential means the action accepts a credential offer; proves_state_change names the claim whose control the action asserts checked before tapping it and unchecked after."
+  - "Identify the consent screen by the list of requested documents or claims it shows (on the reference wallet: Requested data), never by the screen title or by the state of the share control: a wallet can show the same title and an enabled share control on its no-match notice."
+roles:
+  - name: getcredential-generic-credential-without-authentication
+    summary: Opens a credential offer deeplink, accepts the offer without user authentication and reaches the wallet's screen confirming that the credential was stored.
+    suites: [wallet_solution/attestation_provider, wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet never confirms that the credential was stored
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    issues_credential: true
+    diagnostic_name_budget: 20
+    screenshots:
+      - name: credential-added
+        when: gated
+        screen: the wallet's confirmation that the credential was added
+
+  - name: fcaf-issue-pid
+    summary: Accepts the PID offer the generator injects before a presentation, with the issuance commands of getcredential-generic-credential-without-authentication and no screenshot.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet never confirms that the PID was stored
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    issues_credential: true
+    injected: issuance
+    silent: true
+    diagnostic_name_budget: 10
+    screenshots: []
+
+  - name: fcaf-expect-credential-rejected
+    summary: Opens a credential offer the wallet must refuse, accepts the offer and expects the wallet to refuse to store the credential, showing an error screen or returning Home.
+    suites: [wallet_solution/attestation_provider, wallet_solution/relying_party]
+    outcome: strict-rejection
+    fails_when: the wallet confirms that the credential was stored
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    issues_credential: true
+    diagnostic_name_budget: 8
+    screenshots: []
+
+  - name: fcaf-reset-and-onboard
+    summary: Clears the wallet's app state and onboards it with the fixed PIN, so a presentation can only select credentials its own scenario issued.
+    suites: [wallet_solution/attestation_provider, wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet does not reach its Home screen after onboarding
+    parameters: []
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    injected: reset
+    silent: true
+    diagnostic_name_budget: 10
+    screenshots: []
+
+  - name: fcaf-engagement-haip-vp
+    summary: Opens a HAIP OpenID4VP request deeplink, completes the consent screen with Share (and a second PIN when asked) and reaches the wallet's success screen.
+    suites: [wallet_solution/attestation_provider, wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the consent screen never offers Share or the wallet never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: []
+    presents: 1
+    diagnostic_name_budget: 10
+    screenshots:
+      - name: fcaf-engagement-haip-vp-invoked
+        when: gated
+        screen: the consent screen offering Share for this request
+      - name: fcaf-engagement-haip-vp-shared
+        when: gated
+        screen: the wallet's confirmation that the presentation was shared
+
+  - name: fcaf-expect-request-rejected
+    summary: Opens a presentation request the wallet must refuse and expects an error screen or the no-match notice, or a return to Home, without a consent screen. A consent screen (identified by its requested data) is tapped through and then fails the action, so the verifier records what the wallet sends.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-rejection
+    fails_when: the wallet shows the consent screen for the request
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 12
+    screenshots:
+      - name: request-refused
+        when: gated
+        screen: the wallet's final screen after refusing the request (error, no-match notice or Home), reached only when no consent screen appeared
+
+  - name: fcaf-observe-request
+    summary: Opens a presentation request and records the wallet's reaction without selecting or sharing a credential, leaving any consent screen unanswered.
+    suites: [wallet_solution/relying_party]
+    outcome: tolerant
+    fails_when: never on the outcome; oid4vp.request_uri_retrieval decides
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    diagnostic_name_budget: 37
+    screenshots: []
+
+  - name: fcaf-expect-no-matching-document
+    summary: Launches and unlocks the wallet, opens a presentation request and records the wallet's notice that it holds no credential satisfying it; when the wallet shows a consent screen instead, it shares, so the verifier records the presentation.
+    suites: [wallet_solution/relying_party]
+    outcome: tolerant
+    fails_when: never on the outcome; the no-match-notice screenshot decides
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 22
+    screenshots:
+      - name: no-match-notice
+        when: while-screen
+        screen: the wallet's notice that it holds no credential matching the request
+
+  - name: fcaf-expect-credential-absent
+    summary: Opens a request pinned to a value only a credential of the scenario carries and passes only on the wallet's no-match notice, never sharing.
+    suites: [wallet_solution/attestation_provider, wallet_solution/relying_party]
+    outcome: strict-rejection
+    fails_when: the wallet shows any screen other than the no-match notice, including a consent screen offering that credential
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    absence_probe: true
+    diagnostic_name_budget: 32
+    screenshots:
+      - name: no-match-notice
+        when: while-screen
+        screen: the wallet's notice that it holds no credential matching the request
+
+  - name: fcaf-dc-api-present
+    summary: Opens a Digital Credentials API presentation page in the browser, taps Present credential, completes the wallet's consent screen and expects the page to report Presentation accepted.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the page never reports Presentation accepted
+    parameters: [presentation_url]
+    header_app: browser
+    launch_apps: [browser]
+    presents: 1
+    diagnostic_name_budget: 36
+    # How the request is delivered decides whether the wallet answers at all
+    # (RI-WALLET-018), so every delivery is replayed.
+    authoring_fixtures:
+      - fcaf-wallet-solution-relying-party-dc-api-unsigned#invoke-dc-api-unsigned
+      - fcaf-wallet-solution-relying-party-dc-api-multisigned#invoke-dc-api-multisigned
+    screenshots: []
+
+  - name: fcaf-dc-api-expect-rejected
+    summary: Opens a Digital Credentials API presentation page the wallet must refuse, dismisses the wallet's error screen and the platform picker, and lets the page report the outcome.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-rejection
+    fails_when: the wallet shows the consent screen or the page reports an accepted presentation
+    parameters: [presentation_url]
+    header_app: browser
+    launch_apps: [browser]
+    presents: 0
+    diagnostic_name_budget: 34
+    # An unencrypted request must be refused for a reason of its own.
+    authoring_fixtures:
+      - fcaf-wallet-solution-relying-party-dc-api-unencrypted#invoke-dc-api-unencrypted
+    screenshots: []
+
+  - name: fcaf-submit-request-object-by-value
+    summary: Opens a request that carries its request object by value, completes the consent screen with Share and reaches the wallet's success screen.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the consent screen never offers Share or the wallet never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: []
+    presents: 1
+    diagnostic_name_budget: 36
+    screenshots: []
+
+  - name: fcaf-engagement-eu-eaap
+    summary: Opens a presentation link with the eu-eaap:// custom URL scheme and records whether the wallet was invoked; when no app handles the scheme, Maestro ends the flow at openLink despite optional, and its output carries the unresolved intent.
+    suites: [wallet_solution/relying_party]
+    outcome: tolerant
+    fails_when: never on the outcome; the fcaf-engagement-eu-eaap-invoked screenshot decides
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    diagnostic_name_budget: 58
+    screenshots:
+      - name: fcaf-engagement-eu-eaap-invoked
+        when: while-screen
+        screen: the wallet's request screen opened from the eu-eaap:// link
+
+  - name: fcaf-engage-credential-offer
+    summary: Opens the issuer's credential offer engagement page in the browser, follows its Open in wallet link and accepts the offer whenever the wallet shows it.
+    suites: [wallet_solution/attestation_provider]
+    outcome: strict-success
+    fails_when: the wallet is not invoked from the engagement page
+    parameters: [engage_url]
+    header_app: wallet
+    launch_apps: [browser]
+    presents: 0
+    diagnostic_name_budget: 37
+    screenshots:
+      - name: offer-link-presented
+        when: while-screen
+        screen: Capture's engagement page offering the Open in wallet link
+      - name: wallet-invoked
+        when: while-screen
+        screen: the wallet opened from the engagement link
+      - name: wallet-not-invoked
+        when: while-screen
+        screen: the engagement page still shown after following the link
+
+  - name: fcaf-observe-wallet
+    summary: Leaves the wallet untouched for the observation window, so oid4vci.no_request_after sees any request it sends after the issuer's response.
+    suites: [wallet_solution/attestation_provider]
+    outcome: wait
+    fails_when: never; it only keeps the wallet idle for wait_seconds
+    wait_seconds: 20
+    parameters: []
+    header_app: wallet
+    launch_apps: []
+    presents: 0
+    diagnostic_name_budget: 24
+    screenshots: []
+
+  - name: fcaf-present-all-credentials
+    summary: Opens a request for several credentials without credential_sets, completes the consent screen with Share and reaches the wallet's success screen.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet never shows the request screen or never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 30
+    screenshots: []
+
+  - name: fcaf-present-allowed-claim-path-components
+    summary: Opens a request whose claim paths use every allowed path component, completes the consent screen with Share and reaches the wallet's success screen.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet never shows the request screen or never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 24
+    screenshots: []
+
+  - name: fcaf-present-claims-union
+    summary: Opens a request whose queries ask for different claims of the same credential, completes the consent screen with Share and reaches the wallet's success screen.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet never shows the request screen or never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 59
+    screenshots: []
+
+  - name: fcaf-present-two-credentials
+    summary: Opens a request for two credentials, checks that the consent screen lists both, completes it with Share and reaches the wallet's success screen.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the consent screen does not list both credentials or the wallet never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: []
+    presents: 1
+    diagnostic_name_budget: 24
+    screenshots: []
+
+  - name: fcaf-present-same-credential-multiple-queries
+    summary: Opens a request whose queries all match the same credential, completes the consent screen with Share and reaches the wallet's success screen.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet never shows the request screen or never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 36
+    screenshots: []
+
+  - name: fcaf-present-unchecked-claim
+    summary: Opens a request, deselects the address claim on the consent screen, sharing the rest, and reaches the wallet's success screen. The action asserts the address claim's control checked before its tap and unchecked after, on the same element (a checkbox or switch); expanding the claim's row is not deselecting it.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the consent screen offers no control that deselects the address claim (the action asserts it checked before the tap and unchecked after, so a wallet without one fails the step), or the wallet never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    proves_state_change: address
+    diagnostic_name_budget: 39
+    screenshots: []
+
+  - name: fcaf-user-authentication-failed
+    summary: Opens a presentation request, answers the second authentication with a wrong PIN, expects the wallet's failed-authentication screen, then abandons the authentication (back or cancel) and records the screen the wallet returns to.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-rejection
+    fails_when: the wallet never shows the failed-authentication screen or reports the presentation as shared or never lets the user abandon the authentication
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 34
+    screenshots: []
+
+  - name: fcaf-user-denied-consent
+    summary: Opens a presentation request, denies consent on the consent screen and records the screen the wallet returns to.
+    suites: [wallet_solution/relying_party]
+    outcome: tolerant
+    fails_when: the consent screen never appears; the denial itself never fails the step, the Verifier's capture of it decides
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 0
+    diagnostic_name_budget: 53
+    screenshots: []
+
+  - name: fcaf-select-and-share-candidate
+    summary: Opens a request that several PIDs match, checks that the wallet offers several candidates, selects the second one, shares it and reaches the wallet's success screen.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the wallet offers fewer than two candidates or never reports the presentation as shared
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 40
+    screenshots:
+      - name: pid-candidate-selected
+        when: gated
+        screen: the consent screen with the second candidate selected
+
+  - name: fcaf-wait-past-status-list-expiry
+    summary: Leaves the wallet untouched until the status list token of the scenario has expired.
+    suites: [wallet_solution/relying_party]
+    outcome: wait
+    fails_when: never; it only keeps the wallet idle for wait_seconds
+    wait_seconds: 240
+    parameters: []
+    header_app: wallet
+    launch_apps: []
+    presents: 0
+    diagnostic_name_budget: 52
+    screenshots: []
+
+  - name: fcaf-submit-and-follow-redirect
+    summary: Opens a presentation request, identifies the consent screen by its list of requested data, shares with Share (and a second PIN when asked) and follows the Verifier's redirect to its page.
+    suites: [wallet_solution/relying_party]
+    outcome: strict-success
+    fails_when: the consent screen never lists the requested data or the Verifier's redirect never lands on its page
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: []
+    presents: 1
+    diagnostic_name_budget: 40
+    screenshots: []
+
+  - name: fcaf-exercise-wallet-redirect
+    summary: Shares a presentation, then closes the wallet's success screen so it can follow the redirect_uri the Response Endpoint returned.
+    suites: [wallet_solution/relying_party]
+    outcome: tolerant
+    fails_when: never on the outcome; oid4vp.redirect_uri_visited decides
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 16
+    screenshots: []
+
+  - name: fcaf-exercise-wallet-error
+    summary: Shares a presentation and stores the wallet's error screen while it is up, for Verifier replies the wallet must report as an error.
+    suites: [wallet_solution/relying_party]
+    outcome: tolerant
+    fails_when: never on the outcome; the wallet-error screenshot decides
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 34
+    screenshots:
+      - name: wallet-error
+        when: while-screen
+        screen: the wallet's error screen after sharing
+
+  - name: fcaf-exercise-http-error-redirect-response
+    summary: Shares a presentation, dismisses the wallet's error screen after the Verifier's HTTP error reply and follows the error redirect to the browser.
+    suites: [wallet_solution/relying_party]
+    outcome: tolerant
+    fails_when: never on the outcome; the Verifier's capture of the error redirect decides
+    parameters: [deeplink]
+    header_app: wallet
+    launch_apps: [wallet]
+    presents: 1
+    diagnostic_name_budget: 26
+    screenshots: []

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -98,6 +99,11 @@ func TestSyncFCAFWalletActionSyncsTags(t *testing.T) {
 				t,
 				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.Method == http.MethodGet {
+						require.Equal(
+							t,
+							`owner="org-id" && wallet="wallet-id" && name="action"`,
+							r.URL.Query().Get("filter"),
+						)
 						require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
 							"items": test.records,
 						}))
@@ -128,4 +134,76 @@ func TestSyncFCAFWalletActionSyncsTags(t *testing.T) {
 			require.Equal(t, "fcaf, ws_rp, helper", payload["tags"])
 		})
 	}
+}
+
+func TestRunWalletFCAFBuildsThePipelineOnCredimi(t *testing.T) {
+	var payload map[string]any
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/api/action-author/fcaf-pipeline", r.URL.Path)
+		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"pipeline":   "acme/fcaf-relying-party-validation-wallet-1-scenarios",
+			"ticket_id":  "ticket",
+			"device_id":  "acme/runner/pixel",
+			"status":     "completed",
+			"run_url":    "https://credimi.test/my/tests/runs/wf/run",
+			"skipped":    []any{map[string]any{"scenario": "s.yaml", "missing_roles": []any{"r"}}},
+			"test_count": 3,
+		}))
+	}))
+	defer server.Close()
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+	wallet, device, scenarios := fcafWallet, fcafDeviceID, fcafScenarios
+	t.Cleanup(func() { fcafWallet, fcafDeviceID, fcafScenarios = wallet, device, scenarios })
+	fcafWallet = "acme/wallet/1-0"
+	fcafDeviceID = "acme/runner/pixel"
+	fcafScenarios = []string{"s.yaml"}
+
+	run, err := runWalletFCAF(context.Background(), "token")
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"wallet_version_identifier": "acme/wallet/1-0",
+		"device_id":                 "acme/runner/pixel",
+		"scenarios":                 []any{"s.yaml"},
+	}, payload)
+	require.Equal(t, "completed", run.Status)
+	require.Equal(t, "fcaf-relying-party-validation-wallet-1-scenarios", run.Name)
+}
+
+// TestRunWalletFCAFReportFailsWhenTheEndpointFails pins that --wallet exits
+// non-zero with the endpoint's answer when Credimi refuses the build.
+func TestRunWalletFCAFReportFailsWhenTheEndpointFails(t *testing.T) {
+	const refusal = `{"message":"only an owner of the organization can build and run ` +
+		`its FCAF pipelines"}`
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(refusal))
+	}))
+	defer server.Close()
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+	wallet, device, output := fcafWallet, fcafDeviceID, fcafOutput
+	t.Cleanup(func() { fcafWallet, fcafDeviceID, fcafOutput = wallet, device, output })
+	fcafWallet, fcafDeviceID, fcafOutput = "acme/wallet/1-0", "acme/runner/pixel", ""
+
+	err := runWalletFCAFReport(context.Background(), "token")
+	require.ErrorContains(t, err, "HTTP 403")
+	require.ErrorContains(t, err, "only an owner of the organization")
+}
+
+func TestApplyFCAFWalletFlags(t *testing.T) {
+	wallet, scenarios, timeout := fcafWallet, fcafScenarios, fcafTimeout
+	t.Cleanup(func() { fcafWallet, fcafScenarios, fcafTimeout = wallet, scenarios, timeout })
+
+	fcafWallet, fcafScenarios = "", []string{"s.yaml"}
+	require.ErrorContains(t, applyFCAFWalletFlags(false), "--scenarios needs --wallet")
+
+	fcafWallet, fcafTimeout = "acme/wallet/1-0", time.Minute
+	require.NoError(t, applyFCAFWalletFlags(true))
+	require.Equal(t, time.Minute, fcafTimeout, "an explicit --timeout stays")
+	require.NoError(t, applyFCAFWalletFlags(false))
+	require.Equal(t, fcafWalletTimeout, fcafTimeout)
 }

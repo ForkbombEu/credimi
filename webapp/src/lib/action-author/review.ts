@@ -2,7 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Decision, ReviewAction } from './api';
+import type {
+	Decision,
+	FcafReplay,
+	PendingReview,
+	ReviewAction,
+	ReviewDecisionItem
+} from './api';
 
 //
 
@@ -86,4 +92,46 @@ export function canSend(actions: ReviewAction[], choices: Choices): boolean {
 /** The decided actions of a review, in review order: the ones the review sends. */
 export function decidedActions(actions: ReviewAction[], choices: Choices): ReviewAction[] {
 	return actions.filter((action) => (choices[action.key]?.decision ?? null) !== null);
+}
+
+/** Whether the action implements an FCAF role: its plan names one. */
+export function isFCAF(action: Pick<ReviewAction, 'plan'>): boolean {
+	const role = action.plan?.fcaf_role;
+	return typeof role === 'string' && role !== '';
+}
+
+/** The replays an FCAF action carries, which an accept binds; empty for any other action. */
+export function fcafReplays(action: Pick<ReviewAction, 'plan' | 'fcaf_replays'>): FcafReplay[] {
+	return isFCAF(action) ? (action.fcaf_replays ?? []) : [];
+}
+
+/**
+ * The decisions the review sends, in review order. Every accepted FCAF action carries the
+ * review's profile and the agent's verdict on it, which the approval binds.
+ */
+export function reviewDecisions(
+	review: Pick<PendingReview, 'actions' | 'profile'>,
+	choices: Choices
+): ReviewDecisionItem[] {
+	return decidedActions(review.actions, choices).map((action) => {
+		const choice = choices[action.key];
+		const decision = choice.decision as Decision;
+		return {
+			key: action.key,
+			name: action.name,
+			candidate_sha256: action.candidate_sha256,
+			decision,
+			comment: decision === 'change' ? choice.comment.trim() : '',
+			plan: action.plan,
+			...(decision === 'accept' && review.profile && isFCAF(action)
+				? { profile: review.profile }
+				: {}),
+			...(decision === 'accept' && isFCAF(action) && action.fcaf_status
+				? { fcaf_result: { status: action.fcaf_status, note: action.note ?? '' } }
+				: {}),
+			...(decision === 'accept' && fcafReplays(action).length
+				? { fcaf_replays: fcafReplays(action) }
+				: {})
+		};
+	});
 }

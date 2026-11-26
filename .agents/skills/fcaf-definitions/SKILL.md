@@ -58,7 +58,30 @@ After changing scenarios or tests, run `make fcaf-generate`. This regenerates ea
 
 `pipelines/fcaf-<sut>-<role>-complete-validation.yaml`
 
-Keep inline `action_code` synchronized with emulator-tested behavior. Prefer extracting shared behavior only when runner resolution is deterministic.
+## Keep the wallet role contract in step
+
+`config_templates/fcaf/fcaf-roles.yaml` says, for any wallet, what each wallet
+action of the scenarios must do. The action author agent reads it to write those
+actions for other wallets, and `cmd/fcaf-pipeline-gen` reads credential use,
+issuance, absence probes and apps from it. Update it in the same change when:
+
+- a scenario uses a new wallet action: add its role and a reference flow under
+  `config_templates/fcaf/imports/forkbomb-bv-andrea/wallet/`, listed in
+  `wallet-actions.yaml`;
+- a test reads a screenshot by name (`evidence.screenshot_named`): add the
+  role's verdict screenshot and its condition (`gated`, `while-screen`,
+  `unconditional`);
+- a reference flow's screenshots, Share taps, parameters, apps or wait change;
+- a role's meaning changes: `summary`, `fails_when` and `outcome` are the
+  agent's instructions, and no test checks them.
+
+`go test ./pkg/fcaf/walletroles/ ./cmd/fcaf-pipeline-gen/` fails until the
+contract, the reference flows, the generated pipelines and the tests agree. Fix
+the contract, never the test.
+
+Changing a role changes its hash: every wallet's saved action of that role then
+shows as out of date on the wallet's FCAF coverage and needs an FCAF authoring
+session.
 
 ## Preserve assertion integrity
 

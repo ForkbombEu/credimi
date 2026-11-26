@@ -40,11 +40,12 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params: { mode: multiple_default_false }
-# The flow requires "Option 1 of M" with M >= 2 before its first screenshot and
-# "Option 2 of M" after selecting, so stored screenshots exist only when the
+# The action takes pid-candidate-selected only after the wallet showed
+# "Option 2 of M" with the second candidate selected, so it exists only when the
 # Wallet offered several candidates and let the user choose one.
 - id: candidate_selection_visual_evidence_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: pid-candidate-selected }
 verdict:
   pass_when: all_assertions_pass

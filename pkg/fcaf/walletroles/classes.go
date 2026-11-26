@@ -1,0 +1,244 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package walletroles
+
+import (
+	"fmt"
+	"slices"
+	"sort"
+	"strings"
+)
+
+// The request fields a fixture's behaviour class can be built from: what the
+// wallet can show for a verifier request or a credential offer. A request
+// without a scheme asks for Capture's default, OpenID4VPRequestScheme; an
+// offer without offer_scheme for CredentialOfferScheme.
+const (
+	// ClassFieldFormats: the formats of dcql_query.credentials, sorted, with counts.
+	ClassFieldFormats = "dcql_query.credentials.format"
+	// ClassFieldCredentialSets: whether dcql_query has credential_sets.
+	ClassFieldCredentialSets = "dcql_query.credential_sets"
+	// ClassFieldScheme: the request's URL scheme.
+	ClassFieldScheme = "scheme"
+	// ClassFieldResponseStatus: the HTTP status the verifier replies with after Share.
+	ClassFieldResponseStatus = "response_scenario.status"
+	// ClassFieldResponseContentType: the media type of that reply.
+	ClassFieldResponseContentType = "response_scenario.content_type"
+	// ClassFieldRedirectURI: whether the verifier sends the wallet a redirect_uri.
+	ClassFieldRedirectURI = "redirect_uri"
+	// ClassFieldOfferFormat: the format of the credential an offer issues.
+	ClassFieldOfferFormat = "offer_format"
+	// ClassFieldOfferScheme: the URL scheme of the offer deeplink.
+	ClassFieldOfferScheme = "offer_scheme"
+)
+
+// CredentialOfferScheme is the offer deeplink scheme Capture uses when an
+// offer names no offer_scheme.
+const CredentialOfferScheme = "openid-credential-offer://"
+
+// ClassFields lists the known class fields, in the order a class label
+// names them.
+var ClassFields = []string{
+	ClassFieldFormats,
+	ClassFieldCredentialSets,
+	ClassFieldScheme,
+	ClassFieldResponseStatus,
+	ClassFieldResponseContentType,
+	ClassFieldRedirectURI,
+	ClassFieldOfferFormat,
+	ClassFieldOfferScheme,
+}
+
+// anyRequestClass is the class of a request none of the class fields tells
+// apart.
+const anyRequestClass = "any request"
+
+// Class returns the behaviour class of a fixture request body: a short
+// label built only from the contract's authoring_class_fields, never empty.
+// A body without presentation_request and dcql_query is a credential offer
+// (offerClass). The DCQL query is presentation_request.dcql_query when
+// present, else the top-level dcql_query; the scheme is the top-level one,
+// else OpenID4VPRequestScheme (Capture ignores a nested scheme).
+func (c *Contract) Class(body any) string {
+	request, _ := body.(map[string]any)
+	listed := func(field string) bool { return slices.Contains(c.AuthoringClassFields, field) }
+	presentation, isPresentation := request["presentation_request"].(map[string]any)
+	query, ok := presentation["dcql_query"].(map[string]any)
+	if !ok {
+		query, ok = request["dcql_query"].(map[string]any)
+	}
+	if !isPresentation && !ok {
+		return offerClass(request, listed)
+	}
+	parts := []string{}
+	if listed(ClassFieldFormats) {
+		parts = append(parts, credentialFormats(query))
+	}
+	if listed(ClassFieldCredentialSets) && query["credential_sets"] != nil {
+		parts = append(parts, "with credential_sets")
+	}
+	if listed(ClassFieldScheme) {
+		parts = append(parts, requestScheme(request))
+	}
+	response, _ := request["response_scenario"].(map[string]any)
+	reply := []string{}
+	if status := response["status"]; status != nil && listed(ClassFieldResponseStatus) {
+		reply = append(reply, fmt.Sprint(status))
+	}
+	if kind, _ := response["content_type"].(string); kind != "" &&
+		listed(ClassFieldResponseContentType) {
+		reply = append(reply, kind)
+	}
+	if len(reply) > 0 {
+		parts = append(parts, "verifier replies "+strings.Join(reply, " "))
+	}
+	if uri := request["redirect_uri"]; uri != nil && uri != "" && listed(ClassFieldRedirectURI) {
+		parts = append(parts, "with redirect_uri")
+	}
+	if len(parts) == 0 {
+		return anyRequestClass
+	}
+	return strings.Join(parts, ", ")
+}
+
+// credentialFormats names the formats of a DCQL query's credentials, sorted,
+// each with its count when above one: "2x dc+sd-jwt + mso_mdoc".
+func credentialFormats(query map[string]any) string {
+	credentials, _ := query["credentials"].([]any)
+	counts := map[string]int{}
+	for _, credential := range credentials {
+		entry, _ := credential.(map[string]any)
+		if format, _ := entry["format"].(string); format != "" {
+			counts[format]++
+		}
+	}
+	if len(counts) == 0 {
+		return "no dcql credentials"
+	}
+	formats := make([]string, 0, len(counts))
+	for format := range counts {
+		formats = append(formats, format)
+	}
+	sort.Strings(formats)
+	for i, format := range formats {
+		if counts[format] > 1 {
+			formats[i] = fmt.Sprintf("%dx %s", counts[format], format)
+		}
+	}
+	return strings.Join(formats, " + ")
+}
+
+// requestScheme is the scheme a request asks for, Capture's default when it
+// names none.
+func requestScheme(request map[string]any) string {
+	if scheme, _ := request["scheme"].(string); scheme != "" {
+		return scheme
+	}
+	return OpenID4VPRequestScheme
+}
+
+// offerClass is the class of a credential offer body: "credential offer",
+// then the format of the credential it issues (mso_mdoc or dc+sd-jwt, from
+// offerFormat) and its offer_scheme, CredentialOfferScheme when absent.
+func offerClass(request map[string]any, listed func(string) bool) string {
+	parts := []string{"credential offer"}
+	if listed(ClassFieldOfferFormat) {
+		format := "dc+sd-jwt"
+		if offerFormat(request) == pidFormatMdoc {
+			format = "mso_mdoc"
+		}
+		parts = append(parts, format)
+	}
+	if listed(ClassFieldOfferScheme) {
+		scheme, _ := request["offer_scheme"].(string)
+		if scheme == "" {
+			scheme = CredentialOfferScheme
+		}
+		parts = append(parts, scheme)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// AuthoringFixture returns the fixture the action author replays most
+// usefully among fixtures: one with tests (a fixture without tests only when
+// none has tests), then standalone, then one whose setup is complete, then
+// the one that feeds the most tests, then by ID. ok is false without
+// fixtures.
+func AuthoringFixture(fixtures []Fixture) (Fixture, bool) {
+	if len(fixtures) == 0 {
+		return Fixture{}, false
+	}
+	best := fixtures[0]
+	for _, fixture := range fixtures[1:] {
+		if representsBefore(fixture, best) {
+			best = fixture
+		}
+	}
+	return best, true
+}
+
+// representsBefore reports whether a is a better authoring fixture than b.
+func representsBefore(a, b Fixture) bool {
+	if tested := len(a.TestIDs) > 0; tested != (len(b.TestIDs) > 0) {
+		return tested
+	}
+	if startRank(a) != startRank(b) {
+		return startRank(a) < startRank(b)
+	}
+	if len(a.TestIDs) != len(b.TestIDs) {
+		return len(a.TestIDs) > len(b.TestIDs)
+	}
+	return a.ID < b.ID
+}
+
+// startRank orders fixtures by how fully a replay rebuilds their start
+// state: standalone, then complete setup, then the others.
+func startRank(fixture Fixture) int {
+	switch {
+	case fixture.Standalone:
+		return 0
+	case fixture.Complete:
+		return 1
+	default:
+		return 2
+	}
+}
+
+// AuthoringSet returns the fixtures of a role the action author replays: for
+// the injected PID issuance every fixture in Fixtures order (the runner picks
+// the wallet's PID issuer among them), for any other role its AuthoringFixture
+// then the role's pinned authoring_fixtures, in Fixtures order. Conformance on
+// every other fixture is the pipeline's job. A pinned ID that is not a
+// fixture of the role is an error.
+func (c *Contract) AuthoringSet(fcafRoot, suite, roleName string) ([]Fixture, error) {
+	fixtures, err := c.Fixtures(fcafRoot, suite, roleName)
+	if err != nil {
+		return nil, err
+	}
+	role, _ := c.Role(roleName)
+	if role.Injected == InjectedIssuance {
+		return fixtures, nil
+	}
+	set := []Fixture{}
+	if first, ok := AuthoringFixture(fixtures); ok {
+		set = append(set, first)
+	}
+	for _, fixture := range fixtures {
+		if slices.Contains(role.AuthoringFixtures, fixture.ID) &&
+			!slices.ContainsFunc(set, func(f Fixture) bool { return f.ID == fixture.ID }) {
+			set = append(set, fixture)
+		}
+	}
+	for _, id := range role.AuthoringFixtures {
+		if !slices.ContainsFunc(fixtures, func(f Fixture) bool { return f.ID == id }) {
+			return nil, fmt.Errorf(
+				"role %q: authoring fixture %q is not one of its fixtures",
+				roleName,
+				id,
+			)
+		}
+	}
+	return set, nil
+}

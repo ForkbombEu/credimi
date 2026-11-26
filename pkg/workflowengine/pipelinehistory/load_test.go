@@ -604,6 +604,11 @@ func TestLoadReadsRunStepOperationFailures(t *testing.T) {
 		"slow":    13,
 		"stopped": 16,
 	}, run.EventIDs)
+	require.Equal(t, "CRE201", run.Failures["engage"].Code)
+	require.Equal(t, "CRE201", run.Failures["silent"].Code)
+	require.Equal(t, "canceled or timed out", run.Failures["slow"].Message)
+	require.Equal(t, "canceled or timed out", run.Failures["stopped"].Message)
+	require.Len(t, run.Failures, 4)
 }
 
 func TestLoadIgnoresDeviceOperations(t *testing.T) {
@@ -684,14 +689,25 @@ func TestLoadUnpacksLinkedStepsBlocks(t *testing.T) {
 			startedEvent(t, def),
 			blockInitiatedEvent(t, 5),
 			childFailedEvent(9, 5, workflowengine.NewAppError(workflowengine.WorkflowError{
-				Code:    "CRE228",
-				Details: map[string]any{"output": blockOutput},
+				Code: "CRE228",
+				Details: map[string]any{
+					"output": blockOutput,
+					"errors": []any{map[string]any{
+						"code":    "CRE315",
+						"details": map[string]any{"step_id": "wallet", "stdout": "x... FAILED"},
+					}},
+				},
 			})),
 		}
 		run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
 		require.NoError(t, err)
 		require.Equal(t, wantOutputs, run.Outputs)
 		require.Equal(t, map[string]int64{"offer": 9, "wallet": 9}, run.EventIDs)
+		// The step the block names failed; the other one completed.
+		require.Equal(t, map[string]workflowengine.WorkflowError{"wallet": {
+			Code:    "CRE315",
+			Details: map[string]any{"step_id": "wallet", "stdout": "x... FAILED"},
+		}}, run.Failures)
 	})
 
 	t.Run("terminated", func(t *testing.T) {

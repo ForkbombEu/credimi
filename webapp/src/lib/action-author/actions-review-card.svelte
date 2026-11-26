@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { Label } from '@/components/ui/label';
 	import * as RadioGroup from '@/components/ui/radio-group/index.js';
 	import * as Tabs from '@/components/ui/tabs/index.js';
@@ -23,11 +24,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type Session
 	} from './api';
 	import {
+		replayStatusLabel,
+		replayStatusVariant,
+		roleStatusLabel,
+		roleStatusVariant
+	} from './fcaf';
+	import {
 		blockedBy,
 		canAccept,
 		canSend,
-		decidedActions,
+		fcafReplays,
 		hasPlan,
+		isFCAF,
+		reviewDecisions,
 		startingName,
 		type Choices
 	} from './review';
@@ -46,6 +55,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// but equal review object, which must not reset the choices.
 	const actions = untrack(() => review.actions);
 	const toolId = untrack(() => review.tool_id);
+	// The FCAF profile the agent saves with every action of the review; an accept binds it.
+	const profile = untrack(() => review.profile);
+	// The agent's FCAF findings about the wallet itself (such as a missing key attestation).
+	const warnings = untrack(() => review.warnings);
 
 	let choices = $state<Choices>(
 		Object.fromEntries(actions.map((action) => [action.key, { decision: null, comment: '' }]))
@@ -99,18 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const res = await sendReview({
 			author_workflow_id: session.chat_workflow_id,
 			tool_id: toolId,
-			decisions: decidedActions(actions, choices).map((action) => {
-				const choice = choices[action.key];
-				const decision = choice.decision as Decision;
-				return {
-					key: action.key,
-					name: action.name,
-					candidate_sha256: action.candidate_sha256,
-					decision,
-					comment: decision === 'change' ? choice.comment.trim() : '',
-					plan: action.plan
-				};
-			})
+			decisions: reviewDecisions({ actions, profile }, choices)
 		});
 		submitting = false;
 		if (res.isOk) {
@@ -131,6 +133,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<h3 class="font-semibold">{m.Review_actions_title()}</h3>
 	<p class="break-words">{m.Review_actions_details({ build })}</p>
+
+	{#if warnings.length}
+		<Alert variant="warning" aria-label={m.Review_fcaf_warnings()}>
+			<p class="font-bold">{m.Review_fcaf_warnings()}</p>
+			{#each warnings as warning, index (index)}
+				<p class="break-words">{warning}</p>
+			{/each}
+		</Alert>
+	{/if}
+
+	{#if profile}
+		<section class="space-y-1" aria-label={m.Review_wallet_profile()}>
+			<h4 class="font-medium">{m.Review_wallet_profile()}</h4>
+			<pre
+				class="max-h-[40dvh] overflow-auto rounded-md border bg-slate-50 p-2 font-mono text-xs">{JSON.stringify(
+					profile,
+					null,
+					2
+				)}</pre>
+		</section>
+	{/if}
 
 	<Tabs.Root bind:value={selected} class="w-full">
 		<Tabs.List class="flex h-auto w-full flex-wrap">
@@ -171,6 +194,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<p class="font-bold">{m.Review_previous_save_failed()}</p>
 						<p class="break-words">{action.error}</p>
 					</Alert>
+				{/if}
+
+				{#if isFCAF(action) && action.fcaf_status}
+					<Badge variant={roleStatusVariant(action.fcaf_status)}>
+						{roleStatusLabel(action.fcaf_status)}
+					</Badge>
+				{/if}
+
+				{#if action.note}
+					<Alert>
+						<p class="font-bold">{m.Review_agent_note()}</p>
+						<p class="break-words whitespace-pre-wrap">{action.note}</p>
+					</Alert>
+				{/if}
+
+				{#if fcafReplays(action).length}
+					<section class="space-y-1" aria-label={m.Review_fcaf_replays()}>
+						<p class="font-medium">{m.Review_fcaf_replays()}</p>
+						<ul class="space-y-1">
+							{#each fcafReplays(action) as replay (replay.fixture)}
+								<li class="flex flex-wrap items-center gap-2">
+									<span class="break-words">{replay.class}</span>
+									<span class="font-mono text-xs break-all text-muted-foreground"
+										>{replay.fixture}</span
+									>
+									<Badge variant={replayStatusVariant(replay.status)}>
+										{replayStatusLabel(replay.status)}
+									</Badge>
+								</li>
+							{/each}
+						</ul>
+					</section>
 				{/if}
 
 				<div class="space-y-1">

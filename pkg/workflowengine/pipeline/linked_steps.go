@@ -5,7 +5,6 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -425,23 +424,12 @@ func linkedStepsFailure(firstStepID string, err error) pipelineStepFailure {
 	if temporal.IsTimeoutError(err) || temporal.IsTerminatedError(err) {
 		return newPipelineStepFailure(firstStepID, err)
 	}
-	errs, ok := workflowengine.ParseWorkflowError(err).Details["errors"].([]any)
-	if !ok || len(errs) == 0 {
+	failures := workflowengine.StepFailures(workflowengine.ParseWorkflowError(err))
+	if len(failures) == 0 {
 		return newPipelineStepFailure(firstStepID, err)
 	}
-	raw, marshalErr := json.Marshal(errs[0])
-	if marshalErr != nil {
-		return newPipelineStepFailure(firstStepID, err)
-	}
-	var failure workflowengine.WorkflowError
-	if json.Unmarshal(raw, &failure) != nil {
-		return newPipelineStepFailure(firstStepID, err)
-	}
-	stepID, _ := failure.Details["step_id"].(string)
-	if stepID == "" {
-		return newPipelineStepFailure(firstStepID, err)
-	}
-	return pipelineStepFailure{StepID: stepID, Failure: failure}
+	stepID, _ := failures[0].Details["step_id"].(string)
+	return pipelineStepFailure{StepID: stepID, Failure: failures[0]}
 }
 
 // handleLinkedStepsFailure records a failed block. With continue_on_error the failing
