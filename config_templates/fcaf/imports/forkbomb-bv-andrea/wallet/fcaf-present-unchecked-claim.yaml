@@ -63,6 +63,11 @@ tags:
     retryTapIfNoChange: false
 - assertVisible: "Given Name"
 - assertVisible: "address"
+# The reference wallet offers no control that deselects a claim (RI-WALLET-024):
+# tapping the row only expands it, so this flow cannot assert a deselected state
+# and shares every claim. An action for a wallet that has such a control asserts
+# the claim is deselected after the tap; the claim-absence check of
+# WS_RP_IA_MainInteraction__013 decides the conformance either way.
 - tapOn: "address"
 - takeScreenshot: "fcaf-013-unchecked-address"
 - tapOn: "Share"

@@ -317,10 +317,10 @@ roles:
     screenshots: []
 
   - name: fcaf-present-unchecked-claim
-    summary: Opens a request, leaves the address claim unchecked on the consent screen, shares the rest and reaches the wallet's success screen.
+    summary: Opens a request, deselects the address claim on the consent screen and checks that the screen shows it deselected (a checkbox or switch turned off, or the claim marked as not shared), shares the rest and reaches the wallet's success screen. Expanding the claim's row is not deselecting it.
     suites: [wallet_solution/relying_party]
     outcome: strict-success
-    fails_when: the consent screen offers no control that deselects the address claim, or the wallet never reports the presentation as shared
+    fails_when: the consent screen offers no control that deselects the address claim (the action asserts the deselected state after the tap, so a wallet without one fails the step), or the wallet never reports the presentation as shared
     parameters: [deeplink]
     header_app: wallet
     launch_apps: [wallet]
@@ -381,10 +381,10 @@ roles:
     screenshots: []
 
   - name: fcaf-submit-and-follow-redirect
-    summary: Opens a presentation request, shares with Share (and a second PIN when asked) and follows the Verifier's redirect to its page.
+    summary: Opens a presentation request, identifies the consent screen by its list of requested data, shares with Share (and a second PIN when asked) and follows the Verifier's redirect to its page.
     suites: [wallet_solution/relying_party]
     outcome: strict-success
-    fails_when: the consent screen never offers Share or the Verifier's redirect never lands on its page
+    fails_when: the consent screen never lists the requested data or the Verifier's redirect never lands on its page
     parameters: [deeplink]
     header_app: wallet
     launch_apps: []

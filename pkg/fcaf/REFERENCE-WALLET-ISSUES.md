@@ -1491,3 +1491,54 @@ access_denied (with the description that no credentials match)."
   (`dcql.response_satisfies_constraints` mode `access_denied_required`); the
   no-match notice screenshot is captured.
 - Same behaviour class as RI-WALLET-006 (no error returned to the verifier).
+
+## RI-WALLET-033: A plain request with the `redirect_uri` Client Identifier is refused
+
+### Summary
+
+The reference Android wallet refuses an unsigned Authorization Request passed as
+URL-encoded parameters with a `redirect_uri:` Client Identifier: it shows its
+generic error screen right after the PIN and never reaches the consent screen.
+OpenID4VP Section 5 allows such a request; the wallet probably accepts only
+signed requests by design (HAIP), but `WS_RP_MS_ProtocolMessages__002` is
+`EUDI_generic` and cites OpenID4VP core, so the suite reports it.
+
+### Reproduction
+
+26/11/2026, Pixel 7a (Android 16), wallet 2026.09.42-demo onboarded with the
+reference flows and holding an mdoc PID from production Capture
+(`eu-pid-device-bound`). Create the session of
+`scenarios/fcaf-wallet-solution-relying-party-plain-redirect-uri.yaml`
+(`request_delivery: plain`, `client_id_scheme: redirect_uri`,
+`response_mode: direct_post.jwt`, one mdoc PID query for `given_name`) and open
+its deeplink. The deeplink carries `client_id=redirect_uri:<response_uri>`,
+`response_uri`, `response_mode`, `client_metadata` (encryption JWK), `nonce`,
+`state` and `dcql_query`.
+
+### Observed
+
+- After the PIN the wallet shows "Oups! Something went wrong / If the issue
+  persists, please contact customer support / TRY AGAIN"; no consent screen.
+- The Capture session stays at `created` (events `vp_session_created`,
+  `vp_deeplink_generated`); nothing reaches `response_uri`.
+- The same request with `response_mode: direct_post` gives the same screen, so
+  the response encryption is not the cause.
+- Control: the default signed request (`request_delivery: by_reference`,
+  `client_id_scheme: x509_hash`, `direct_post.jwt`, same query) reaches the
+  consent screen ("Requested data", the mdoc PID, Share) and Capture records
+  `vp_request_retrieved`. Capture refuses `redirect_uri` with any delivery other
+  than `plain` (`redirect_uri_client_id_requires_plain_delivery`).
+
+### Expected
+
+`WS_RP_MS_ProtocolMessages__002`: the wallet processes the plain request and
+POSTs an Authorization Response with the requested credential.
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_ProtocolMessages__002` fails on
+  `wallet_submitted_the_authorization_response` and
+  `wallet_returned_the_requested_credential`; its `fcaf-engagement-haip-vp-shared`
+  screenshot is never taken.
+- The action author reports it as a wallet finding of `fcaf-engagement-haip-vp`
+  on the `plain-redirect-uri` request.
