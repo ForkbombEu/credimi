@@ -701,7 +701,7 @@ func TestValidateCodeAcceptsFCAFReferences(t *testing.T) {
 		"fcaf-present-unchecked-claim": {fcafStateChangeProblem("address")},
 	}
 	scope := fcafTestScope(t)
-	for _, role := range fcafSuiteRoles(scope) {
+	for _, role := range scope.Contract.Roles {
 		t.Run(role.Name, func(t *testing.T) {
 			want := append([]string{}, toleratedProblems[role.Name]...)
 			for _, name := range tolerated[role.Name] {
@@ -840,7 +840,6 @@ func TestValidateCodeFCAF(t *testing.T) {
 			want: []string{
 				"the role launches the wallet: start the action with launchApp of eu.europa.ec.euidi",
 				"commands[0]: launchApp targets 'com.android.chrome', not the app under test",
-				fcafStartProblem("fcaf-expect-request-rejected"),
 			},
 		},
 		{
@@ -1072,6 +1071,54 @@ func TestValidateCodeFCAFTapAnchors(t *testing.T) {
 				"      - takeScreenshot: closed\n" + rejectedEnd,
 		},
 		{
+			name: "dismissal followed by a PIN at the same level",
+			role: "fcaf-expect-request-rejected",
+			code: rejected + "- runFlow:\n    when:\n      visible: \"Share\"\n" +
+				"    commands:\n      - tapOn: \"Share\"\n- takeScreenshot: after\n" +
+				"- inputText: \"12345\"\n" + rejectedEnd,
+			refused: true,
+		},
+		{
+			name: "dismissal followed by a strict anchor, then an interaction",
+			role: "fcaf-expect-request-rejected",
+			code: rejected + "- runFlow:\n    when:\n      visible: \"Share\"\n" +
+				"    commands:\n      - tapOn: \"Share\"\n- assertVisible: \"Home\"\n" +
+				"- tapOn: \"Close\"\n" + rejectedEnd,
+		},
+		{
+			name: "dismissal followed by a conditional PIN block",
+			role: "fcaf-expect-request-rejected",
+			code: rejected + "- runFlow:\n    when:\n      visible: \"Just once\"\n" +
+				"    commands:\n      - tapOn: \"Just once\"\n" +
+				"- runFlow:\n    when:\n      visible: \"Welcome back\"\n    commands:\n" +
+				"      - inputText: \"12345\"\n" + rejectedEnd,
+		},
+		{
+			name: "assertVisible Share then tap Share inside retry",
+			role: "fcaf-expect-request-rejected",
+			code: rejected + "- retry:\n    maxRetries: 2\n    commands:\n" +
+				"      - assertVisible: \"Share\"\n      - tapOn: \"Share\"\n" + rejectedEnd,
+			refused: true,
+		},
+		{
+			name: "when visible Share with notVisible inside retry",
+			role: "fcaf-expect-request-rejected",
+			code: rejected + "- retry:\n    maxRetries: 2\n    commands:\n" +
+				"      - runFlow:\n          when:\n            visible: \"Share\"\n" +
+				"            notVisible: \"x\"\n          commands:\n" +
+				"            - tapOn: \"Share\"\n" + rejectedEnd,
+			refused: true,
+		},
+		{
+			name: "when visible Share inside repeat, then a PIN in the body",
+			role: "fcaf-expect-request-rejected",
+			code: rejected + "- repeat:\n    times: 2\n    commands:\n" +
+				"      - runFlow:\n          when:\n            visible: \"Share\"\n" +
+				"          commands:\n            - tapOn: \"Share\"\n" +
+				"      - inputText: \"12345\"\n" + rejectedEnd,
+			refused: true,
+		},
+		{
 			name: "role that never taps to share",
 			role: "fcaf-user-denied-consent",
 			code: "appId: eu.europa.ec.euidi\n---\n- launchApp:\n    stopApp: true\n" +
@@ -1109,20 +1156,24 @@ func TestValidateCodeFCAFStart(t *testing.T) {
 	const head = "appId: eu.europa.ec.euidi\n---\n"
 	problem := fcafStartProblem("fcaf-expect-request-rejected")
 	assert.Equal(t, "the reference flow of fcaf-expect-request-rejected starts by stopping the "+
-		"app; start the action with stopApp (or launchApp with stopApp: true)", problem)
+		"app; start the action with stopApp, or launchApp without stopApp: false", problem)
 	for _, tc := range []struct {
 		name    string
 		role    string
 		code    string
 		refused bool
 	}{
-		{"missing stopApp", "fcaf-expect-request-rejected", head + "- launchApp\n" + body, true},
+		{"no stop first", "fcaf-expect-request-rejected", head + "- openLink: ${deeplink}\n" +
+			"- launchApp\n- assertVisible: \"Home\"\n- takeScreenshot: request-refused\n", true},
 		{"stopApp false", "fcaf-expect-request-rejected",
 			head + "- launchApp:\n    stopApp: false\n" + body, true},
-		{"stopApp quoted", "fcaf-expect-request-rejected",
-			head + "- launchApp:\n    stopApp: \"true\"\n" + body, true},
-		{"stopApp later", "fcaf-expect-request-rejected",
-			head + "- launchApp\n- stopApp\n" + body, true},
+		{"plain launchApp", "fcaf-expect-request-rejected", head + "- launchApp\n" + body, false},
+		{"launchApp of the wallet", "fcaf-expect-request-rejected",
+			head + "- launchApp: eu.europa.ec.euidi\n" + body, false},
+		{"launchApp without stopApp", "fcaf-expect-request-rejected",
+			head + "- launchApp:\n    clearState: false\n" + body, false},
+		{"stopApp quoted false", "fcaf-expect-request-rejected",
+			head + "- launchApp:\n    stopApp: \"false\"\n" + body, false},
 		{"launchApp with stopApp", "fcaf-expect-request-rejected",
 			head + "- launchApp:\n    stopApp: true\n" + body, false},
 		{"stopApp then launchApp", "fcaf-expect-request-rejected",
@@ -1202,10 +1253,53 @@ func TestValidateCodeFCAFStateChange(t *testing.T) {
 				"      checked: false\n    timeout: 5000\n    optional: true\n" + tail,
 			refused: true,
 		},
+		{
+			name: "proof after expanding the document card",
+			code: head + "- tapOn: \"PID\"\n" +
+				"- assertVisible:\n    text: \"Address\"\n    checked: true\n- tapOn: \"Address\"\n" +
+				"- assertVisible:\n    text: \"Address\"\n    checked: false\n" + tail,
+		},
+		{
+			name: "proof inside retry",
+			code: head + fmt.Sprintf(checkedID, "true") + "- retry:\n    maxRetries: 2\n" +
+				"    commands:\n      - tapOn:\n          id: \"eu.europa.ec.euidi:id/address_switch\"\n" +
+				"      - assertVisible:\n          id: \"eu.europa.ec.euidi:id/address_switch\"\n" +
+				"          checked: false\n" + tail,
+		},
+		{
+			name: "proof inside a conditional runFlow",
+			code: head + "- runFlow:\n    when:\n      visible:\n" +
+				"        id: \"eu.europa.ec.euidi:id/address_switch\"\n    commands:\n" +
+				"      - assertVisible:\n          id: \"eu.europa.ec.euidi:id/address_switch\"\n" +
+				"          checked: true\n      - tapOn: \"Address\"\n" +
+				"      - assertVisible:\n          id: \"eu.europa.ec.euidi:id/address_switch\"\n" +
+				"          checked: false\n" + tail,
+			refused: true,
+		},
+		{
+			name: "switch found right of its label",
+			code: head + "- assertVisible:\n    id: \"eu.europa.ec.euidi:id/switch\"\n" +
+				"    rightOf: \"Address\"\n    checked: true\n- tapOn: \"Address\"\n" +
+				"- assertVisible:\n    rightOf: \"Address\"\n    checked: false\n" +
+				"    id: \"eu.europa.ec.euidi:id/switch\"\n" + tail,
+		},
+		{
+			name: "switch right of another label after the tap",
+			code: head + "- assertVisible:\n    id: \"eu.europa.ec.euidi:id/switch\"\n" +
+				"    rightOf: \"Address\"\n    checked: true\n- tapOn: \"Address\"\n" +
+				"- assertVisible:\n    id: \"eu.europa.ec.euidi:id/switch\"\n" +
+				"    rightOf: \"Address country\"\n    checked: false\n" + tail,
+			refused: true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			problems := fcafProblems(t, "fcaf-present-unchecked-claim", tc.code)
 			assert.Equal(t, tc.refused, slices.Contains(problems, problem), problems)
+			if !tc.refused {
+				for _, p := range problems {
+					assert.NotContains(t, p, "the screen before tapping")
+				}
+			}
 		})
 	}
 	// Another role proves nothing.

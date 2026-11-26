@@ -643,6 +643,14 @@ func codeMatchesAny(value string) bool {
 // followed by its inline commands (never `retry` or `repeat` bodies, and never
 // a `when:` condition).
 func codeFlatten(commands *yaml.Node) []*yaml.Node {
+	return codeFlattenInto(commands, func(name string, _ *yaml.Node) bool {
+		return name == "runFlow"
+	})
+}
+
+// codeFlattenInto lists the commands in run order, each nested command whose
+// mapping argument into accepts followed by its inline commands, recursively.
+func codeFlattenInto(commands *yaml.Node, into func(string, *yaml.Node) bool) []*yaml.Node {
 	var flat []*yaml.Node
 	var flatten func(*yaml.Node)
 	flatten = func(list *yaml.Node) {
@@ -651,8 +659,8 @@ func codeFlatten(commands *yaml.Node) []*yaml.Node {
 		}
 		for _, item := range list.Content {
 			flat = append(flat, item)
-			if name, arg, ok := codeCommand(item); ok && name == "runFlow" &&
-				arg != nil && arg.Kind == yaml.MappingNode {
+			if name, arg, ok := codeCommand(item); ok && codeNestedCommands[name] &&
+				arg != nil && arg.Kind == yaml.MappingNode && into(name, arg) {
 				flatten(codeLookup(arg, "commands"))
 			}
 		}
@@ -941,7 +949,7 @@ func codeStateCondition(commands *yaml.Node) bool {
 // the role's reference flow does.
 func fcafStartProblem(role string) string {
 	return "the reference flow of " + role + " starts by stopping the app; start the action " +
-		"with stopApp (or launchApp with stopApp: true)"
+		"with stopApp, or launchApp without stopApp: false"
 }
 
 // fcafStart requires the first command to stop the app when the first command
@@ -960,8 +968,8 @@ func (v *codeValidator) fcafStart(commands *yaml.Node, role walletroles.Role) {
 	}
 }
 
-// codeStopsApp reports whether a command stops the app: stopApp, or launchApp
-// with stopApp written as the plain scalar `true`.
+// codeStopsApp reports whether a command stops the app: stopApp, or launchApp,
+// which stops the app first unless its `stopApp` is the plain scalar `false`.
 func codeStopsApp(item *yaml.Node) bool {
 	name, arg, ok := codeCommand(item)
 	switch {
@@ -969,11 +977,13 @@ func codeStopsApp(item *yaml.Node) bool {
 		return false
 	case name == "stopApp":
 		return true
-	case name == "launchApp" && arg != nil && arg.Kind == yaml.MappingNode:
-		value, ok := codePlainScalar(codeLookup(arg, "stopApp"), "!!bool")
-		return ok && value == "true"
+	case name != "launchApp":
+		return false
+	case arg == nil || arg.Kind != yaml.MappingNode:
+		return true
 	}
-	return false
+	value, ok := codePlainScalar(codeLookup(arg, "stopApp"), "!!bool")
+	return !ok || value != "false"
 }
 
 // fcafTapAnchorProblem refuses a tap whose screen is identified only by the
@@ -987,25 +997,21 @@ func fcafTapAnchorProblem(text string) string {
 
 // fcafTapAnchors refuses, in a role that shares or must refuse a request
 // (presents > 0 or strict-rejection, never a role that accepts an offer), a
-// text tapOn whose screen is identified only by the tapped text: a runFlow
-// whose `when: visible` is the text or lists it among its `|` alternatives
-// and that also has `notVisible` or interacts again after the tap (a runFlow
-// that only taps and then waits, asserts or takes screenshots dismisses a
-// control), or strict anchors since the previous interaction (assertVisible,
-// extendedWaitUntil visible, scrollUntilVisible) that all list the text.
+// text tapOn whose screen is identified only by the tapped text (whenTaps), or
+// whose strict anchors since the previous interaction (assertVisible,
+// extendedWaitUntil visible, scrollUntilVisible) all list the text. Commands
+// are read in run order with every runFlow, retry and repeat body inlined; an
+// anchor on a `checked` control or not on a text is another anchor.
 func (v *codeValidator) fcafTapAnchors(commands *yaml.Node, role walletroles.Role) {
 	if role.IssuesCredential ||
 		(role.Presents == 0 && role.Outcome != walletroles.OutcomeRejection) {
 		return
 	}
-	flat := codeFlatten(commands)
+	v.whenTaps(commands)
+	flat := codeFlattenInto(commands, func(string, *yaml.Node) bool { return true })
 	for i, item := range flat {
 		name, arg, ok := codeCommand(item)
 		if !ok {
-			continue
-		}
-		if name == "runFlow" {
-			v.whenTap(arg)
 			continue
 		}
 		text, ok := codeTapText(name, arg)
@@ -1020,7 +1026,8 @@ func (v *codeValidator) fcafTapAnchors(commands *yaml.Node, role walletroles.Rol
 			}
 			if selector := codeAnchor(before, beforeArg); selector != nil {
 				anchored, isText := codeSelectorText(selector)
-				if !isText || !codeAlternates(anchored, text) {
+				if !isText || !codeAlternates(anchored, text) ||
+					(selector.Kind == yaml.MappingNode && codeLookup(selector, "checked") != nil) {
 					only = false
 					break
 				}
@@ -1037,11 +1044,29 @@ func (v *codeValidator) fcafTapAnchors(commands *yaml.Node, role walletroles.Rol
 	}
 }
 
-// whenTap refuses the taps of a runFlow identified by the text they tap.
-func (v *codeValidator) whenTap(arg *yaml.Node) {
-	if arg == nil || arg.Kind != yaml.MappingNode {
+// whenTaps runs whenTap on every runFlow of the commands, in run order, nested
+// bodies included, with the commands that follow it in its list.
+func (v *codeValidator) whenTaps(commands *yaml.Node) {
+	if commands == nil || commands.Kind != yaml.SequenceNode {
 		return
 	}
+	for j, item := range commands.Content {
+		name, arg, ok := codeCommand(item)
+		if !ok || !codeNestedCommands[name] || arg == nil || arg.Kind != yaml.MappingNode {
+			continue
+		}
+		if name == "runFlow" {
+			v.whenTap(arg, commands.Content[j+1:])
+		}
+		v.whenTaps(codeLookup(arg, "commands"))
+	}
+}
+
+// whenTap refuses the taps of a runFlow whose `when: visible` is the tapped
+// text or lists it among its `|` alternatives, unless the runFlow only
+// dismisses the control: no `notVisible`, no interaction after the tap in its
+// body, and none in the commands after it before another strict anchor.
+func (v *codeValidator) whenTap(arg *yaml.Node, after []*yaml.Node) {
 	when, inner := codeLookup(arg, "when"), codeLookup(arg, "commands")
 	if when == nil || when.Kind != yaml.MappingNode || inner == nil ||
 		inner.Kind != yaml.SequenceNode {
@@ -1057,11 +1082,52 @@ func (v *codeValidator) whenTap(arg *yaml.Node) {
 			continue
 		}
 		text, ok := codeTapText(name, tapArg)
-		if ok && codeAlternates(visible, text) &&
-			(codeLookup(when, "notVisible") != nil || codeInteracts(inner.Content[k+1:])) {
+		if !ok || !codeAlternates(visible, text) {
+			continue
+		}
+		_, interactsAfter := codeInteractsBeforeAnchor(after)
+		if codeLookup(when, "notVisible") != nil || codeInteracts(inner.Content[k+1:]) ||
+			interactsAfter {
 			v.add(fcafTapAnchorProblem(text))
 		}
 	}
+}
+
+// codeInteractsBeforeAnchor scans the commands in run order, into the bodies
+// of `retry` and of `runFlow` without `when`, and reports whether it decided
+// (met a strict anchor or an interaction) and whether an interaction came
+// first.
+func codeInteractsBeforeAnchor(items []*yaml.Node) (bool, bool) {
+	for _, item := range items {
+		name, arg, ok := codeCommand(item)
+		if !ok {
+			continue
+		}
+		if codeAnchor(name, arg) != nil {
+			return true, false
+		}
+		if codeInteractions[name] {
+			return true, true
+		}
+		if codeUnconditionalBody(name, arg) {
+			nested := codeLookup(arg, "commands")
+			if nested != nil && nested.Kind == yaml.SequenceNode {
+				if decided, interacts := codeInteractsBeforeAnchor(nested.Content); decided {
+					return true, interacts
+				}
+			}
+		}
+	}
+	return false, false
+}
+
+// codeUnconditionalBody reports whether a command's body always runs and must
+// pass: a `retry`, or a `runFlow` without `when`.
+func codeUnconditionalBody(name string, arg *yaml.Node) bool {
+	if arg == nil || arg.Kind != yaml.MappingNode {
+		return false
+	}
+	return name == "retry" || (name == "runFlow" && codeLookup(arg, "when") == nil)
 }
 
 // codeInteracts reports whether any of the commands, nested bodies included,
@@ -1156,79 +1222,117 @@ func fcafStateChangeProblem(claim string) string {
 		"has no such control)"
 }
 
-// fcafStateChange requires, for a role with proves_state_change, a `checked:
-// true` assertion on a selector (text or id) naming the claim, then a tap of
-// the claim, then a `checked: false` assertion on the same selector, over
-// codeFlatten's commands. The claim matches case-insensitively within the
-// selector.
+// fcafStateChange requires, for a role with proves_state_change, a strict
+// `checked: true` assertion on a selector naming the claim, then a tap naming
+// the claim, then a strict `checked: false` assertion on the same selector
+// (codeElementKey). A selector names the claim when its text or id, or the
+// text or id of one of its relative selectors (codeRelativeKeys), contains it
+// case-insensitively. Commands are read in run order with the bodies of
+// `retry` and of `runFlow` without `when` inlined: a conditional body may
+// never run.
 func (v *codeValidator) fcafStateChange(commands *yaml.Node, role walletroles.Role) {
 	claim := strings.ToLower(role.ProvesStateChange)
 	if claim == "" || commands == nil {
 		return
 	}
-	names := func(selector codeSelector) bool {
-		return strings.Contains(strings.ToLower(selector.value), claim)
-	}
-	checked := map[codeSelector]bool{}
-	tapped := map[codeSelector]bool{}
-	for _, item := range codeFlatten(commands) {
+	checked := map[string]bool{}
+	tapped := map[string]bool{}
+	for _, item := range codeFlattenInto(commands, codeUnconditionalBody) {
 		name, arg, ok := codeCommand(item)
 		if !ok {
 			continue
 		}
-		if selector, ok := codeTapSelector(name, arg); ok {
-			if names(selector) {
-				for s := range checked {
-					tapped[s] = true
+		if name == "tapOn" {
+			if codeNamesClaim(arg, claim) {
+				for key := range checked {
+					tapped[key] = true
 				}
 			}
 			continue
 		}
-		selector, state, ok := codeCheckedAssertion(name, arg)
+		key, state, ok := codeCheckedAssertion(name, arg)
 		switch {
-		case !ok || !names(selector):
+		case !ok || !codeNamesClaim(codeAnchor(name, arg), claim):
 		case state:
-			checked[selector] = true
-		case tapped[selector]:
+			checked[key] = true
+		case tapped[key]:
 			return
 		}
 	}
 	v.add(fcafStateChangeProblem(role.ProvesStateChange))
 }
 
-// codeTapSelector returns the element a tapOn targets: its string argument,
-// else its string `text`, else its string `id`.
-func codeTapSelector(name string, arg *yaml.Node) (codeSelector, bool) {
-	if name != "tapOn" {
-		return codeSelector{}, false
+// codeRelativeKeys are the selector keys that place an element relative to another.
+var codeRelativeKeys = []string{"rightOf", "leftOf", "above", "below", "childOf", "containsChild"}
+
+// codeNamesClaim reports whether a selector names the lowercase claim: its
+// text or id contains it, or one of its relative selectors names it.
+func codeNamesClaim(selector *yaml.Node, claim string) bool {
+	selector = codeResolve(selector)
+	if codeIsString(selector) {
+		return strings.Contains(strings.ToLower(selector.Value), claim)
 	}
-	if text, ok := codeSelectorText(arg); ok {
-		return codeSelector{value: text}, true
+	if selector == nil || selector.Kind != yaml.MappingNode {
+		return false
 	}
-	if arg != nil && arg.Kind == yaml.MappingNode {
-		if id := codeLookup(arg, "id"); codeIsString(id) {
-			return codeSelector{id: true, value: id.Value}, true
+	for _, key := range []string{"text", "id"} {
+		if value := codeLookup(selector, key); codeIsString(value) &&
+			strings.Contains(strings.ToLower(value.Value), claim) {
+			return true
 		}
 	}
-	return codeSelector{}, false
+	return slices.ContainsFunc(codeRelativeKeys, func(key string) bool {
+		return codeNamesClaim(codeLookup(selector, key), claim)
+	})
 }
 
-// codeCheckedAssertion returns the selector and the `checked` state (a plain
-// boolean) a non-optional assertVisible or extendedWaitUntil visible checks.
-func codeCheckedAssertion(name string, arg *yaml.Node) (codeSelector, bool, bool) {
+// codeCheckedAssertion returns the element key (codeElementKey) and the
+// `checked` state (a plain boolean) of a strict assertVisible or
+// extendedWaitUntil visible on a selector mapping.
+func codeCheckedAssertion(name string, arg *yaml.Node) (string, bool, bool) {
 	target := codeAnchor(name, arg)
 	if name == "scrollUntilVisible" || target == nil || target.Kind != yaml.MappingNode {
-		return codeSelector{}, false, false
-	}
-	selector, ok := codeAssertedSelector(name, arg)
-	if !ok {
-		return codeSelector{}, false, false
+		return "", false, false
 	}
 	state, ok := codePlainScalar(codeLookup(target, "checked"), "!!bool")
 	if !ok {
-		return codeSelector{}, false, false
+		return "", false, false
 	}
-	return selector, state == "true", true
+	return codeElementKey(target), state == "true", true
+}
+
+// codeElementKey renders a selector mapping without its `checked` and
+// `optional` keys, keys sorted, so two assertions on the same element compare
+// equal.
+func codeElementKey(selector *yaml.Node) string {
+	parts := []string{}
+	for i := 0; i+1 < len(selector.Content); i += 2 {
+		key := codeResolve(selector.Content[i])
+		if key.Value == "checked" || key.Value == "optional" {
+			continue
+		}
+		parts = append(parts, codeCanonical(key)+"="+codeCanonical(selector.Content[i+1]))
+	}
+	sort.Strings(parts)
+	return "{" + strings.Join(parts, ",") + "}"
+}
+
+// codeCanonical renders a YAML node with its tags and sorted mapping keys.
+func codeCanonical(node *yaml.Node) string {
+	node = codeResolve(node)
+	switch {
+	case node == nil:
+		return "null"
+	case node.Kind == yaml.MappingNode:
+		return codeElementKey(node)
+	case node.Kind == yaml.SequenceNode:
+		items := make([]string, 0, len(node.Content))
+		for _, item := range node.Content {
+			items = append(items, codeCanonical(item))
+		}
+		return "[" + strings.Join(items, ",") + "]"
+	}
+	return node.Tag + ":" + strconv.Quote(node.Value)
 }
 
 // fcafScreenshotPhrases says where each contract screenshot condition is taken.
