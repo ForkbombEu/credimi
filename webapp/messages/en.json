@@ -1201,6 +1201,8 @@
 	"Fcaf_coverage_pipeline_verdicts": "Pipeline: {passed} passed, {finding} with findings, {failing} failing, {blocked} blocked",
 	"Fcaf_verdict_pipeline": "Verified by the pipeline.",
 	"Fcaf_verdict_not_verified": "Agent's verdict, not verified by the pipeline yet.",
+	"Fcaf_verdict_not_verified_named": "Agent's verdict: {verdict}, not verified by the pipeline yet.",
+	"Fcaf_verdict_no_own_tests": "No tests of its own.",
 	"Fcaf_verdict_failed_tests": "Failed tests: {tests}",
 	"Fcaf_verdict_while_writing": "While writing: {verdict}",
 	"Fcaf_replay_action_failed": "Action failed",

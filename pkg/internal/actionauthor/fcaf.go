@@ -13,6 +13,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 // FCAFScope is the role contract, its templates root and the suite of a
@@ -142,9 +143,9 @@ type FCAFRoleCoverage struct {
 	Run *FCAFRoleRun `json:"run"`
 	// Verdict is the role's verdict: for a current or incomplete action, the
 	// pipeline's (Run.Verdict: passed, finding, failing or blocked) when the
-	// last run covered the role (VerdictSource pipeline), else the agent's
-	// Result (VerdictSource authoring: not verified yet); "" with an empty
-	// VerdictSource otherwise.
+	// last run covered the role and the action was not saved after that run
+	// (VerdictSource pipeline), else the agent's Result (VerdictSource
+	// authoring: not verified yet); "" with an empty VerdictSource otherwise.
 	Verdict       string `json:"verdict"`
 	VerdictSource string `json:"verdict_source"`
 }
@@ -166,13 +167,25 @@ func FCAFCoverage(
 	selection Selection,
 	scope *FCAFScope,
 ) ([]FCAFRoleCoverage, map[string]any, error) {
+	coverage, _, profile, err := fcafCoverage(app, selection, scope)
+	return coverage, profile, err
+}
+
+// fcafCoverage is FCAFCoverage with, per action path, when its record was
+// last saved.
+func fcafCoverage(
+	app core.App,
+	selection Selection,
+	scope *FCAFScope,
+) ([]FCAFRoleCoverage, map[string]types.DateTime, map[string]any, error) {
 	records, err := app.FindAllRecords("wallet_actions", dbx.HashExp{
 		"owner":  selection.Organization.Id,
 		"wallet": selection.Wallet.Id,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("list wallet actions: %w", err)
+		return nil, nil, nil, fmt.Errorf("list wallet actions: %w", err)
 	}
+	updated := map[string]types.DateTime{}
 	byName := make(map[string]*core.Record, len(records))
 	var profile map[string]any
 	var newest *core.Record
@@ -203,8 +216,9 @@ func FCAFCoverage(
 		if record, ok := byName[role.Name]; ok {
 			entry.Action, err = walletActionPath(app, record)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
+			updated[entry.Action] = record.GetDateTime("updated")
 			provenance := savedProvenance(record)
 			switch {
 			case provenance.FCAFRole != role.Name:
@@ -217,7 +231,7 @@ func FCAFCoverage(
 					provenance.FCAFReplays,
 				)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, nil, err
 				}
 				if len(entry.MissingFixtures) > 0 {
 					entry.Status = FCAFIncomplete
@@ -239,22 +253,23 @@ func FCAFCoverage(
 		}
 		coverage = append(coverage, entry)
 	}
-	return coverage, profile, nil
+	return coverage, updated, profile, nil
 }
 
 // FCAFCoverageWithRun is FCAFCoverage with how each role's action did in the
 // wallet's last finished FCAF run (ReadFCAFLastRun with state, which may be
 // nil, judged on the scope's walletroles Contract.RoleTests), matched by the
 // action's path whatever its role's name; a current or incomplete action the
-// run covered takes the pipeline's verdict. The third value is the last run,
-// nil when there is none.
+// run covered takes the pipeline's verdict unless it was saved after that
+// run (FCAFLastRun.RanAfter). The third value is the last run, nil when
+// there is none.
 func FCAFCoverageWithRun(
 	app core.App,
 	selection Selection,
 	scope *FCAFScope,
 	state FCAFRunStateFunc,
 ) ([]FCAFRoleCoverage, map[string]any, *FCAFLastRun, error) {
-	coverage, profile, err := FCAFCoverage(app, selection, scope)
+	coverage, updated, profile, err := fcafCoverage(app, selection, scope)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -277,7 +292,8 @@ func FCAFCoverageWithRun(
 		entry := &coverage[i]
 		entry.Run = lastRun.Run(entry.Action)
 		if entry.Run != nil && entry.Run.Verdict != FCAFRunNotRun &&
-			(entry.Status == FCAFCurrent || entry.Status == FCAFIncomplete) {
+			(entry.Status == FCAFCurrent || entry.Status == FCAFIncomplete) &&
+			lastRun.RanAfter(entry.Action, updated[entry.Action]) {
 			entry.Verdict, entry.VerdictSource = entry.Run.Verdict, FCAFVerdictFromPipeline
 		}
 	}

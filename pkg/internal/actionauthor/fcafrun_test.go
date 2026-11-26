@@ -722,6 +722,26 @@ func TestFCAFCoverageJudgesRolesOnTheirTests(t *testing.T) {
 	assert.Equal(t, FCAFVerdictPassed, byRole[tolerant].Verdict)
 	assert.Equal(t, len(roleTests[tolerant]), byRole[tolerant].Run.TestsRun)
 	assert.Equal(t, FCAFVerdictBlocked, byRole[blocked].Verdict, "kept from the complete run")
+
+	// The blocked role's action is saved again after the runs: they tested
+	// older code, so its verdict is the agent's until a run covers it again.
+	record, err = f.app.FindFirstRecordByFilter("wallet_actions", "owner = {:o} && name = {:n}",
+		map[string]any{"o": orgID, "n": blocked})
+	require.NoError(t, err)
+	role, _ = f.scope.Contract.Role(blocked)
+	record.Set("authoring_provenance", Provenance{
+		FCAFRole:       blocked,
+		FCAFRoleSHA256: role.SHA256(),
+		FCAFResult:     &FCAFResult{Status: FCAFReplayPassed, Note: "rewritten"},
+	})
+	require.NoError(t, f.app.Save(record))
+	byRole, _ = f.coverage(t, nil)
+	rewritten := byRole[blocked]
+	require.NotNil(t, rewritten.Run, "the run's outcome stays visible")
+	assert.Equal(t, FCAFVerdictBlocked, rewritten.Run.Verdict)
+	assert.Equal(t, FCAFReplayPassed, rewritten.Verdict)
+	assert.Equal(t, FCAFVerdictFromAuthoring, rewritten.VerdictSource)
+	assert.Equal(t, FCAFVerdictFromPipeline, byRole[tolerant].VerdictSource)
 }
 
 func TestFCAFRoleRunJudgeBoundsFailedTests(t *testing.T) {

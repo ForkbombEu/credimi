@@ -1164,6 +1164,8 @@
 	"Fcaf_coverage_pipeline_verdicts": "Pipeline: {passed} superati, {finding} con rilievi, {failing} falliti, {blocked} bloccati",
 	"Fcaf_verdict_pipeline": "Verificato dalla pipeline.",
 	"Fcaf_verdict_not_verified": "Verdetto dell'agente, non ancora verificato dalla pipeline.",
+	"Fcaf_verdict_not_verified_named": "Verdetto dell'agente: {verdict}, non ancora verificato dalla pipeline.",
+	"Fcaf_verdict_no_own_tests": "Nessun test proprio.",
 	"Fcaf_verdict_failed_tests": "Test falliti: {tests}",
 	"Fcaf_verdict_while_writing": "In scrittura: {verdict}",
 	"Fcaf_replay_action_failed": "Azione non riuscita",

@@ -170,6 +170,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{#if pipeline && role.run}
 									<p class="text-xs text-muted-foreground">
 										{m.Fcaf_verdict_pipeline()}
+										{#if verdict === 'passed' && role.run.tests_run === 0}
+											{m.Fcaf_verdict_no_own_tests()}
+										{/if}
 										<a
 											href={role.run.run_url}
 											target="_blank"
@@ -188,7 +191,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{/if}
 								{:else if role.verdict_source === 'authoring'}
 									<p class="text-xs text-muted-foreground">
-										{m.Fcaf_verdict_not_verified()}
+										{#if verdict === 'incomplete' && role.result}
+											{m.Fcaf_verdict_not_verified_named({
+												verdict: coverageLabel(role.result)
+											})}
+										{:else}
+											{m.Fcaf_verdict_not_verified()}
+										{/if}
 									</p>
 								{/if}
 								{#if role.summary}

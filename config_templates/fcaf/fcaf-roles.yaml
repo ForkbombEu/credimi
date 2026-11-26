@@ -8,7 +8,8 @@ reference:
 # (credential formats, credential sets, scheme, the verifier's reply after Share, a redirect;
 # for a credential offer the issued credential's format and the offer deeplink scheme).
 # Encryption, request_uri_method, request_delivery, client id prefix and nonce/state/aud defects
-# are collapsed: the user never sees them, so one replay per class proves the action and the
+# are collapsed: the user never sees them. Classes label fixtures for replays and fix
+# sessions; authoring replays one request per role (plus its authoring_fixtures pins), and the
 # pipeline judges the wallet on every fixture.
 authoring_class_fields:
   - dcql_query.credentials.format

@@ -103,8 +103,8 @@ type Role struct {
 	// ReferenceCode is the reference flow source.
 	ReferenceCode string `yaml:"-" json:"reference_code"`
 	// AuthoringFixtures pins fixture IDs the action author always replays, beyond
-	// one fixture per behaviour class. Not part of SHA256: pinning a fixture does
-	// not make the role's saved actions stale.
+	// the role's authoring fixture (AuthoringFixture). Not part of SHA256: pinning a
+	// fixture does not make the role's saved actions stale.
 	AuthoringFixtures []string `yaml:"authoring_fixtures,omitempty" json:"-"`
 }
 

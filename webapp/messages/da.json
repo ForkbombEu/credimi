@@ -1157,6 +1157,8 @@
 	"Fcaf_coverage_pipeline_verdicts": "Pipeline: {passed} bestået, {finding} med fund, {failing} fejler, {blocked} blokeret",
 	"Fcaf_verdict_pipeline": "Verificeret af pipelinen.",
 	"Fcaf_verdict_not_verified": "Agentens vurdering, endnu ikke verificeret af pipelinen.",
+	"Fcaf_verdict_not_verified_named": "Agentens vurdering: {verdict}, endnu ikke verificeret af pipelinen.",
+	"Fcaf_verdict_no_own_tests": "Ingen egne tests.",
 	"Fcaf_verdict_failed_tests": "Fejlede tests: {tests}",
 	"Fcaf_verdict_while_writing": "Under skrivningen: {verdict}",
 	"Fcaf_replay_action_failed": "Handlingen fejlede",

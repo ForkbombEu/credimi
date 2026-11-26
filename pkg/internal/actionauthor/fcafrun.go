@@ -22,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 // How a wallet action did in an FCAF pipeline run.
@@ -465,6 +466,8 @@ type FCAFLastRun struct {
 	RunURL  string
 	Actions map[string]FCAFRoleRun
 	NotRun  *FCAFRoleRun
+	// ranAt is when the run that gave each outcome of Actions was created.
+	ranAt map[string]types.DateTime
 }
 
 // Run is how the wallet action at path did in the last run; nil when the
@@ -481,6 +484,18 @@ func (l *FCAFLastRun) Run(path string) *FCAFRoleRun {
 		return &run
 	}
 	return nil
+}
+
+// RanAfter reports whether the run that gave the outcome of the action at
+// path was created at or after updated, the action record's last save:
+// false when no run gave it an outcome, or when the action was saved since,
+// so the run tested older code.
+func (l *FCAFLastRun) RanAfter(path string, updated types.DateTime) bool {
+	if l == nil {
+		return false
+	}
+	ranAt, ran := l.ranAt[path]
+	return ran && !updated.After(ranAt)
 }
 
 // FCAFRunState is how a pipeline run stands in Temporal: Finished once it
@@ -601,7 +616,11 @@ func ReadFCAFLastRun(
 	if shown.subset {
 		shown = runs[0]
 	}
-	last := &FCAFLastRun{RunURL: shown.url, Actions: map[string]FCAFRoleRun{}}
+	last := &FCAFLastRun{
+		RunURL:  shown.url,
+		Actions: map[string]FCAFRoleRun{},
+		ranAt:   map[string]types.DateTime{},
+	}
 	if shown.report != nil {
 		last.Summary = shown.report.Summary
 	}
@@ -696,6 +715,7 @@ func (r fcafFinishedRun) apply(
 				RunURL:        r.url,
 			}
 			roles[outcome.Action] = outcome.Role
+			last.ranAt[outcome.Action] = r.result.GetDateTime("created")
 		}
 		return
 	}
@@ -708,6 +728,7 @@ func (r fcafFinishedRun) apply(
 			failing.FailedCommand = failedMaestroCommand(failure.Stdout)
 		}
 		last.Actions[resetAction] = failing
+		last.ranAt[resetAction] = r.result.GetDateTime("created")
 	}
 }
 
