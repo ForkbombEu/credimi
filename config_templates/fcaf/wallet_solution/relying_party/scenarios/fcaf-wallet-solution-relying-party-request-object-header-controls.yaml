@@ -2,7 +2,7 @@ name: FCAF Request Object header controls
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
 steps:
 - id: create-invalid-typ
   use: http-request
@@ -31,7 +31,7 @@ steps:
 - id: reject-invalid-typ
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-invalid-typ.outputs.body.deeplink }}"
@@ -68,7 +68,7 @@ steps:
 - id: reject-missing-typ
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-missing-typ.outputs.body.deeplink }}"
@@ -105,7 +105,7 @@ steps:
 - id: reject-wrong-typ
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-wrong-typ.outputs.body.deeplink }}"

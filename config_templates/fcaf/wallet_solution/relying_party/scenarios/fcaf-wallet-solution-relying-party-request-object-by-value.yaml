@@ -40,7 +40,7 @@ steps:
     - id: submit-request-object-by-value
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-submit-request-object-by-value
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-submit-request-object-by-value
         parameters:
             deeplink: ${{ create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source

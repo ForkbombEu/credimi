@@ -32,15 +32,15 @@ func TestRewriteFCAFOrganization(t *testing.T) {
 	t.Parallel()
 
 	input := []byte(
-		"global_device_id: forkbomb-bv-andrea/usb/device\n" +
-			"action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1\n",
+		"global_device_id: fcaf-1/usb/device\n" +
+			"action_id: fcaf-1/eudiw-beta-wallet/onboarding-1\n",
 	)
 
 	t.Run("rewrites to target org", func(t *testing.T) {
 		got := string(rewriteFCAFOrganization(input, "acme-org"))
 		require.Contains(t, got, "global_device_id: acme-org/usb/device")
 		require.Contains(t, got, "action_id: acme-org/eudiw-beta-wallet/onboarding-1")
-		require.NotContains(t, got, "forkbomb-bv-andrea/")
+		require.NotContains(t, got, "fcaf-1/")
 	})
 
 	t.Run("keeps source org unchanged", func(t *testing.T) {

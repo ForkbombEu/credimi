@@ -14,7 +14,7 @@ runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
     log_checker: capture-wallet
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -39,7 +39,7 @@ steps:
 - id: offer-mdoc-status-without-status-list-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-status-without-status-list-issuance.outputs.body.deeplink }}
@@ -78,7 +78,7 @@ steps:
 - id: probe-mdoc-status-without-status-list
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-status-without-status-list-probe.outputs.body.deeplink }}"
@@ -105,7 +105,7 @@ steps:
 - id: offer-mdoc-negative-index-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-negative-index-issuance.outputs.body.deeplink }}
@@ -144,7 +144,7 @@ steps:
 - id: probe-mdoc-negative-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-negative-index-probe.outputs.body.deeplink }}"
@@ -171,7 +171,7 @@ steps:
 - id: offer-mdoc-missing-index-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-missing-index-issuance.outputs.body.deeplink }}
@@ -210,7 +210,7 @@ steps:
 - id: probe-mdoc-missing-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-missing-index-probe.outputs.body.deeplink }}"
@@ -237,7 +237,7 @@ steps:
 - id: offer-mdoc-malformed-uri-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-malformed-uri-issuance.outputs.body.deeplink }}
@@ -276,7 +276,7 @@ steps:
 - id: probe-mdoc-malformed-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-malformed-uri-probe.outputs.body.deeplink }}"
@@ -303,7 +303,7 @@ steps:
 - id: offer-mdoc-missing-uri-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-missing-uri-issuance.outputs.body.deeplink }}
@@ -342,7 +342,7 @@ steps:
 - id: probe-mdoc-missing-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-missing-uri-probe.outputs.body.deeplink }}"
@@ -371,7 +371,7 @@ steps:
 - id: offer-mdoc-uri-missing-scheme-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-uri-missing-scheme-issuance.outputs.body.deeplink }}
@@ -410,7 +410,7 @@ steps:
 - id: probe-mdoc-uri-missing-scheme
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-missing-scheme-probe.outputs.body.deeplink }}"
@@ -437,7 +437,7 @@ steps:
 - id: offer-mdoc-uri-space-in-host-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-uri-space-in-host-issuance.outputs.body.deeplink }}
@@ -476,7 +476,7 @@ steps:
 - id: probe-mdoc-uri-space-in-host
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-space-in-host-probe.outputs.body.deeplink }}"
@@ -503,7 +503,7 @@ steps:
 - id: offer-mdoc-uri-invalid-percent-encoding-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-uri-invalid-percent-encoding-issuance.outputs.body.deeplink }}
@@ -542,7 +542,7 @@ steps:
 - id: probe-mdoc-uri-invalid-percent-encoding
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}"
@@ -569,7 +569,7 @@ steps:
 - id: offer-mdoc-uri-illegal-characters-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-uri-illegal-characters-issuance.outputs.body.deeplink }}
@@ -608,7 +608,7 @@ steps:
 - id: probe-mdoc-uri-illegal-characters
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-illegal-characters-probe.outputs.body.deeplink }}"
@@ -635,7 +635,7 @@ steps:
 - id: offer-mdoc-uri-empty-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-uri-empty-issuance.outputs.body.deeplink }}
@@ -674,7 +674,7 @@ steps:
 - id: probe-mdoc-uri-empty
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-mdoc-uri-empty-probe.outputs.body.deeplink }}"

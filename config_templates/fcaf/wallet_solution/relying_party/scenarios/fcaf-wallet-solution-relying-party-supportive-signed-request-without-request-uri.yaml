@@ -37,7 +37,7 @@ steps:
   - id: submit-haip-by-value-request
     use: mobile-automation
     with:
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+      action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
       version_id: installed_from_external_source
       parameters:
         deeplink: ${{ create-presentation.outputs.body.deeplink }}

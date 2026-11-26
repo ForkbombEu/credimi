@@ -13,7 +13,7 @@ name: FCAF verifier attestation Client Identifier Prefix
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -60,7 +60,7 @@ steps:
 - id: present-va-default
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-default.outputs.body.deeplink }}"
@@ -103,7 +103,7 @@ steps:
 - id: reject-va-subject
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-subject.outputs.body.deeplink }}"
@@ -147,7 +147,7 @@ steps:
 - id: reject-va-issuer
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-issuer.outputs.body.deeplink }}"
@@ -195,7 +195,7 @@ steps:
 - id: present-va-redirect-match
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-redirect-match.outputs.body.deeplink }}"
@@ -241,7 +241,7 @@ steps:
 - id: reject-va-redirect-foreign
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-redirect-foreign.outputs.body.deeplink }}"
@@ -285,7 +285,7 @@ steps:
 - id: reject-va-attestation-sig
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-attestation-sig.outputs.body.deeplink }}"
@@ -329,7 +329,7 @@ steps:
 - id: reject-va-signing-key
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-signing-key.outputs.body.deeplink }}"
@@ -376,7 +376,7 @@ steps:
 - id: reject-va-no-jwt
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-no-jwt.outputs.body.deeplink }}"
@@ -422,7 +422,7 @@ steps:
 - id: present-va-outside-metadata
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-va-outside-metadata.outputs.body.deeplink }}"

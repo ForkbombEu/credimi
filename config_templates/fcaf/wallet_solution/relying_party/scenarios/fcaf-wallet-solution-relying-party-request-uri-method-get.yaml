@@ -44,7 +44,7 @@ steps:
       version_id: installed_from_external_source
       parameters:
         deeplink: ${{ create-presentation.outputs.body.deeplink }}
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+      action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
   - id: get-presentation-result
     use: http-request
     with:

@@ -9,7 +9,7 @@ runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
     log_checker: capture-wallet
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -34,7 +34,7 @@ steps:
 - id: offer-status-without-status-list-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-status-without-status-list-issuance.outputs.body.deeplink }}
@@ -73,7 +73,7 @@ steps:
 - id: probe-status-without-status-list
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-status-without-status-list-probe.outputs.body.deeplink }}"
@@ -100,7 +100,7 @@ steps:
 - id: offer-negative-index-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-negative-index-issuance.outputs.body.deeplink }}
@@ -139,7 +139,7 @@ steps:
 - id: probe-negative-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-negative-index-probe.outputs.body.deeplink }}"
@@ -166,7 +166,7 @@ steps:
 - id: offer-missing-index-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-missing-index-issuance.outputs.body.deeplink }}
@@ -205,7 +205,7 @@ steps:
 - id: probe-missing-index
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-missing-index-probe.outputs.body.deeplink }}"
@@ -232,7 +232,7 @@ steps:
 - id: offer-malformed-uri-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-malformed-uri-issuance.outputs.body.deeplink }}
@@ -271,7 +271,7 @@ steps:
 - id: probe-malformed-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-malformed-uri-probe.outputs.body.deeplink }}"
@@ -298,7 +298,7 @@ steps:
 - id: offer-missing-uri-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-missing-uri-issuance.outputs.body.deeplink }}
@@ -337,7 +337,7 @@ steps:
 - id: probe-missing-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-missing-uri-probe.outputs.body.deeplink }}"
@@ -366,7 +366,7 @@ steps:
 - id: offer-uri-missing-scheme-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-uri-missing-scheme-issuance.outputs.body.deeplink }}
@@ -405,7 +405,7 @@ steps:
 - id: probe-uri-missing-scheme
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-missing-scheme-probe.outputs.body.deeplink }}"
@@ -432,7 +432,7 @@ steps:
 - id: offer-uri-space-in-host-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-uri-space-in-host-issuance.outputs.body.deeplink }}
@@ -471,7 +471,7 @@ steps:
 - id: probe-uri-space-in-host
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-space-in-host-probe.outputs.body.deeplink }}"
@@ -498,7 +498,7 @@ steps:
 - id: offer-uri-invalid-percent-encoding-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-uri-invalid-percent-encoding-issuance.outputs.body.deeplink }}
@@ -537,7 +537,7 @@ steps:
 - id: probe-uri-invalid-percent-encoding
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}"
@@ -564,7 +564,7 @@ steps:
 - id: offer-uri-illegal-characters-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-uri-illegal-characters-issuance.outputs.body.deeplink }}
@@ -603,7 +603,7 @@ steps:
 - id: probe-uri-illegal-characters
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-illegal-characters-probe.outputs.body.deeplink }}"
@@ -630,7 +630,7 @@ steps:
 - id: offer-uri-empty-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-uri-empty-issuance.outputs.body.deeplink }}
@@ -669,7 +669,7 @@ steps:
 - id: probe-uri-empty
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-uri-empty-probe.outputs.body.deeplink }}"

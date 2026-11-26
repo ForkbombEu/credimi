@@ -2,7 +2,7 @@ name: FCAF Request Object payload controls
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
 steps:
 - id: create-different-iss
   use: http-request
@@ -33,7 +33,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-different-iss.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
 - id: fetch-different-iss
   use: http-request
   with:
@@ -67,7 +67,7 @@ steps:
 - id: exercise-missing-client-id
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-missing-client-id.outputs.body.deeplink }}"
@@ -106,7 +106,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-unknown-parameter.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
 - id: fetch-unknown-parameter
   use: http-request
   with:
@@ -140,7 +140,7 @@ steps:
 - id: exercise-invalid-state
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-invalid-state.outputs.body.deeplink }}"
@@ -184,7 +184,7 @@ steps:
 - id: exercise-no-state-without-holder-binding
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-no-state-without-holder-binding.outputs.body.deeplink }}"

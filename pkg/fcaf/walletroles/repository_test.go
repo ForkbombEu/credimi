@@ -24,7 +24,7 @@ import (
 
 const (
 	repositoryRoot       = "../../../config_templates/fcaf"
-	referenceNamespace   = "forkbomb-bv-andrea/eudiw-beta-wallet/"
+	referenceNamespace   = "fcaf-1/eudiw-beta-wallet/"
 	mobileAutomationTask = "mobile-automation"
 	// screenshotStemBudget is PocketBase's 100-character cap on the snake-cased
 	// `<step id>-<name>` stem, less the separator.

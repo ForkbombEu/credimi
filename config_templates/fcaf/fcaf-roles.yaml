@@ -1,6 +1,6 @@
 version: 1
 reference:
-  manifest: imports/forkbomb-bv-andrea/wallet-actions.yaml
+  manifest: imports/fcaf-1/wallet-actions.yaml
   app_ids:
     wallet: eu.europa.ec.euidi
     browser: com.android.chrome

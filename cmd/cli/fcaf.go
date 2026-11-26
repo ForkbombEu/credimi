@@ -145,9 +145,9 @@ func NewFCAFCommand() *cobra.Command {
 	return cmd
 }
 
-// fcafSourceOrg is the canonical organization that owns the bundled FCAF
+// fcafSourceOrg is the FCAF reference organization that owns the bundled FCAF
 // import references; sync rewrites it to the authenticated organization.
-const fcafSourceOrg = "forkbomb-bv-andrea"
+const fcafSourceOrg = "fcaf-1"
 
 type fcafCredentialImport struct {
 	Name           string `yaml:"name"`

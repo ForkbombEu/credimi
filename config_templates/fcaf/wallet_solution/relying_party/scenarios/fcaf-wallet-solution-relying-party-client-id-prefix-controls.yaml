@@ -2,7 +2,7 @@ name: FCAF Client Identifier Prefix controls
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
 steps:
 - id: create-signed-redirect-uri
   use: http-request
@@ -31,7 +31,7 @@ steps:
 - id: observe-signed-redirect-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-observe-request
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-signed-redirect-uri.outputs.body.deeplink }}"
@@ -63,7 +63,7 @@ steps:
 - id: reject-origin-outside-dc-api
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-origin-outside-dc-api.outputs.body.deeplink }}"
@@ -95,7 +95,7 @@ steps:
 - id: reject-unsupported-prefix
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-unsupported-prefix.outputs.body.deeplink }}"
@@ -125,7 +125,7 @@ steps:
 - id: reject-unsigned-https
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-unsigned-https.outputs.body.deeplink }}"

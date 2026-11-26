@@ -4,7 +4,7 @@ name: FCAF Client Identifier binding controls
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -36,7 +36,7 @@ steps:
 - id: reject-san-dns-mismatch
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-san-dns-mismatch.outputs.body.deeplink }}" }
 - id: fetch-san-dns-mismatch
@@ -67,7 +67,7 @@ steps:
 - id: reject-hash-mismatch
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-hash-mismatch.outputs.body.deeplink }}" }
 - id: fetch-hash-mismatch
@@ -98,7 +98,7 @@ steps:
 - id: reject-did-unlisted-key
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-did-unlisted-key.outputs.body.deeplink }}" }
 - id: fetch-did-unlisted-key
@@ -127,7 +127,7 @@ steps:
 - id: reject-missing-x5c
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-missing-x5c.outputs.body.deeplink }}" }
 - id: fetch-missing-x5c
@@ -156,7 +156,7 @@ steps:
 - id: reject-non-https-redirect-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-non-https-redirect-uri.outputs.body.deeplink }}" }
 - id: fetch-non-https-redirect-uri
@@ -185,7 +185,7 @@ steps:
 - id: exercise-derived-response-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-derived-response-uri.outputs.body.deeplink }}" }
 - id: fetch-derived-response-uri
@@ -231,7 +231,7 @@ steps:
 - id: reject-http-request-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-http-request-uri.outputs.body.deeplink }}" }
 - id: fetch-http-request-uri
@@ -264,7 +264,7 @@ steps:
 - id: probe-https-request-uri-control
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-absent
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-https-request-uri-control.outputs.body.deeplink }}" }
 - id: fetch-https-request-uri-control

@@ -2,7 +2,7 @@ name: FCAF Request Object outer parameter controls
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
 steps:
 - id: create-conflicting-nonce
   use: http-request
@@ -29,7 +29,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-conflicting-nonce.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
 - id: fetch-conflicting-nonce
   use: http-request
   with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-conflicting-nonce.outputs.body.session_id }}", expected_status: 200 }
@@ -59,7 +59,7 @@ steps:
 - id: reject-conflicting-client-id
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-conflicting-client-id.outputs.body.deeplink }}"

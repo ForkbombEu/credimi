@@ -1,8 +1,7 @@
 # FCAF Credimi import bundle
 
-This bundle mirrors the reusable YAML currently referenced by the FCAF
-wallet-solution relying-party definitions for the canonified organization
-`forkbomb-bv-andrea`.
+This bundle mirrors the reusable YAML referenced by the FCAF wallet-solution
+definitions for `fcaf-1`, the canonified FCAF reference organization.
 
 ## Contents
 
@@ -29,9 +28,9 @@ removed; deployable pipeline YAML is generated on demand with
 The intended organization-relative paths are:
 
 ```text
-forkbomb-bv-andrea/wallet/<action-name>.yaml
-forkbomb-bv-andrea/credential-issuers/<canonified-issuer-name>.yaml
-forkbomb-bv-andrea/credentials/<canonified-issuer-name>/<canonified-credential-name>.yaml
+fcaf-1/wallet/<action-name>.yaml
+fcaf-1/credential-issuers/<canonified-issuer-name>.yaml
+fcaf-1/credentials/<canonified-issuer-name>/<canonified-credential-name>.yaml
 ```
 
 These are YAML source copies for import or review. They do not contain local

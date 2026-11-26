@@ -2,7 +2,7 @@ name: FCAF verifier metadata request object delivery
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -29,7 +29,7 @@ steps:
 - id: exercise-unencrypted-request-object
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-unencrypted-request-object.outputs.body.deeplink }}" }
 - id: fetch-unencrypted-request-object
@@ -55,7 +55,7 @@ steps:
 - id: exercise-absent-client-metadata
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     version_id: installed_from_external_source
     parameters: { deeplink: "${{ create-absent-client-metadata.outputs.body.deeplink }}" }
 - id: fetch-absent-client-metadata

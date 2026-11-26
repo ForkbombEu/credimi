@@ -15,11 +15,11 @@ steps:
     - id: create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - id: obtain-pid-sdjwt
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -107,7 +107,7 @@ steps:
     - id: invoke-wallet-with-haip-vp
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -121,7 +121,7 @@ steps:
       use: fcaf-validation
       with:
         pipeline_outputs:
-            forkbomb-bv-andrea/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
+            fcaf-1/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
                 output:
                     create-capture-session: ${{ create-capture-session.outputs }}
                     create-pid-sdjwt-offer: ${{ create-pid-sdjwt-offer.outputs }}
