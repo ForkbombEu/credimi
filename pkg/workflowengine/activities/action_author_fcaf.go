@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
@@ -45,31 +46,35 @@ const (
 // fcafSessionID bounds the protocol session ID an evidence check fetches.
 var fcafSessionID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
-// fcafSession reauthorizes the caller's session and returns its selection
-// and FCAF scope, refusing a chat session.
+// fcafSession reauthorizes the caller's session and returns it, its
+// selection and its FCAF scope, refusing a chat session.
 func (l authorSessionLookup) fcafSession(
 	ctx context.Context,
 	base *workflowengine.BaseActivity,
 	app core.App,
 	caller authorCaller,
-) (actionauthor.Selection, *actionauthor.FCAFScope, error) {
-	selection, scope, err := l.sessionScope(ctx, base, app, caller)
+) (ActionAuthorSessionRef, actionauthor.Selection, *actionauthor.FCAFScope, error) {
+	ref, selection, scope, err := l.sessionRefScope(ctx, base, app, caller)
 	if err != nil {
-		return actionauthor.Selection{}, nil, err
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, err
 	}
 	if scope == nil {
-		return actionauthor.Selection{}, nil, actionAuthorError(base, fmt.Errorf(
-			"%w: this session does not author FCAF actions", actionauthor.ErrForbidden,
-		))
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, actionAuthorError(
+			base,
+			fmt.Errorf("%w: this session does not author FCAF actions", actionauthor.ErrForbidden),
+		)
 	}
-	return selection, scope, nil
+	return ref, selection, scope, nil
 }
 
 // ListActionAuthorFCAFRolesOutput is the session suite, the contract's
 // authoring rules, the coverage of every role of the suite in the session
-// wallet, the newest saved FCAF profile, null when none, and the FCAF
-// findings about the wallet that profile implies (actionauthor.FCAFWarnings),
-// which the wallet's coverage shows.
+// wallet (in a fix session with the roles it fixes marked fix, with the
+// fixtures their action failed on in the wallet's last FCAF run and the
+// command it failed at; actionauthor.FCAFFixCoverage), the newest saved
+// FCAF profile, null when none, and the FCAF findings about the wallet that
+// profile implies (actionauthor.FCAFWarnings), which the wallet's coverage
+// shows.
 type ListActionAuthorFCAFRolesOutput struct {
 	Suite    string                          `json:"suite"`
 	Rules    []string                        `json:"rules"`
@@ -121,12 +126,25 @@ func (a *ListActionAuthorFCAFRolesActivity) list(
 	ctx context.Context,
 	caller authorCaller,
 ) (ListActionAuthorFCAFRolesOutput, error) {
-	selection, scope, err := a.fcafSession(ctx, &a.BaseActivity, a.app, caller)
+	ref, selection, scope, err := a.fcafSession(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return ListActionAuthorFCAFRolesOutput{}, err
 	}
-	// The agent's coverage reads no run.
-	roles, profile, err := actionauthor.FCAFCoverage(a.app, selection, scope)
+	// The agent's coverage reads no run, except a fix session's, which marks
+	// the roles it fixes.
+	var roles []actionauthor.FCAFRoleCoverage
+	var profile map[string]any
+	if ref.FCAFFix {
+		roles, profile, err = actionauthor.FCAFFixCoverage(
+			a.app,
+			selection,
+			scope,
+			a.fcafRunState(ctx, ref.Organization),
+			ref.Started,
+		)
+	} else {
+		roles, profile, err = actionauthor.FCAFCoverage(a.app, selection, scope)
+	}
 	if err != nil {
 		return ListActionAuthorFCAFRolesOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -148,7 +166,9 @@ type DescribeActionAuthorFCAFRoleInput struct {
 // reference code, the roles its action starts from, the contract's
 // authoring rules and Credimi-built plans: Plan for a role without
 // parameters, one per fixture of the role's authoring set
-// (walletroles.Contract.AuthoringSet) otherwise. PIDIssuance holds the
+// (walletroles.Contract.AuthoringSet) otherwise, followed in a fix session by
+// the role's other fixtures its action failed on in the wallet's last FCAF
+// run (actionauthor.FCAFFixFixtures). PIDIssuance holds the
 // parameter source of the injected PID issuance per PID issuer
 // (walletroles.PIDIssuers), then per PID format ("sd-jwt", "mdoc").
 // Plans carry no prerequisites: the agent adds the wallet's actions or
@@ -170,7 +190,8 @@ type DescribeActionAuthorFCAFRoleOutput struct {
 // with its behaviour class and the plan whose parameter it generates.
 // PIDIssuer is set only for the injected issuance's fixtures. Setup is what
 // the start state holds beyond StartsFrom, never nil; Complete is set when it
-// holds all of it.
+// holds all of it. Fix is set, in a fix session, on the fixtures the role's
+// action failed on in the wallet's last FCAF run.
 type FCAFFixtureOption struct {
 	ID           string                     `json:"id"`
 	Scenario     string                     `json:"scenario"`
@@ -182,6 +203,7 @@ type FCAFFixtureOption struct {
 	TestIDs      []string                   `json:"test_ids"`
 	Setup        []walletroles.FixtureSetup `json:"setup"`
 	Complete     bool                       `json:"complete"`
+	Fix          bool                       `json:"fix,omitempty"`
 	Plan         actionauthor.Spec          `json:"plan"`
 }
 
@@ -230,9 +252,13 @@ func (a *DescribeActionAuthorFCAFRoleActivity) describe(
 	caller authorCaller,
 	payload DescribeActionAuthorFCAFRoleInput,
 ) (DescribeActionAuthorFCAFRoleOutput, error) {
-	_, scope, err := a.fcafSession(ctx, &a.BaseActivity, a.app, caller)
+	ref, selection, scope, err := a.fcafSession(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return DescribeActionAuthorFCAFRoleOutput{}, err
+	}
+	scope, err = FCAFFixScope(a.app, ref, selection, scope, a.fcafRunState(ctx, ref.Organization))
+	if err != nil {
+		return DescribeActionAuthorFCAFRoleOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	output, err := describeFCAFRole(scope, strings.TrimSpace(payload.Role))
 	if err != nil {
@@ -284,10 +310,23 @@ func describeFCAFRole(
 		output.Plan = &plan
 		return output, nil
 	}
-	// One authoring fixture and the role's pins (the issuance role: every PID issuer and format).
+	// One authoring fixture and the role's pins (the issuance role: every PID
+	// issuer and format), then, in a fix session, the role's fixtures its
+	// action failed on in the last run.
 	fixtures, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, role.Name)
 	if err != nil {
 		return DescribeActionAuthorFCAFRoleOutput{}, err
+	}
+	fix, err := actionauthor.FCAFFixFixtures(scope, role.Name)
+	if err != nil {
+		return DescribeActionAuthorFCAFRoleOutput{}, err
+	}
+	for _, fixture := range fix {
+		if !slices.ContainsFunc(fixtures, func(f walletroles.Fixture) bool {
+			return f.ID == fixture.ID
+		}) {
+			fixtures = append(fixtures, fixture)
+		}
 	}
 	for _, fixture := range fixtures {
 		output.Fixtures = append(output.Fixtures, FCAFFixtureOption{
@@ -301,6 +340,7 @@ func describeFCAFRole(
 			TestIDs:      nonNil(fixture.TestIDs),
 			Setup:        nonNil(fixture.Setup),
 			Complete:     fixture.Complete,
+			Fix:          slices.Contains(scope.Fix[role.Name], fixture.ID),
 			Plan:         fixturePlan(role, fixture),
 		})
 	}
@@ -433,7 +473,7 @@ func (a *CheckActionAuthorFCAFEvidenceActivity) check(
 	caller authorCaller,
 	payload CheckActionAuthorFCAFEvidenceInput,
 ) (CheckActionAuthorFCAFEvidenceOutput, error) {
-	selection, scope, err := a.fcafSession(ctx, &a.BaseActivity, a.app, caller)
+	_, selection, scope, err := a.fcafSession(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return CheckActionAuthorFCAFEvidenceOutput{}, err
 	}

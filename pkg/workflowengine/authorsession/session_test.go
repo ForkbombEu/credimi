@@ -760,12 +760,24 @@ func TestSessionFCAFModeUsesLongerAgentTimeout(t *testing.T) {
 	require.Equal(t, actionauthor.FCAFRelyingPartySuite, h.childContext.FCAFSuite)
 }
 
+func TestSessionFixModeReachesTheAgent(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	session := fcafSessionInput()
+	session.FCAFFix = true
+
+	require.NoError(t, h.run(session))
+
+	require.NotNil(t, h.childContext)
+	require.True(t, h.childContext.FCAFFix)
+}
+
 func TestSessionRejectsInvalidMode(t *testing.T) {
 	tests := []struct {
 		name     string
 		platform string
 		mode     string
 		suite    string
+		fix      bool
 		want     string
 	}{
 		{
@@ -787,6 +799,12 @@ func TestSessionRejectsInvalidMode(t *testing.T) {
 			suite:    actionauthor.FCAFRelyingPartySuite,
 			want:     "FCAF sessions run the relying-party suite on Android",
 		},
+		{
+			name:     "fix in a chat",
+			platform: actionauthor.PlatformAndroid,
+			fix:      true,
+			want:     "fcaf_fix needs mode fcaf",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -794,6 +812,7 @@ func TestSessionRejectsInvalidMode(t *testing.T) {
 			session := sessionInput(tc.platform)
 			session.Mode = tc.mode
 			session.FCAFSuite = tc.suite
+			session.FCAFFix = tc.fix
 
 			require.ErrorContains(t, h.run(session), tc.want)
 			require.Nil(t, h.childContext)

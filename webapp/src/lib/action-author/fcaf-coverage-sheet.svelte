@@ -20,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getFcafCoverage, type FcafCoverage } from './api';
 	import { walletPath } from './builds';
 	import {
+		affectedScenarios,
 		coverageCounts,
 		coverageLabel,
 		coverageVariant,
@@ -76,6 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if result}
 				{@const { total, written, incomplete, recorded, supported, verified, verdicts } =
 					coverageCounts(result.roles)}
+				{@const scenarios = affectedScenarios(result.roles)}
 				<div class="space-y-3 text-sm">
 					{#each result.warnings as warning (warning)}
 						<Alert variant="warning">
@@ -98,6 +100,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</a>
 							{/if}
 						</p>
+					{/if}
+
+					{#if scenarios.length}
+						<div class="space-y-2 rounded-md border p-3">
+							<p class="font-medium">{m.Fcaf_rerun_affected()}</p>
+							<p class="text-xs text-muted-foreground">
+								{m.Fcaf_rerun_affected_description()}
+							</p>
+							<p class="font-mono text-xs break-all">{scenarios.join(', ')}</p>
+							<FcafRunForm
+								{wallet}
+								{walletOwner}
+								{scenarios}
+								label={m.Fcaf_rerun_scenarios()}
+							/>
+						</div>
 					{/if}
 
 					<div class="font-mono text-xs text-muted-foreground">
@@ -159,7 +177,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											{role.run.failed_command}
 										</p>
 									{/if}
-									{#if role.run.fixture_id}
+									{#if role.run.failed_fixtures.length > 1}
+										<p
+											class="font-mono text-xs break-all text-muted-foreground"
+										>
+											{m.Fcaf_run_failed_on_fixtures({
+												fixtures: role.run.failed_fixtures.join(', ')
+											})}
+										</p>
+									{:else if role.run.fixture_id}
 										<p
 											class="font-mono text-xs break-all text-muted-foreground"
 										>

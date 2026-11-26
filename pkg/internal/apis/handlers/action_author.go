@@ -73,7 +73,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the device runner's namespace, runner-<runner record id>. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of a wallet of the caller's organization or a published wallet of another organization (downloadable versions only), or, on an Android device only, organization/wallet for its wallet installed from the Play Store at session start (the device needs the Play Store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. Saved actions are owned by the caller's organization. The iOS simulator has no App Store: organization/wallet on an iOS simulator answers 400 invalid_request before anything is queued. An unpublished wallet of another organization, or a non-downloadable version of one, answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the runner's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. The runner owner sets two daily limits of model tokens (UTC day) in the runner's configuration: one for sessions of the runner's own organization (0: no limit) and one shared by every other organization (0: the agent is not offered to them). A start after the day's tokens of the caller's pool reach its limit answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the device runner's namespace, runner-<runner record id>. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of a wallet of the caller's organization or a published wallet of another organization (downloadable versions only), or, on an Android device only, organization/wallet for its wallet installed from the Play Store at session start (the device needs the Play Store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. Saved actions are owned by the caller's organization. The iOS simulator has no App Store: organization/wallet on an iOS simulator answers 400 invalid_request before anything is queued. An unpublished wallet of another organization, or a non-downloadable version of one, answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the runner's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. mode fcaf (Android devices only, else 422 fcaf_not_supported) authors the wallet's FCAF actions of the relying-party suite; with fcaf_fix true (only with mode fcaf, else 400 invalid_request) the session fixes only the roles whose action failed in the wallet's last FCAF pipeline run (their coverage verdict is failing), starting from their saved actions and replaying them on the requests they failed on, and answers 422 fcaf_nothing_to_fix when no role failed. The runner owner sets two daily limits of model tokens (UTC day) in the runner's configuration: one for sessions of the runner's own organization (0: no limit) and one shared by every other organization (0: the agent is not offered to them). A start after the day's tokens of the caller's pool reach its limit answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -100,7 +100,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorFCAFCoverage,
 			OperationID:    "actionAuthor.fcafCoverage",
 			Summary:        "FCAF coverage of a wallet",
-			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, incomplete, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed, unsupported or finding) and note, with the warnings about the wallet. run_summary (null without one) and run_url are the test summary and link of the latest finished complete run of the wallet's FCAF pipelines (POST /api/action-author/fcaf-pipeline), else of its latest finished subset run, and each role's run how its action did in the latest finished run that ran it (the complete run, or a newer subset run): status ok, failing (the run failed inside the action, with the Maestro command and the fixture) or not_run, and the role's verdict from the run: failing, finding (the action ran and one of the role's tests failed, failed_tests lists at most 20), blocked, passed or not_run, with tests_run; null when no such run ran it. Test statuses merge across runs like the outcomes. A current or incomplete action the run covered has verdict_source pipeline and the run's verdict as verdict; otherwise a recorded agent verdict is the verdict with verdict_source authoring (not verified yet). Only the 20 newest runs of the caller's organization on the wallet's FCAF records are read. A failing run changes neither status nor result.",
+			Description:    "Lists the FCAF relying-party roles and, for each, the caller organization's action on the wallet: missing, current, incomplete, stale or unmanaged, and for a saved FCAF action the agent's verdict (passed, unsupported or finding) and note, with the warnings about the wallet. run_summary (null without one) and run_url are the test summary and link of the latest finished complete run of the wallet's FCAF pipelines (POST /api/action-author/fcaf-pipeline), else of its latest finished subset run, and each role's run how its action did in the latest finished run that ran it (the complete run, or a newer subset run): status ok, failing (the run failed inside the action, with the Maestro command and the fixture of its first failing step; failed_fixtures lists the fixtures <scenario>#<step> of every failing step, at most 32) or not_run, and the role's verdict from the run: failing, finding (the action ran and one of the role's tests failed, failed_tests lists at most 20), blocked, passed or not_run, with tests_run; null when no such run ran it. Test statuses merge across runs like the outcomes. A current or incomplete action the run covered has verdict_source pipeline and the run's verdict as verdict; otherwise a recorded agent verdict is the verdict with verdict_source authoring (not verified yet). Only the 20 newest runs of the caller's organization on the wallet's FCAF records are read. A failing run changes neither status nor result.",
 			ResponseSchema: ActionAuthorFCAFCoverageResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -333,6 +333,9 @@ type ActionAuthorStartRequest struct {
 	// Mode is "fcaf" for a session that authors the FCAF wallet actions of
 	// the relying-party suite; "chat" or empty starts a chat session.
 	Mode string `json:"mode" validate:"omitempty,oneof=chat fcaf"`
+	// FCAFFix, only with mode fcaf, starts a session that fixes the roles
+	// whose action failed in the wallet's last FCAF pipeline run.
+	FCAFFix bool `json:"fcaf_fix"`
 }
 
 // ActionAuthorStartResponse identifies the queued session ticket.
@@ -415,6 +418,39 @@ func authoringAPIError(e *core.RequestEvent, err error) *apierror.APIError {
 	}
 }
 
+// requireFCAFFixRoles answers 422 fcaf_nothing_to_fix unless the selected
+// wallet's coverage has a role whose pipeline verdict is failing, the roles
+// a fix session fixes (actionauthor.FCAFFixCoverage as of now).
+func requireFCAFFixRoles(
+	e *core.RequestEvent,
+	selection actionauthor.Selection,
+	organization string,
+) *apierror.APIError {
+	scope, err := activities.LoadFCAFScope(actionauthor.FCAFRelyingPartySuite)
+	if err != nil {
+		return authoringAPIError(e, fmt.Errorf("load fcaf role contract: %w", err))
+	}
+	coverage, _, err := actionauthor.FCAFFixCoverage(
+		e.App,
+		selection,
+		scope,
+		fcafRunStateReader(e, organization),
+		time.Now(),
+	)
+	if err != nil {
+		return authoringAPIError(e, err)
+	}
+	if len(actionauthor.FCAFFixRoles(coverage)) == 0 {
+		return apierror.New(
+			http.StatusUnprocessableEntity,
+			"action_author",
+			"fcaf_nothing_to_fix",
+			"no FCAF role of this wallet failed in its last FCAF pipeline run",
+		)
+	}
+	return nil
+}
+
 // HandleActionAuthorStart queues a session, in the runner's namespace
 // for the caller's organization, on a device of a runner that offers the agent to the caller's
 // organization.
@@ -471,6 +507,11 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			)
 		}
 		fcaf := input.Mode == actionauthor.SessionModeFCAF
+		if input.FCAFFix && !fcaf {
+			return authoringAPIError(e, fmt.Errorf(
+				"%w: fcaf_fix needs mode fcaf", actionauthor.ErrInvalid,
+			))
+		}
 		if fcaf && platform != actionauthor.PlatformAndroid {
 			return apierror.New(
 				http.StatusUnprocessableEntity,
@@ -493,6 +534,11 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		})
 		if err != nil {
 			return authoringAPIError(e, err)
+		}
+		if input.FCAFFix {
+			if apiErr := requireFCAFFixRoles(e, selection, orgNamespace); apiErr != nil {
+				return apiErr
+			}
 		}
 		if apiErr := requireMobileDeviceRunnersOnline(
 			e.Request.Context(),
@@ -520,6 +566,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if fcaf {
 			sessionInput.Mode = actionauthor.SessionModeFCAF
 			sessionInput.FCAFSuite = actionauthor.FCAFRelyingPartySuite
+			sessionInput.FCAFFix = input.FCAFFix
 		}
 		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
 			SessionWorkflowID:       actionauthor.SessionWorkflowID(runner.Id, ticketID),
@@ -531,6 +578,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			ActorID:                 sessionInput.ActorID,
 			Mode:                    sessionInput.Mode,
 			FCAFSuite:               sessionInput.FCAFSuite,
+			FCAFFix:                 sessionInput.FCAFFix,
 		})
 		if err != nil {
 			return authoringAPIError(e, err)

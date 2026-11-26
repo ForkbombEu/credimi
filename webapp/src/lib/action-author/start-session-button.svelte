@@ -16,12 +16,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Checkbox } from '@/components/ui/checkbox';
 	import { Label } from '@/components/ui/label';
 	import * as RadioGroup from '@/components/ui/radio-group/index.js';
 	import { Textarea } from '@/components/ui/textarea';
 	import { goto, m } from '@/i18n';
 
 	import {
+		getFcafCoverage,
 		listBuilds,
 		listDevices,
 		startSession,
@@ -38,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		walletBuilds,
 		walletPath
 	} from './builds';
-	import { fcafGuidance, modePlatforms } from './fcaf';
+	import { fcafGuidance, fixableRoles, modePlatforms } from './fcaf';
 
 	//
 
@@ -62,6 +64,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let starting = $state(false);
 	let startError = $state('');
 	let guidance = $state('');
+	let fcafFix = $state(false);
+	/** The wallet's roles that failed in its last FCAF run; 0 until its coverage loads, or when that fails. */
+	let fixableCount = $state(0);
+
+	// A slower earlier coverage load must not show the option in another mode or dialog.
+	let coverageId = 0;
+
+	async function loadFixable() {
+		const id = ++coverageId;
+		const res = await getFcafCoverage(walletPath(walletOwner, wallet));
+		if (id === coverageId && res.isOk) fixableCount = fixableRoles(res.value.roles).length;
+	}
 
 	// A slower earlier load (after a quick close and reopen) must not overwrite the selection.
 	let loadId = 0;
@@ -87,12 +101,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!open) return;
 		mode = 'chat';
 		guidance = '';
+		fcafFix = false;
+		fixableCount = 0;
+		coverageId++;
 		options = loadOptions();
 		startError = '';
 	});
 
 	function setMode(next: AuthoringMode, opts: Options) {
 		mode = next;
+		fcafFix = false;
+		fixableCount = 0;
+		coverageId++;
+		if (next === 'fcaf') void loadFixable();
 		selectedDevice = preferredDevice(
 			opts.devices,
 			modePlatforms(buildPlatforms(opts.builds), next)
@@ -113,7 +134,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!selectedDevice || !selectedBuild || starting) return;
 		starting = true;
 		startError = '';
-		const res = await startSession(selectedDevice.path, selectedBuild, mode);
+		const res = await startSession(
+			selectedDevice.path,
+			selectedBuild,
+			mode,
+			fcafFix && fixableCount > 0
+		);
 		starting = false;
 		if (res.isErr) {
 			startError = res.error.message;
@@ -196,6 +222,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</div>
 							</RadioGroup.Root>
 						</div>
+
+						{#if mode === 'fcaf' && fixableCount > 0}
+							<div class="flex items-start gap-2">
+								<Checkbox
+									id="{wallet.id}-fcaf-fix"
+									bind:checked={fcafFix}
+									class="mt-0.5"
+								/>
+								<div class="space-y-0.5">
+									<Label for="{wallet.id}-fcaf-fix">{m.Fcaf_fix_failing()}</Label>
+									<p class="text-xs text-muted-foreground">
+										{m.Fcaf_fix_failing_description({ count: fixableCount })}
+									</p>
+								</div>
+							</div>
+						{/if}
 
 						{#if mode === 'fcaf'}
 							<label class="block space-y-1 text-sm">

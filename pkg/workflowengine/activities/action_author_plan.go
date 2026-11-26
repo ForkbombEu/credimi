@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -51,19 +52,30 @@ func (l authorSessionLookup) sessionScope(
 	app core.App,
 	caller authorCaller,
 ) (actionauthor.Selection, *actionauthor.FCAFScope, error) {
+	_, selection, scope, err := l.sessionRefScope(ctx, base, app, caller)
+	return selection, scope, err
+}
+
+// sessionRefScope is sessionScope that also returns the session.
+func (l authorSessionLookup) sessionRefScope(
+	ctx context.Context,
+	base *workflowengine.BaseActivity,
+	app core.App,
+	caller authorCaller,
+) (ActionAuthorSessionRef, actionauthor.Selection, *actionauthor.FCAFScope, error) {
 	ref, err := l.callerSession(ctx, base, caller)
 	if err != nil {
-		return actionauthor.Selection{}, nil, err
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, err
 	}
 	selection, err := actionauthor.Select(app, ref.Organization, ref.Session)
 	if err != nil {
-		return actionauthor.Selection{}, nil, actionAuthorError(base, err)
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, actionAuthorError(base, err)
 	}
 	scope, err := FCAFScope(ref)
 	if err != nil {
-		return actionauthor.Selection{}, nil, actionAuthorError(base, err)
+		return ActionAuthorSessionRef{}, actionauthor.Selection{}, nil, actionAuthorError(base, err)
 	}
-	return selection, scope, nil
+	return ref, selection, scope, nil
 }
 
 // FCAFScope returns the role contract and suite of an FCAF session, nil for
@@ -73,6 +85,51 @@ func FCAFScope(ref ActionAuthorSessionRef) (*actionauthor.FCAFScope, error) {
 		return nil, nil
 	}
 	return LoadFCAFScope(ref.FCAFSuite)
+}
+
+// FCAFFixScope returns scope with the roles a fix session (ref.FCAFFix)
+// fixes and the fixtures each failed on (actionauthor.FCAFFixCoverage since
+// the session started, reading the Temporal state of runs without a report
+// through state, which may be nil); scope itself for any other session.
+func FCAFFixScope(
+	app core.App,
+	ref ActionAuthorSessionRef,
+	selection actionauthor.Selection,
+	scope *actionauthor.FCAFScope,
+	state actionauthor.FCAFRunStateFunc,
+) (*actionauthor.FCAFScope, error) {
+	if scope == nil || !ref.FCAFFix {
+		return scope, nil
+	}
+	coverage, _, err := actionauthor.FCAFFixCoverage(app, selection, scope, state, ref.Started)
+	if err != nil {
+		return nil, err
+	}
+	fixed := *scope
+	fixed.Fix = actionauthor.FCAFFixRoles(coverage)
+	return &fixed, nil
+}
+
+// fcafRunStateTimeout bounds each Temporal read of a pipeline run's state.
+const fcafRunStateTimeout = 5 * time.Second
+
+// fcafRunState reads the Temporal state of the pipeline runs of the
+// organization (a canonified_name) in its namespace, each read within
+// fcafRunStateTimeout; nil (runs without a report are then left out) when
+// there is no client.
+func (l authorSessionLookup) fcafRunState(
+	ctx context.Context,
+	organization string,
+) actionauthor.FCAFRunStateFunc {
+	c, err := l.temporalClient(organization)
+	if err != nil || c == nil {
+		return nil
+	}
+	return func(workflowID, runID string) (actionauthor.FCAFRunState, error) {
+		ctx, cancel := context.WithTimeout(ctx, fcafRunStateTimeout)
+		defer cancel()
+		return FCAFRunState(ctx, c, workflowID, runID)
+	}
 }
 
 // LoadFCAFScope returns the scope of the suite over the role contract of

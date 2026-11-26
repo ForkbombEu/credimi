@@ -9,11 +9,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path"
 	"regexp"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -487,19 +491,116 @@ func TestFCAFCoverageReadsOnlyTheWalletsOwnRuns(t *testing.T) {
 	assert.Contains(t, lastRun.RunURL, "/my/tests/runs/own/run-own")
 	require.NotNil(t, byRole["fcaf-issue-pid"].Run)
 	assert.Equal(t, FCAFRoleRun{
-		Status:        FCAFRunFailing,
-		Verdict:       FCAFRunFailing,
-		FailedSteps:   2,
-		FailedCommand: `Tap on "Accept"`,
-		FixtureID:     "f.yaml#present",
-		FailedTests:   []string{},
-		RunURL:        lastRun.RunURL,
+		Status:         FCAFRunFailing,
+		Verdict:        FCAFRunFailing,
+		FailedSteps:    2,
+		FailedCommand:  `Tap on "Accept"`,
+		FixtureID:      "f.yaml#present",
+		FailedFixtures: []string{},
+		FailedTests:    []string{},
+		RunURL:         lastRun.RunURL,
 	}, *byRole["fcaf-issue-pid"].Run)
 	assert.Equal(t, FCAFRunFailing, byRole["fcaf-issue-pid"].Verdict)
 	assert.Equal(t, FCAFVerdictFromPipeline, byRole["fcaf-issue-pid"].VerdictSource)
 	assert.Equal(t, FCAFCurrent, byRole["fcaf-issue-pid"].Status)
 	assert.Nil(t, byRole["fcaf-engagement-haip-vp"].Run)
 	assert.Nil(t, byRole["fcaf-expect-request-rejected"].Run, "a role without an action")
+}
+
+// TestFCAFFixCoverageMarksTheRolesFailingInTheLastRun pins that a fix
+// session fixes the roles whose action failed in the last run, with the
+// contract fixtures of its failing steps; that a role saved since that run
+// stays fixed only when the session saved it; and that a fix scope accepts
+// replays of those fixtures outside the authoring set.
+func TestFCAFFixCoverageMarksTheRolesFailingInTheLastRun(t *testing.T) {
+	f := newFCAFRunFixture(t)
+	const role = "fcaf-engagement-haip-vp"
+	set, err := f.scope.Contract.AuthoringSet(f.scope.Root, f.scope.Suite, role)
+	require.NoError(t, err)
+	all, err := f.scope.Contract.Fixtures(f.scope.Root, f.scope.Suite, role)
+	require.NoError(t, err)
+	idx := slices.IndexFunc(all, func(fixture walletroles.Fixture) bool {
+		return !slices.ContainsFunc(set, func(s walletroles.Fixture) bool {
+			return s.ID == fixture.ID
+		})
+	})
+	require.GreaterOrEqual(t, idx, 0, "the role has a fixture outside its authoring set")
+	extra := all[idx]
+	reported := strings.Replace(extra.ID, "#", ".yaml#", 1)
+	failing := f.outcome(role, FCAFRunFailing, 2)
+	failing.FailedCommand, failing.FixtureID = `Tap on "Share"`, reported
+	step := func(status, fixture string) FCAFStepOutcome {
+		return FCAFStepOutcome{
+			Action:    f.actions[role],
+			Role:      role,
+			FixtureID: fixture,
+			Status:    status,
+		}
+	}
+	attachFCAFRun(t, f.app, f.selection.Organization.Id, f.complete, "fix", map[string]any{
+		"summary": map[string]any{"pass": 1},
+		"role_outcomes": FCAFRoleOutcomes{
+			WalletPrefix: f.prefix,
+			Roles: []FCAFRoleOutcome{
+				f.outcome("fcaf-reset-and-onboard", FCAFRunOK),
+				f.outcome("fcaf-issue-pid", FCAFRunOK),
+				failing,
+			},
+			Steps: []FCAFStepOutcome{
+				step(FCAFRunOK, strings.Replace(set[0].ID, "#", ".yaml#", 1)),
+				step(FCAFRunFailing, reported),
+				step(FCAFRunFailing, reported),
+				step(FCAFRunFailing, ""),
+			},
+		},
+	})
+
+	fixed := func(since time.Time) map[string]FCAFRoleCoverage {
+		coverage, _, err := FCAFFixCoverage(f.app, f.selection, f.scope, nil, since)
+		require.NoError(t, err)
+		byRole := map[string]FCAFRoleCoverage{}
+		for _, entry := range coverage {
+			byRole[entry.Role] = entry
+		}
+		return byRole
+	}
+	start := time.Now()
+	byRole := fixed(start)
+	assert.True(t, byRole[role].Fix)
+	assert.Equal(t, []string{extra.ID}, byRole[role].FixFixtures)
+	assert.Equal(t, []string{extra.ID}, byRole[role].Run.FailedFixtures)
+	assert.Equal(t, `Tap on "Share"`, byRole[role].FailedCommand)
+	assert.False(t, byRole["fcaf-issue-pid"].Fix, "a role that passed")
+	assert.False(t, byRole["fcaf-expect-request-rejected"].Fix, "a role without an action")
+	fix := FCAFFixRoles(slices.Collect(maps.Values(byRole)))
+	assert.Equal(t, map[string][]string{role: {extra.ID}}, fix)
+
+	// Only a fix scope takes replays of the failed fixture.
+	replays := []FCAFReplay{{Fixture: extra.ID, Class: extra.Class, Status: FCAFReplayFinding}}
+	err = CheckFCAFReplays(f.scope, replays, role)
+	require.ErrorIs(t, err, ErrInvalid)
+	fixScope := *f.scope
+	fixScope.Fix = fix
+	require.NoError(t, CheckFCAFReplays(&fixScope, replays, role))
+	fixtures, err := FCAFFixFixtures(&fixScope, role)
+	require.NoError(t, err)
+	require.Len(t, fixtures, 1)
+	assert.Equal(t, extra.ID, fixtures[0].ID)
+	none, err := FCAFFixFixtures(&fixScope, "fcaf-issue-pid")
+	require.NoError(t, err)
+	assert.Empty(t, none)
+
+	// Saved after the run: still fixed for the session that saved it, not
+	// for a session started later.
+	time.Sleep(5 * time.Millisecond)
+	record, err := f.app.FindFirstRecordByData("wallet_actions", "name", role)
+	require.NoError(t, err)
+	record.Set("description", "fixed")
+	require.NoError(t, f.app.Save(record))
+	byRole = fixed(start)
+	assert.NotEqual(t, FCAFVerdictFromPipeline, byRole[role].VerdictSource)
+	assert.True(t, byRole[role].Fix)
+	assert.False(t, fixed(time.Now())[role].Fix)
 }
 
 // TestFCAFCoverageReadsARunThatEndedWithoutAReport pins that a finished run
@@ -532,12 +633,13 @@ func TestFCAFCoverageReadsARunThatEndedWithoutAReport(t *testing.T) {
 	assert.Zero(t, lastRun.Summary.Total)
 	assert.Contains(t, lastRun.RunURL, "/prelude-failed/")
 	assert.Equal(t, FCAFRoleRun{
-		Status:        FCAFRunFailing,
-		Verdict:       FCAFRunFailing,
-		FailedSteps:   1,
-		FailedCommand: `Launch app "eu.wallet"`,
-		FailedTests:   []string{},
-		RunURL:        lastRun.RunURL,
+		Status:         FCAFRunFailing,
+		Verdict:        FCAFRunFailing,
+		FailedSteps:    1,
+		FailedCommand:  `Launch app "eu.wallet"`,
+		FailedFixtures: []string{},
+		FailedTests:    []string{},
+		RunURL:         lastRun.RunURL,
 	}, *byRole["fcaf-reset-and-onboard"].Run)
 	for name, role := range byRole {
 		switch {

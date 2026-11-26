@@ -135,6 +135,11 @@ export type FcafRoleRun = {
 	failed_command: string;
 	/** The fixture (scenario#request) the action failed on, empty when it did not fail. */
 	fixture_id: string;
+	/**
+	 * The fixtures (scenario#request) of every step where the role's action failed in the run,
+	 * empty when it did not fail.
+	 */
+	failed_fixtures: string[];
 	/** The role's failed tests (at most 20). */
 	failed_tests: string[];
 	/** How many of the role's tests passed, failed or were blocked. */
@@ -342,14 +347,24 @@ export async function listBuilds(): Promise<Result<BuildOption[], ApiFailure>> {
 	return res.map((r) => r.wallet_versions ?? []);
 }
 
+/**
+ * Starts an authoring session. fcafFix (FCAF mode only) makes the session work only on the roles
+ * whose actions failed in the wallet's last FCAF run.
+ */
 export function startSession(
 	deviceId: string,
 	walletVersionIdentifier: string,
-	mode: AuthoringMode
+	mode: AuthoringMode,
+	fcafFix = false
 ): Promise<Result<StartedSession, ApiFailure>> {
 	return call<StartedSession>('/sessions', {
 		method: 'POST',
-		body: { device_id: deviceId, wallet_version_identifier: walletVersionIdentifier, mode }
+		body: {
+			device_id: deviceId,
+			wallet_version_identifier: walletVersionIdentifier,
+			mode,
+			...(mode === 'fcaf' && fcafFix ? { fcaf_fix: true } : {})
+		}
 	});
 }
 

@@ -39,9 +39,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		wallet: Pick<WalletsResponse, 'canonified_name'>;
 		/** The wallet's organization, whose path names the wallet's builds. */
 		walletOwner: Pick<OrganizationsResponse, 'canonified_name'>;
+		/** Scenario files to run; every scenario when absent. */
+		scenarios?: string[];
+		/** The toggle's label; "Run FCAF validation" when absent. */
+		label?: string;
 	};
 
-	let { wallet, walletOwner }: Props = $props();
+	let { wallet, walletOwner, scenarios, label }: Props = $props();
 
 	type Options = { builds: BuildOption[]; devices: AuthorDevice[] };
 
@@ -88,7 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!selectedDevice || !selectedBuild || running) return;
 		running = true;
 		runError = '';
-		const res = await runFcafPipeline(selectedBuild, selectedDevice.path);
+		const res = await runFcafPipeline(selectedBuild, selectedDevice.path, scenarios);
 		running = false;
 		if (res.isErr) {
 			runError = res.error.message;
@@ -101,7 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="space-y-3">
 	<Button variant="outline" size="sm" onclick={toggle} aria-expanded={expanded}>
 		<PlayIcon />
-		{m.Fcaf_run_validation()}
+		{label ?? m.Fcaf_run_validation()}
 	</Button>
 
 	{#if expanded}

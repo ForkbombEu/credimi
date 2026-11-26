@@ -17,12 +17,14 @@ import type {
 } from './api';
 
 import {
+	affectedScenarios,
 	coverageCounts,
 	coverageLabel,
 	coverageVariant,
 	coverageVerdict,
 	fcafDeviceRecords,
 	fcafPreferredDevice,
+	fixableRoles,
 	modePlatforms,
 	percent,
 	pipelineRunLink,
@@ -81,6 +83,7 @@ function roleRun(
 		failed_steps: 0,
 		failed_command: '',
 		fixture_id: '',
+		failed_fixtures: [],
 		failed_tests: failedTests,
 		tests_run: failedTests.length,
 		run_url: ''
@@ -425,5 +428,57 @@ describe('percent', () => {
 
 	it('is 0 without roles', () => {
 		expect(percent(0, 0)).toBe(0);
+	});
+});
+
+/** A role whose action was saved after the last run: the run stays, the verdict is the agent's. */
+function savedAfterRun(role: FcafRoleCoverage): FcafRoleCoverage {
+	return { ...role, verdict: role.result, verdict_source: role.result ? 'authoring' : '' };
+}
+
+describe('fixableRoles', () => {
+	it('keeps the written roles the last pipeline run found failing', () => {
+		const roles = [
+			coverage('a', 'current', 'passed', roleRun('failing')),
+			coverage('b', 'incomplete', '', roleRun('failing')),
+			coverage('c', 'current', 'passed', roleRun('ok', 'finding')),
+			savedAfterRun(coverage('d', 'current', 'passed', roleRun('failing'))),
+			coverage('e', 'stale', 'passed', roleRun('failing')),
+			coverage('f', 'missing')
+		];
+		expect(fixableRoles(roles).map((r) => r.role)).toEqual(['a', 'b']);
+	});
+});
+
+describe('affectedScenarios', () => {
+	it('lists the unique, sorted scenarios where fixed roles failed', () => {
+		const roles = [
+			savedAfterRun(
+				coverage('a', 'current', 'passed', {
+					...roleRun('failing'),
+					failed_fixtures: ['b-scenario#s1', 'a-scenario#s2', 'b-scenario#s3']
+				})
+			),
+			savedAfterRun(
+				coverage('b', 'incomplete', '', {
+					...roleRun('failing'),
+					failed_fixtures: ['a-scenario#s1', '#orphan', 'c-scenario']
+				})
+			)
+		];
+		expect(affectedScenarios(roles)).toEqual(['a-scenario', 'b-scenario', 'c-scenario']);
+	});
+
+	it('leaves out pipeline-verified, non-failing, unwritten and unrun roles', () => {
+		const failing = { ...roleRun('failing'), failed_fixtures: ['x#s1'] };
+		const roles = [
+			coverage('a', 'current', 'passed', failing),
+			savedAfterRun(
+				coverage('b', 'current', 'passed', { ...roleRun('ok'), failed_fixtures: ['y#s1'] })
+			),
+			savedAfterRun(coverage('c', 'stale', 'passed', failing)),
+			savedAfterRun(coverage('d', 'current', 'passed'))
+		];
+		expect(affectedScenarios(roles)).toEqual([]);
 	});
 });

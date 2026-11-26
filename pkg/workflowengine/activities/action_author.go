@@ -209,6 +209,11 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
+	// A fix session also saves replays of the fixtures each role failed on.
+	scope, err = FCAFFixScope(a.app, ref, selection, scope, a.fcafRunState(ctx, ref.Organization))
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
 	plan, err := SessionPlan(a.app, selection, payload.Spec, scope)
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
@@ -379,9 +384,14 @@ type ActionAuthorSessionRef struct {
 	Session      actionauthor.BuildRequest
 	DeviceID     string
 	// Mode is actionauthor.SessionModeFCAF for an FCAF authoring session,
-	// empty for chat; FCAFSuite is the suite an FCAF session authors.
+	// empty for chat; FCAFSuite is the suite an FCAF session authors;
+	// FCAFFix is set for an FCAF session that fixes the roles failing in the
+	// wallet's last FCAF pipeline run.
 	Mode      string
 	FCAFSuite string
+	FCAFFix   bool
+	// Started is when the session's run started.
+	Started time.Time
 }
 
 // LookupActionAuthorSession returns the running session whose ActionAuthor
@@ -435,6 +445,7 @@ type sessionStart struct {
 	Grant                   string `json:"grant"`
 	Mode                    string `json:"mode"`
 	FCAFSuite               string `json:"fcaf_suite"`
+	FCAFFix                 bool   `json:"fcaf_fix"`
 }
 
 // grant is what Credimi signs for the session workflowID in namespace that
@@ -450,6 +461,7 @@ func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGr
 		ActorID:                 s.ActorID,
 		Mode:                    s.Mode,
 		FCAFSuite:               s.FCAFSuite,
+		FCAFFix:                 s.FCAFFix,
 	}
 }
 
@@ -534,7 +546,7 @@ func TrustedActionAuthorSession(
 		return ActionAuthorSessionRef{}, err
 	case signed:
 		return run.ref, nil
-	case time.Since(run.startTime) < runGrantGrace:
+	case time.Since(run.ref.Started) < runGrantGrace:
 		return ActionAuthorSessionRef{}, actionauthor.ErrSessionNotVisible
 	default:
 		return ActionAuthorSessionRef{}, sessionForbidden(
@@ -546,8 +558,7 @@ func TrustedActionAuthorSession(
 // startedRun is the earliest run of a session, which carries Credimi's
 // session grant, and the rest of its history.
 type startedRun struct {
-	ref       ActionAuthorSessionRef
-	startTime time.Time
+	ref ActionAuthorSessionRef
 	// history continues after the run's start event.
 	history client.HistoryEventIterator
 }
@@ -629,11 +640,8 @@ func readCredimiRun(
 	if err != nil {
 		return startedRun{}, err
 	}
-	return startedRun{
-		ref:       ref,
-		startTime: run.GetStartTime().AsTime(),
-		history:   history,
-	}, nil
+	ref.Started = run.GetStartTime().AsTime()
+	return startedRun{ref: ref, history: history}, nil
 }
 
 // hasRunGrant reports whether history holds an ActionAuthorRunGrantSignal
@@ -761,6 +769,7 @@ func readSessionStart(
 		DeviceID:          start.DeviceID,
 		Mode:              start.Mode,
 		FCAFSuite:         start.FCAFSuite,
+		FCAFFix:           start.FCAFFix,
 	}, nil
 }
 

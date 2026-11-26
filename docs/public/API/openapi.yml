@@ -66,15 +66,17 @@ paths:
         else of its latest finished subset run, and each role''s run how its action
         did in the latest finished run that ran it (the complete run, or a newer subset
         run): status ok, failing (the run failed inside the action, with the Maestro
-        command and the fixture) or not_run, and the role''s verdict from the run:
-        failing, finding (the action ran and one of the role''s tests failed, failed_tests
-        lists at most 20), blocked, passed or not_run, with tests_run; null when no
-        such run ran it. Test statuses merge across runs like the outcomes. A current
-        or incomplete action the run covered has verdict_source pipeline and the run''s
-        verdict as verdict; otherwise a recorded agent verdict is the verdict with
-        verdict_source authoring (not verified yet). Only the 20 newest runs of the
-        caller''s organization on the wallet''s FCAF records are read. A failing run
-        changes neither status nor result.'
+        command and the fixture of its first failing step; failed_fixtures lists the
+        fixtures <scenario>#<step> of every failing step, at most 32) or not_run,
+        and the role''s verdict from the run: failing, finding (the action ran and
+        one of the role''s tests failed, failed_tests lists at most 20), blocked,
+        passed or not_run, with tests_run; null when no such run ran it. Test statuses
+        merge across runs like the outcomes. A current or incomplete action the run
+        covered has verdict_source pipeline and the run''s verdict as verdict; otherwise
+        a recorded agent verdict is the verdict with verdict_source authoring (not
+        verified yet). Only the 20 newest runs of the caller''s organization on the
+        wallet''s FCAF records are read. A failing run changes neither status nor
+        result.'
       operationId: actionAuthor.fcafCoverage
       parameters:
       - description: 'Wallet: organization/wallet (canonified names).'
@@ -286,8 +288,14 @@ paths:
         answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor
         in the runner''s namespace in the last two minutes answers 503 agent_unavailable.
         The agent sets each action''s plan in the chat and Credimi checks it on every
-        call that uses it; the session can save several actions. The runner owner
-        sets two daily limits of model tokens (UTC day) in the runner''s configuration:
+        call that uses it; the session can save several actions. mode fcaf (Android
+        devices only, else 422 fcaf_not_supported) authors the wallet''s FCAF actions
+        of the relying-party suite; with fcaf_fix true (only with mode fcaf, else
+        400 invalid_request) the session fixes only the roles whose action failed
+        in the wallet''s last FCAF pipeline run (their coverage verdict is failing),
+        starting from their saved actions and replaying them on the requests they
+        failed on, and answers 422 fcaf_nothing_to_fix when no role failed. The runner
+        owner sets two daily limits of model tokens (UTC day) in the runner''s configuration:
         one for sessions of the runner''s own organization (0: no limit) and one shared
         by every other organization (0: the agent is not offered to them). A start
         after the day''s tokens of the caller''s pool reach its limit answers 429
@@ -1063,10 +1071,18 @@ components:
           type: string
         category:
           type: string
+        failed_command:
+          type: string
         fcaf_replays:
           items:
             $ref: '#/components/schemas/ActionauthorFCAFReplay'
           nullable: true
+          type: array
+        fix:
+          type: boolean
+        fix_fixtures:
+          items:
+            type: string
           type: array
         missing_fixtures:
           items:
@@ -1103,6 +1119,11 @@ components:
       properties:
         failed_command:
           type: string
+        failed_fixtures:
+          items:
+            type: string
+          nullable: true
+          type: array
         failed_steps:
           type: integer
         failed_tests:
@@ -1595,6 +1616,8 @@ components:
       properties:
         device_id:
           type: string
+        fcaf_fix:
+          type: boolean
         mode:
           type: string
         wallet_version_identifier:

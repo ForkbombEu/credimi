@@ -90,9 +90,12 @@ type SessionInput struct {
 	// agent call. The workflow never reads it.
 	Grant string `json:"grant,omitempty"`
 	// Mode is actionauthor.SessionModeFCAF for an FCAF authoring session,
-	// empty for chat; FCAFSuite is the suite an FCAF session authors.
+	// empty for chat; FCAFSuite is the suite an FCAF session authors;
+	// FCAFFix is set for an FCAF session that fixes the roles failing in the
+	// wallet's last FCAF pipeline run.
 	Mode      string `json:"mode,omitempty"`
 	FCAFSuite string `json:"fcaf_suite,omitempty"`
+	FCAFFix   bool   `json:"fcaf_fix,omitempty"`
 }
 
 // AuthoringBuild is the resolved build the agent authors against. Store
@@ -131,6 +134,7 @@ type AuthoringContext struct {
 	Device                  AuthoringDevice `json:"device"`
 	Mode                    string          `json:"mode,omitempty"`
 	FCAFSuite               string          `json:"fcaf_suite,omitempty"`
+	FCAFFix                 bool            `json:"fcaf_fix,omitempty"`
 }
 
 // Workflow is the "Action author session" workflow.
@@ -223,6 +227,9 @@ func (w *Workflow) ExecuteWorkflow(
 	}
 	switch session.Mode {
 	case "":
+		if session.FCAFFix {
+			return result, invalidSessionError("fcaf_fix needs mode fcaf")
+		}
 	case actionauthor.SessionModeFCAF:
 		if session.FCAFSuite != actionauthor.FCAFRelyingPartySuite ||
 			session.Platform != actionauthor.PlatformAndroid {
@@ -429,6 +436,7 @@ func authoringContext(
 		Platform:                session.Platform,
 		Mode:                    session.Mode,
 		FCAFSuite:               session.FCAFSuite,
+		FCAFFix:                 session.FCAFFix,
 		Build: AuthoringBuild{
 			WalletID:          build.WalletID,
 			VersionID:         build.VersionID,

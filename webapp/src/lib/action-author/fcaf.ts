@@ -219,6 +219,37 @@ export function roleRunFailing(role: FcafRoleCoverage): boolean {
 	return role.run?.status === 'failing';
 }
 
+/**
+ * The roles a fix session works on: a current or incomplete action the wallet's last FCAF run
+ * found failing.
+ */
+export function fixableRoles(roles: FcafRoleCoverage[]): FcafRoleCoverage[] {
+	return roles.filter(
+		(r) =>
+			(r.status === 'current' || r.status === 'incomplete') &&
+			r.verdict === 'failing' &&
+			r.verdict_source === 'pipeline'
+	);
+}
+
+/**
+ * The scenarios to run again after a fix: those of the fixtures where the last FCAF run failed
+ * roles whose current or incomplete action was saved after that run (run failing, verdict not
+ * from the pipeline). Unique and sorted.
+ */
+export function affectedScenarios(roles: FcafRoleCoverage[]): string[] {
+	const scenarios = new Set<string>();
+	for (const role of roles) {
+		if (role.status !== 'current' && role.status !== 'incomplete') continue;
+		if (role.run?.verdict !== 'failing' || role.verdict_source === 'pipeline') continue;
+		for (const fixture of role.run.failed_fixtures ?? []) {
+			const scenario = fixture.split('#')[0];
+			if (scenario) scenarios.add(scenario);
+		}
+	}
+	return [...scenarios].sort();
+}
+
 const RUN_LABELS: Record<FcafRoleRun['status'], () => string> = {
 	ok: m.Fcaf_run_role_ok,
 	failing: m.Fcaf_run_role_failing,

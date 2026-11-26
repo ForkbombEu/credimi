@@ -9,6 +9,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/walletroles"
 	"github.com/pocketbase/dbx"
@@ -17,11 +18,14 @@ import (
 )
 
 // FCAFScope is the role contract, its templates root and the suite of a
-// session that authors FCAF actions.
+// session that authors FCAF actions. Fix, set only for a fix session, maps
+// each role it fixes to the contract fixtures the role's action failed on
+// in the wallet's last FCAF run (FCAFFixCoverage, FCAFFixRoles).
 type FCAFScope struct {
 	Contract *walletroles.Contract
 	Root     string // the FCAF templates root the contract was loaded from
 	Suite    string // e.g. "wallet_solution/relying_party"
+	Fix      map[string][]string
 }
 
 // Coverage statuses of an FCAF role in the session wallet. FCAFIncomplete is
@@ -148,6 +152,13 @@ type FCAFRoleCoverage struct {
 	// authoring: not verified yet); "" with an empty VerdictSource otherwise.
 	Verdict       string `json:"verdict"`
 	VerdictSource string `json:"verdict_source"`
+	// Fix is set, only in a fix session's listing (FCAFFixCoverage), on the
+	// roles the session fixes; FixFixtures are the contract fixtures their
+	// action failed on in the wallet's last FCAF run, FailedCommand the
+	// Maestro command it failed at.
+	Fix           bool     `json:"fix,omitempty"`
+	FixFixtures   []string `json:"fix_fixtures,omitempty"`
+	FailedCommand string   `json:"failed_command,omitempty"`
 }
 
 // Where FCAFRoleCoverage.Verdict comes from.
@@ -269,9 +280,21 @@ func FCAFCoverageWithRun(
 	scope *FCAFScope,
 	state FCAFRunStateFunc,
 ) ([]FCAFRoleCoverage, map[string]any, *FCAFLastRun, error) {
+	coverage, _, profile, lastRun, err := fcafCoverageWithRun(app, selection, scope, state)
+	return coverage, profile, lastRun, err
+}
+
+// fcafCoverageWithRun is FCAFCoverageWithRun with, per action path, when its
+// record was last saved.
+func fcafCoverageWithRun(
+	app core.App,
+	selection Selection,
+	scope *FCAFScope,
+	state FCAFRunStateFunc,
+) ([]FCAFRoleCoverage, map[string]types.DateTime, map[string]any, *FCAFLastRun, error) {
 	coverage, updated, profile, err := fcafCoverage(app, selection, scope)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	resetRole := scope.Contract.Injected(walletroles.InjectedReset).Name
 	resetAction := ""
@@ -282,11 +305,11 @@ func FCAFCoverageWithRun(
 	}
 	roleTests, err := scope.Contract.RoleTests(scope.Root, scope.Suite)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	lastRun, err := ReadFCAFLastRun(app, selection, resetAction, roleTests, state)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	for i := range coverage {
 		entry := &coverage[i]
@@ -297,7 +320,75 @@ func FCAFCoverageWithRun(
 			entry.Verdict, entry.VerdictSource = entry.Run.Verdict, FCAFVerdictFromPipeline
 		}
 	}
-	return coverage, profile, lastRun, nil
+	return coverage, updated, profile, lastRun, nil
+}
+
+// FCAFFixCoverage is FCAFCoverageWithRun for a fix session that started at
+// since: every role, those the session fixes marked Fix, with the fixtures
+// their action failed on in the wallet's last FCAF run (Run.FailedFixtures)
+// as FixFixtures and the Maestro command it failed at. A role is fixed when
+// its action is current or incomplete, the run's verdict on it is failing,
+// and coverage takes that verdict (the action was not saved since the run)
+// or the action was saved at or after since, by the session itself, so a
+// role stays fixed after the session saves it. With since now, the fixed
+// roles are exactly those whose coverage verdict is failing.
+func FCAFFixCoverage(
+	app core.App,
+	selection Selection,
+	scope *FCAFScope,
+	state FCAFRunStateFunc,
+	since time.Time,
+) ([]FCAFRoleCoverage, map[string]any, error) {
+	coverage, updated, profile, _, err := fcafCoverageWithRun(app, selection, scope, state)
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := range coverage {
+		entry := &coverage[i]
+		if entry.Run == nil || entry.Run.Verdict != FCAFRunFailing ||
+			(entry.Status != FCAFCurrent && entry.Status != FCAFIncomplete) {
+			continue
+		}
+		if entry.VerdictSource != FCAFVerdictFromPipeline &&
+			updated[entry.Action].Time().Before(since) {
+			continue
+		}
+		entry.Fix = true
+		entry.FixFixtures = slices.Clone(entry.Run.FailedFixtures)
+		entry.FailedCommand = entry.Run.FailedCommand
+	}
+	return coverage, profile, nil
+}
+
+// FCAFFixRoles returns, by role, the FixFixtures of the roles of coverage
+// (FCAFFixCoverage) marked Fix, each never nil; empty when none is.
+func FCAFFixRoles(coverage []FCAFRoleCoverage) map[string][]string {
+	fix := map[string][]string{}
+	for _, entry := range coverage {
+		if entry.Fix {
+			fix[entry.Role] = append([]string{}, entry.FixFixtures...)
+		}
+	}
+	return fix
+}
+
+// FCAFFixFixtures returns the fixtures of the role, in Fixtures order, that
+// a fix session's scope says its action failed on (FCAFScope.Fix); a failed
+// step of a fixture the role does not have (an injected issuance or reset
+// runs in another role's scenario step) has none. Empty outside a fix
+// session.
+func FCAFFixFixtures(scope *FCAFScope, role string) ([]walletroles.Fixture, error) {
+	failed := scope.Fix[role]
+	if len(failed) == 0 {
+		return nil, nil
+	}
+	fixtures, err := scope.Contract.Fixtures(scope.Root, scope.Suite, role)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(fixtures, func(f walletroles.Fixture) bool {
+		return !slices.Contains(failed, f.ID)
+	}), nil
 }
 
 // FCAFKeyAttestationFinding is the FCAF finding about a wallet whose profile
@@ -338,9 +429,10 @@ const (
 )
 
 // CheckFCAFReplays refuses replays of an action without an FCAF role, more
-// than 64 of them, and a replay of a fixture that is not in the role's
-// current authoring set, given twice, of another class than the fixture's or
-// with a status other than passed, finding or action_failed.
+// than 64 of them, and a replay of a fixture that is neither in the role's
+// current authoring set nor, in a fix session, a fixture of the role it
+// failed on (FCAFScope.Fix), given twice, of another class than the
+// fixture's or with a status other than passed, finding or action_failed.
 func CheckFCAFReplays(scope *FCAFScope, replays []FCAFReplay, fcafRole string) error {
 	if len(replays) == 0 {
 		return nil
@@ -355,8 +447,12 @@ func CheckFCAFReplays(scope *FCAFScope, replays []FCAFReplay, fcafRole string) e
 	if err != nil {
 		return fmt.Errorf("fcaf_replays: %w", err)
 	}
-	classes := make(map[string]string, len(set))
-	for _, fixture := range set {
+	fix, err := FCAFFixFixtures(scope, fcafRole)
+	if err != nil {
+		return fmt.Errorf("fcaf_replays: %w", err)
+	}
+	classes := make(map[string]string, len(set)+len(fix))
+	for _, fixture := range slices.Concat(set, fix) {
 		classes[fixture.ID] = fixture.Class
 	}
 	seen := map[string]bool{}

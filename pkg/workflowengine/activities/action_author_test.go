@@ -135,6 +135,7 @@ func signedSessionHistory(
 		ActorID:                 field("actor_id"),
 		Mode:                    field("mode"),
 		FCAFSuite:               field("fcaf_suite"),
+		FCAFFix:                 input["fcaf_fix"] == true,
 	})
 	require.NoError(t, err)
 	signed := maps.Clone(input)

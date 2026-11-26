@@ -137,6 +137,7 @@ func TestSessionSignAndVerify(t *testing.T) {
 		"actor":     func(g *SessionGrant) { g.ActorID = "user-2" },
 		"mode":      func(g *SessionGrant) { g.Mode = SessionModeFCAF },
 		"suite":     func(g *SessionGrant) { g.FCAFSuite = FCAFRelyingPartySuite },
+		"fix":       func(g *SessionGrant) { g.FCAFFix = true },
 	}
 	for name, change := range changed {
 		t.Run(name, func(t *testing.T) {
@@ -178,6 +179,19 @@ func TestFCAFSessionTokenIsNotAChatSession(t *testing.T) {
 	err = VerifySession(app, token, chat)
 	require.ErrorIs(t, err, ErrForbidden)
 	assert.ErrorContains(t, err, "action author session was not started by Credimi")
+
+	// A session started to author is not a fix session, and the reverse.
+	fix := grant
+	fix.FCAFFix = true
+	err = VerifySession(app, token, fix)
+	require.ErrorIs(t, err, ErrForbidden)
+	fixToken, err := SignSession(app, fix)
+	require.NoError(t, err)
+	require.NoError(t, VerifySession(app, fixToken, fix))
+	require.ErrorIs(t, VerifySession(app, fixToken, grant), ErrForbidden)
+	ticket, err := SignTicket(app, grant)
+	require.NoError(t, err)
+	require.ErrorIs(t, VerifyTicket(app, ticket, fix), ErrForbidden)
 }
 
 func TestTicketAndSessionTokensAreNotInterchangeable(t *testing.T) {

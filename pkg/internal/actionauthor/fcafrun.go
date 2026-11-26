@@ -386,30 +386,71 @@ const (
 	FCAFVerdictBlocked = "blocked"
 )
 
-// MaxFCAFFailedTests bounds FCAFRoleRun.FailedTests.
-const MaxFCAFFailedTests = 20
+// MaxFCAFFailedTests bounds FCAFRoleRun.FailedTests, MaxFCAFFailedFixtures
+// FCAFRoleRun.FailedFixtures.
+const (
+	MaxFCAFFailedTests    = 20
+	MaxFCAFFailedFixtures = 32
+)
 
 // FCAFRoleRun is how a role's action did in the wallet's last FCAF run:
 // Status is the action's outcome (ok, failing or not_run), Verdict the role's
 // verdict from it and from the role's tests, FailedTests the IDs of the
 // role's failed tests (sorted, at most MaxFCAFFailedTests, never nil) and
 // TestsRun how many of the role's tests passed, failed, were blocked or
-// inconclusive.
+// inconclusive. FixtureID is the step outcome's fixture_id of the first
+// failing step (<scenario file>#<scenario step id>); FailedFixtures are the
+// contract fixture IDs (walletroles.Fixture.ID, FCAFContractFixture) of every
+// failing step, in step order, once each, at most MaxFCAFFailedFixtures,
+// never nil.
 type FCAFRoleRun struct {
-	Status        string   `json:"status"`
-	Verdict       string   `json:"verdict"`
-	FailedSteps   int      `json:"failed_steps"`
-	FailedCommand string   `json:"failed_command"`
-	FixtureID     string   `json:"fixture_id"`
-	FailedTests   []string `json:"failed_tests"`
-	TestsRun      int      `json:"tests_run"`
-	RunURL        string   `json:"run_url"`
+	Status         string   `json:"status"`
+	Verdict        string   `json:"verdict"`
+	FailedSteps    int      `json:"failed_steps"`
+	FailedCommand  string   `json:"failed_command"`
+	FixtureID      string   `json:"fixture_id"`
+	FailedFixtures []string `json:"failed_fixtures"`
+	FailedTests    []string `json:"failed_tests"`
+	TestsRun       int      `json:"tests_run"`
+	RunURL         string   `json:"run_url"`
+}
+
+// FCAFContractFixture is the contract fixture ID (walletroles.Fixture.ID,
+// "<scenario base name>#<step id>") of a step outcome's fixture_id
+// ("<scenario file>#<step id>"); "" for a step of no scenario.
+func FCAFContractFixture(fixtureID string) string {
+	scenario, step, ok := strings.Cut(fixtureID, "#")
+	if !ok || scenario == "" || step == "" {
+		return ""
+	}
+	return strings.TrimSuffix(scenario, ".yaml") + "#" + step
+}
+
+// failedFixtures returns the contract fixtures of the failing steps of
+// action, once each, in step order, at most MaxFCAFFailedFixtures.
+func failedFixtures(steps []FCAFStepOutcome, action string) []string {
+	fixtures := []string{}
+	for _, step := range steps {
+		fixture := FCAFContractFixture(step.FixtureID)
+		if step.Action != action || step.Status != FCAFRunFailing || fixture == "" ||
+			slices.Contains(fixtures, fixture) {
+			continue
+		}
+		if len(fixtures) == MaxFCAFFailedFixtures {
+			break
+		}
+		fixtures = append(fixtures, fixture)
+	}
+	return fixtures
 }
 
 // judge sets the run's Verdict, FailedTests and TestsRun from its Status
 // and the status (executed_tests, merged over the runs) of each of tests,
-// the role's tests.
+// the role's tests; a nil FailedFixtures becomes empty.
 func (r *FCAFRoleRun) judge(tests []string, statuses map[string]string) {
+	if r.FailedFixtures == nil {
+		r.FailedFixtures = []string{}
+	}
 	r.FailedTests = []string{}
 	r.TestsRun = 0
 	blocked := false
@@ -708,11 +749,12 @@ func (r fcafFinishedRun) apply(
 				continue
 			}
 			last.Actions[outcome.Action] = FCAFRoleRun{
-				Status:        outcome.Status,
-				FailedSteps:   outcome.Failing,
-				FailedCommand: outcome.FailedCommand,
-				FixtureID:     outcome.FixtureID,
-				RunURL:        r.url,
+				Status:         outcome.Status,
+				FailedSteps:    outcome.Failing,
+				FailedCommand:  outcome.FailedCommand,
+				FixtureID:      outcome.FixtureID,
+				FailedFixtures: failedFixtures(r.report.RoleOutcomes.Steps, outcome.Action),
+				RunURL:         r.url,
 			}
 			roles[outcome.Action] = outcome.Role
 			last.ranAt[outcome.Action] = r.result.GetDateTime("created")

@@ -136,6 +136,9 @@ type SessionGrant struct {
 	Mode string `json:"mode,omitempty"`
 	// FCAFSuite is the suite an FCAF session authors, empty for chat.
 	FCAFSuite string `json:"fcaf_suite,omitempty"`
+	// FCAFFix is set for an FCAF session that fixes the roles failing in the
+	// wallet's last FCAF pipeline run.
+	FCAFFix bool `json:"fcaf_fix,omitempty"`
 }
 
 // SignSession returns the token base64url(json).base64url(hmac) of g.
