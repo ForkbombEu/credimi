@@ -140,7 +140,20 @@ type FCAFRoleCoverage struct {
 	// there is none or runs were not read. A failing run changes neither
 	// Status nor Result.
 	Run *FCAFRoleRun `json:"run"`
+	// Verdict is the role's verdict: for a current or incomplete action, the
+	// pipeline's (Run.Verdict: passed, finding, failing or blocked) when the
+	// last run covered the role (VerdictSource pipeline), else the agent's
+	// Result (VerdictSource authoring: not verified yet); "" with an empty
+	// VerdictSource otherwise.
+	Verdict       string `json:"verdict"`
+	VerdictSource string `json:"verdict_source"`
 }
+
+// Where FCAFRoleCoverage.Verdict comes from.
+const (
+	FCAFVerdictFromPipeline  = "pipeline"
+	FCAFVerdictFromAuthoring = "authoring"
+)
 
 // FCAFCoverage lists the roles of the session suite, the injected reset
 // first, the injected issuance second, then in contract order, with the
@@ -219,6 +232,10 @@ func FCAFCoverage(
 				entry.Result = provenance.FCAFResult.Status
 				entry.Note = provenance.FCAFResult.Note
 			}
+			if entry.Result != "" &&
+				(entry.Status == FCAFCurrent || entry.Status == FCAFIncomplete) {
+				entry.Verdict, entry.VerdictSource = entry.Result, FCAFVerdictFromAuthoring
+			}
 		}
 		coverage = append(coverage, entry)
 	}
@@ -227,8 +244,10 @@ func FCAFCoverage(
 
 // FCAFCoverageWithRun is FCAFCoverage with how each role's action did in the
 // wallet's last finished FCAF run (ReadFCAFLastRun with state, which may be
-// nil), matched by the action's path whatever its role's name. The third
-// value is the last run, nil when there is none.
+// nil, judged on the scope's walletroles Contract.RoleTests), matched by the
+// action's path whatever its role's name; a current or incomplete action the
+// run covered takes the pipeline's verdict. The third value is the last run,
+// nil when there is none.
 func FCAFCoverageWithRun(
 	app core.App,
 	selection Selection,
@@ -246,12 +265,21 @@ func FCAFCoverageWithRun(
 			resetAction = entry.Action
 		}
 	}
-	lastRun, err := ReadFCAFLastRun(app, selection, resetAction, state)
+	roleTests, err := scope.Contract.RoleTests(scope.Root, scope.Suite)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	lastRun, err := ReadFCAFLastRun(app, selection, resetAction, roleTests, state)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	for i := range coverage {
-		coverage[i].Run = lastRun.Run(coverage[i].Action)
+		entry := &coverage[i]
+		entry.Run = lastRun.Run(entry.Action)
+		if entry.Run != nil && entry.Run.Verdict != FCAFRunNotRun &&
+			(entry.Status == FCAFCurrent || entry.Status == FCAFIncomplete) {
+			entry.Verdict, entry.VerdictSource = entry.Run.Verdict, FCAFVerdictFromPipeline
+		}
 	}
 	return coverage, profile, lastRun, nil
 }

@@ -272,6 +272,8 @@ type suiteKey struct{ root, suite string }
 type suiteScenarios struct {
 	scenarios []fixtureScenario
 	tests     *testLoader
+	// roleTests is RoleTests of the suite, set on first use under fixturesMu.
+	roleTests map[string][]string
 }
 
 // fixtureScenario is a scenario's path and file base name without .yaml,
@@ -323,6 +325,50 @@ func (c *Contract) Fixtures(fcafRoot, suite, roleName string) ([]Fixture, error)
 		fixtures[i].Class = c.Class(fixtures[i].Request.Body)
 	}
 	return fixtures, nil
+}
+
+// RoleTests maps each role of the suite to its tests: the sorted union of
+// the TestIDs of all its fixtures, that is the tests whose evidence resolves
+// only through that role's wallet step and its fetches. A test reachable
+// through the fixtures of two roles belongs to both; a test whose evidence
+// combines several steps belongs to none. A role without tests is absent.
+// The contract computes it once per (fcafRoot, suite); callers must not
+// modify the map.
+func (c *Contract) RoleTests(fcafRoot, suite string) (map[string][]string, error) {
+	loaded, err := c.suiteScenarios(fcafRoot, suite)
+	if err != nil {
+		return nil, err
+	}
+	c.fixturesMu.Lock()
+	cached := loaded.roleTests
+	c.fixturesMu.Unlock()
+	if cached != nil {
+		return cached, nil
+	}
+	roleTests := map[string][]string{}
+	for _, role := range c.Roles {
+		if !slices.Contains(role.Suites, suite) {
+			continue
+		}
+		fixtures, err := c.Fixtures(fcafRoot, suite, role.Name)
+		if err != nil {
+			return nil, err
+		}
+		var ids []string
+		for _, fixture := range fixtures {
+			ids = append(ids, fixture.TestIDs...)
+		}
+		if len(ids) > 0 {
+			slices.Sort(ids)
+			roleTests[role.Name] = slices.Compact(ids)
+		}
+	}
+	c.fixturesMu.Lock()
+	defer c.fixturesMu.Unlock()
+	if loaded.roleTests == nil {
+		loaded.roleTests = roleTests
+	}
+	return loaded.roleTests, nil
 }
 
 // suiteScenarios returns the scenarios of the suite under fcafRoot, read on

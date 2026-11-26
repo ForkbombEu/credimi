@@ -208,21 +208,16 @@ func TestDescribeActionAuthorFCAFRole(t *testing.T) {
 	require.Equal(t, []string{"fcaf-reset-and-onboard", "fcaf-issue-pid"}, rejected.StartsFrom)
 	require.Nil(t, rejected.Plan)
 	require.Equal(t, "com.android.chrome", rejected.BrowserAppID)
-	require.NotEmpty(t, rejected.Fixtures)
-	// One fixture per behaviour class.
-	classes := map[string]bool{}
-	for _, fixture := range rejected.Fixtures {
-		require.NotEmpty(t, fixture.Class, fixture.ID)
-		require.False(t, classes[fixture.Class], fixture.Class)
-		classes[fixture.Class] = true
-	}
+	// One authoring fixture: the role pins none.
+	require.Len(t, rejected.Fixtures, 1)
 	all, err := testFCAFScope(t).Contract.Fixtures(
 		fcafTemplatesRoot(), actionauthor.FCAFRelyingPartySuite, "fcaf-expect-request-rejected",
 	)
 	require.NoError(t, err)
-	for _, fixture := range all {
-		require.True(t, classes[fixture.Class], fixture.Class)
-	}
+	authoring, ok := walletroles.AuthoringFixture(all)
+	require.True(t, ok)
+	require.Equal(t, authoring.ID, rejected.Fixtures[0].ID)
+	require.Equal(t, authoring.Class, rejected.Fixtures[0].Class)
 	first := rejected.Fixtures[0]
 	require.NotEmpty(t, first.TestIDs)
 	require.Equal(t, "fcaf-expect-request-rejected", first.Plan.FCAFRole)

@@ -1465,7 +1465,7 @@ func TestAuthoringSaveFCAFAction(t *testing.T) {
 
 func TestCheckFCAFReplays(t *testing.T) {
 	scope := fcafTestScope(t)
-	const role = "fcaf-engagement-haip-vp"
+	const role = "fcaf-dc-api-present" // one authoring fixture and two pins
 	set, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, role)
 	require.NoError(t, err)
 	require.Greater(t, len(set), 1)

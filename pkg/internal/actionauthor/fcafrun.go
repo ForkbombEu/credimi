@@ -373,13 +373,69 @@ func stepFixtures(steps []pipeline.StepDefinition, scenarioFiles map[string]stri
 	return fixtures
 }
 
-// FCAFRoleRun is how a role's action did in the wallet's last FCAF run.
+// The verdict on a role from the wallet's FCAF runs (FCAFRoleRun.Verdict):
+// FCAFRunFailing when its action failed in some step, FCAFRunNotRun when its
+// steps did not run, else from the role's tests (walletroles RoleTests) that
+// ran: FCAFVerdictFinding when one failed, FCAFVerdictBlocked when one is
+// blocked or inconclusive, FCAFVerdictPassed otherwise (skipped and not
+// applicable tests do not count).
+const (
+	FCAFVerdictPassed  = "passed"
+	FCAFVerdictFinding = "finding"
+	FCAFVerdictBlocked = "blocked"
+)
+
+// MaxFCAFFailedTests bounds FCAFRoleRun.FailedTests.
+const MaxFCAFFailedTests = 20
+
+// FCAFRoleRun is how a role's action did in the wallet's last FCAF run:
+// Status is the action's outcome (ok, failing or not_run), Verdict the role's
+// verdict from it and from the role's tests, FailedTests the IDs of the
+// role's failed tests (sorted, at most MaxFCAFFailedTests, never nil) and
+// TestsRun how many of the role's tests passed, failed, were blocked or
+// inconclusive.
 type FCAFRoleRun struct {
-	Status        string `json:"status"`
-	FailedSteps   int    `json:"failed_steps"`
-	FailedCommand string `json:"failed_command"`
-	FixtureID     string `json:"fixture_id"`
-	RunURL        string `json:"run_url"`
+	Status        string   `json:"status"`
+	Verdict       string   `json:"verdict"`
+	FailedSteps   int      `json:"failed_steps"`
+	FailedCommand string   `json:"failed_command"`
+	FixtureID     string   `json:"fixture_id"`
+	FailedTests   []string `json:"failed_tests"`
+	TestsRun      int      `json:"tests_run"`
+	RunURL        string   `json:"run_url"`
+}
+
+// judge sets the run's Verdict, FailedTests and TestsRun from its Status
+// and the status (executed_tests, merged over the runs) of each of tests,
+// the role's tests.
+func (r *FCAFRoleRun) judge(tests []string, statuses map[string]string) {
+	r.FailedTests = []string{}
+	r.TestsRun = 0
+	blocked := false
+	for _, id := range tests {
+		switch statuses[id] {
+		case "passed":
+		case "failed":
+			if len(r.FailedTests) < MaxFCAFFailedTests {
+				r.FailedTests = append(r.FailedTests, id)
+			}
+		case "blocked", "inconclusive":
+			blocked = true
+		default:
+			continue
+		}
+		r.TestsRun++
+	}
+	switch {
+	case r.Status != FCAFRunOK:
+		r.Verdict = r.Status
+	case len(r.FailedTests) > 0:
+		r.Verdict = FCAFVerdictFinding
+	case blocked:
+		r.Verdict = FCAFVerdictBlocked
+	default:
+		r.Verdict = FCAFVerdictPassed
+	}
 }
 
 // FCAFRunSummary is the test summary of the wallet's last finished FCAF run.
@@ -442,8 +498,12 @@ type FCAFRunStateFunc func(workflowID, runID string) (FCAFRunState, error)
 
 // storedFCAFReport is the part of a stored fcaf_report coverage reads.
 type storedFCAFReport struct {
-	Summary      FCAFRunSummary    `json:"summary"`
-	RoleOutcomes *FCAFRoleOutcomes `json:"role_outcomes"`
+	Summary       FCAFRunSummary    `json:"summary"`
+	RoleOutcomes  *FCAFRoleOutcomes `json:"role_outcomes"`
+	ExecutedTests []struct {
+		TestID string `json:"test_id"`
+		Status string `json:"status"`
+	} `json:"executed_tests"`
 }
 
 // fcafFinishedRun is a finished run of one of the wallet's FCAF pipelines:
@@ -466,7 +526,10 @@ type fcafFinishedRun struct {
 // (role_outcomes.wallet_prefix) is ignored. The outcomes start from the
 // newest finished complete run, else from the oldest finished subset run,
 // and every newer finished subset run, oldest first, replaces the outcome of
-// each action it ran. The summary and link are those of the newest finished
+// each action it ran; the status of each test (executed_tests) merges the
+// same way. Each outcome is then judged (FCAFRoleRun.Verdict) on the tests
+// roleTests (walletroles Contract.RoleTests) gives the role the run named
+// for the action. The summary and link are those of the newest finished
 // complete run, else of the newest finished subset run. A run without a
 // report leaves every action not_run when it is the starting run, except
 // resetAction (the path of the wallet's reset action), failing when the
@@ -475,6 +538,7 @@ func ReadFCAFLastRun(
 	app core.App,
 	selection Selection,
 	resetAction string,
+	roleTests map[string][]string,
 	state FCAFRunStateFunc,
 ) (*FCAFLastRun, error) {
 	walletPath := FCAFWalletPath(selection)
@@ -548,9 +612,18 @@ func ReadFCAFLastRun(
 		shown.pipeline.GetString("canonified_name")
 	summary.Created = shown.result.GetDateTime("created").String()
 	summary.Status = shown.state.Status
-	// Oldest first, so the newest run of each action wins.
+	// Oldest first, so the newest run of each action and test wins.
+	statuses := map[string]string{}
+	roles := map[string]string{}
 	for i := len(runs) - 1; i >= 0; i-- {
-		runs[i].apply(last, resetAction, i == len(runs)-1)
+		runs[i].apply(last, statuses, roles, resetAction, i == len(runs)-1)
+	}
+	for action, run := range last.Actions {
+		run.judge(roleTests[roles[action]], statuses)
+		last.Actions[action] = run
+	}
+	if last.NotRun != nil {
+		last.NotRun.judge(nil, statuses)
 	}
 	return last, nil
 }
@@ -595,10 +668,19 @@ func readFCAFFinishedRun(
 	return run, true, nil
 }
 
-// apply sets the outcomes of the run's actions in last; with base, a run
-// without a report also leaves every other action not run.
-func (r fcafFinishedRun) apply(last *FCAFLastRun, resetAction string, base bool) {
+// apply sets the outcomes of the run's actions in last, the role it names
+// for each in roles and the status of each test it ran in statuses; with
+// base, a run without a report also leaves every other action not run.
+func (r fcafFinishedRun) apply(
+	last *FCAFLastRun,
+	statuses, roles map[string]string,
+	resetAction string,
+	base bool,
+) {
 	if r.report != nil {
+		for _, test := range r.report.ExecutedTests {
+			statuses[test.TestID] = test.Status
+		}
 		if r.report.RoleOutcomes == nil {
 			return
 		}
@@ -613,6 +695,7 @@ func (r fcafFinishedRun) apply(last *FCAFLastRun, resetAction string, base bool)
 				FixtureID:     outcome.FixtureID,
 				RunURL:        r.url,
 			}
+			roles[outcome.Action] = outcome.Role
 		}
 		return
 	}

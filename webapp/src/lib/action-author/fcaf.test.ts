@@ -8,6 +8,7 @@ import type {
 	AuthorDevice,
 	FcafCoverageStatus,
 	FcafPipelineRun,
+	FcafPipelineVerdict,
 	FcafRoleCoverage,
 	FcafRoleProgress,
 	FcafRoleRun,
@@ -33,19 +34,23 @@ import {
 	roleRunFailing,
 	roleStatusLabel,
 	roleStatusVariant,
-	runSummaryLine
+	runSummaryLine,
+	verifiedByPipeline
 } from './fcaf';
 
 function progress(role: string, status: FcafRoleStatus): FcafRoleProgress {
 	return { role, status, key: '', note: '' };
 }
 
+/** A coverage entry whose verdict follows the backend: the run's when it covered a written action, else the agent's. */
 function coverage(
 	role: string,
 	status: FcafCoverageStatus,
 	result: FcafRoleCoverage['result'] = '',
 	run: FcafRoleRun | null = null
 ): FcafRoleCoverage {
+	const written = status === 'current' || status === 'incomplete';
+	const verified = written && run !== null && run.verdict !== 'not_run';
 	return {
 		role,
 		summary: '',
@@ -59,12 +64,27 @@ function coverage(
 		note: '',
 		missing_fixtures: [],
 		fcaf_replays: [],
-		run
+		run,
+		verdict: verified ? (run.verdict as FcafPipelineVerdict) : written ? result : '',
+		verdict_source: verified ? 'pipeline' : written && result ? 'authoring' : ''
 	};
 }
 
-function roleRun(status: FcafRoleRun['status']): FcafRoleRun {
-	return { status, failed_steps: 0, failed_command: '', fixture_id: '', run_url: '' };
+function roleRun(
+	status: FcafRoleRun['status'],
+	verdict: FcafRoleRun['verdict'] = status === 'ok' ? 'passed' : status,
+	failedTests: string[] = []
+): FcafRoleRun {
+	return {
+		status,
+		verdict,
+		failed_steps: 0,
+		failed_command: '',
+		fixture_id: '',
+		failed_tests: failedTests,
+		tests_run: failedTests.length,
+		run_url: ''
+	};
 }
 
 function device(
@@ -87,26 +107,25 @@ function device(
 }
 
 describe('roleRunFailing and roleRunBadge', () => {
-	it('marks a role failing in the last run with a destructive badge', () => {
+	it('shows a role failing in the last run as the pipeline verdict, without a run badge', () => {
 		const role = coverage('a', 'current', 'passed', roleRun('failing'));
 		expect(roleRunFailing(role)).toBe(true);
-		expect(roleRunBadge(role.run)).toEqual({
+		expect(roleRunBadge(role)).toBeUndefined();
+		expect(coverageVerdict(role)).toBe('failing');
+		expect(coverageLabel('failing')).toBe('Failing in the last run');
+		expect(coverageVariant('failing')).toBe('destructive');
+	});
+
+	it('keeps the run badge of a role whose verdict does not come from the run', () => {
+		expect(roleRunBadge(coverage('a', 'stale', 'passed', roleRun('failing')))).toEqual({
 			label: 'Failing in the last run',
 			variant: 'destructive'
 		});
-	});
-
-	it('keeps the coverage verdict of a role failing in the last run', () => {
-		const role = coverage('a', 'current', 'passed', roleRun('failing'));
-		expect(coverageVerdict(role)).toBe('passed');
-	});
-
-	it('labels a role that ran or was not run in the last run', () => {
-		expect(roleRunBadge(roleRun('ok'))).toEqual({
+		expect(roleRunBadge(coverage('a', 'stale', '', roleRun('ok')))).toEqual({
 			label: 'Ran in the last run',
 			variant: 'secondary'
 		});
-		expect(roleRunBadge(roleRun('not_run'))).toEqual({
+		expect(roleRunBadge(coverage('a', 'current', 'passed', roleRun('not_run')))).toEqual({
 			label: 'Not run in the last run',
 			variant: 'outline'
 		});
@@ -114,8 +133,29 @@ describe('roleRunFailing and roleRunBadge', () => {
 	});
 
 	it('shows no badge for a role the last run did not include', () => {
-		expect(roleRunBadge(null)).toBeUndefined();
+		expect(roleRunBadge(coverage('a', 'current'))).toBeUndefined();
 		expect(roleRunFailing(coverage('a', 'current'))).toBe(false);
+	});
+});
+
+describe('pipeline verdicts', () => {
+	it('shows a finding of the pipeline over a passed agent verdict', () => {
+		const role = coverage('a', 'current', 'passed', roleRun('ok', 'finding', ['T1']));
+		expect(verifiedByPipeline(role)).toBe(true);
+		expect(coverageVerdict(role)).toBe('finding');
+	});
+
+	it('shows the pipeline verdict of an incomplete action', () => {
+		const role = coverage('a', 'incomplete', '', roleRun('ok', 'blocked'));
+		expect(coverageVerdict(role)).toBe('blocked');
+		expect(coverageLabel('blocked')).toBe('Blocked');
+	});
+
+	it('keeps the agent verdict of a role the run did not cover', () => {
+		const role = coverage('a', 'current', 'passed', roleRun('not_run'));
+		expect(verifiedByPipeline(role)).toBe(false);
+		expect(role.verdict_source).toBe('authoring');
+		expect(coverageVerdict(role)).toBe('passed');
 	});
 });
 
@@ -317,6 +357,8 @@ describe('coverageVerdict', () => {
 });
 
 describe('coverageCounts', () => {
+	const none = { passed: 0, finding: 0, failing: 0, blocked: 0 };
+
 	it('counts the written, the recorded and the supported roles', () => {
 		const roles = [
 			coverage('a', 'current', 'passed'),
@@ -329,7 +371,9 @@ describe('coverageCounts', () => {
 			written: 3,
 			incomplete: 0,
 			recorded: 2,
-			supported: 1
+			supported: 1,
+			verified: 0,
+			verdicts: none
 		});
 	});
 
@@ -340,7 +384,9 @@ describe('coverageCounts', () => {
 			written: 2,
 			incomplete: 0,
 			recorded: 2,
-			supported: 1
+			supported: 1,
+			verified: 0,
+			verdicts: none
 		});
 	});
 
@@ -351,8 +397,24 @@ describe('coverageCounts', () => {
 			written: 2,
 			incomplete: 1,
 			recorded: 1,
-			supported: 1
+			supported: 1,
+			verified: 0,
+			verdicts: none
 		});
+	});
+
+	it('counts the roles the pipeline verified, per verdict', () => {
+		const roles = [
+			coverage('a', 'current', 'passed', roleRun('ok', 'finding', ['T1'])),
+			coverage('b', 'incomplete', '', roleRun('ok')),
+			coverage('c', 'current', 'passed', roleRun('failing')),
+			coverage('d', 'current', 'passed', roleRun('not_run')),
+			coverage('e', 'stale', 'passed', roleRun('ok'))
+		];
+		const counts = coverageCounts(roles);
+		expect(counts.written).toBe(4);
+		expect(counts.verified).toBe(3);
+		expect(counts.verdicts).toEqual({ passed: 1, finding: 1, failing: 1, blocked: 0 });
 	});
 });
 

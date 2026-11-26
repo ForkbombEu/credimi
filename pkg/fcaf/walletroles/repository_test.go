@@ -252,15 +252,18 @@ func TestRepositoryContract(t *testing.T) {
 			}
 			set, err := contract.AuthoringSet(repositoryRoot, suite, role.Name)
 			require.NoError(t, err, role.Name)
-			represented := map[string]bool{}
-			for _, fixture := range set {
-				represented[fixture.Class] = true
+			if role.Injected == InjectedIssuance || len(fixtures) == 0 {
+				continue
+			}
+			require.NotEmptyf(t, set, "role %q has fixtures but no authoring set", role.Name)
+			assert.LessOrEqualf(t, len(set), 1+len(role.AuthoringFixtures),
+				"role %q: one authoring fixture plus its pins", role.Name)
+			if slices.ContainsFunc(fixtures, func(f Fixture) bool { return len(f.TestIDs) > 0 }) {
+				assert.NotEmptyf(t, set[0].TestIDs,
+					"role %q: its authoring fixture %s has no tests", role.Name, set[0].ID)
 			}
 			for _, fixture := range fixtures {
 				assert.NotEmptyf(t, fixture.Class, "fixture %s", fixture.ID)
-				assert.Truef(t, represented[fixture.Class],
-					"role %q: class %q of %s has no authoring fixture",
-					role.Name, fixture.Class, fixture.ID)
 			}
 		}
 	})

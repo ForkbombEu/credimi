@@ -113,16 +113,32 @@ export type FcafRoleCoverage = {
 	fcaf_replays: FcafReplay[];
 	/** How the role's action did in the wallet's last FCAF run; null when that run did not include it, or no run. */
 	run: FcafRoleRun | null;
+	/**
+	 * The role's verdict: the pipeline's when the last run covered the role's current or
+	 * incomplete action, else the agent's recorded verdict (not verified yet); empty otherwise.
+	 */
+	verdict: '' | FcafPipelineVerdict | 'unsupported';
+	/** Where the verdict comes from; empty without one. */
+	verdict_source: '' | 'pipeline' | 'authoring';
 };
+
+/** The verdict the pipeline gives a role it covered. */
+export type FcafPipelineVerdict = 'passed' | 'finding' | 'failing' | 'blocked';
 
 /** How a role's action did in the wallet's last FCAF run. */
 export type FcafRoleRun = {
 	status: 'ok' | 'failing' | 'not_run';
+	/** The role's verdict from the run: the action's failure, else its tests' results. */
+	verdict: FcafPipelineVerdict | 'not_run';
 	failed_steps: number;
 	/** The Maestro command the action failed on, empty when it did not fail. */
 	failed_command: string;
 	/** The fixture (scenario#request) the action failed on, empty when it did not fail. */
 	fixture_id: string;
+	/** The role's failed tests (at most 20). */
+	failed_tests: string[];
+	/** How many of the role's tests passed, failed or were blocked. */
+	tests_run: number;
 	run_url: string;
 };
 

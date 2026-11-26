@@ -27,7 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		percent,
 		roleRunBadge,
 		roleRunFailing,
-		runSummaryLine
+		runSummaryLine,
+		verifiedByPipeline
 	} from './fcaf';
 	import FcafRunForm from './fcaf-run-form.svelte';
 
@@ -73,9 +74,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{:then result}
 			{#if result}
-				{@const { total, written, incomplete, recorded, supported } = coverageCounts(
-					result.roles
-				)}
+				{@const { total, written, incomplete, recorded, supported, verified, verdicts } =
+					coverageCounts(result.roles)}
 				<div class="space-y-3 text-sm">
 					{#each result.warnings as warning (warning)}
 						<Alert variant="warning">
@@ -109,6 +109,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							})}
 						</p>
 						<p>
+							{m.Fcaf_coverage_verified({
+								verified,
+								written,
+								percent: percent(verified, written)
+							})}
+						</p>
+						{#if verified > 0}
+							<p>{m.Fcaf_coverage_pipeline_verdicts(verdicts)}</p>
+						{/if}
+						<p>
 							{m.Fcaf_coverage_supported({
 								supported,
 								recorded,
@@ -127,7 +137,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<ul class="space-y-2">
 						{#each result.roles as role (role.role)}
 							{@const verdict = coverageVerdict(role)}
-							{@const runBadge = roleRunBadge(role.run)}
+							{@const runBadge = roleRunBadge(role)}
+							{@const pipeline = verifiedByPipeline(role)}
 							<li class="space-y-1 rounded-md border p-3">
 								<div class="flex items-center justify-between gap-2">
 									<span class="truncate font-mono text-xs">{role.role}</span>
@@ -156,10 +167,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										</p>
 									{/if}
 								{/if}
+								{#if pipeline && role.run}
+									<p class="text-xs text-muted-foreground">
+										{m.Fcaf_verdict_pipeline()}
+										<a
+											href={role.run.run_url}
+											target="_blank"
+											rel="noreferrer"
+											class="text-primary hover:underline"
+										>
+											{m.Fcaf_run_see()}
+										</a>
+									</p>
+									{#if role.run.failed_tests.length}
+										<p class="font-mono text-xs break-all">
+											{m.Fcaf_verdict_failed_tests({
+												tests: role.run.failed_tests.join(', ')
+											})}
+										</p>
+									{/if}
+								{:else if role.verdict_source === 'authoring'}
+									<p class="text-xs text-muted-foreground">
+										{m.Fcaf_verdict_not_verified()}
+									</p>
+								{/if}
 								{#if role.summary}
 									<p class="text-xs text-muted-foreground">{role.summary}</p>
 								{/if}
-								{#if verdict === 'unsupported' || verdict === 'finding'}
+								{#if pipeline}
+									{#if role.result}
+										<p class="text-xs break-words whitespace-pre-wrap">
+											{m.Fcaf_verdict_while_writing({
+												verdict: coverageLabel(role.result)
+											})}{#if role.note}: {role.note}{/if}
+										</p>
+									{/if}
+								{:else if verdict === 'unsupported' || verdict === 'finding'}
 									<p class="text-xs break-words whitespace-pre-wrap">
 										{role.note}
 									</p>

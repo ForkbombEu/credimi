@@ -161,39 +161,25 @@ func offerClass(request map[string]any, listed func(string) bool) string {
 	return strings.Join(parts, ", ")
 }
 
-// AuthoringFixtures returns one representative fixture per behaviour class:
-// of each class the fixture the action author replays most usefully, that
-// is one with tests (a fixture without tests represents its class only when
-// no fixture of the class has tests), then standalone, then one whose setup
-// is complete, then the one that feeds the most tests, then by ID. Classes
-// come standalone first, then complete, then by their representative's test
-// count, most first, then by label.
-func AuthoringFixtures(fixtures []Fixture) []Fixture {
-	representatives := map[string]Fixture{}
-	for _, fixture := range fixtures {
-		current, seen := representatives[fixture.Class]
-		if !seen || representsBefore(fixture, current) {
-			representatives[fixture.Class] = fixture
+// AuthoringFixture returns the fixture the action author replays most
+// usefully among fixtures: one with tests (a fixture without tests only when
+// none has tests), then standalone, then one whose setup is complete, then
+// the one that feeds the most tests, then by ID. ok is false without
+// fixtures.
+func AuthoringFixture(fixtures []Fixture) (Fixture, bool) {
+	if len(fixtures) == 0 {
+		return Fixture{}, false
+	}
+	best := fixtures[0]
+	for _, fixture := range fixtures[1:] {
+		if representsBefore(fixture, best) {
+			best = fixture
 		}
 	}
-	set := make([]Fixture, 0, len(representatives))
-	for _, fixture := range representatives {
-		set = append(set, fixture)
-	}
-	sort.Slice(set, func(i, j int) bool {
-		a, b := set[i], set[j]
-		if startRank(a) != startRank(b) {
-			return startRank(a) < startRank(b)
-		}
-		if len(a.TestIDs) != len(b.TestIDs) {
-			return len(a.TestIDs) > len(b.TestIDs)
-		}
-		return a.Class < b.Class
-	})
-	return set
+	return best, true
 }
 
-// representsBefore reports whether a represents its class better than b.
+// representsBefore reports whether a is a better authoring fixture than b.
 func representsBefore(a, b Fixture) bool {
 	if tested := len(a.TestIDs) > 0; tested != (len(b.TestIDs) > 0) {
 		return tested
@@ -222,9 +208,10 @@ func startRank(fixture Fixture) int {
 
 // AuthoringSet returns the fixtures of a role the action author replays: for
 // the injected PID issuance every fixture in Fixtures order (the runner picks
-// the wallet's PID issuer among them), for any other role AuthoringFixtures
-// then the role's pinned authoring_fixtures that are not representatives,
-// in Fixtures order. A pinned ID that is not a fixture of the role is an error.
+// the wallet's PID issuer among them), for any other role its AuthoringFixture
+// then the role's pinned authoring_fixtures, in Fixtures order. Conformance on
+// every other fixture is the pipeline's job. A pinned ID that is not a
+// fixture of the role is an error.
 func (c *Contract) AuthoringSet(fcafRoot, suite, roleName string) ([]Fixture, error) {
 	fixtures, err := c.Fixtures(fcafRoot, suite, roleName)
 	if err != nil {
@@ -234,7 +221,10 @@ func (c *Contract) AuthoringSet(fcafRoot, suite, roleName string) ([]Fixture, er
 	if role.Injected == InjectedIssuance {
 		return fixtures, nil
 	}
-	set := AuthoringFixtures(fixtures)
+	set := []Fixture{}
+	if first, ok := AuthoringFixture(fixtures); ok {
+		set = append(set, first)
+	}
 	for _, fixture := range fixtures {
 		if slices.Contains(role.AuthoringFixtures, fixture.ID) &&
 			!slices.ContainsFunc(set, func(f Fixture) bool { return f.ID == fixture.ID }) {

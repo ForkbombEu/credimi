@@ -488,11 +488,15 @@ func TestFCAFCoverageReadsOnlyTheWalletsOwnRuns(t *testing.T) {
 	require.NotNil(t, byRole["fcaf-issue-pid"].Run)
 	assert.Equal(t, FCAFRoleRun{
 		Status:        FCAFRunFailing,
+		Verdict:       FCAFRunFailing,
 		FailedSteps:   2,
 		FailedCommand: `Tap on "Accept"`,
 		FixtureID:     "f.yaml#present",
+		FailedTests:   []string{},
 		RunURL:        lastRun.RunURL,
 	}, *byRole["fcaf-issue-pid"].Run)
+	assert.Equal(t, FCAFRunFailing, byRole["fcaf-issue-pid"].Verdict)
+	assert.Equal(t, FCAFVerdictFromPipeline, byRole["fcaf-issue-pid"].VerdictSource)
 	assert.Equal(t, FCAFCurrent, byRole["fcaf-issue-pid"].Status)
 	assert.Nil(t, byRole["fcaf-engagement-haip-vp"].Run)
 	assert.Nil(t, byRole["fcaf-expect-request-rejected"].Run, "a role without an action")
@@ -529,8 +533,10 @@ func TestFCAFCoverageReadsARunThatEndedWithoutAReport(t *testing.T) {
 	assert.Contains(t, lastRun.RunURL, "/prelude-failed/")
 	assert.Equal(t, FCAFRoleRun{
 		Status:        FCAFRunFailing,
+		Verdict:       FCAFRunFailing,
 		FailedSteps:   1,
 		FailedCommand: `Launch app "eu.wallet"`,
+		FailedTests:   []string{},
 		RunURL:        lastRun.RunURL,
 	}, *byRole["fcaf-reset-and-onboard"].Run)
 	for name, role := range byRole {
@@ -541,6 +547,8 @@ func TestFCAFCoverageReadsARunThatEndedWithoutAReport(t *testing.T) {
 		default:
 			require.NotNil(t, role.Run, name)
 			assert.Equal(t, FCAFRunNotRun, role.Run.Status, name)
+			assert.Equal(t, FCAFRunNotRun, role.Run.Verdict, name)
+			assert.Empty(t, role.VerdictSource, name, "a role the run did not cover")
 		}
 	}
 
@@ -625,6 +633,109 @@ func TestFCAFCoverageMergesSubsetsWithoutACompleteRun(t *testing.T) {
 	assert.Equal(t, FCAFRunOK, byRole["fcaf-reset-and-onboard"].Run.Status)
 	assert.Contains(t, byRole["fcaf-reset-and-onboard"].Run.RunURL, "/subset-old/")
 	assert.Contains(t, byRole["fcaf-issue-pid"].Run.RunURL, "/other/")
+}
+
+// TestFCAFCoverageJudgesRolesOnTheirTests pins the pipeline verdicts: a
+// tolerant role whose action ran while one of its tests failed is a finding,
+// a failing action is failing, a role whose tests all passed (skipped ones
+// aside) passed, one with a blocked test is blocked, and a role the run did
+// not cover keeps the agent's verdict as not verified yet. A newer subset
+// replaces the status of the tests it ran.
+func TestFCAFCoverageJudgesRolesOnTheirTests(t *testing.T) {
+	f := newFCAFRunFixture(t)
+	orgID := f.selection.Organization.Id
+	roleTests, err := f.scope.Contract.RoleTests(f.scope.Root, f.scope.Suite)
+	require.NoError(t, err)
+	const tolerant, blocked, unverified = "fcaf-exercise-wallet-error", "fcaf-observe-request",
+		"fcaf-expect-no-matching-document"
+	for _, role := range []string{tolerant, blocked, unverified} {
+		f.actions[role] = saveFCAFRunAction(t, f.app, orgID, f.selection.Wallet.Id, f.scope, role)
+		require.NotEmpty(t, roleTests[role], role)
+	}
+	record, err := f.app.FindFirstRecordByFilter("wallet_actions", "owner = {:o} && name = {:n}",
+		map[string]any{"o": orgID, "n": unverified})
+	require.NoError(t, err)
+	role, _ := f.scope.Contract.Role(unverified)
+	record.Set("authoring_provenance", Provenance{
+		FCAFRole:       unverified,
+		FCAFRoleSHA256: role.SHA256(),
+		FCAFResult:     &FCAFResult{Status: FCAFReplayPassed, Note: "shared nothing"},
+	})
+	require.NoError(t, f.app.Save(record))
+
+	executed := []map[string]any{}
+	add := func(status string, ids ...string) {
+		for _, id := range ids {
+			executed = append(executed, map[string]any{"test_id": id, "status": status})
+		}
+	}
+	haip := roleTests["fcaf-engagement-haip-vp"]
+	add("passed", haip[1:]...)
+	add("skipped", haip[0])
+	add("failed", roleTests[tolerant][0])
+	add("passed", roleTests[tolerant][1:]...)
+	add("blocked", roleTests[blocked][0])
+	add("passed", roleTests[blocked][1:]...)
+	add("failed", roleTests[unverified]...)
+	report := func(pass int, outcomes ...FCAFRoleOutcome) map[string]any {
+		r, _ := f.report(pass, f.prefix, outcomes...).(map[string]any)
+		r["executed_tests"] = executed
+		return r
+	}
+	attachFCAFRun(t, f.app, orgID, f.complete, "complete", report(9,
+		f.outcome("fcaf-reset-and-onboard", FCAFRunOK),
+		f.outcome("fcaf-issue-pid", FCAFRunFailing),
+		f.outcome("fcaf-engagement-haip-vp", FCAFRunOK),
+		f.outcome(tolerant, FCAFRunOK),
+		f.outcome(blocked, FCAFRunOK),
+	))
+	byRole, _ := f.coverage(t, nil)
+
+	finding := byRole[tolerant]
+	require.NotNil(t, finding.Run)
+	assert.Equal(t, FCAFRunOK, finding.Run.Status)
+	assert.Equal(t, FCAFVerdictFinding, finding.Run.Verdict)
+	assert.Equal(t, []string{roleTests[tolerant][0]}, finding.Run.FailedTests)
+	assert.Equal(t, len(roleTests[tolerant]), finding.Run.TestsRun)
+	assert.Equal(t, FCAFVerdictFinding, finding.Verdict)
+	assert.Equal(t, FCAFVerdictFromPipeline, finding.VerdictSource)
+
+	assert.Equal(t, FCAFRunFailing, byRole["fcaf-issue-pid"].Verdict)
+	assert.Equal(t, FCAFVerdictPassed, byRole["fcaf-reset-and-onboard"].Verdict, "no tests")
+	passed := byRole["fcaf-engagement-haip-vp"]
+	assert.Equal(t, FCAFVerdictPassed, passed.Verdict)
+	assert.Equal(t, len(haip)-1, passed.Run.TestsRun, "a skipped test does not count")
+	assert.Empty(t, passed.Run.FailedTests)
+	assert.Equal(t, FCAFVerdictBlocked, byRole[blocked].Verdict)
+
+	notVerified := byRole[unverified]
+	assert.Nil(t, notVerified.Run)
+	assert.Equal(t, FCAFReplayPassed, notVerified.Verdict)
+	assert.Equal(t, FCAFVerdictFromAuthoring, notVerified.VerdictSource)
+	assert.Equal(t, "shared nothing", notVerified.Note)
+
+	// A newer subset reran the tolerant role: its test now passes.
+	executed = nil
+	add("passed", roleTests[tolerant][0])
+	attachFCAFRun(t, f.app, orgID, f.subset, "subset", report(1, f.outcome(tolerant, FCAFRunOK)))
+	byRole, _ = f.coverage(t, nil)
+	assert.Equal(t, FCAFVerdictPassed, byRole[tolerant].Verdict)
+	assert.Equal(t, len(roleTests[tolerant]), byRole[tolerant].Run.TestsRun)
+	assert.Equal(t, FCAFVerdictBlocked, byRole[blocked].Verdict, "kept from the complete run")
+}
+
+func TestFCAFRoleRunJudgeBoundsFailedTests(t *testing.T) {
+	tests := make([]string, 30)
+	statuses := map[string]string{}
+	for i := range tests {
+		tests[i] = fmt.Sprintf("T%02d", i)
+		statuses[tests[i]] = "failed"
+	}
+	run := FCAFRoleRun{Status: FCAFRunOK}
+	run.judge(tests, statuses)
+	assert.Equal(t, FCAFVerdictFinding, run.Verdict)
+	assert.Len(t, run.FailedTests, MaxFCAFFailedTests)
+	assert.Equal(t, 30, run.TestsRun)
 }
 
 // TestFCAFCoverageReadsOnlyTheNewestResults pins that coverage reads only

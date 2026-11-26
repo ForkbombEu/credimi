@@ -284,7 +284,7 @@ func describeFCAFRole(
 		output.Plan = &plan
 		return output, nil
 	}
-	// One fixture per behaviour class (the issuance role: every PID issuer and format).
+	// One authoring fixture and the role's pins (the issuance role: every PID issuer and format).
 	fixtures, err := scope.Contract.AuthoringSet(scope.Root, scope.Suite, role.Name)
 	if err != nil {
 		return DescribeActionAuthorFCAFRoleOutput{}, err

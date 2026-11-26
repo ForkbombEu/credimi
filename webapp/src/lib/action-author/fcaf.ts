@@ -14,6 +14,7 @@ import type {
 	AuthorDevice,
 	AuthoringMode,
 	FcafPipelineRun,
+	FcafPipelineVerdict,
 	FcafReplay,
 	FcafRoleCoverage,
 	FcafRoleProgress,
@@ -94,23 +95,28 @@ export function replayStatusVariant(status: string): BadgeVariant {
 }
 
 /** What the wallet's coverage says of a role. */
-type CoverageVerdict =
+export type CoverageVerdict =
 	| 'passed'
 	| 'unsupported'
 	| 'finding'
+	| 'failing'
+	| 'blocked'
 	| 'unrecorded'
 	| 'incomplete'
 	| 'stale'
 	| 'missing'
 	| 'unmanaged';
 
-/** The coverage verdict of a role: a current action shows the agent's verdict on it. */
+/**
+ * The coverage verdict of a role: a current or incomplete action the last pipeline run covered
+ * shows the pipeline's verdict; otherwise a current action shows the agent's verdict on it.
+ */
 export function coverageVerdict(role: FcafRoleCoverage): CoverageVerdict {
 	switch (role.status) {
 		case 'current':
-			return role.result || 'unrecorded';
 		case 'incomplete':
-			return 'incomplete';
+			if (verifiedByPipeline(role)) return role.verdict as FcafPipelineVerdict;
+			return role.status === 'current' ? role.result || 'unrecorded' : 'incomplete';
 		case 'stale':
 			return 'stale';
 		case 'unmanaged':
@@ -120,10 +126,16 @@ export function coverageVerdict(role: FcafRoleCoverage): CoverageVerdict {
 	}
 }
 
+/** Whether the role's verdict comes from the last pipeline run. */
+export function verifiedByPipeline(role: FcafRoleCoverage): boolean {
+	return role.verdict_source === 'pipeline' && role.verdict !== '';
+}
+
 /**
  * The roles with a current or incomplete action (written), those with an incomplete one
  * (incomplete: written, not replayed on every request), those whose current action has a
- * recorded verdict (recorded) and those whose recorded verdict passed (supported).
+ * recorded verdict (recorded), those whose recorded verdict passed (supported), those the
+ * pipeline verified (verified) and how many of those got each pipeline verdict (verdicts).
  */
 export function coverageCounts(roles: FcafRoleCoverage[]): {
 	total: number;
@@ -131,16 +143,33 @@ export function coverageCounts(roles: FcafRoleCoverage[]): {
 	incomplete: number;
 	recorded: number;
 	supported: number;
+	verified: number;
+	verdicts: Record<FcafPipelineVerdict, number>;
 } {
 	const current = roles.filter((r) => r.status === 'current');
 	const incomplete = roles.filter((r) => r.status === 'incomplete').length;
 	const recorded = current.filter((r) => r.result !== '');
+	const verified = roles.filter(
+		(r) => (r.status === 'current' || r.status === 'incomplete') && verifiedByPipeline(r)
+	);
+	const verdicts: Record<FcafPipelineVerdict, number> = {
+		passed: 0,
+		finding: 0,
+		failing: 0,
+		blocked: 0
+	};
+	for (const role of verified) {
+		const verdict = role.verdict as FcafPipelineVerdict;
+		if (Object.hasOwn(verdicts, verdict)) verdicts[verdict]++;
+	}
 	return {
 		total: roles.length,
 		written: current.length + incomplete,
 		incomplete,
 		recorded: recorded.length,
-		supported: recorded.filter((r) => r.result === 'passed').length
+		supported: recorded.filter((r) => r.result === 'passed').length,
+		verified: verified.length,
+		verdicts
 	};
 }
 
@@ -153,6 +182,8 @@ const COVERAGE_LABELS: Record<CoverageVerdict, () => string> = {
 	passed: m.Fcaf_role_passed,
 	unsupported: m.Fcaf_role_unsupported,
 	finding: m.Fcaf_role_finding,
+	failing: m.Fcaf_run_role_failing,
+	blocked: m.Fcaf_role_blocked,
 	unrecorded: m.Fcaf_coverage_unrecorded,
 	incomplete: m.Fcaf_coverage_incomplete,
 	stale: m.Fcaf_coverage_stale,
@@ -164,6 +195,8 @@ const COVERAGE_VARIANTS: Record<CoverageVerdict, BadgeVariant> = {
 	passed: 'default',
 	unsupported: 'outline',
 	finding: 'destructive',
+	failing: 'destructive',
+	blocked: 'outline',
 	unrecorded: 'secondary',
 	incomplete: 'outline',
 	stale: 'outline',
@@ -198,11 +231,17 @@ const RUN_VARIANTS: Record<FcafRoleRun['status'], BadgeVariant> = {
 	not_run: 'outline'
 };
 
-/** The badge of how a role's action did in the last FCAF run; none when that run did not include it. */
+/**
+ * The badge of how a role's action did in the last FCAF run; none when that run did not include
+ * it or when the role's verdict already comes from it.
+ */
 export function roleRunBadge(
-	run: FcafRoleRun | null
+	role: FcafRoleCoverage
 ): { label: string; variant: BadgeVariant } | undefined {
-	if (!run || !Object.hasOwn(RUN_LABELS, run.status)) return undefined;
+	const run = role.run;
+	if (!run || verifiedByPipeline(role) || !Object.hasOwn(RUN_LABELS, run.status)) {
+		return undefined;
+	}
 	return { label: RUN_LABELS[run.status](), variant: RUN_VARIANTS[run.status] };
 }
 

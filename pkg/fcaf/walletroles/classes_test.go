@@ -101,23 +101,42 @@ func TestClass(t *testing.T) {
 	}
 }
 
-func TestAuthoringFixtures(t *testing.T) {
+func TestAuthoringFixture(t *testing.T) {
 	fixtures := []Fixture{
-		{ID: "s#late", Class: "a", Complete: true, TestIDs: []string{"T1", "T2", "T3"}},
-		{ID: "s#first", Class: "a", Standalone: true, Complete: true, TestIDs: []string{"T1"}},
-		{ID: "s#second", Class: "a", Standalone: true, Complete: true, TestIDs: []string{"T1"}},
 		{ID: "s#untested", Class: "b", Standalone: true, Complete: true},
-		{ID: "s#tested", Class: "b", Complete: true, TestIDs: []string{"T1", "T2"}},
-		{ID: "s#only", Class: "c", Standalone: true, Complete: true},
+		{ID: "s#late", Class: "a", Complete: true, TestIDs: []string{"T1", "T2", "T3"}},
+		{ID: "s#second", Class: "a", Standalone: true, Complete: true, TestIDs: []string{"T1"}},
+		{ID: "s#first", Class: "c", Standalone: true, Complete: true, TestIDs: []string{"T1"}},
 		{ID: "s#incomplete", Class: "d", TestIDs: []string{"T1", "T2", "T3", "T4"}},
 	}
-	got := AuthoringFixtures(fixtures)
-	ids := make([]string, 0, len(got))
-	for _, fixture := range got {
-		ids = append(ids, fixture.ID)
-	}
-	assert.Equal(t, []string{"s#first", "s#only", "s#tested", "s#incomplete"}, ids)
-	assert.Empty(t, AuthoringFixtures(nil))
+	got, ok := AuthoringFixture(fixtures)
+	require.True(t, ok)
+	assert.Equal(t, "s#first", got.ID, "tested, standalone, then by ID")
+
+	got, ok = AuthoringFixture(fixtures[1:2:2])
+	require.True(t, ok)
+	assert.Equal(t, "s#late", got.ID)
+
+	got, ok = AuthoringFixture([]Fixture{
+		{ID: "s#incomplete", TestIDs: []string{"T1"}},
+		{ID: "s#complete", Complete: true, TestIDs: []string{"T1"}},
+	})
+	require.True(t, ok)
+	assert.Equal(t, "s#complete", got.ID, "complete setup before an incomplete one")
+
+	got, ok = AuthoringFixture([]Fixture{
+		{ID: "s#few", Complete: true, TestIDs: []string{"T1"}},
+		{ID: "s#many", Complete: true, TestIDs: []string{"T1", "T2"}},
+	})
+	require.True(t, ok)
+	assert.Equal(t, "s#many", got.ID, "most tests")
+
+	got, ok = AuthoringFixture(fixtures[:1])
+	require.True(t, ok)
+	assert.Equal(t, "s#untested", got.ID, "an untested fixture only when none has tests")
+
+	_, ok = AuthoringFixture(nil)
+	assert.False(t, ok)
 }
 
 func TestAuthoringSet(t *testing.T) {
@@ -137,6 +156,9 @@ func TestAuthoringSet(t *testing.T) {
 	require.NoError(t, err)
 	fixtures, err := contract.Fixtures(repositoryRoot, suite, roleName)
 	require.NoError(t, err)
+	first, ok := AuthoringFixture(fixtures)
+	require.True(t, ok)
+	assert.Equal(t, []Fixture{first}, set, "one fixture per role without pins")
 	pinned := ""
 	for _, fixture := range fixtures {
 		if !slices.ContainsFunc(set, func(f Fixture) bool { return f.ID == fixture.ID }) {

@@ -58,17 +58,23 @@ paths:
   /api/action-author/fcaf-coverage:
     get:
       description: 'Lists the FCAF relying-party roles and, for each, the caller organization''s
-        action on the wallet: missing, current, stale or unmanaged, and for a saved
-        FCAF action the agent''s verdict (passed, unsupported or finding) and note,
-        with the warnings about the wallet. run_summary (null without one) and run_url
-        are the test summary and link of the latest finished complete run of the wallet''s
-        FCAF pipelines (POST /api/action-author/fcaf-pipeline), else of its latest
-        finished subset run, and each role''s run how its action did in the latest
-        finished run that ran it (the complete run, or a newer subset run): ok, failing
-        (the run failed inside the action, with the Maestro command and the fixture)
-        or not_run; null when no such run ran it. Only the 20 newest runs of the caller''s
-        organization on the wallet''s FCAF records are read. A failing run changes
-        neither status nor result.'
+        action on the wallet: missing, current, incomplete, stale or unmanaged, and
+        for a saved FCAF action the agent''s verdict (passed, unsupported or finding)
+        and note, with the warnings about the wallet. run_summary (null without one)
+        and run_url are the test summary and link of the latest finished complete
+        run of the wallet''s FCAF pipelines (POST /api/action-author/fcaf-pipeline),
+        else of its latest finished subset run, and each role''s run how its action
+        did in the latest finished run that ran it (the complete run, or a newer subset
+        run): status ok, failing (the run failed inside the action, with the Maestro
+        command and the fixture) or not_run, and the role''s verdict from the run:
+        failing, finding (the action ran and one of the role''s tests failed, failed_tests
+        lists at most 20), blocked, passed or not_run, with tests_run; null when no
+        such run ran it. Test statuses merge across runs like the outcomes. A current
+        or incomplete action the run covered has verdict_source pipeline and the run''s
+        verdict as verdict; otherwise a recorded agent verdict is the verdict with
+        verdict_source authoring (not verified yet). Only the 20 newest runs of the
+        caller''s organization on the wallet''s FCAF records are read. A failing run
+        changes neither status nor result.'
       operationId: actionAuthor.fcafCoverage
       parameters:
       - description: 'Wallet: organization/wallet (canonified names).'
@@ -1088,6 +1094,10 @@ components:
           type: string
         summary:
           type: string
+        verdict:
+          type: string
+        verdict_source:
+          type: string
       type: object
     ActionauthorFCAFRoleRun:
       properties:
@@ -1095,11 +1105,20 @@ components:
           type: string
         failed_steps:
           type: integer
+        failed_tests:
+          items:
+            type: string
+          nullable: true
+          type: array
         fixture_id:
           type: string
         run_url:
           type: string
         status:
+          type: string
+        tests_run:
+          type: integer
+        verdict:
           type: string
       type: object
     ActionauthorFCAFRunSummary:

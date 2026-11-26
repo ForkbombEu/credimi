@@ -668,3 +668,102 @@ func TestWithRequestScheme(t *testing.T) {
 	copied["dcql"].(map[string]any)["q"].([]any)[0] = "b"
 	assert.Equal(t, "a", haip["dcql"].(map[string]any)["q"].([]any)[0], "the copy is deep")
 }
+
+// roleTestsScenarioYAML runs two roles on the same request: T_SHARED reads
+// only the session both fixtures fetch, T_A also the first role's
+// screenshots, and T_MULTI the sessions of two requests.
+const roleTestsScenarioYAML = `name: Shared
+runtime:
+  fixture:
+    verifier_url: https://verifier.example
+steps:
+- id: create-a
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    body: { presentation_request: { dcql_query: { credentials: [{ id: a, format: dc+sd-jwt }] } } }
+- id: run-a
+  use: mobile-automation
+  with:
+    action_id: org/wallet/fcaf-a
+    parameters: { deeplink: "${{ create-a.outputs.body.deeplink }}" }
+- id: fetch-a
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{create-a.outputs.body.session_id}}" }
+- id: run-b
+  use: mobile-automation
+  with:
+    action_id: org/wallet/fcaf-b
+    parameters: { deeplink: "${{ create-a.outputs.body.deeplink }}" }
+- id: create-c
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    body: { presentation_request: { dcql_query: { credentials: [{ id: c, format: mso_mdoc }] } } }
+- id: run-c
+  use: mobile-automation
+  with:
+    action_id: org/wallet/fcaf-c
+    parameters: { deeplink: "${{ create-c.outputs.body.deeplink }}" }
+- id: fetch-c
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{create-c.outputs.body.session_id}}" }
+- id: validate
+  use: fcaf-validation
+  with:
+    test_ids: [T_SHARED, T_A, T_MULTI]
+    pipeline_outputs:
+      pipeline.a:
+        output:
+          session: ${{ fetch-a.outputs.body }}
+          shots: ${{ run-a.outputs.flow_output.maestro_screenshot_urls }}
+      pipeline.c:
+        output:
+          session: ${{ fetch-c.outputs.body }}
+`
+
+func TestRoleTests(t *testing.T) {
+	root := t.TempDir()
+	suiteRoot := filepath.Join(root, filepath.FromSlash(relyingPartySuite))
+	require.NoError(t, os.MkdirAll(filepath.Join(suiteRoot, "scenarios"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(suiteRoot, "tests"), 0o755))
+	write := func(path, content string) {
+		require.NoError(t, os.WriteFile(filepath.Join(suiteRoot, path), []byte(content), 0o600))
+	}
+	write("scenarios/shared.yaml", roleTestsScenarioYAML)
+	write("tests/T_SHARED.yaml", fixtureTestYAML("T_SHARED", "pipeline.a.outputs.session"))
+	write("tests/T_A.yaml", fixtureTestYAML(
+		"T_A",
+		"pipeline.a.outputs.session",
+		"pipeline.a.outputs.shots",
+	))
+	write("tests/T_MULTI.yaml", fixtureTestYAML(
+		"T_MULTI",
+		"pipeline.a.outputs.session",
+		"pipeline.c.outputs.session",
+	))
+	suites := []string{relyingPartySuite}
+	contract := &Contract{
+		ReferencePrefix:      "org/wallet/",
+		AuthoringClassFields: ClassFields,
+		Roles: []Role{
+			{Name: "fcaf-a", Parameters: []string{"deeplink"}, Suites: suites},
+			{Name: "fcaf-b", Parameters: []string{"deeplink"}, Suites: suites},
+			{Name: "fcaf-c", Parameters: []string{"deeplink"}, Suites: suites},
+			{Name: "fcaf-elsewhere", Parameters: []string{"deeplink"}},
+		},
+	}
+
+	roleTests, err := contract.RoleTests(root, relyingPartySuite)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]string{
+		"fcaf-a": {"T_A", "T_SHARED"},
+		"fcaf-b": {"T_SHARED"},
+	}, roleTests, "a shared test belongs to both roles, a multi-step test to none")
+
+	again, err := contract.RoleTests(root, relyingPartySuite)
+	require.NoError(t, err)
+	assert.Equal(t, roleTests, again)
+}
