@@ -130,8 +130,9 @@ func (a *ListActionAuthorFCAFRolesActivity) list(
 	if err != nil {
 		return ListActionAuthorFCAFRolesOutput{}, err
 	}
-	// The agent's coverage reads no run, except a fix session's, which marks
-	// the roles it fixes.
+	// The agent's coverage reads no run. A fix session's marks the roles it
+	// fixes, which keep only their failed fixtures and command: no role
+	// carries the run or the pipeline's verdict.
 	var roles []actionauthor.FCAFRoleCoverage
 	var profile map[string]any
 	if ref.FCAFFix {
@@ -142,6 +143,7 @@ func (a *ListActionAuthorFCAFRolesActivity) list(
 			a.fcafRunState(ctx, ref.Organization),
 			ref.Started,
 		)
+		withoutRuns(roles)
 	} else {
 		roles, profile, err = actionauthor.FCAFCoverage(a.app, selection, scope)
 	}
@@ -155,6 +157,21 @@ func (a *ListActionAuthorFCAFRolesActivity) list(
 		Profile:  profile,
 		Warnings: actionauthor.FCAFWarnings(profile),
 	}, nil
+}
+
+// withoutRuns drops from coverage what the wallet's FCAF runs say: each
+// role's run, and a pipeline verdict, replaced by the agent's recorded one
+// as coverage without runs gives it.
+func withoutRuns(coverage []actionauthor.FCAFRoleCoverage) {
+	for i := range coverage {
+		entry := &coverage[i]
+		entry.Run = nil
+		entry.Verdict, entry.VerdictSource = "", ""
+		if entry.Result != "" &&
+			(entry.Status == actionauthor.FCAFCurrent || entry.Status == actionauthor.FCAFIncomplete) {
+			entry.Verdict, entry.VerdictSource = entry.Result, actionauthor.FCAFVerdictFromAuthoring
+		}
+	}
 }
 
 // DescribeActionAuthorFCAFRoleInput names a role of the session suite.

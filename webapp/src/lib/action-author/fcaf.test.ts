@@ -481,4 +481,15 @@ describe('affectedScenarios', () => {
 		];
 		expect(affectedScenarios(roles)).toEqual([]);
 	});
+
+	it('leaves out roles saved with a wallet finding', () => {
+		const failing = { ...roleRun('failing'), failed_fixtures: ['x#s1'] };
+		const roles = [
+			savedAfterRun(coverage('a', 'current', 'finding', failing)),
+			savedAfterRun(
+				coverage('b', 'current', 'passed', { ...failing, failed_fixtures: ['y#s1'] })
+			)
+		];
+		expect(affectedScenarios(roles)).toEqual(['y']);
+	});
 });

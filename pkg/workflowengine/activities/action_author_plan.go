@@ -115,17 +115,18 @@ const fcafRunStateTimeout = 5 * time.Second
 
 // fcafRunState reads the Temporal state of the pipeline runs of the
 // organization (a canonified_name) in its namespace, each read within
-// fcafRunStateTimeout; nil (runs without a report are then left out) when
-// there is no client.
+// fcafRunStateTimeout. It gets the namespace's client on its first read, so
+// a session that reads no run without a report never asks for it; without
+// a client every such run is left out, as unfinished.
 func (l authorSessionLookup) fcafRunState(
 	ctx context.Context,
 	organization string,
 ) actionauthor.FCAFRunStateFunc {
-	c, err := l.temporalClient(organization)
-	if err != nil || c == nil {
-		return nil
-	}
 	return func(workflowID, runID string) (actionauthor.FCAFRunState, error) {
+		c, err := l.temporalClient(organization)
+		if err != nil {
+			return actionauthor.FCAFRunState{}, err
+		}
 		ctx, cancel := context.WithTimeout(ctx, fcafRunStateTimeout)
 		defer cancel()
 		return FCAFRunState(ctx, c, workflowID, runID)

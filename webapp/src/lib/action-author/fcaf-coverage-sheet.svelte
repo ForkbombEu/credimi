@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
+	import { verifyUserRole } from '@/organizations';
 
 	import { getFcafCoverage, type FcafCoverage } from './api';
 	import { walletPath } from './builds';
@@ -39,12 +40,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		wallet: WalletsResponse;
 		/** The wallet's organization, whose path names the wallet. */
 		walletOwner: Pick<OrganizationsResponse, 'canonified_name'>;
+		/** The caller's organization: only its owners run FCAF pipelines. */
+		organization: Pick<OrganizationsResponse, 'id'>;
 	};
 
-	let { wallet, walletOwner }: Props = $props();
+	let { wallet, walletOwner, organization }: Props = $props();
 
 	let open = $state(false);
 	let coverage = $state<Promise<FcafCoverage>>();
+	/** Whether the caller owns their organization; undefined until known. */
+	let isOwner = $state<boolean>();
 
 	$effect(() => {
 		if (!open) return;
@@ -52,6 +57,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			if (res.isErr) throw new Error(res.error.message);
 			return res.value;
 		});
+		isOwner = undefined;
+		verifyUserRole(organization.id, ['owner'])
+			.then((res) => (isOwner = res.hasRole))
+			.catch(() => (isOwner = false));
 	});
 </script>
 
@@ -65,7 +74,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet content()}
 		<div class="mb-3">
-			<FcafRunForm {wallet} {walletOwner} />
+			{#if isOwner}
+				<FcafRunForm {wallet} {walletOwner} />
+			{:else if isOwner === false}
+				<p class="text-xs text-muted-foreground">{m.Fcaf_run_owners_only()}</p>
+			{/if}
 		</div>
 
 		{#await coverage}
@@ -102,7 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</p>
 					{/if}
 
-					{#if scenarios.length}
+					{#if scenarios.length && isOwner}
 						<div class="space-y-2 rounded-md border p-3">
 							<p class="font-medium">{m.Fcaf_rerun_affected()}</p>
 							<p class="text-xs text-muted-foreground">

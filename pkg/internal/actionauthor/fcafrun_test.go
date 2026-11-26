@@ -582,6 +582,11 @@ func TestFCAFFixCoverageMarksTheRolesFailingInTheLastRun(t *testing.T) {
 	fixScope := *f.scope
 	fixScope.Fix = fix
 	require.NoError(t, CheckFCAFReplays(&fixScope, replays, role))
+	// A fix session saves only its targets; other sessions enforce nothing.
+	require.NoError(t, CheckFCAFFixRole(&fixScope, role))
+	require.ErrorIs(t, CheckFCAFFixRole(&fixScope, "fcaf-issue-pid"), ErrForbidden)
+	require.ErrorIs(t, CheckFCAFFixRole(&fixScope, ""), ErrForbidden)
+	require.NoError(t, CheckFCAFFixRole(f.scope, "fcaf-issue-pid"))
 	fixtures, err := FCAFFixFixtures(&fixScope, role)
 	require.NoError(t, err)
 	require.Len(t, fixtures, 1)

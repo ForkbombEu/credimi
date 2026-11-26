@@ -301,8 +301,9 @@ func signReviewApproval(
 	if err != nil {
 		return "", err
 	}
-	if len(decision.FCAFReplays) > 0 {
-		// A fix session's replays may also cover the fixtures each role failed on.
+	// A fix session approves only actions of the roles it fixes, whose
+	// replays may also cover the fixtures each failed on.
+	if ref.FCAFFix {
 		scope, err = activities.FCAFFixScope(
 			e.App,
 			ref,
@@ -316,6 +317,9 @@ func signReviewApproval(
 	}
 	plan, err := activities.SessionPlan(e.App, selection, decision.Plan, scope)
 	if err != nil {
+		return "", err
+	}
+	if err := actionauthor.CheckFCAFFixRole(scope, plan.FCAFRole); err != nil {
 		return "", err
 	}
 	if err := actionauthor.CheckFCAFReplays(

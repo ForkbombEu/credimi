@@ -43,8 +43,10 @@ type reviewStub struct {
 	result       map[string]any
 	session      actionauthor.BuildRequest
 	organization string
-	// mode is the session's mode; fcaf authors the relying-party suite.
+	// mode is the session's mode; fcaf authors the relying-party suite, and
+	// fix makes it a fix session.
 	mode string
+	fix  bool
 }
 
 // stubActionAuthorReview answers the session lookup with an Android session
@@ -87,6 +89,7 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 			Organization: stub.organization,
 			Session:      stub.session,
 			Mode:         stub.mode,
+			FCAFFix:      stub.fix,
 		}
 		if stub.mode == actionauthor.SessionModeFCAF {
 			ref.FCAFSuite = actionauthor.FCAFRelyingPartySuite
@@ -702,6 +705,47 @@ func TestActionAuthorReviewChecksTheFCAFReplays(t *testing.T) {
 					require.Empty(t, approval.ReplaysSHA256)
 				},
 			}).Test(t)
+		})
+	}
+}
+
+func TestActionAuthorReviewApprovesOnlyTheFixTargets(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	plan := actionauthor.Spec{Slot: "onboarding", FCAFRole: "fcaf-reset-and-onboard"}
+	for _, tc := range []struct {
+		name     string
+		failing  string
+		status   int
+		expected string
+	}{
+		{name: "the reset failed", failing: "fcaf-reset-and-onboard", status: http.StatusOK,
+			expected: `"decision":"accept"`},
+		{name: "another role failed", failing: "fcaf-expect-request-rejected",
+			status: http.StatusForbidden, expected: `"forbidden"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := stubActionAuthorReview(t, user.Id, nil, nil)
+			stub.mode, stub.fix = actionauthor.SessionModeFCAF, true
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodPost,
+				URL:    "/api/action-author/reviews",
+				Body: strings.NewReader(
+					reviewBody(t, reviewDecision("a1", reviewSHA1, "accept", plan, "")),
+				),
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  tc.status,
+				ExpectedContent: []string{tc.expected},
+				TestAppFactory: func(t testing.TB) *tests.TestApp {
+					return setupFixSessionApp(t, tc.failing)
+				},
+			}).Test(t)
+			if tc.status != http.StatusOK {
+				require.Empty(t, stub.workflowID)
+			}
 		})
 	}
 }

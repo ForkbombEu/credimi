@@ -209,13 +209,17 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
-	// A fix session also saves replays of the fixtures each role failed on.
+	// A fix session saves only actions of the roles it fixes, also with
+	// replays of the fixtures each failed on.
 	scope, err = FCAFFixScope(a.app, ref, selection, scope, a.fcafRunState(ctx, ref.Organization))
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	plan, err := SessionPlan(a.app, selection, payload.Spec, scope)
 	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
+	if err := actionauthor.CheckFCAFFixRole(scope, plan.FCAFRole); err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	payload.BuildRequest = session

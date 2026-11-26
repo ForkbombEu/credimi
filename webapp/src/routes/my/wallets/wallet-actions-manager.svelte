@@ -84,7 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#snippet actions()}
 				{#if walletOwner}
 					<SessionsSheet {wallet} {walletOwner} />
-					<FcafCoverageSheet {wallet} {walletOwner} />
+					<FcafCoverageSheet {wallet} {walletOwner} {organization} />
 					<StartSessionButton {wallet} {walletOwner} {organization} />
 				{/if}
 			{/snippet}

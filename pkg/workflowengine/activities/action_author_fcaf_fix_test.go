@@ -18,8 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fcafFixRole is the role the fix session tests make fail in the last run.
-const fcafFixRole = "fcaf-expect-request-rejected"
+// fcafFixRole is the role the fix session tests make fail in the last run,
+// fcafFixReset one that passed in it.
+const (
+	fcafFixRole  = "fcaf-expect-request-rejected"
+	fcafFixReset = "fcaf-reset-and-onboard"
+)
 
 // fcafFixSessionLookup fakes a running, Credimi-signed FCAF fix session of
 // the relying-party suite on session's build.
@@ -70,6 +74,15 @@ func seedFCAFFixRun(
 		FCAFRole:       fcafFixRole,
 		FCAFRoleSHA256: role.SHA256(),
 	})
+	// The reset passed in the run: no target.
+	resetRole, ok := scope.Contract.Role(fcafFixReset)
+	require.True(t, ok)
+	reset := seedAuthorAction(t, app, session, fcafFixReset, "appId: eu.wallet")
+	recordProvenance(t, app, reset, actionauthor.Provenance{
+		FCAFRole:       fcafFixReset,
+		FCAFRoleSHA256: resetRole.SHA256(),
+		FCAFResult:     &actionauthor.FCAFResult{Status: actionauthor.FCAFResultPassed},
+	})
 	selection, err := actionauthor.Select(app, "", session)
 	require.NoError(t, err)
 	walletPath := actionauthor.FCAFWalletPath(selection)
@@ -95,6 +108,11 @@ func seedFCAFFixRun(
 				Failing:       1,
 				FailedCommand: `Assert that "Request rejected" is visible`,
 				FixtureID:     reported,
+			}, {
+				Action: reset,
+				Role:   fcafFixReset,
+				Status: actionauthor.FCAFRunOK,
+				OK:     1,
 			}},
 			Steps: []actionauthor.FCAFStepOutcome{{
 				StepID:    "s1",
@@ -132,6 +150,9 @@ func TestFCAFFixSessionListsAndDescribesTheFailedFixtures(t *testing.T) {
 	require.NoError(t, err)
 	fixed := []string{}
 	for _, role := range output.Roles {
+		// The agent never sees the run nor a pipeline verdict.
+		require.Nil(t, role.Run, role.Role)
+		require.NotEqual(t, actionauthor.FCAFVerdictFromPipeline, role.VerdictSource, role.Role)
 		if role.Fix {
 			fixed = append(fixed, role.Role)
 			require.Equal(t, []string{failed.ID}, role.FixFixtures)
@@ -139,6 +160,10 @@ func TestFCAFFixSessionListsAndDescribesTheFailedFixtures(t *testing.T) {
 		}
 	}
 	require.Equal(t, []string{fcafFixRole}, fixed)
+	reset := output.Roles[0]
+	require.Equal(t, fcafFixReset, reset.Role)
+	require.Equal(t, actionauthor.FCAFResultPassed, reset.Verdict, "the agent's own verdict")
+	require.Equal(t, actionauthor.FCAFVerdictFromAuthoring, reset.VerdictSource)
 
 	describe := func(lookup sessionLookup) DescribeActionAuthorFCAFRoleOutput {
 		a := NewDescribeActionAuthorFCAFRoleActivity(app)
@@ -223,4 +248,37 @@ func TestFCAFFixFlagIsSignedByCredimi(t *testing.T) {
 	_, err = list.list(t.Context(), authorTestCaller())
 	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 	require.ErrorContains(t, err, "action author session was not started by Credimi")
+}
+
+func TestFCAFFixSessionSavesOnlyItsTargets(t *testing.T) {
+	setFCAFTestEnv(t)
+	app, session, namespace := authorSaveFixture(t)
+	seedFCAFFixRun(t, app, session)
+	build, err := actionauthor.Resolve(app, namespace, session)
+	require.NoError(t, err)
+	code := "appId: eu.wallet\n---\n- launchApp\n"
+	// The reset passed in the last run: the session does not fix it.
+	_, err = fcafFixSessionLookup(t, app, session).activity(t, app).save(
+		t.Context(),
+		authorTestCaller(),
+		actionauthor.SaveRequest{
+			Name:            fcafFixReset,
+			Code:            code,
+			CandidateSHA256: actionauthor.CodeSHA256(code),
+			InstallerSHA256: build.InstallerSHA256,
+			PackageID:       "eu.wallet",
+			ReplayCount:     1,
+			Spec: actionauthor.Spec{
+				Slot:     "onboarding",
+				Outcome:  actionauthor.OutcomeSuccess,
+				FCAFRole: fcafFixReset,
+			},
+			BatchKey: "a1",
+		},
+	)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, `this fix session does not fix the role "fcaf-reset-and-onboard"`)
+
+	// Outside a fix session the scope enforces nothing.
+	require.NoError(t, actionauthor.CheckFCAFFixRole(testFCAFScope(t), fcafFixReset))
 }

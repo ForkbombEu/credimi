@@ -329,9 +329,9 @@ func fcafCoverageWithRun(
 // as FixFixtures and the Maestro command it failed at. A role is fixed when
 // its action is current or incomplete, the run's verdict on it is failing,
 // and coverage takes that verdict (the action was not saved since the run)
-// or the action was saved at or after since, by the session itself, so a
-// role stays fixed after the session saves it. With since now, the fixed
-// roles are exactly those whose coverage verdict is failing.
+// or the action was saved at or after since (as when the session saved it),
+// so a role stays fixed after the session saves it. With since now, the
+// fixed roles are exactly those whose coverage verdict is failing.
 func FCAFFixCoverage(
 	app core.App,
 	selection Selection,
@@ -370,6 +370,18 @@ func FCAFFixRoles(coverage []FCAFRoleCoverage) map[string][]string {
 		}
 	}
 	return fix
+}
+
+// CheckFCAFFixRole refuses, in a fix session (a scope whose Fix is set), an
+// action of a role the session does not fix, a non-FCAF action included.
+func CheckFCAFFixRole(scope *FCAFScope, role string) error {
+	if scope == nil || scope.Fix == nil {
+		return nil
+	}
+	if _, fixed := scope.Fix[role]; !fixed {
+		return fmt.Errorf("%w: this fix session does not fix the role %q", ErrForbidden, role)
+	}
+	return nil
 }
 
 // FCAFFixFixtures returns the fixtures of the role, in Fixtures order, that

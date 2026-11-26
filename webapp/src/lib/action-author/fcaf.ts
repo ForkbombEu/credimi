@@ -235,13 +235,15 @@ export function fixableRoles(roles: FcafRoleCoverage[]): FcafRoleCoverage[] {
 /**
  * The scenarios to run again after a fix: those of the fixtures where the last FCAF run failed
  * roles whose current or incomplete action was saved after that run (run failing, verdict not
- * from the pipeline). Unique and sorted.
+ * from the pipeline), except roles saved with a wallet finding (result finding: the kept action
+ * fails there again by construction). Unique and sorted.
  */
 export function affectedScenarios(roles: FcafRoleCoverage[]): string[] {
 	const scenarios = new Set<string>();
 	for (const role of roles) {
 		if (role.status !== 'current' && role.status !== 'incomplete') continue;
 		if (role.run?.verdict !== 'failing' || role.verdict_source === 'pipeline') continue;
+		if (role.result === 'finding') continue;
 		for (const fixture of role.run.failed_fixtures ?? []) {
 			const scenario = fixture.split('#')[0];
 			if (scenario) scenarios.add(scenario);
