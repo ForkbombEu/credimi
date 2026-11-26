@@ -134,6 +134,20 @@ func TestLoadRejectsInvalidContract(t *testing.T) {
 			message: "authoring_fixtures",
 		},
 		{
+			name: "proves_state_change on a role that presents nothing",
+			mutate: func(c string) string {
+				return replaceInIssue(c, "presents: 0", "presents: 0\n    proves_state_change: address")
+			},
+			message: "proves_state_change is only for a role that presents",
+		},
+		{
+			name: "proves_state_change with spaces",
+			mutate: func(c string) string {
+				return replaceInIssue(c, "presents: 0", "presents: 0\n    proves_state_change: \" \"")
+			},
+			message: "proves_state_change must not start or end with spaces",
+		},
+		{
 			name: "unknown outcome",
 			mutate: func(c string) string {
 				return replaceInIssue(c, "outcome: strict-success", "outcome: maybe")

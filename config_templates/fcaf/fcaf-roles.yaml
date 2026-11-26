@@ -27,7 +27,7 @@ rules:
   - Diagnostic screenshot names are free but at most diagnostic_name_budget characters.
   - Type the wallet's fixed PIN as a literal; it is the same in every action of the wallet.
   - "Start from the state the pipeline leaves: the wallet reset and onboarded, plus the credentials issued before the step. The wallet may be locked or show any screen: launch it and unlock it yourself, also after opening a deeplink if it locks again."
-  - "launch_apps lists the apps the action launches with launchApp at its start; presents is how many times the action taps the wallet's share control when the consent screen appears (0: it never shares); absence_probe means the wallet holds no credential matching the request; issues_credential means the action accepts a credential offer."
+  - "launch_apps lists the apps the action launches with launchApp at its start; presents is how many times the action taps the wallet's share control when the consent screen appears (0: it never shares); absence_probe means the wallet holds no credential matching the request; issues_credential means the action accepts a credential offer; proves_state_change names the claim whose control the action asserts checked before tapping it and unchecked after."
   - "Identify the consent screen by the list of requested documents or claims it shows (on the reference wallet: Requested data), never by the screen title or by the state of the share control: a wallet can show the same title and an enabled share control on its no-match notice."
 roles:
   - name: getcredential-generic-credential-without-authentication
@@ -107,7 +107,7 @@ roles:
         screen: the wallet's confirmation that the presentation was shared
 
   - name: fcaf-expect-request-rejected
-    summary: Opens a presentation request the wallet must refuse and expects an error screen or the no-match notice, or a return to Home, without a consent screen. A consent screen (identified by its share control or its requested claims) is tapped through and then fails the action, so the verifier records what the wallet sends.
+    summary: Opens a presentation request the wallet must refuse and expects an error screen or the no-match notice, or a return to Home, without a consent screen. A consent screen (identified by its requested data) is tapped through and then fails the action, so the verifier records what the wallet sends.
     suites: [wallet_solution/relying_party]
     outcome: strict-rejection
     fails_when: the wallet shows the consent screen for the request
@@ -318,14 +318,15 @@ roles:
     screenshots: []
 
   - name: fcaf-present-unchecked-claim
-    summary: Opens a request, deselects the address claim on the consent screen and checks that the screen shows it deselected (a checkbox or switch turned off, or the claim marked as not shared), shares the rest and reaches the wallet's success screen. Expanding the claim's row is not deselecting it.
+    summary: Opens a request, deselects the address claim on the consent screen, sharing the rest, and reaches the wallet's success screen. The action asserts the address claim's control checked before its tap and unchecked after, on the same element (a checkbox or switch); expanding the claim's row is not deselecting it.
     suites: [wallet_solution/relying_party]
     outcome: strict-success
-    fails_when: the consent screen offers no control that deselects the address claim (the action asserts the deselected state after the tap, so a wallet without one fails the step), or the wallet never reports the presentation as shared
+    fails_when: the consent screen offers no control that deselects the address claim (the action asserts it checked before the tap and unchecked after, so a wallet without one fails the step), or the wallet never reports the presentation as shared
     parameters: [deeplink]
     header_app: wallet
     launch_apps: [wallet]
     presents: 1
+    proves_state_change: address
     diagnostic_name_budget: 39
     screenshots: []
 

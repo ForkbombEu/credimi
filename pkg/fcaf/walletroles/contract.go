@@ -98,6 +98,10 @@ type Role struct {
 	Silent               bool         `yaml:"silent,omitempty"            json:"silent,omitempty"`
 	DiagnosticNameBudget int          `yaml:"diagnostic_name_budget"      json:"diagnostic_name_budget"`
 	Screenshots          []Screenshot `yaml:"screenshots"                 json:"screenshots"`
+	// ProvesStateChange is the claim whose control the action must assert
+	// checked before tapping it and unchecked after. Part of SHA256 (the role
+	// description carries it), omitted when empty so other roles keep theirs.
+	ProvesStateChange string `yaml:"proves_state_change,omitempty" json:"proves_state_change,omitempty"`
 	// Category is the wallet action category of the reference manifest.
 	Category string `yaml:"-" json:"category"`
 	// ReferenceCode is the reference flow source.
@@ -313,6 +317,9 @@ func (r Role) validate() error {
 	if r.Silent && len(r.Screenshots) > 0 {
 		return errors.New("a silent role takes no screenshot")
 	}
+	if err := r.validateStateChange(); err != nil {
+		return err
+	}
 	if r.DiagnosticNameBudget < 1 || r.DiagnosticNameBudget > 99 {
 		return fmt.Errorf("diagnostic_name_budget must be 1-99, got %d", r.DiagnosticNameBudget)
 	}
@@ -321,6 +328,12 @@ func (r Role) validate() error {
 	}); err != nil {
 		return err
 	}
+	return r.validateScreenshots()
+}
+
+// validateScreenshots checks the role's screenshots: valid unique names, a
+// known condition, and a screen for every condition but unconditional.
+func (r Role) validateScreenshots() error {
 	shots := map[string]struct{}{}
 	for _, shot := range r.Screenshots {
 		if !screenshotNamePattern.MatchString(shot.Name) {
@@ -338,6 +351,20 @@ func (r Role) validate() error {
 		if shot.When != ScreenshotUnconditional && strings.TrimSpace(shot.Screen) == "" {
 			return fmt.Errorf("screenshot %q: screen is required when %s", shot.Name, shot.When)
 		}
+	}
+	return nil
+}
+
+// validateStateChange checks proves_state_change: a claim name without
+// surrounding spaces, only for a role that presents.
+func (r Role) validateStateChange() error {
+	switch {
+	case r.ProvesStateChange == "":
+		return nil
+	case strings.TrimSpace(r.ProvesStateChange) != r.ProvesStateChange:
+		return errors.New("proves_state_change must not start or end with spaces")
+	case r.Presents == 0:
+		return errors.New("proves_state_change is only for a role that presents")
 	}
 	return nil
 }

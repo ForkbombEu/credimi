@@ -60,7 +60,7 @@ tags:
     optional: true
 - takeScreenshot: fcaf-supportive-shared
 - extendedWaitUntil:
-    visible: "Close"
+    visible: ".*successfully shared.*"
     timeout: 30000
 - tapOn: "Close"
 # The Verifier's redirect landed on its page, or the Wallet never left its own

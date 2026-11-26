@@ -221,8 +221,13 @@ func ValidateCode(code string, scope CodeScope) []string {
 	for _, problem := range codeForeignIDs(commands, scope.AppIDs) {
 		v.add(problem)
 	}
-	if scope.FCAF != nil && codeStateCondition(commands) {
-		v.add(fcafStateConditionProblem)
+	if scope.FCAF != nil {
+		if codeStateCondition(commands) {
+			v.add(fcafStateConditionProblem)
+		}
+		v.fcafStart(commands, scope.FCAF.Role)
+		v.fcafTapAnchors(commands, scope.FCAF.Role)
+		v.fcafStateChange(commands, scope.FCAF.Role)
 	}
 
 	v.final(code, commands, scope)
@@ -634,11 +639,10 @@ func codeMatchesAny(value string) bool {
 	return value == "" || (codeMatchAll.MatchString(value) && strings.Contains(value, "."))
 }
 
-// codeReachedBeforeLastInteraction reports whether selector was asserted or
-// waited for before the last interaction, over the top-level commands and the
-// inline commands of `runFlow` (never `retry` or `repeat` bodies, and never a
-// `when:` condition).
-func codeReachedBeforeLastInteraction(commands *yaml.Node, selector codeSelector) bool {
+// codeFlatten lists the top-level commands in run order, each `runFlow`
+// followed by its inline commands (never `retry` or `repeat` bodies, and never
+// a `when:` condition).
+func codeFlatten(commands *yaml.Node) []*yaml.Node {
 	var flat []*yaml.Node
 	var flatten func(*yaml.Node)
 	flatten = func(list *yaml.Node) {
@@ -654,6 +658,13 @@ func codeReachedBeforeLastInteraction(commands *yaml.Node, selector codeSelector
 		}
 	}
 	flatten(commands)
+	return flat
+}
+
+// codeReachedBeforeLastInteraction reports whether selector was asserted or
+// waited for before the last interaction, over codeFlatten's commands.
+func codeReachedBeforeLastInteraction(commands *yaml.Node, selector codeSelector) bool {
+	flat := codeFlatten(commands)
 	last := -1
 	for i, item := range flat {
 		if name, _, ok := codeCommand(item); ok && codeInteractions[name] {
@@ -924,6 +935,300 @@ func codeStateCondition(commands *yaml.Node) bool {
 		}
 	}
 	return slices.ContainsFunc(node.Content, codeStateCondition)
+}
+
+// fcafStartProblem refuses an action that does not stop the app first when
+// the role's reference flow does.
+func fcafStartProblem(role string) string {
+	return "the reference flow of " + role + " starts by stopping the app; start the action " +
+		"with stopApp (or launchApp with stopApp: true)"
+}
+
+// fcafStart requires the first command to stop the app when the first command
+// of the role's reference flow does.
+func (v *codeValidator) fcafStart(commands *yaml.Node, role walletroles.Role) {
+	if commands == nil {
+		return
+	}
+	docs, err := codeDocuments(role.ReferenceCode)
+	if err != nil || len(docs) != 2 || docs[1] == nil || docs[1].Kind != yaml.SequenceNode ||
+		len(docs[1].Content) == 0 {
+		return
+	}
+	if codeStopsApp(docs[1].Content[0]) && !codeStopsApp(commands.Content[0]) {
+		v.add(fcafStartProblem(role.Name))
+	}
+}
+
+// codeStopsApp reports whether a command stops the app: stopApp, or launchApp
+// with stopApp written as the plain scalar `true`.
+func codeStopsApp(item *yaml.Node) bool {
+	name, arg, ok := codeCommand(item)
+	switch {
+	case !ok:
+		return false
+	case name == "stopApp":
+		return true
+	case name == "launchApp" && arg != nil && arg.Kind == yaml.MappingNode:
+		value, ok := codePlainScalar(codeLookup(arg, "stopApp"), "!!bool")
+		return ok && value == "true"
+	}
+	return false
+}
+
+// fcafTapAnchorProblem refuses a tap whose screen is identified only by the
+// control it taps: the wallet's no-match notice offers the same Share control
+// as its consent screen, so only what the screen lists tells them apart.
+func fcafTapAnchorProblem(text string) string {
+	return "the screen before tapping \"" + text + "\" is identified only by \"" + text +
+		"\" itself; assert what the screen shows (on the consent screen, the requested " +
+		"data), as the reference flow does"
+}
+
+// fcafTapAnchors refuses, in a role that shares or must refuse a request
+// (presents > 0 or strict-rejection, never a role that accepts an offer), a
+// text tapOn whose screen is identified only by the tapped text: a runFlow
+// whose `when: visible` is the text or lists it among its `|` alternatives
+// and that also has `notVisible` or interacts again after the tap (a runFlow
+// that only taps and then waits, asserts or takes screenshots dismisses a
+// control), or strict anchors since the previous interaction (assertVisible,
+// extendedWaitUntil visible, scrollUntilVisible) that all list the text.
+func (v *codeValidator) fcafTapAnchors(commands *yaml.Node, role walletroles.Role) {
+	if role.IssuesCredential ||
+		(role.Presents == 0 && role.Outcome != walletroles.OutcomeRejection) {
+		return
+	}
+	flat := codeFlatten(commands)
+	for i, item := range flat {
+		name, arg, ok := codeCommand(item)
+		if !ok {
+			continue
+		}
+		if name == "runFlow" {
+			v.whenTap(arg)
+			continue
+		}
+		text, ok := codeTapText(name, arg)
+		if !ok {
+			continue
+		}
+		only := false
+		for j := i - 1; j >= 0; j-- {
+			before, beforeArg, ok := codeCommand(flat[j])
+			if !ok {
+				continue
+			}
+			if selector := codeAnchor(before, beforeArg); selector != nil {
+				anchored, isText := codeSelectorText(selector)
+				if !isText || !codeAlternates(anchored, text) {
+					only = false
+					break
+				}
+				only = true
+				continue
+			}
+			if codeInteractions[before] {
+				break
+			}
+		}
+		if only {
+			v.add(fcafTapAnchorProblem(text))
+		}
+	}
+}
+
+// whenTap refuses the taps of a runFlow identified by the text they tap.
+func (v *codeValidator) whenTap(arg *yaml.Node) {
+	if arg == nil || arg.Kind != yaml.MappingNode {
+		return
+	}
+	when, inner := codeLookup(arg, "when"), codeLookup(arg, "commands")
+	if when == nil || when.Kind != yaml.MappingNode || inner == nil ||
+		inner.Kind != yaml.SequenceNode {
+		return
+	}
+	visible, ok := codeSelectorText(codeLookup(when, "visible"))
+	if !ok {
+		return
+	}
+	for k, item := range inner.Content {
+		name, tapArg, ok := codeCommand(item)
+		if !ok {
+			continue
+		}
+		text, ok := codeTapText(name, tapArg)
+		if ok && codeAlternates(visible, text) &&
+			(codeLookup(when, "notVisible") != nil || codeInteracts(inner.Content[k+1:])) {
+			v.add(fcafTapAnchorProblem(text))
+		}
+	}
+}
+
+// codeInteracts reports whether any of the commands, nested bodies included,
+// is an interaction.
+func codeInteracts(items []*yaml.Node) bool {
+	for _, item := range items {
+		name, arg, ok := codeCommand(item)
+		if !ok {
+			continue
+		}
+		if codeInteractions[name] {
+			return true
+		}
+		if codeNestedCommands[name] && arg != nil && arg.Kind == yaml.MappingNode {
+			if nested := codeLookup(arg, "commands"); nested != nil &&
+				nested.Kind == yaml.SequenceNode && codeInteracts(nested.Content) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// codeTapText returns the text a tapOn targets: its string argument, else
+// its string `text`.
+func codeTapText(name string, arg *yaml.Node) (string, bool) {
+	if name != "tapOn" {
+		return "", false
+	}
+	return codeSelectorText(arg)
+}
+
+// codeSelectorText returns the text of a selector: a string, else the string
+// `text` of a mapping.
+func codeSelectorText(selector *yaml.Node) (string, bool) {
+	if selector != nil && selector.Kind == yaml.MappingNode {
+		selector = codeLookup(selector, "text")
+	}
+	if !codeIsString(selector) {
+		return "", false
+	}
+	return selector.Value, true
+}
+
+// codeAlternates reports whether pattern is text or lists it among its `|`
+// alternatives.
+func codeAlternates(pattern, text string) bool {
+	return slices.Contains(strings.Split(pattern, "|"), text)
+}
+
+// codeHolds reports whether a check is strict, as walletroles.ScreenshotConditions
+// reads it: no options mapping, no `optional`, or `optional` the plain scalar
+// `false`. Any other value (`true`, `"false"`, `yes`) counts as optional.
+func codeHolds(options *yaml.Node) bool {
+	if options == nil || options.Kind != yaml.MappingNode {
+		return true
+	}
+	optional := codeLookup(options, "optional")
+	if optional == nil {
+		return true
+	}
+	value, ok := codePlainScalar(optional, "!!bool")
+	return ok && value == "false"
+}
+
+// codeAnchor returns the selector a strict anchor checks: a non-optional
+// assertVisible, extendedWaitUntil visible or scrollUntilVisible element;
+// nil for any other command.
+func codeAnchor(name string, arg *yaml.Node) *yaml.Node {
+	switch name {
+	case "assertVisible":
+		if codeHolds(arg) {
+			return arg
+		}
+	case "extendedWaitUntil", "scrollUntilVisible":
+		key := "visible"
+		if name == "scrollUntilVisible" {
+			key = "element"
+		}
+		if arg != nil && arg.Kind == yaml.MappingNode && codeHolds(arg) {
+			return codeLookup(arg, key)
+		}
+	}
+	return nil
+}
+
+// fcafStateChangeProblem refuses an action that does not prove the claim's
+// control changes state.
+func fcafStateChangeProblem(claim string) string {
+	return "this role must prove the " + claim + " control changes state: assert it checked " +
+		"before the tap and unchecked after, on the same element (a row that only expands " +
+		"has no such control)"
+}
+
+// fcafStateChange requires, for a role with proves_state_change, a `checked:
+// true` assertion on a selector (text or id) naming the claim, then a tap of
+// the claim, then a `checked: false` assertion on the same selector, over
+// codeFlatten's commands. The claim matches case-insensitively within the
+// selector.
+func (v *codeValidator) fcafStateChange(commands *yaml.Node, role walletroles.Role) {
+	claim := strings.ToLower(role.ProvesStateChange)
+	if claim == "" || commands == nil {
+		return
+	}
+	names := func(selector codeSelector) bool {
+		return strings.Contains(strings.ToLower(selector.value), claim)
+	}
+	checked := map[codeSelector]bool{}
+	tapped := map[codeSelector]bool{}
+	for _, item := range codeFlatten(commands) {
+		name, arg, ok := codeCommand(item)
+		if !ok {
+			continue
+		}
+		if selector, ok := codeTapSelector(name, arg); ok {
+			if names(selector) {
+				for s := range checked {
+					tapped[s] = true
+				}
+			}
+			continue
+		}
+		selector, state, ok := codeCheckedAssertion(name, arg)
+		switch {
+		case !ok || !names(selector):
+		case state:
+			checked[selector] = true
+		case tapped[selector]:
+			return
+		}
+	}
+	v.add(fcafStateChangeProblem(role.ProvesStateChange))
+}
+
+// codeTapSelector returns the element a tapOn targets: its string argument,
+// else its string `text`, else its string `id`.
+func codeTapSelector(name string, arg *yaml.Node) (codeSelector, bool) {
+	if name != "tapOn" {
+		return codeSelector{}, false
+	}
+	if text, ok := codeSelectorText(arg); ok {
+		return codeSelector{value: text}, true
+	}
+	if arg != nil && arg.Kind == yaml.MappingNode {
+		if id := codeLookup(arg, "id"); codeIsString(id) {
+			return codeSelector{id: true, value: id.Value}, true
+		}
+	}
+	return codeSelector{}, false
+}
+
+// codeCheckedAssertion returns the selector and the `checked` state (a plain
+// boolean) a non-optional assertVisible or extendedWaitUntil visible checks.
+func codeCheckedAssertion(name string, arg *yaml.Node) (codeSelector, bool, bool) {
+	target := codeAnchor(name, arg)
+	if name == "scrollUntilVisible" || target == nil || target.Kind != yaml.MappingNode {
+		return codeSelector{}, false, false
+	}
+	selector, ok := codeAssertedSelector(name, arg)
+	if !ok {
+		return codeSelector{}, false, false
+	}
+	state, ok := codePlainScalar(codeLookup(target, "checked"), "!!bool")
+	if !ok {
+		return codeSelector{}, false, false
+	}
+	return selector, state == "true", true
 }
 
 // fcafScreenshotPhrases says where each contract screenshot condition is taken.
