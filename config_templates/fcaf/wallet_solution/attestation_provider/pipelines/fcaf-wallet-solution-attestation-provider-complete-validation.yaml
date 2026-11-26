@@ -1,6 +1,6 @@
 name: FCAF wallet attestation-provider complete validation
 runtime:
-    global_device_id: forkbomb-bv-andrea/usb/device
+    global_device_id: fcaf-1/usb/device
     no_video: true
     temporal:
         activity_options:
@@ -13,8 +13,8 @@ steps:
     - id: onboard-reference-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+        version_id: fcaf-1/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: authorization-code-issuance-fd1aa51f-create-issuance-session
       use: http-request
@@ -35,7 +35,7 @@ steps:
       linked_to: authorization-code-issuance-fd1aa51f-create-issuance-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ authorization-code-issuance-fd1aa51f-create-issuance-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -96,7 +96,7 @@ steps:
       linked_to: authorization-code-issuance-fd1aa51f-create-presentation-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ authorization-code-issuance-fd1aa51f-create-presentation-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -128,8 +128,8 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engage-credential-offer
               parameters:
                 engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ credential-offer-by-value-30064ee6-create-valid-offer-session.outputs.body.session_id }}/engage
         version_id: installed_from_external_source
@@ -170,7 +170,7 @@ steps:
       linked_to: credential-offer-by-value-30064ee6-create-offer-without-issuer-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engage-credential-offer
         parameters:
             engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-issuer-session.outputs.body.session_id }}/engage
         version_id: installed_from_external_source
@@ -211,7 +211,7 @@ steps:
       linked_to: credential-offer-by-value-30064ee6-create-offer-without-ids-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engage-credential-offer
         parameters:
             engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-ids-session.outputs.body.session_id }}/engage
         version_id: installed_from_external_source
@@ -255,8 +255,8 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
               parameters:
                 deeplink: ${{ credential-request-denied-2122ce7a-create-issuance-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -264,7 +264,7 @@ steps:
       id: credential-request-denied-2122ce7a-observe-wallet-after-denial
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-wallet
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-observe-wallet
         version_id: installed_from_external_source
     - continue_on_error: true
       id: credential-request-denied-2122ce7a-fetch-issuance-session
@@ -314,7 +314,7 @@ steps:
       linked_to: credential-request-denied-2122ce7a-create-stored-credential-probe
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-absent
         parameters:
             deeplink: ${{ credential-request-denied-2122ce7a-create-stored-credential-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -346,8 +346,8 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
               parameters:
                 deeplink: ${{ jwt-key-attestation-issuance-d607cf80-create-jwt-key-attestation-issuance-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -386,8 +386,8 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engage-credential-offer
               parameters:
                 engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ offer-scheme-engagement-55c51c7f-create-haip-vci-session.outputs.body.session_id }}/engage
         version_id: installed_from_external_source
@@ -425,7 +425,7 @@ steps:
       linked_to: offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engage-credential-offer
         parameters:
             engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session.outputs.body.session_id }}/engage
         version_id: installed_from_external_source
@@ -467,8 +467,8 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-credential-rejected
               parameters:
                 deeplink: ${{ par-response-without-request-uri-5f3c4ae9-create-issuance-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -476,7 +476,7 @@ steps:
       id: par-response-without-request-uri-5f3c4ae9-observe-wallet-after-par-response
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-wallet
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-observe-wallet
         version_id: installed_from_external_source
     - continue_on_error: true
       id: par-response-without-request-uri-5f3c4ae9-fetch-issuance-session

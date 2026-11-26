@@ -66,8 +66,9 @@ actions for other wallets, and `cmd/fcaf-pipeline-gen` reads credential use,
 issuance, absence probes and apps from it. Update it in the same change when:
 
 - a scenario uses a new wallet action: add its role and a reference flow under
-  `config_templates/fcaf/imports/forkbomb-bv-andrea/wallet/`, listed in
-  `wallet-actions.yaml`;
+  `config_templates/fcaf/imports/fcaf-1/wallet/`, listed in
+  `wallet-actions.yaml` (`fcaf-1` is the FCAF reference organization; sync a
+  changed reference flow on it with `fcaf sync`);
 - a test reads a screenshot by name (`evidence.screenshot_named`): add the
   role's verdict screenshot and its condition (`gated`, `while-screen`,
   `unconditional`);

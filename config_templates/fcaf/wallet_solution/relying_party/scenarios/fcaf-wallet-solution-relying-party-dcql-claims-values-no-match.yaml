@@ -34,7 +34,7 @@ steps:
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ possession-create-presentation.outputs.body.deeplink }}
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
 - id: possession-fetch
   use: http-request
   with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ possession-create-presentation.outputs.body.session_id }}', expected_status: 200 }
@@ -63,7 +63,7 @@ steps:
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create.outputs.body.deeplink }}
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-no-matching-document
 - id: session
   use: http-request
   with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }

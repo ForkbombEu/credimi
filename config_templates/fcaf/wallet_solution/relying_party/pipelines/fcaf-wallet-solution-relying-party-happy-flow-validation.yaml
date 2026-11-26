@@ -1,6 +1,6 @@
 name: FCAF wallet relying-party happy flow validation
 runtime:
-    global_device_id: forkbomb-bv-andrea/usb/device
+    global_device_id: fcaf-1/usb/device
     no_video: true
     temporal:
         activity_options:
@@ -13,8 +13,8 @@ steps:
     - id: onboard-reference-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+        version_id: fcaf-1/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-baseline-ab869899-create-capture-session
       use: http-request
@@ -97,10 +97,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-baseline-ab869899-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-baseline-ab869899-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -122,15 +122,15 @@ steps:
       id: dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-mdoc-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-mdoc
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-obtain-pid-mdoc
       linked_to: dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-mdoc-offer
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
               parameters:
                 deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-mdoc-offer.outputs }}
         version_id: installed_from_external_source
@@ -152,7 +152,7 @@ steps:
       linked_to: dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-person-b-issuance
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-person-b-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -190,7 +190,7 @@ steps:
       linked_to: dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -205,13 +205,13 @@ steps:
       id: dcql-credential-formats-3cfeac03-credential-formats-036-create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-obtain-pid-sdjwt
       linked_to: dcql-credential-formats-3cfeac03-credential-formats-036-create-pid-sdjwt-offer
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -247,7 +247,7 @@ steps:
       linked_to: dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -290,7 +290,7 @@ steps:
       linked_to: dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -347,10 +347,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -365,15 +365,15 @@ steps:
       id: dcql-credentials-match-cc301c32-create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-obtain-pid-sdjwt
       linked_to: dcql-credentials-match-cc301c32-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
               parameters:
                 deeplink: ${{ dcql-credentials-match-cc301c32-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -416,7 +416,7 @@ steps:
       linked_to: dcql-credentials-match-cc301c32-create-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -485,11 +485,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-interaction-metadata-f9737358-create-aud-mismatch-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -552,11 +552,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -619,10 +619,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -673,10 +673,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -740,10 +740,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -797,10 +797,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-no-matching-document
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -854,10 +854,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-present-possession-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-possession-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -915,10 +915,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-no-matching-document
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -933,13 +933,13 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-pid-mdoc-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-mdoc
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-obtain-pid-mdoc
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-pid-mdoc-offer
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-pid-mdoc-offer.outputs }}
         version_id: installed_from_external_source
@@ -966,7 +966,7 @@ steps:
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -981,13 +981,13 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-obtain-pid-sdjwt
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-pid-sdjwt-offer
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -1030,7 +1030,7 @@ steps:
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1086,10 +1086,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-no-matching-document
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1104,13 +1104,13 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-obtain-pid-sdjwt
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -1149,7 +1149,7 @@ steps:
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1164,13 +1164,13 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-obtain-pid-sdjwt
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -1201,7 +1201,7 @@ steps:
       linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-possession-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-possession-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1262,10 +1262,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-no-matching-document
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1343,13 +1343,13 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-present-two-credentials
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-present-two-credentials
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1411,11 +1411,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-protocol-messages-a25772b2-create-transaction-data-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1473,11 +1473,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-rp-integrity-3576cc79-reject-did-session-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-rp-integrity-3576cc79-create-did-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1541,11 +1541,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-session-encryption-210827bd-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1606,11 +1606,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1671,10 +1671,10 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-expect-no-matching-document
               parameters:
                 deeplink: ${{ dcql-trust-mechanisms-157d0f39-create-no-match-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1733,11 +1733,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
               parameters:
                 deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1752,15 +1752,15 @@ steps:
       id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt
       linked_to: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
               parameters:
                 deeplink: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -1851,7 +1851,7 @@ steps:
       linked_to: engagement-haip-vp-4bb0f83a-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1880,8 +1880,8 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
               parameters:
                 deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-sdjwt-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1940,7 +1940,7 @@ steps:
       linked_to: pid-domestic-7fac1fb7-create-domestic-sdjwt-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-sdjwt-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1968,7 +1968,7 @@ steps:
       linked_to: pid-domestic-7fac1fb7-create-domestic-mdoc-issuance
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-mdoc-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -2035,7 +2035,7 @@ steps:
       linked_to: pid-domestic-7fac1fb7-create-domestic-mdoc-presentation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-mdoc-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -2050,15 +2050,15 @@ steps:
       id: pid-mdoc-data-model-8f915369-create-pid-mdoc-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-mdoc
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-obtain-pid-mdoc
       linked_to: pid-mdoc-data-model-8f915369-create-pid-mdoc-offer
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
               parameters:
                 deeplink: ${{ pid-mdoc-data-model-8f915369-create-pid-mdoc-offer.outputs }}
         version_id: installed_from_external_source
@@ -2166,7 +2166,7 @@ steps:
       linked_to: pid-mdoc-data-model-8f915369-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -2226,11 +2226,11 @@ steps:
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-submit-request-object-by-value
+            - id: fcaf-1/eudiw-beta-wallet/fcaf-submit-request-object-by-value
               parameters:
                 deeplink: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -2245,7 +2245,7 @@ steps:
       use: fcaf-validation
       with:
         pipeline_outputs:
-            forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-pid-mdoc-data-model:
+            fcaf-1/fcaf-wallet-solution-relying-party-pid-mdoc-data-model:
                 output:
                     create-capture-session: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs | optional }}
                     create-pid-mdoc-offer: ${{ pid-mdoc-data-model-8f915369-create-pid-mdoc-offer.outputs | optional }}
@@ -2253,7 +2253,7 @@ steps:
                     invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
                     visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
-            forkbomb-bv-andrea/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
+            fcaf-1/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
                     create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}

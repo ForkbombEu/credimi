@@ -37,7 +37,7 @@ steps:
   - id: engage-haip-vci-offer
     use: mobile-automation
     with:
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+      action_id: fcaf-1/eudiw-beta-wallet/fcaf-engage-credential-offer
       version_id: installed_from_external_source
       parameters:
         engage_url: ${fixture.issuer_url}/ui/sessions/${{ create-haip-vci-session.outputs.body.session_id }}/engage
@@ -74,7 +74,7 @@ steps:
   - id: engage-eu-eaa-offer
     use: mobile-automation
     with:
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+      action_id: fcaf-1/eudiw-beta-wallet/fcaf-engage-credential-offer
       version_id: installed_from_external_source
       parameters:
         engage_url: ${fixture.issuer_url}/ui/sessions/${{ create-eu-eaa-offer-session.outputs.body.session_id }}/engage

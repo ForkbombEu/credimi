@@ -17,7 +17,7 @@ steps:
   with:
     version_id: installed_from_external_source
     parameters: { deeplink: '${{ create.outputs.body.deeplink }}' }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
 - id: session
   use: http-request
   with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }

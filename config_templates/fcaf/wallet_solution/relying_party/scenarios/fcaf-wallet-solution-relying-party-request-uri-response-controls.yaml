@@ -2,7 +2,7 @@ name: FCAF Request URI response controls
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-  global_device_id: forkbomb-bv-andrea/usb/device
+  global_device_id: fcaf-1/usb/device
 steps:
 - id: create-wrong-content-type
   use: http-request
@@ -30,7 +30,7 @@ steps:
 - id: reject-wrong-content-type
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-wrong-content-type.outputs.body.deeplink }}"
@@ -70,7 +70,7 @@ steps:
 - id: reject-unadvertised-content-type
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-unadvertised-content-type.outputs.body.deeplink }}"
@@ -106,7 +106,7 @@ steps:
 - id: reject-http-error
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-http-error.outputs.body.deeplink }}"

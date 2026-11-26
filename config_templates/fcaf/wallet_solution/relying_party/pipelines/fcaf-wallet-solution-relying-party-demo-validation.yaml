@@ -1,6 +1,6 @@
 name: FCAF wallet relying-party demo validation
 runtime:
-    global_device_id: forkbomb-bv-andrea/usb/device
+    global_device_id: fcaf-1/usb/device
     temporal:
         activity_options:
             heartbeat_timeout: 10m
@@ -12,19 +12,19 @@ steps:
     - id: onboard-reference-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-reset-and-onboard
+        version_id: fcaf-1/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: credential-offer
       with:
-        credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
+        credential_id: /fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt
       linked_to: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: fcaf-1/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
@@ -115,7 +115,7 @@ steps:
       linked_to: engagement-haip-vp-4bb0f83a-create-capture-session
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -130,7 +130,7 @@ steps:
       use: fcaf-validation
       with:
         pipeline_outputs:
-            forkbomb-bv-andrea/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
+            fcaf-1/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
                     create-pid-sdjwt-offer: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs | optional }}

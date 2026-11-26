@@ -122,8 +122,8 @@ func ScenarioPaths(root string, suite string) ([]string, error) {
 // The reference pipelines' defaults: the device they run on and the
 // reference wallet version their prelude installs.
 const (
-	DefaultDeviceID  = "forkbomb-bv-andrea/usb/device"
-	DefaultVersionID = "forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo"
+	DefaultDeviceID  = "fcaf-1/usb/device"
+	DefaultVersionID = "fcaf-1/eudiw-beta-wallet/2026-09-42-demo"
 	// PreludeStepID is the pipeline's first step, which installs, resets
 	// and onboards the wallet.
 	PreludeStepID = "onboard-reference-wallet"

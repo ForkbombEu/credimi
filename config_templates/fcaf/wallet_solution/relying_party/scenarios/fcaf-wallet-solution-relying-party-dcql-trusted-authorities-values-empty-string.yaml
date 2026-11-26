@@ -55,7 +55,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-single.outputs.body.deeplink }}
 - id: fetch-single
@@ -113,7 +113,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-mixed.outputs.body.deeplink }}
 - id: fetch-mixed

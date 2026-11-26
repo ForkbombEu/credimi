@@ -26,7 +26,7 @@ steps:
     - id: present-claim-without-values
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source

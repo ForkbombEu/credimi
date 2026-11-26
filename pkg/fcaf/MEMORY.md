@@ -10,6 +10,10 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## fcaf-1 is the FCAF reference organization, 26/11/2026
+
+The import bundle moved to `config_templates/fcaf/imports/fcaf-1/` (manifest `organization: fcaf-1`), and every scenario, generated pipeline, `aggregate.DefaultDeviceID`/`DefaultVersionID` and `fcafSourceOrg` name `fcaf-1/` instead of `forkbomb-bv-andrea/`. Production `fcaf-1` holds the reference wallet, its actions and the published credentials `fcaf-1/misc-issuer-integration-demo/capture-issuer-pid-{dc-sd-jwt,mdoc}`; only `fcaf-1` is synced with `fcaf sync`. Entries below keep the paths of their date.
+
 ## Run review fixes, 20/11/2026
 
 A review of the 18/11/2026 relying-party run (`fcaf_assessment_b7og605gj3`) applied one rule throughout: a test follows what the FCAF source requires, never what the reference Wallet can do; `not_applicable`/`skipped` only where the source limits applicability or the harness cannot build a source precondition; `error_description` is never matched (optional in OpenID4VP 8.5).

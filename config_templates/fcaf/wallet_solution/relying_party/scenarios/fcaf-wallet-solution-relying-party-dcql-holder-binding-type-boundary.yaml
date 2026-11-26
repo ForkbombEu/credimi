@@ -39,7 +39,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     parameters:
       deeplink: ${{ create-valid-true.outputs.body.deeplink }}
 - id: get-valid-true
@@ -80,7 +80,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-engagement-haip-vp
     parameters:
       deeplink: ${{ create-valid-false.outputs.body.deeplink }}
 - id: get-valid-false
@@ -136,7 +136,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-number-zero.outputs.body.deeplink }}
 - id: fetch-number-zero
@@ -192,7 +192,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-number-one.outputs.body.deeplink }}
 - id: fetch-number-one
@@ -248,7 +248,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-number-random.outputs.body.deeplink }}
 - id: fetch-number-random
@@ -304,7 +304,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-true.outputs.body.deeplink }}
 - id: fetch-string-true
@@ -360,7 +360,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-false.outputs.body.deeplink }}
 - id: fetch-string-false
@@ -416,7 +416,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-uppercase-true.outputs.body.deeplink }}
 - id: fetch-string-uppercase-true
@@ -472,7 +472,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-uppercase-false.outputs.body.deeplink }}
 - id: fetch-string-uppercase-false
@@ -528,7 +528,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-yes.outputs.body.deeplink }}
 - id: fetch-string-yes
@@ -584,7 +584,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-no.outputs.body.deeplink }}
 - id: fetch-string-no
@@ -640,7 +640,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-y.outputs.body.deeplink }}
 - id: fetch-string-y
@@ -696,7 +696,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-n.outputs.body.deeplink }}
 - id: fetch-string-n
@@ -752,7 +752,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-zero.outputs.body.deeplink }}
 - id: fetch-string-zero
@@ -808,7 +808,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-one.outputs.body.deeplink }}
 - id: fetch-string-one
@@ -864,7 +864,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: fcaf-1/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
       deeplink: ${{ create-string-random.outputs.body.deeplink }}
 - id: fetch-string-random
