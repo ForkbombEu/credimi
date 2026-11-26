@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ChevronDownIcon, LayoutDashboardIcon } from '@lucide/svelte';
+	import { LayoutDashboardIcon } from '@lucide/svelte';
 	import { fromStore } from 'svelte/store';
 
 	import type { LinkWithIcon } from '@/components/types';
@@ -13,12 +13,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { AppLogo } from '@/brand';
 	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import Popover from '@/components/ui-custom/popover.svelte';
 	import { featureFlags, Features, type FeatureFlags } from '@/features';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
-	import NavExtrasList from './nav-extras-list.svelte';
 	import NavLink from './nav-link.svelte';
 	import MobileNav from './nav-mobile.svelte';
 	import { leftItems } from './topbar-links';
@@ -78,17 +76,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each leftItems as item (item)}
 					<NavLink link={item} variant="desktop" />
 				{/each}
-				<Popover containerClass="cursor-pointer p-1">
-					{#snippet trigger({ props })}
-						<Button {...props} target="_blank" variant="link" class="gap-1 border-none">
-							{m.Extras()}
-							<ChevronDownIcon />
-						</Button>
-					{/snippet}
-					{#snippet content()}
-						<NavExtrasList />
-					{/snippet}
-				</Popover>
 			</div>
 		</div>
 	{/snippet}

@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { entities } from '$lib/global/entities';
 	import RoleTile from '$lib/layout/marketing/role-tile.svelte';
 
@@ -18,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const container = 'mx-auto max-w-site px-4 md:px-8';
 
 	// Each H2 opens a section. A section of plain text puts its heading beside the text on wide
-	// screens; diagrams, tables and code keep the full width. "Read next" closes the page.
+	// screens; diagrams, tables, code and card grids keep the full width.
 	const sections = $derived(
 		body.split(/(?=<h2[\s>])|(?=<div class="content-related">)/).map((html) => {
 			const match = html.match(/^(<h2[\s\S]*?<\/h2>)([\s\S]*)$/);
@@ -26,7 +27,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				html,
 				heading: match?.[1],
 				text: match?.[2] ?? '',
-				split: Boolean(match) && !/<(figure|table|pre)[\s>]/.test(html),
+				split:
+					Boolean(match) &&
+					!/<(?:figure|table|pre)[\s>]|class="content-related-grid"/.test(html),
 				related: html.startsWith('<div class="content-related">')
 			};
 		})
@@ -43,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			<div>
 				<a
-					href="/pages/guides"
+					href={resolve('/pages/guides')}
 					class="text-xs font-medium tracking-[0.14em] text-primary-foreground/70 uppercase transition-colors duration-150 hover:text-primary-foreground"
 				>
 					Guides
@@ -138,7 +141,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#each mainSections as section, i (i)}
 	<section class={i % 2 ? 'bg-secondary' : 'bg-background'}>
-		<div class="{container} guide-body py-16 md:py-24" class:guide-intro={!section.heading}>
+		<div
+			class={[`${container} guide-body py-16 md:py-24`, { 'guide-intro': !section.heading }]}
+		>
 			{#if section.split}
 				<div class="grid gap-x-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
 					<div class="guide-aside">
