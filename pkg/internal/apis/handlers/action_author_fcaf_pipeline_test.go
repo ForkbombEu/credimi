@@ -538,3 +538,96 @@ func TestActionAuthorFCAFPipelineNeedsUsableCredentials(t *testing.T) {
 	}).Test(t)
 	require.Empty(t, *enqueued)
 }
+
+// TestActionAuthorFCAFPipelineUsesTheCallersCopiesOfTheReferenceCredentials
+// pins that an organization holding its own unpublished copy of a reference
+// credential (same issuer and credential names, as `fcaf sync` imports them)
+// runs that copy, even when the reference one is not published, while a
+// credential it has no copy of stays the published reference one.
+func TestActionAuthorFCAFPipelineUsesTheCallersCopiesOfTheReferenceCredentials(t *testing.T) {
+	enqueued := stubFCAFPipelineQueue(t)
+	var copied, kept []string
+	(&tests.ApiScenario{
+		Name:   "caller's copies of the reference credentials",
+		Method: http.MethodPost,
+		URL:    fcafPipelineURL,
+		Body:   strings.NewReader(fcafPipelineBody(fcafPipelineDevice)),
+		Headers: map[string]string{
+			"Authorization": "Bearer " + authoringToken(t, "userA"),
+			"Content-Type":  "application/json",
+		},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"status":"queued"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			wallet, err := app.FindFirstRecordByData("wallets", "name", "Authoring handler wallet")
+			require.NoError(t, err)
+			saveFCAFActions(t, app, wallet.GetString("owner"), wallet.Id, "no role left out")
+			credentials := seedFCAFReferenceCredentials(t, app)
+			require.Greater(t, len(credentials), 1)
+			caller, err := app.FindRecordById("organizations", wallet.GetString("owner"))
+			require.NoError(t, err)
+			for i, credential := range credentials {
+				issuer, err := app.FindRecordById(
+					"credential_issuers",
+					credential.GetString("credential_issuer"),
+				)
+				require.NoError(t, err)
+				org, err := app.FindRecordById("organizations", credential.GetString("owner"))
+				require.NoError(t, err)
+				reference := org.GetString("canonified_name") + "/" +
+					issuer.GetString("canonified_name") + "/" + credential.GetString("canonified_name")
+				if i == 0 {
+					// No copy: the published reference credential runs.
+					kept = append(kept, reference)
+					continue
+				}
+				credential.Set("published", false)
+				require.NoError(t, app.Save(credential))
+				ownIssuer, err := app.FindFirstRecordByFilter(
+					"credential_issuers",
+					"owner = {:owner} && canonified_name = {:name}",
+					dbx.Params{"owner": caller.Id, "name": issuer.GetString("canonified_name")},
+				)
+				if errors.Is(err, sql.ErrNoRows) {
+					c, cErr := app.FindCollectionByNameOrId("credential_issuers")
+					require.NoError(t, cErr)
+					ownIssuer = core.NewRecord(c)
+					ownIssuer.Set("owner", caller.Id)
+					ownIssuer.Set("name", issuer.GetString("name"))
+					ownIssuer.Set("url", issuer.GetString("url"))
+					require.NoError(t, app.Save(ownIssuer))
+				} else {
+					require.NoError(t, err)
+				}
+				c, err := app.FindCollectionByNameOrId("credentials")
+				require.NoError(t, err)
+				own := core.NewRecord(c)
+				own.Set("owner", caller.Id)
+				own.Set("credential_issuer", ownIssuer.Id)
+				own.Set("name", credential.GetString("name"))
+				require.NoError(t, app.Save(own))
+				copied = append(copied, reference)
+			}
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+			record, err := app.FindFirstRecordByData(
+				"pipelines",
+				"name",
+				actionauthor.FCAFPipelineName("usera-s-organization/authoring-handler-wallet", nil),
+			)
+			require.NoError(t, err)
+			yaml := record.GetString("yaml")
+			for _, reference := range copied {
+				_, rest, _ := strings.Cut(reference, "/")
+				require.NotContains(t, yaml, reference+"\n")
+				require.Contains(t, yaml, authoringNamespace+"/"+rest)
+			}
+			for _, reference := range kept {
+				require.Contains(t, yaml, reference)
+			}
+		},
+	}).Test(t)
+	require.Len(t, *enqueued, 1)
+}

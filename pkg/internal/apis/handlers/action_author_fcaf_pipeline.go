@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -167,10 +168,20 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("build FCAF pipeline: %w", err))
 		}
-		if apiErr := checkFCAFReferences(e, org.Id, string(built.YAML)); apiErr != nil {
+		yaml, err := useCallerFCAFReferences(
+			e.App,
+			string(built.YAML),
+			referenceOrganization(scope.Contract.ReferencePrefix),
+			orgNamespace,
+			org.Id,
+		)
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
+		if apiErr := checkFCAFReferences(e, org.Id, yaml); apiErr != nil {
 			return apiErr
 		}
-		record, err := upsertFCAFPipeline(e.App, org.Id, name, string(built.YAML))
+		record, err := upsertFCAFPipeline(e.App, org.Id, name, yaml)
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
@@ -182,7 +193,7 @@ func HandleActionAuthorFCAFPipeline() func(*core.RequestEvent) error {
 			userID:             e.Auth.Id,
 			userName:           e.Auth.GetString("name"),
 			userEmail:          e.Auth.GetString("email"),
-			yaml:               string(built.YAML),
+			yaml:               yaml,
 		})
 		if apiErr != nil {
 			return apiErr
@@ -228,24 +239,87 @@ var fcafRunStateReader = func(
 	}
 }
 
-// checkFCAFReferences answers 422 fcaf_credential_unavailable when the
-// built pipeline names a credential or use case that is neither the
-// organization's own nor published, listing their paths: wallet pipelines
-// run the scenarios' reference credentials, which the deployment must
-// publish.
-func checkFCAFReferences(e *core.RequestEvent, orgID, yaml string) *apierror.APIError {
+// referenceOrganization is the organization segment of the contract's
+// reference prefix ("<organization>/<wallet>/").
+func referenceOrganization(prefix string) string {
+	org, _, _ := strings.Cut(prefix, "/")
+	return org
+}
+
+// useCallerFCAFReferences points every credential and use case of the
+// reference organization the built pipeline names at the caller
+// organization's own record of the same issuer/credential (or use case)
+// names, when it has one, as `fcaf sync` does for the pipelines it imports:
+// an organization that synced the FCAF imports runs its own copies. Paths it
+// has no copy of stay the reference ones, which checkFCAFReferences then
+// requires published.
+func useCallerFCAFReferences(
+	app core.App,
+	yaml, sourceOrg, callerOrg, orgID string,
+) (string, error) {
+	if sourceOrg == "" || sourceOrg == callerOrg {
+		return yaml, nil
+	}
+	all, err := fcafReferences(yaml)
+	if err != nil {
+		return "", err
+	}
+	for _, references := range all {
+		for _, path := range references.paths {
+			rest, ok := strings.CutPrefix(canonify.NormalizePath(path), sourceOrg+"/")
+			if !ok {
+				continue
+			}
+			own := callerOrg + "/" + rest
+			record, err := actionauthor.CheckRecordAccess(app, references.collection, own, orgID)
+			if errors.Is(err, actionauthor.ErrInvalid) ||
+				(err == nil && record.GetString("owner") != orgID) {
+				continue
+			}
+			if err != nil {
+				return "", err
+			}
+			// Only whole paths: a longer name sharing this one as a prefix
+			// keeps its own reference.
+			whole := regexp.MustCompile(
+				regexp.QuoteMeta(sourceOrg+"/"+rest) + `([^A-Za-z0-9_.-]|$)`,
+			)
+			yaml = whole.ReplaceAllString(yaml, own+"${1}")
+		}
+	}
+	return yaml, nil
+}
+
+// fcafReference lists the paths of one collection a built pipeline names.
+type fcafReference struct {
+	collection string
+	paths      []string
+}
+
+// fcafReferences is every credential and use case a built pipeline names.
+func fcafReferences(yaml string) ([]fcafReference, error) {
 	ids, err := pipeline.ParseEntityIDs(yaml)
 	if err != nil {
-		return authoringAPIError(e, fmt.Errorf("read FCAF pipeline references: %w", err))
+		return nil, fmt.Errorf("read FCAF pipeline references: %w", err)
 	}
-	var unusable []string
-	for _, references := range []struct {
-		collection string
-		paths      []string
-	}{
+	return []fcafReference{
 		{collection: "credentials", paths: ids.Credentials},
 		{collection: "use_cases_verifications", paths: ids.UseCases},
-	} {
+	}, nil
+}
+
+// checkFCAFReferences answers 422 fcaf_credential_unavailable when the
+// built pipeline names a credential or use case that is neither the
+// organization's own nor published, listing their paths: references the
+// organization has no copy of stay the scenarios' reference records, which
+// the deployment must publish.
+func checkFCAFReferences(e *core.RequestEvent, orgID, yaml string) *apierror.APIError {
+	all, err := fcafReferences(yaml)
+	if err != nil {
+		return authoringAPIError(e, err)
+	}
+	var unusable []string
+	for _, references := range all {
 		for _, path := range references.paths {
 			_, err := actionauthor.CheckRecordAccess(e.App, references.collection, path, orgID)
 			switch {

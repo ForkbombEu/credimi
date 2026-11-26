@@ -128,12 +128,14 @@ paths:
         names of the suite, with or without .yaml) limits the build to those scenarios
         and stores it on the record of that set of scenarios, suffixed " - scenarios
         <hash>" (the first 8 hex digits of the sha256 of the sorted file names joined
-        by newlines). The pipeline runs the scenarios'' reference credentials and
-        use cases, which must be the caller organization''s own or published: 422
-        fcaf_credential_unavailable lists the others. An unknown or repeated scenario
-        answers 422 fcaf_unknown_scenario, no scenario that can run 422 fcaf_nothing_to_run,
-        a device that is not Android 422 fcaf_not_supported; device access and availability
-        are checked as for pipelines.'
+        by newlines). The pipeline runs the caller organization''s own copy of each
+        reference credential and use case of the scenarios (same path under the caller''s
+        organization, as fcaf sync imports them) when it has one, else the reference
+        record, which must be published: 422 fcaf_credential_unavailable lists the
+        others. An unknown or repeated scenario answers 422 fcaf_unknown_scenario,
+        no scenario that can run 422 fcaf_nothing_to_run, a device that is not Android
+        422 fcaf_not_supported; device access and availability are checked as for
+        pipelines.'
       operationId: actionAuthor.runFCAFPipeline
       parameters:
       - description: Bearer token for authentication.
