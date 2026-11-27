@@ -62,7 +62,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
       - name: Generate OpenAPI spec
         run: go generate ./pkg/gen.go
       - uses: actions/configure-pages@v6
